@@ -1,0 +1,20 @@
+
+[package]
+name = "adblock"
+version = "0.1.0"
+authors = ["Andrius Aucinas <aaucinas@brave.com>"]
+edition = "2018"
+
+[dependencies]
+env_logger = "0.5"
+addr = "0.2"
+url = "1.7"
+matches = "0.1"
+
+[dev-dependencies]
+criterion = "0.2"
+env_logger = "0.5"
+
+[[bench]]
+name = "bench_url"
+harness = false
