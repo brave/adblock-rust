@@ -41,7 +41,7 @@ fn host_throughput(c: &mut Criterion) {
         "throughput-host",
         ParameterizedBenchmark::new(
             "get hostname",
-            |b, url| b.iter(|| adblock::get_url_host(url)),
+            |b, url| b.iter(|| adblock::request::get_url_host(url)),
             URLS,
         ).throughput(|_url| Throughput::Elements(1)),
     );
@@ -52,7 +52,7 @@ fn url_domain_throughput(c: &mut Criterion) {
         "throughput-url-domain",
         ParameterizedBenchmark::new(
             "get domain",
-            |b, url| b.iter(|| adblock::get_url_domain(url)),
+            |b, url| b.iter(|| adblock::request::get_url_domain(url)),
             URLS,
         ).throughput(|_url| Throughput::Elements(1)),
     );
@@ -65,8 +65,8 @@ fn domain_throughput(c: &mut Criterion) {
         ParameterizedBenchmark::new(
             "get domain",
             |b, url| {
-              let host = adblock::get_url_host(&url).unwrap();
-              b.iter(|| adblock::get_host_domain(&host))
+              let host = adblock::request::get_url_host(&url).unwrap();
+              b.iter(|| adblock::request::get_host_domain(&host))
             },
             URLS,
         ).throughput(|_url| Throughput::Elements(1)),
