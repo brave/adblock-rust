@@ -5,6 +5,7 @@ extern crate lazy_static;
 extern crate bitflags;
 
 extern crate regex;
+extern crate punycode;
 
 pub mod utils;
 pub mod request;

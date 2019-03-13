@@ -47,7 +47,7 @@ pub fn fast_starts_with(haystack: &str, needle: &str) -> bool {
 
 #[inline]
 pub fn fast_starts_with_from(haystack: &str, needle: &str, start: usize) -> bool {
-    haystack.split_at(start).1.starts_with(needle)
+    haystack[start..].starts_with(needle)
 }
 
 #[inline]
