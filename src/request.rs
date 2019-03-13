@@ -4,6 +4,7 @@ use crate::utils;
 use addr::{DomainName};
 use url::{Url};
 use std::collections::HashMap;
+use std::cell::RefCell;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -82,8 +83,8 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: Option<Vec<utils::Hash>>, // evaluated lazily
-    fuzzy_signature: Option<Vec<utils::Hash>> // evaluated lazily
+    tokens: RefCell<Option<Vec<utils::Hash>>>, // evaluated lazily
+    fuzzy_signature: RefCell<Option<Vec<utils::Hash>>> // evaluated lazily
 }
 
 impl<'a> Request {
@@ -139,13 +140,20 @@ impl<'a> Request {
             is_https: is_https,
             is_supported: is_supported,
             bug: None,
-            tokens: None,
-            fuzzy_signature: None
+            tokens: RefCell::default(),
+            fuzzy_signature: RefCell::default()
         }
     }
 
-    pub fn get_tokens(&mut self) -> &Vec<utils::Hash> {
-        if self.tokens.is_none() {
+    pub fn get_tokens(&self) -> Vec<utils::Hash> {
+        // Create a new scope to contain the lifetime of the
+        // dynamic borrow
+        {
+            let mut tokens_cache = self.tokens.borrow_mut();
+            if tokens_cache.is_some() {
+                return tokens_cache.as_ref().unwrap().clone();
+            }
+
             let mut tokens_buffer: [utils::Hash; 2] = [0; 2];
             let mut tokens_buffer_index: usize = 0;
             tokens_buffer[tokens_buffer_index] = utils::fast_hash(&self.source_domain);
@@ -157,16 +165,27 @@ impl<'a> Request {
             let mut tokens = tokens_buffer[0..tokens_buffer_index].to_vec();
             tokens.append(&mut url_tokens);
 
-            self.tokens = Some(tokens);
+            *tokens_cache = Some(tokens);
         }
-        &self.tokens.as_ref().unwrap()
+        // Recursive call to return the just-cached value.
+        // Note that if we had not let the previous borrow
+        // of the cache fall out of scope then the subsequent
+        // recursive borrow would cause a dynamic thread panic.
+        // This is the major hazard of using `RefCell`.
+        self.get_tokens()
     }
 
-    pub fn get_fuzzy_signature(&mut self) -> &Vec<utils::Hash> {
-        if self.fuzzy_signature.is_none() {
-            self.fuzzy_signature = Some(utils::create_fuzzy_signature(&self.url));
+    pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
+        {
+            let mut signature_cache = self.tokens.borrow_mut();
+            if signature_cache.is_some() {
+                return signature_cache.as_ref().unwrap().clone();
+            }
+
+            let signature = utils::create_fuzzy_signature(&self.url);
+            *signature_cache = Some(signature);
         }
-        &self.fuzzy_signature.as_ref().unwrap()
+        self.get_fuzzy_signature()
     }
 
 
@@ -180,11 +199,10 @@ impl<'a> Request {
         let domain = get_host_domain(&hostname);
 
         let source_url_norm = source_url.to_lowercase();
-        let maybe_source_hostname = get_url_host(&source_url_norm);
-        if maybe_source_hostname.is_none() {
-            return Err(RequestError::SourceHostnameParseError);
-        }
-        let source_hostname = maybe_source_hostname.unwrap();
+        let source_hostname = get_url_host(&source_url_norm).unwrap_or_default();
+        // let source_hostname = if maybe_source_hostname.is_none() {
+        //     return Err(RequestError::SourceHostnameParseError);
+        // }
         let source_domain = get_host_domain(&source_hostname);
 
         Ok(Request::new(request_type,
@@ -204,6 +222,10 @@ impl<'a> Request {
         let source_domain = get_host_domain(&source_hostname);
 
         Request::new(request_type, &url_norm, &hostname, &domain, &source_url_norm, &source_hostname, &source_domain)
+    }
+
+    pub fn from_url(url: &str) -> Result<Request, RequestError> {
+        Self::from_urls(url, "", "")
     }
 }
 
@@ -277,13 +299,13 @@ mod tests {
 
     #[test]
     fn get_fuzzy_signature_works() {
-        let mut simple_example = Request::new("document", "https://example.com/ad", "example.com", "example.com", "https://example.com", "example.com", "example.com");
+        let simple_example = Request::new("document", "https://example.com/ad", "example.com", "example.com", "https://example.com", "example.com", "example.com");
         assert_eq!(simple_example.get_fuzzy_signature().as_slice(), t(&vec!["ad", "https", "com", "example"]).as_slice())
     }
 
     #[test]
     fn tokens_works() {
-        let mut simple_example = Request::new("document", "https://subdomain.example.com/ad", "subdomain.example.com", "example.com", "https://subdomain.example.com", "subdomain.example.com", "example.com");
+        let simple_example = Request::new("document", "https://subdomain.example.com/ad", "subdomain.example.com", "example.com", "https://subdomain.example.com", "subdomain.example.com", "example.com");
         assert_eq!(simple_example.get_tokens().as_slice(), t(&vec!["example.com", "subdomain.example.com", "https", "subdomain", "example", "com", "ad"]).as_slice())
     }
 
@@ -307,7 +329,7 @@ mod tests {
         let bad_url = Request::from_urls("subdomain.example.com/ad", "https://example.com/", "document");
         assert_eq!(bad_url.err(), Some(RequestError::HostnameParseError));
 
-        let bad_source_url = Request::from_urls("https://subdomain.example.com/ad", "example.com/", "document");
-        assert_eq!(bad_source_url.err(), Some(RequestError::SourceHostnameParseError));
+        // let bad_source_url = Request::from_urls("https://subdomain.example.com/ad", "example.com/", "document");
+        // assert_eq!(bad_source_url.err(), Some(RequestError::SourceHostnameParseError));
     }
 }

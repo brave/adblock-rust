@@ -13,7 +13,7 @@ pub enum FilterError {
     FilterParseError,
     BadFilter,
     NegatedImportant,
-    NegatedMATCH_CASE,
+    NegatedOptionMatchCase,
     NegatedRedirection,
     EmptyRedirection,
     UnrecognisedOption,
@@ -115,8 +115,8 @@ pub struct NetworkFilter {
 
     // Lazy attributes
     pub id: Option<Hash>,
-    fuzzy_signature: Option<Vec<Hash>>,
-    regex: Option<Regex>,
+    pub fuzzy_signature: Option<Vec<Hash>>,
+    pub regex: Option<Regex>,
 }
 
 impl NetworkFilter {
@@ -215,7 +215,7 @@ impl NetworkFilter {
                     ("important", true) => return Err(FilterError::NegatedImportant),
                     ("important", false) => mask.set(NetworkFilterMask::IS_IMPORTANT, true),
                     // Note: `negation` should always be `false` here.
-                    ("match-case", true) => return Err(FilterError::NegatedMATCH_CASE),
+                    ("match-case", true) => return Err(FilterError::NegatedOptionMatchCase),
                     ("match-case", false) => mask.set(NetworkFilterMask::MATCH_CASE, true),
                     // ~third-party means we should clear the flag
                     ("third-party", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
@@ -250,14 +250,22 @@ impl NetworkFilter {
                             "image" => option_mask.set(NetworkFilterMask::FROM_IMAGE, true),
                             "media" => option_mask.set(NetworkFilterMask::FROM_MEDIA, true),
                             "object" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
-                            "object-subrequest" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
+                            "object-subrequest" => {
+                                option_mask.set(NetworkFilterMask::FROM_OBJECT, true)
+                            }
                             "other" => option_mask.set(NetworkFilterMask::FROM_OTHER, true),
                             "ping" => option_mask.set(NetworkFilterMask::FROM_PING, true),
                             "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
                             "script" => option_mask.set(NetworkFilterMask::FROM_SCRIPT, true),
-                            "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
-                            "subdocument" => option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true),
-                            "xmlhttprequest" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
+                            "stylesheet" => {
+                                option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true)
+                            }
+                            "subdocument" => {
+                                option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true)
+                            }
+                            "xmlhttprequest" => {
+                                option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true)
+                            }
                             "xhr" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
                             "websocket" => option_mask.set(NetworkFilterMask::FROM_WEBSOCKET, true),
                             "font" => option_mask.set(NetworkFilterMask::FROM_FONT, true),
@@ -431,6 +439,24 @@ impl NetworkFilter {
             }
         });
 
+        // TODO: eval impact - regex gets compiled in original code lazily
+        let maybe_regex = if mask.contains(NetworkFilterMask::IS_REGEX) {
+            filter.as_ref().map(|f| {
+                compile_regex(f,
+                    mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
+                    mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR))
+            })
+        } else {
+            None
+        };
+
+        // TODO: eval impact - fuzzy signature gets compiled in original code lazily
+        let maybe_fuzzy_signature = if mask.contains(NetworkFilterMask::FUZZY_MATCH) {
+            filter.as_ref().map(|f| utils::create_fuzzy_signature(f))
+        } else {
+            None
+        };
+
         Ok(NetworkFilter {
             bug: bug,
             csp: csp,
@@ -447,13 +473,15 @@ impl NetworkFilter {
             redirect: redirect,
             debug: debug,
             id: None,
-            fuzzy_signature: None,
-            regex: None,
+            fuzzy_signature: maybe_fuzzy_signature,
+            regex: maybe_regex,
         })
     }
 
     pub fn matches(&self, request: &request::Request) -> bool {
-        check_options(&self, request) && check_pattern(&self, request)
+        let options_matches = check_options(&self, request);
+        let pattern_matches = check_pattern(&self, request);
+        options_matches && pattern_matches
     }
 
     pub fn to_string() -> String {
@@ -654,11 +682,11 @@ impl NetworkFilter {
     }
     #[inline]
     fn from_http(&self) -> bool {
-        self.get_cpt_mask().contains(NetworkFilterMask::FROM_HTTP)
+        self.mask.contains(NetworkFilterMask::FROM_HTTP)
     }
     #[inline]
     fn from_https(&self) -> bool {
-        self.get_cpt_mask().contains(NetworkFilterMask::FROM_HTTPS)
+        self.mask.contains(NetworkFilterMask::FROM_HTTPS)
     }
     #[inline]
     fn from_xml_http_request(&self) -> bool {
@@ -729,7 +757,7 @@ fn compute_filter_id(
 fn compile_regex(filter_str: &str, is_right_anchor: bool, is_left_anchor: bool) -> Regex {
     lazy_static! {
       // Escape special regex characters: |.$+?{}()[]\
-      static ref SPECIAL_RE: Regex = Regex::new(r"([|.$+?{}()[\]\\])").unwrap();
+      static ref SPECIAL_RE: Regex = Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap();
       // * can match anything
       static ref WILDCARD_RE: Regex = Regex::new(r"\*").unwrap();
       // ^ can match any separator or the end of the pattern
@@ -768,7 +796,63 @@ fn check_is_regex(filter: &str) -> bool {
  * of anchor.
  */
 fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
-    unimplemented!();
+    // Corner-case, if `filterHostname` is empty, then it's a match
+    if filter_hostname.len() == 0 {
+        return true;
+    }
+
+    // `filterHostname` cannot be longer than actual hostname
+    if filter_hostname.len() > hostname.len() {
+        return false;
+    }
+
+    // If they have the same len(), they should be equal
+    if filter_hostname.len() == hostname.len() {
+        return filter_hostname == hostname;
+    }
+
+    // Check if `filter_hostname` appears anywhere in `hostname`
+    let hostname_found = hostname.find(filter_hostname);
+
+    // No match
+    if hostname_found.is_none() {
+        return false;
+    }
+
+    let match_index = hostname_found.unwrap();
+
+    // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
+    //
+    // Examples (filter_hostname, hostname):
+    //   * (foo, foo.com)
+    //   * (sub.foo, sub.foo.com)
+    if match_index == 0 {
+        return filter_hostname.ends_with('.') || {
+            let (_, remains) = hostname.split_at(filter_hostname.len());
+            remains.starts_with('.')
+        };
+    }
+
+    // `filter_hostname` is a suffix of `hostname`.
+    //
+    // Examples (filter_hostname, hostname):
+    //    * (foo.com, sub.foo.com)
+    //    * (com, foo.com)
+    if hostname.len() == match_index + filter_hostname.len() {
+        return filter_hostname.starts_with('.') || {
+            let (_, remains) = hostname.split_at(match_index - 1);
+            remains.starts_with('.')
+        };
+    }
+
+    // `filter_hostname` is infix of `hostname` and needs match full labels
+    return (filter_hostname.ends_with('.') || {
+        let (_, remains) = hostname.split_at(filter_hostname.len());
+        remains.starts_with('.')
+    }) && (filter_hostname.starts_with('.') || {
+        let (_, remains) = hostname.split_at(match_index - 1);
+        remains.starts_with('.')
+    });
 }
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
@@ -782,22 +866,52 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 
 // pattern$fuzzy
 fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    filter.fuzzy_signature.as_ref().map(|signature| {
+        let request_signature = request.get_fuzzy_signature();
+
+        if signature.len() > request_signature.len() {
+            return false;
+        }
+
+        for filter_token in signature {
+            // Find the occurrence of `c` in `request_signature`
+            // Can assume fuzzy signatures are sorted
+            if !request_signature.binary_search(filter_token).is_ok() {
+                return false;
+            }
+        }
+
+        true
+    })
+    .unwrap_or(true) // corner case of rulle having fuzzy option but no filter
+    
 }
 
 // pattern
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    filter
+        .filter
+        .as_ref()
+        .map(|f| request.url.find(f).is_some())
+        .unwrap_or(true) // if no filter, we have a match
 }
 
 // pattern|
 fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    filter
+        .filter
+        .as_ref()
+        .map(|f| request.url.ends_with(f))
+        .unwrap_or(true)
 }
 
 // |pattern
 fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    filter
+        .filter
+        .as_ref()
+        .map(|f| request.url.starts_with(f))
+        .unwrap_or(true)
 }
 
 // |pattern|
@@ -805,12 +919,20 @@ fn check_pattern_left_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    filter
+        .filter
+        .as_ref()
+        .map(|f| &request.url == f)
+        .unwrap_or(true)
 }
 
 // pattern*^
+fn check_pattern_regex_filter_at(filter: &NetworkFilter, request: &request::Request, start_from: usize) -> bool {
+    filter.regex.as_ref().map(|r| r.is_match(&request.url[start_from..]))
+        .unwrap_or(true)
+}
 fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    check_pattern_regex_filter_at(filter, request, 0)
 }
 
 // ||pattern*^
@@ -818,7 +940,17 @@ fn check_pattern_hostname_anchor_regex_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    filter
+        .hostname
+        .as_ref()
+        .map(|hostname| {
+            if is_anchored_by_hostname(hostname, &request.hostname) {
+                check_pattern_regex_filter_at(filter, request, request.url.find(hostname).unwrap_or_default() + hostname.len())
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern|
@@ -826,7 +958,29 @@ fn check_pattern_hostname_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    filter
+        .hostname
+        .as_ref()
+        .map(|hostname| {
+            if is_anchored_by_hostname(hostname, &request.hostname) {
+                let matches = filter
+                    .filter
+                    .as_ref()
+                    .map(|_| check_pattern_right_anchor_filter(filter, request))
+                    // In this specific case it means that the specified hostname should match
+                    // at the end of the hostname of the request. This allows to prevent false
+                    // positive like ||foo.bar which would match https://foo.bar.baz where
+                    // ||foo.bar^ would not.
+                    .unwrap_or_else(|| {
+                        request.hostname.len() == hostname.len()
+                            || request.hostname.ends_with(hostname)
+                    });
+                matches
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
 // |||pattern|
@@ -834,7 +988,35 @@ fn check_pattern_hostname_left_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    // Since this is not a regex, the filter pattern must follow the hostname
+    // with nothing in between. So we extract the part of the URL following
+    // after hostname and will perform the matching on it.
+
+    filter
+        .hostname
+        .as_ref()
+        .map(|hostname| {
+            if is_anchored_by_hostname(hostname, &request.hostname) {
+                filter
+                    .filter
+                    .as_ref()
+                    .map(|f| {
+                        request
+                            .url
+                            .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
+                            .nth(1) // take the part after hostname
+                            // Since it must follow immediatly after the hostname and be a suffix of
+                            // the URL, we conclude that filter must be equal to the part of the
+                            // url following the hostname.
+                            .map(|url_end| url_end == f)
+                            .unwrap_or(false) // no match if nothing after hostname
+                    })
+                    .unwrap_or(true) // if no filter, we have a match
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern + left-anchor => This means that a plain pattern needs to appear
@@ -843,7 +1025,31 @@ fn check_pattern_hostname_left_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    filter
+        .hostname
+        .as_ref()
+        .map(|hostname| {
+            if is_anchored_by_hostname(hostname, &request.hostname) {
+                filter
+                    .filter
+                    .as_ref()
+                    .map(|f| {
+                        request
+                            .url
+                            .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
+                            .nth(1) // take the part after hostname
+                            // Since this is not a regex, the filter pattern must follow the hostname
+                            // with nothing in between. So we extract the part of the URL following
+                            // after hostname and will perform the matching on it.
+                            .map(|url_end| utils::fast_starts_with(url_end, f))
+                            .unwrap_or(false) // no match if nothing after hostname
+                    })
+                    .unwrap_or(true) // if no filter, we have a match
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern
@@ -851,7 +1057,28 @@ fn check_pattern_hostname_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    filter
+        .hostname
+        .as_ref()
+        .map(|hostname| {
+            if is_anchored_by_hostname(hostname, &request.hostname) {
+                filter
+                    .filter
+                    .as_ref()
+                    .map(|f| {
+                        request
+                            .url
+                            .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
+                            .nth(1) // take the part after hostname
+                            .map(|url_end| url_end.find(f).is_some()) // We consider this a match if the plain patter (i.e.: filter) appears anywhere.
+                            .unwrap_or(false) // no match if nothing after hostname
+                    })
+                    .unwrap_or(true) // if no filter, we have a match
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern$fuzzy
@@ -859,7 +1086,17 @@ fn check_pattern_hostname_anchor_fuzzy_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
-    unimplemented!();
+    filter
+        .hostname
+        .as_ref()
+        .map(|hostname| {
+            if is_anchored_by_hostname(hostname, &request.hostname) {
+                check_pattern_fuzzy_filter(filter, request)
+            } else {
+                false
+            }
+        })
+        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
 /**
@@ -867,15 +1104,77 @@ fn check_pattern_hostname_anchor_fuzzy_filter(
  * efficient matching function.
  */
 fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    if filter.is_hostname_anchor() {
+        if filter.is_regex() {
+            check_pattern_hostname_anchor_regex_filter(filter, request)
+        } else if filter.is_right_anchor() && filter.is_left_anchor() {
+            check_pattern_hostname_left_right_anchor_filter(filter, request)
+        } else if filter.is_right_anchor() {
+            check_pattern_hostname_right_anchor_filter(filter, request)
+        } else if filter.is_fuzzy() {
+            check_pattern_hostname_anchor_fuzzy_filter(filter, request)
+        } else if filter.is_left_anchor() {
+            check_pattern_hostname_left_anchor_filter(filter, request)
+        } else {
+            check_pattern_hostname_anchor_filter(filter, request)
+        }
+    } else if filter.is_regex() {
+        check_pattern_regex_filter(filter, request)
+    } else if filter.is_left_anchor() && filter.is_right_anchor() {
+        check_pattern_left_right_anchor_filter(filter, request)
+    } else if filter.is_left_anchor() {
+        check_pattern_left_anchor_filter(filter, request)
+    } else if filter.is_right_anchor() {
+        check_pattern_right_anchor_filter(filter, request)
+    } else if filter.is_fuzzy() {
+        check_pattern_fuzzy_filter(filter, request)
+    } else {
+        check_pattern_plain_filter_filter(filter, request)
+    }
 }
 
 fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
-    unimplemented!();
+    // We first discard requests based on type, protocol and party. This is really
+    // cheap and should be done first.
+    if !filter.is_cpt_allowed(&request.request_type)
+        || (request.is_https && !filter.from_https())
+        || (request.is_http && !filter.from_http())
+        || (!filter.first_party() && request.is_first_party == Some(true))
+        || (!filter.third_party() && request.is_third_party == Some(true))
+    {
+        return false;
+    }
+
+    // Make sure that an exception with a bug ID can only apply to a request being
+    // matched for a specific bug ID.
+    if filter.bug.is_some() && filter.is_exception() && filter.bug != request.bug {
+        return false;
+    }
+
+    // Source URL must be among these domains to match
+    if filter.opt_domains.is_some() {
+        let domains = filter.opt_domains.as_ref().unwrap();
+        if !utils::bin_lookup(&domains, request.source_hostname_hash)
+            && !utils::bin_lookup(&domains, request.source_domain_hash)
+        {
+            return false;
+        }
+    }
+
+    if filter.opt_not_domains.is_some() {
+        let domains = filter.opt_not_domains.as_ref().unwrap();
+        if utils::bin_lookup(&domains, request.source_hostname_hash)
+            || utils::bin_lookup(&domains, request.source_domain_hash)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 #[cfg(test)]
-mod tests {
+mod parse_tests {
     use super::*;
 
     #[derive(Debug, PartialEq)]
@@ -1594,7 +1893,7 @@ mod tests {
         {
             // ~match-case is not supported
             let filter = NetworkFilter::parse("||foo.com$~match-case", true);
-            assert_eq!(filter.err(), Some(FilterError::NegatedMATCH_CASE));
+            assert_eq!(filter.err(), Some(FilterError::NegatedOptionMatchCase));
         }
 
         // defaults to false
@@ -1880,6 +2179,336 @@ mod tests {
                 set_all_options(&mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod match_tests {
+    use super::*;
+
+    #[test]
+    fn is_anchored_by_hostname_works() {
+        // matches empty hostname
+        assert_eq!(is_anchored_by_hostname("", "foo.com"), true);
+
+        // does not match when filter hostname is longer than hostname
+        assert_eq!(is_anchored_by_hostname("bar.foo.com", "foo.com"), false);
+        assert_eq!(is_anchored_by_hostname("b", ""), false);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.co"), false);
+
+        // does not match if there is not match
+        assert_eq!(is_anchored_by_hostname("bar", "foo.com"), false);
+
+        // ## prefix match
+        // matches exact match
+        assert_eq!(is_anchored_by_hostname("", ""), true);
+        assert_eq!(is_anchored_by_hostname("f", "f"), true);
+        assert_eq!(is_anchored_by_hostname("foo", "foo"), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname(".com", ".com"), true);
+        assert_eq!(is_anchored_by_hostname("com.", "com."), true);
+
+        // matches partial
+        // Single label
+        assert_eq!(is_anchored_by_hostname("foo", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname(".foo", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname(".foo.", ".foo.com"), true);
+
+        // Multiple labels
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com."), true);
+        assert_eq!(is_anchored_by_hostname("foo.com.", "foo.com."), true);
+        assert_eq!(is_anchored_by_hostname(".foo.com.", ".foo.com."), true);
+        assert_eq!(is_anchored_by_hostname(".foo.com", ".foo.com"), true);
+
+        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.bar.", "foo.bar.com"), true);
+
+        // does not match partial prefix
+        // Single label
+        assert_eq!(is_anchored_by_hostname("foo", "foobar.com"), false);
+        assert_eq!(is_anchored_by_hostname("fo", "foo.com"), false);
+        assert_eq!(is_anchored_by_hostname(".foo", "foobar.com"), false);
+
+        // Multiple labels
+        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.barbaz.com"), false);
+        assert_eq!(
+            is_anchored_by_hostname(".foo.bar", ".foo.barbaz.com"),
+            false
+        );
+
+        // ## suffix match
+        // matches partial
+        // Single label
+        assert_eq!(is_anchored_by_hostname("com", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname(".com", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname(".com.", "foo.com."), true);
+        assert_eq!(is_anchored_by_hostname("com.", "foo.com."), true);
+
+        // Multiple labels
+        assert_eq!(is_anchored_by_hostname("foo.com.", ".foo.com."), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", ".foo.com"), true);
+
+        // does not match partial
+        // Single label
+        assert_eq!(is_anchored_by_hostname("om", "foo.com"), false);
+        assert_eq!(is_anchored_by_hostname("com", "foocom"), false);
+
+        // Multiple labels
+        assert_eq!(is_anchored_by_hostname("foo.bar.com", "baz.bar.com"), false);
+        assert_eq!(is_anchored_by_hostname("fo.bar.com", "foo.bar.com"), false);
+        assert_eq!(is_anchored_by_hostname(".fo.bar.com", "foo.bar.com"), false);
+        assert_eq!(is_anchored_by_hostname("bar.com", "foobar.com"), false);
+        assert_eq!(is_anchored_by_hostname(".bar.com", "foobar.com"), false);
+
+        // ## infix match
+        // matches partial
+        assert_eq!(is_anchored_by_hostname("bar", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname("bar.", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname(".bar.", "foo.bar.com"), true);
+    }
+
+    fn filter_match_url(filter: &str, url: &str, matching: bool) {
+        let network_filter = NetworkFilter::parse(filter, true).unwrap();
+        let request = request::Request::from_url(url).unwrap();
+        assert_eq!(network_filter.matches(&request), matching);
+    }
+
+    #[test]
+    // pattern
+    fn check_pattern_plain_filter_filter_works() {
+        filter_match_url("foo", "https://bar.com/foo", true);
+        filter_match_url("foo", "https://bar.com/baz/foo", true);
+        filter_match_url("foo", "https://bar.com/q=foo/baz", true);
+        filter_match_url("foo", "https://foo.com", true);
+        filter_match_url("-foo-", "https://bar.com/baz/42-foo-q", true);
+        filter_match_url("&fo.o=+_-", "https://bar.com?baz=42&fo.o=+_-", true);
+        filter_match_url("foo/bar/baz", "https://bar.com/foo/bar/baz", true);
+        filter_match_url("com/bar/baz", "https://bar.com/bar/baz", true);
+        filter_match_url("https://bar.com/bar/baz", "https://bar.com/bar/baz", true);
+    }
+
+    #[test]
+    // pattern$fuzzy
+    fn check_pattern_fuzzy_filter_works() {
+        filter_match_url("f$fuzzy", "https://bar.com/f", true);
+        filter_match_url("foo$fuzzy", "https://bar.com/foo", true);
+        filter_match_url("foo$fuzzy", "https://bar.com/foo/baz", true);
+        filter_match_url("foo/bar$fuzzy", "https://bar.com/foo/baz", true);
+        filter_match_url("foo bar$fuzzy", "https://bar.com/foo/baz", true);
+        filter_match_url("foo bar baz$fuzzy", "http://bar.foo.baz", true);
+
+        filter_match_url("foo bar baz 42$fuzzy", "http://bar.foo.baz", false);
+
+        // Fast-path for when pattern is longer than the URL
+        filter_match_url("foo bar baz 42 43$fuzzy", "http://bar.foo.baz", false);
+
+        // No fuzzy signature, matches every URL?
+        filter_match_url("+$fuzzy", "http://bar.foo.baz", true);
+        filter_match_url("$fuzzy", "http://bar.foo.baz", true);
+    }
+
+    #[test]
+    // ||pattern
+    fn check_pattern_hostname_anchor_filter_works() {
+        filter_match_url("||foo.com", "https://foo.com/bar", true);
+        filter_match_url("||foo.com/bar", "https://foo.com/bar", true);
+        filter_match_url("||foo", "https://foo.com/bar", true);
+        filter_match_url("||foo", "https://baz.foo.com/bar", true);
+        filter_match_url("||foo", "https://foo.baz.com/bar", true);
+        filter_match_url("||foo.baz", "https://foo.baz.com/bar", true);
+        filter_match_url("||foo.baz.", "https://foo.baz.com/bar", true);
+
+        filter_match_url("||foo.baz.com^", "https://foo.baz.com/bar", true);
+        filter_match_url("||foo.baz^", "https://foo.baz.com/bar", false);
+
+        filter_match_url("||foo", "https://baz.com", false);
+        filter_match_url("||foo", "https://foo-bar.baz.com/bar", false);
+        filter_match_url("||foo.com", "https://foo.de", false);
+        filter_match_url("||foo.com", "https://bar.foo.de", false);
+    }
+
+    #[test]
+    // ||pattern$fuzzy
+    fn check_pattern_hostname_anchor_fuzzy_filter_works() {
+        let network_filter = NetworkFilter::parse("||bar.foo/baz$fuzzy", true).unwrap();
+        let request = request::Request::from_url("http://bar.foo/baz").unwrap();
+        assert_eq!(network_filter.matches(&request), true);
+        // Same result when fuzzy signature is cached
+        assert_eq!(network_filter.matches(&request), true);
+
+        filter_match_url("||bar.foo/baz$fuzzy", "http://bar.foo/id/baz", true);
+        filter_match_url("||bar.foo/baz$fuzzy", "http://bar.foo?id=42&baz=1", true);
+        filter_match_url("||foo.com/id bar$fuzzy", "http://foo.com?bar&id=42", true);
+
+        filter_match_url("||bar.com/id bar$fuzzy", "http://foo.com?bar&id=42", false);
+        filter_match_url(
+            "||bar.com/id bar baz foo 42 id$fuzzy",
+            "http://foo.com?bar&id=42",
+            false,
+        );
+    }
+
+    #[test]
+    // ||pattern|
+    fn check_pattern_hostname_right_anchor_filter_works() {
+        filter_match_url("||foo.com|", "https://foo.com", true);
+        filter_match_url("||foo.com/bar|", "https://foo.com/bar", true);
+
+        filter_match_url("||foo.com/bar|", "https://foo.com/bar/baz", false);
+        filter_match_url("||foo.com/bar|", "https://foo.com/", false);
+        filter_match_url("||bar.com/bar|", "https://foo.com/", false);
+    }
+
+    #[test]
+    // pattern|
+    fn check_pattern_right_anchor_filter_works() {
+        filter_match_url("foo.com", "https://foo.com", true);
+        filter_match_url("foo|", "https://bar.com/foo", true);
+        filter_match_url("foo|", "https://bar.com/foo/", false);
+        filter_match_url("foo|", "https://bar.com/foo/baz", false);
+    }
+
+    #[test]
+    // |pattern
+    fn check_pattern_left_anchor_filter_works() {
+        filter_match_url("|http", "http://foo.com", true);
+        filter_match_url("|http", "https://foo.com", true);
+        filter_match_url("|https://", "https://foo.com", true);
+
+        filter_match_url("https", "http://foo.com", false);
+    }
+
+    #[test]
+    // |pattern|
+    fn check_pattern_left_right_anchor_filter_works() {
+        filter_match_url("|https://foo.com|", "https://foo.com", true);
+    }
+
+    #[test]
+    // ||pattern + left-anchor
+    fn check_pattern_hostname_left_anchor_filter_works() {
+        filter_match_url("||foo.com^test", "https://foo.com/test", true);
+        filter_match_url("||foo.com/test", "https://foo.com/test", true);
+        filter_match_url("||foo.com^test", "https://foo.com/tes", false);
+        filter_match_url("||foo.com/test", "https://foo.com/tes", false);
+
+        filter_match_url("||foo.com^", "https://foo.com/test", true);
+
+        filter_match_url("||foo.com/test*bar", "https://foo.com/testbar", true);
+        filter_match_url("||foo.com^test*bar", "https://foo.com/testbar", true);
+    }
+
+    #[test]
+    // ||hostname^*/pattern
+    fn check_pattern_hostname_anchor_regex_filter_works() {
+        filter_match_url("||foo.com^*/bar", "https://foo.com/bar", false);
+        filter_match_url("||com^*/bar", "https://foo.com/bar", false);
+        filter_match_url("||foo^*/bar", "https://foo.com/bar", false);
+
+        // @see https://github.com/cliqz-oss/adblocker/issues/29
+        filter_match_url("||foo.co^aaa/", "https://bar.foo.com/bbb/aaa/", false);
+        filter_match_url("||foo.com^aaa/", "https://bar.foo.com/bbb/aaa/", false);
+
+        filter_match_url("||com*^bar", "https://foo.com/bar", true);
+        filter_match_url("||foo.com^bar", "https://foo.com/bar", true);
+        filter_match_url("||com^bar", "https://foo.com/bar", true);
+        filter_match_url("||foo*^bar", "https://foo.com/bar", true);
+        filter_match_url("||foo*/bar", "https://foo.com/bar", true);
+        filter_match_url("||foo*com/bar", "https://foo.com/bar", true);
+        filter_match_url("||foo*com*/bar", "https://foo.com/bar", true);
+        filter_match_url("||foo*com*^bar", "https://foo.com/bar", true);
+        filter_match_url("||*foo*com*^bar", "https://foo.com/bar", true);
+        filter_match_url("||*/bar", "https://foo.com/bar", true);
+        filter_match_url("||*^bar", "https://foo.com/bar", true);
+        filter_match_url("||*com/bar", "https://foo.com/bar", true);
+        filter_match_url("||*.com/bar", "https://foo.com/bar", true);
+        filter_match_url("||*foo.com/bar", "https://foo.com/bar", true);
+        filter_match_url("||*com/bar", "https://foo.com/bar", true);
+        filter_match_url("||*com*/bar", "https://foo.com/bar", true);
+        filter_match_url("||*com*^bar", "https://foo.com/bar", true);
+    }
+
+    #[test]
+    // options
+    fn check_options_works() {
+        // cpt test
+        {
+            let network_filter = NetworkFilter::parse("||foo$image", true).unwrap();
+            let request = request::Request::from_urls("https://foo.com/bar", "", "image").unwrap();
+            assert_eq!(check_options(&network_filter, &request), true);
+        }
+        {
+            let network_filter = NetworkFilter::parse("||foo$image", true).unwrap();
+            let request = request::Request::from_urls("https://foo.com/bar", "", "script").unwrap();
+            assert_eq!(check_options(&network_filter, &request), false);
+        }
+        {
+            let network_filter = NetworkFilter::parse("||foo$~image", true).unwrap();
+            let request = request::Request::from_urls("https://foo.com/bar", "", "script").unwrap();
+            assert_eq!(check_options(&network_filter, &request), true);
+        }
+
+        // ~third-party
+        {
+            let network_filter = NetworkFilter::parse("||foo$~third-party", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://baz.foo.com", "")
+                    .unwrap();
+            assert_eq!(check_options(&network_filter, &request), true);
+        }
+        {
+            let network_filter = NetworkFilter::parse("||foo$~third-party", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://baz.bar.com", "")
+                    .unwrap();
+            assert_eq!(check_options(&network_filter, &request), false);
+        }
+
+        // ~first-party
+        {
+            let network_filter = NetworkFilter::parse("||foo$~first-party", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://baz.bar.com", "")
+                    .unwrap();
+            assert_eq!(check_options(&network_filter, &request), true);
+        }
+        {
+            let network_filter = NetworkFilter::parse("||foo$~first-party", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://baz.foo.com", "")
+                    .unwrap();
+            assert_eq!(check_options(&network_filter, &request), false);
+        }
+
+        // opt-domain
+        {
+            let network_filter = NetworkFilter::parse("||foo$domain=foo.com", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://foo.com", "").unwrap();
+            assert_eq!(check_options(&network_filter, &request), true);
+        }
+        {
+            let network_filter = NetworkFilter::parse("||foo$domain=foo.com", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://bar.com", "").unwrap();
+            assert_eq!(check_options(&network_filter, &request), false);
+        }
+
+        // opt-not-domain
+        {
+            let network_filter = NetworkFilter::parse("||foo$domain=~bar.com", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://foo.com", "").unwrap();
+            assert_eq!(check_options(&network_filter, &request), true);
+        }
+        {
+            let network_filter = NetworkFilter::parse("||foo$domain=~bar.com", true).unwrap();
+            let request =
+                request::Request::from_urls("https://foo.com/bar", "http://bar.com", "").unwrap();
+            assert_eq!(check_options(&network_filter, &request), false);
         }
     }
 
