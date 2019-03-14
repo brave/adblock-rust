@@ -14,11 +14,14 @@ lazy_static = "1.3"
 regex = "1"
 bitflags = "1.0"
 punycode = "0.4"
+itertools = "0.8"
+rayon = "1.0"
+fasthash = "0.4"
 
 [dev-dependencies]
 criterion = "0.2"
 env_logger = "0.5"
 
 [[bench]]
-name = "bench_url"
+name = "bench_rules"
 harness = false

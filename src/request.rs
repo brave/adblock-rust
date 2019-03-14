@@ -154,15 +154,14 @@ impl<'a> Request {
                 return tokens_cache.as_ref().unwrap().clone();
             }
 
-            let mut tokens_buffer: [utils::Hash; 2] = [0; 2];
-            let mut tokens_buffer_index: usize = 0;
-            tokens_buffer[tokens_buffer_index] = utils::fast_hash(&self.source_domain);
-            tokens_buffer_index = tokens_buffer_index + 1;
-            tokens_buffer[tokens_buffer_index] = utils::fast_hash(&self.source_hostname);
-            tokens_buffer_index = tokens_buffer_index + 1;
+            let mut tokens: Vec<utils::Hash> = vec![];
 
+            if self.source_hostname.len() > 0 {
+                tokens.push(utils::fast_hash(&self.source_domain));
+                tokens.push(utils::fast_hash(&self.source_hostname))
+            }
+            
             let mut url_tokens = utils::tokenize(&self.url);
-            let mut tokens = tokens_buffer[0..tokens_buffer_index].to_vec();
             tokens.append(&mut url_tokens);
 
             *tokens_cache = Some(tokens);

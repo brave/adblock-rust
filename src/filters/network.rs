@@ -17,6 +17,7 @@ pub enum FilterError {
     NegatedRedirection,
     EmptyRedirection,
     UnrecognisedOption,
+    RegexParsingError
 }
 
 bitflags! {
@@ -441,11 +442,16 @@ impl NetworkFilter {
 
         // TODO: eval impact - regex gets compiled in original code lazily
         let maybe_regex = if mask.contains(NetworkFilterMask::IS_REGEX) {
-            filter.as_ref().map(|f| {
+            let filter_regex = filter.as_ref().map(|f| {
                 compile_regex(f,
                     mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
                     mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR))
-            })
+            });
+            match filter_regex {
+                None => None,
+                Some(Ok(regex)) => Some(regex),
+                Some(Err(err)) => return Err(FilterError::RegexParsingError)
+            }
         } else {
             None
         };
@@ -479,9 +485,7 @@ impl NetworkFilter {
     }
 
     pub fn matches(&self, request: &request::Request) -> bool {
-        let options_matches = check_options(&self, request);
-        let pattern_matches = check_pattern(&self, request);
-        options_matches && pattern_matches
+        check_options(&self, request) && check_pattern(&self, request)
     }
 
     pub fn to_string() -> String {
@@ -497,20 +501,6 @@ impl NetworkFilter {
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
         )
-    }
-
-    pub fn get_regex(&mut self) -> &Regex {
-        if self.regex.is_none() {
-            self.regex = match self.filter {
-                Some(ref filter) if self.is_regex() => Some(compile_regex(
-                    filter,
-                    self.is_right_anchor(),
-                    self.is_left_anchor(),
-                )), // compile regex
-                _ => Some(Regex::new("").unwrap()),
-            }
-        }
-        &self.regex.as_ref().unwrap()
     }
 
     pub fn get_fuzzy_signature(&mut self) -> &Vec<Hash> {
@@ -754,7 +744,7 @@ fn compute_filter_id(
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
  * we try to convert some patterns to plain filters.
  */
-fn compile_regex(filter_str: &str, is_right_anchor: bool, is_left_anchor: bool) -> Regex {
+fn compile_regex(filter_str: &str, is_right_anchor: bool, is_left_anchor: bool) -> Result<Regex, regex::Error> {
     lazy_static! {
       // Escape special regex characters: |.$+?{}()[]\
       static ref SPECIAL_RE: Regex = Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap();
@@ -773,7 +763,8 @@ fn compile_regex(filter_str: &str, is_right_anchor: bool, is_left_anchor: bool) 
     let right_anchor = if is_right_anchor { "$" } else { "" };
     let filter = format!("{}{}{}", left_anchor, repl_anchor, right_anchor);
 
-    Regex::new(&filter).unwrap()
+    let regex = Regex::new(&filter)?;
+    Ok(regex)
 }
 
 /**

@@ -21,23 +21,19 @@ pub fn clear_bit(n: Hash, mask: Hash) -> Hash {
     n & !mask
 }
 
-fn fast_hash_between(input: &str, begin: usize, end: usize) -> Hash {
+#[inline]
+pub fn fast_hash(input: &str) -> Hash {
     // TODO: replace with another hash function?
     // xxHash is a good candidate:
     //   use fasthash::{xx, XXHasher};
     //   let h = xx::hash64(b"hello world\xff");
     let mut hash: Hash = 5381;
-    let mut chars = input.chars().skip(begin).take(end - begin);
+    let mut chars = input.chars();
 
     while let Some(c) = chars.next() {
         hash = hash.wrapping_mul(33) ^ (c as Hash);
     }
     hash
-}
-
-#[inline]
-pub fn fast_hash(input: &str) -> Hash {
-    fast_hash_between(&input, 0, input.len())
 }
 
 #[inline]
@@ -94,7 +90,7 @@ fn fast_tokenizer_no_regex(
                 && c != '*'
                 && (preceding_ch.is_none() || preceding_ch.unwrap() != '*')
             {
-                tokens_buffer[tokens_buffer_index] = fast_hash_between(&pattern, start, i);
+                tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..i]);
                 tokens_buffer_index += 1;
             }
             preceding_ch = Some(c)
@@ -109,7 +105,7 @@ fn fast_tokenizer_no_regex(
         && (preceding_ch.is_none() || preceding_ch.unwrap() != '*')
         && !skip_last_token
     {
-        tokens_buffer[tokens_buffer_index] = fast_hash_between(&pattern, start, pattern.len());
+        tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..]);
         tokens_buffer_index += 1;
     }
 
@@ -135,13 +131,13 @@ fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash
             }
         } else if inside {
             inside = false;
-            tokens_buffer[tokens_buffer_index] = fast_hash_between(&pattern, start, i);
+            tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..i]);
             tokens_buffer_index += 1;
         }
     }
 
     if inside {
-        tokens_buffer[tokens_buffer_index] = fast_hash_between(&pattern, start, pattern.len());
+        tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..]);
         tokens_buffer_index += 1;
     }
 
@@ -238,10 +234,10 @@ mod tests {
         assert_eq!(fast_hash("hello world"), 4173747013); // cross-checked with the TS implementation
         assert_eq!(fast_hash("ello worl"), 2759317833); // cross-checked with the TS implementation
         assert_eq!(
-            fast_hash_between("hello world", 1, 10),
+            fast_hash(&"hello world"[1..10]),
             fast_hash("ello worl")
         );
-        assert_eq!(fast_hash_between("hello world", 1, 5), fast_hash("ello"));
+        assert_eq!(fast_hash(&"hello world"[1..5]), fast_hash("ello"));
     }
 
     #[test]
