@@ -1,13 +1,13 @@
 use idna;
 use regex::Regex;
 use std::fmt;
+use std::cell::RefCell;
 
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
-pub static PUNYCODE_PREFIX: &'static str = "xn--";
 
 #[derive(Debug, PartialEq)]
 pub enum FilterError {
@@ -18,6 +18,7 @@ pub enum FilterError {
     NegatedRedirection,
     EmptyRedirection,
     UnrecognisedOption,
+    NoRegex,
     RegexParsingError(regex::Error),
     PunycodeError
 }
@@ -119,7 +120,11 @@ pub struct NetworkFilter {
     // Lazy attributes
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
-    pub regex: Option<Regex>,
+    
+    regex: RefCell<Option<Regex>>, // compiled lazily
+
+    #[cfg(feature="full-domain-matching")] pub opt_domains_full: Option<Vec<String>>,
+    #[cfg(feature="full-domain-matching")] pub opt_not_domains_full: Option<Vec<String>>
 }
 
 impl NetworkFilter {
@@ -139,6 +144,9 @@ impl NetworkFilter {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
+
+        #[cfg(feature="full-domain-matching")] let mut opt_domains_full: Option<Vec<String>> = None;
+        #[cfg(feature="full-domain-matching")] let mut opt_not_domains_full: Option<Vec<String>> = None;
 
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
@@ -185,11 +193,17 @@ impl NetworkFilter {
 
                 match (option, negation) {
                     ("domain", _) => {
-                        let mut option_values = value.split('|');
+                        let mut option_values: Vec<&str> = value.split('|').collect();
+                        // Some rules have duplicate domain options - avoid including duplicates
+                        // Benchmarking doesn't indicate signficant performance degradation across the entire easylist
+                        option_values.sort();
+                        option_values.dedup();
                         let mut opt_domains_array: Vec<Hash> = vec![];
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
 
-                        while let Some(option_value) = option_values.next() {
+                        let mut valuesiter = option_values.iter();
+
+                        while let Some(option_value) = valuesiter.next() {
                             if utils::fast_starts_with(option_value, "~") {
                                 let domain = &option_value[1..];
                                 let domain_hash = utils::fast_hash(&domain);
@@ -197,6 +211,28 @@ impl NetworkFilter {
                             } else {
                                 let domain_hash = utils::fast_hash(&option_value);
                                 opt_domains_array.push(domain_hash);
+                            }
+                        }
+
+                        #[cfg(feature="full-domain-matching")]
+                        {
+                            let mut opt_domains_full_array: Vec<String> = vec![];
+                            let mut opt_not_domains_full_array: Vec<String> = vec![];
+                            let mut valuesiter = option_values.iter();
+                            while let Some(option_value) = valuesiter.next() {
+                                if utils::fast_starts_with(option_value, "~") {
+                                    opt_not_domains_full_array.push(String::from(&option_value[1..]));
+                                } else {
+                                    opt_domains_full_array.push(String::from(&option_value[0..]));
+                                }
+                            }
+                            if opt_domains_array.len() > 0 {
+                                opt_domains_full_array.sort();
+                                opt_domains_full = Some(opt_domains_full_array);
+                            }
+                            if opt_not_domains_array.len() > 0 {
+                                opt_not_domains_full_array.sort();
+                                opt_not_domains_full = Some(opt_not_domains_full_array);
                             }
                         }
 
@@ -452,28 +488,6 @@ impl NetworkFilter {
             Ok(hostname)
         });
 
-        // TODO: eval impact - regex gets compiled in original code lazily
-        let maybe_regex = if mask.contains(NetworkFilterMask::IS_REGEX) {
-            let filter_regex = filter.as_ref().map(|f| {
-                compile_regex(f,
-                    mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
-                    mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR))
-            });
-            match filter_regex {
-                None => None,
-                Some(Ok(regex)) => Some(regex),
-                Some(Err(err)) => {
-                    // if debug {
-                    //     println!("Errored when parsing regex {}: {}", filter.as_ref().unwrap(), err);
-                    // }
-                    return Err(FilterError::RegexParsingError(err))
-                }
-            }
-            // None
-        } else {
-            None
-        };
-
         // TODO: eval impact - fuzzy signature gets compiled in original code lazily
         let maybe_fuzzy_signature = if mask.contains(NetworkFilterMask::FUZZY_MATCH) {
             filter.as_ref().map(|f| utils::create_fuzzy_signature(f))
@@ -498,7 +512,9 @@ impl NetworkFilter {
             debug: debug,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
-            regex: maybe_regex,
+            regex: RefCell::default(),
+            #[cfg(feature="full-domain-matching")] opt_domains_full,
+            #[cfg(feature="full-domain-matching")] opt_not_domains_full,
         })
     }
 
@@ -519,6 +535,50 @@ impl NetworkFilter {
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
         )
+    }
+
+    // Lazily get the regex if the filter has one
+    pub fn get_regex(&self) -> Result<Regex, FilterError> {
+        if !self.is_regex() {
+            return Err(FilterError::NoRegex);
+        }
+        // Create a new scope to contain the lifetime of the
+        // dynamic borrow
+        {
+            let mut cache = self.regex.borrow_mut();
+            if cache.is_some() {
+                return Ok(cache.as_ref().unwrap().clone());
+            }
+
+            // TODO: eval impact - regex gets compiled in original code lazily
+            let maybe_regex = if self.mask.contains(NetworkFilterMask::IS_REGEX) {
+                let filter_regex = self.filter.as_ref().map(|f| {
+                    compile_regex(f,
+                        self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
+                        self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR))
+                });
+                match filter_regex {
+                    None => None,
+                    Some(Ok(regex)) => Some(regex),
+                    Some(Err(err)) => {
+                        // if debug {
+                        //     println!("Errored when parsing regex {}: {}", filter.as_ref().unwrap(), err);
+                        // }
+                        return Err(FilterError::RegexParsingError(err))
+                    }
+                }
+            } else {
+                None
+            };
+
+            *cache = maybe_regex;
+        }
+        // Recursive call to return the just-cached value.
+        // Note that if we had not let the previous borrow
+        // of the cache fall out of scope then the subsequent
+        // recursive borrow would cause a dynamic thread panic.
+        // This is the major hazard of using `RefCell`.
+        self.get_regex()
     }
 
     pub fn get_fuzzy_signature(&mut self) -> &Vec<Hash> {
@@ -943,7 +1003,7 @@ fn check_pattern_left_right_anchor_filter(
 
 // pattern*^
 fn check_pattern_regex_filter_at(filter: &NetworkFilter, request: &request::Request, start_from: usize) -> bool {
-    filter.regex.as_ref().map(|r| r.is_match(&request.url[start_from..]))
+    filter.get_regex().as_ref().map(|r| r.is_match(&request.url[start_from..]))
         .unwrap_or(true)
 }
 fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
