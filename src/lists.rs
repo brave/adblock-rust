@@ -1,5 +1,5 @@
 use crate::filters::network::NetworkFilter;
-use itertools::{Itertools, Either};
+use itertools::{Either};
 use rayon::prelude::*;
 
 #[derive(Debug, PartialEq)]
@@ -36,9 +36,8 @@ pub fn parse_filters(
                 let network_filter = NetworkFilter::parse(filter, debug);
                 let res: Result<Either<NetworkFilter, String>, FilterError> = network_filter.map(|f| Either::Left(f)).or_else(|_| Err(FilterError::ParseError));
                 res
-                // Ok(Either::Left(network_filter))
             } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
-                // Err(FilterError::NotImplemented)
+                // TODO: unimplemented, just return rule as a string
                 Ok(Either::Right(String::from(filter)))
             } else {
                 Err(FilterError::NotSupported)
@@ -54,23 +53,6 @@ pub fn parse_filters(
             Either::Right(f) => Either::Right(f)
         }
     });
-
-    // for line in list {
-    //     let filter = line.trim();
-    //     if filter.len() > 0 {
-    //         let filter_type = detect_filter_type(filter);
-    //         if filter_type == FilterType::Network && load_network_filters {
-    //             NetworkFilter::parse(filter, debug)
-    //                 .ok()
-    //                 .map(|f| network_filters.push(f));
-    //         }
-    //         if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
-    //             unimplemented!();
-    //         }
-    //     }
-    // }
-
-    // network_filters.shrink_to_fit();
 
     (network_filters, cosmetic_filters)
 }

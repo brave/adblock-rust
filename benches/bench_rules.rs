@@ -2,42 +2,23 @@
 extern crate criterion;
 
 use criterion::*;
-use std::io::{BufRead, BufReader};
-use std::fs::File;
 
 use adblock;
+use adblock::utils::{read_rules, rules_from_lists};
 
-fn read_rules(filename: &str) -> Vec<String> {
-    let f = File::open(filename).unwrap();
-    let reader = BufReader::new(f);
-    let mut rules: Vec<String> = Vec::with_capacity(75000);
-    for line in reader.lines() {
-        let l = line.unwrap();
-        rules.push(l);
-    }
-    rules.shrink_to_fit();
-    rules
-}
 
-fn rules_from_lists(lists: Vec<&str>) -> Vec<String> {
-    let mut rules: Vec<String> = Vec::with_capacity(75000);
-    for filename in lists {
-        let mut listRules = read_rules(filename);
-        rules.append(&mut listRules);
-    }
-    rules.shrink_to_fit();
-    rules
-}
 
 fn default_lists() -> Vec<String> {
   rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt"
+    "data/easylist.to/easylist/easylist.txt",
+    // "data/easylist.to/easylist/easyprivacy.txt"
   ])
 }
 
 fn default_rules_lists() -> Vec<Vec<String>> {
   vec![
-    read_rules("data/easylist.to/easylist/easylist.txt") 
+    read_rules("data/easylist.to/easylist/easylist.txt"),
+    // read_rules("data/easylist.to/easylist/easyprivacy.txt")
   ]
 }
 

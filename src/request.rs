@@ -5,6 +5,7 @@ use addr::{DomainName};
 use url::{Url};
 use std::collections::HashMap;
 use std::cell::RefCell;
+use idna;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -30,7 +31,20 @@ pub enum RequestType {
 #[derive(Debug, PartialEq)]
 pub enum RequestError {
     HostnameParseError,
-    SourceHostnameParseError
+    SourceHostnameParseError,
+    UnicodeDecodingError
+}
+
+impl From<idna::uts46::Errors> for RequestError {
+    fn from(_err: idna::uts46::Errors) -> RequestError {
+        RequestError::UnicodeDecodingError
+    }
+}
+
+impl From<url::ParseError> for RequestError {
+    fn from(_err: url::ParseError) -> RequestError {
+        RequestError::HostnameParseError
+    }
 }
 
 lazy_static! {
@@ -189,8 +203,10 @@ impl<'a> Request {
 
 
     pub fn from_urls(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
-        let url_norm = url.to_lowercase();
-        let maybe_hostname = get_url_host(&url_norm);
+        let url_parsed: Url = url.parse()?;
+        // TODO: what is the correct behaviour for handling trailing '/'?
+        let url_norm = url_parsed.as_str(); // Get URL back from the library to include consistent punycode handling
+        let maybe_hostname = url_parsed.host_str().map(String::from);
         if maybe_hostname.is_none() {
             return Err(RequestError::HostnameParseError);
         }
@@ -199,6 +215,7 @@ impl<'a> Request {
 
         let source_url_norm = source_url.to_lowercase();
         let source_hostname = get_url_host(&source_url_norm).unwrap_or_default();
+        // TODO: may make sense to fail if source hostname can't be parsed
         // let source_hostname = if maybe_source_hostname.is_none() {
         //     return Err(RequestError::SourceHostnameParseError);
         // }
@@ -235,11 +252,14 @@ pub fn get_host_domain(host: &str) -> String {
     }
 }
 
-pub fn get_url_host(url: &str) -> Option<String> {
-  url.parse::<Url>()
+fn parse_url(url: &str) -> Option<Url> {
+    url.parse::<Url>()
     .ok() // convert to Option
+}
+
+pub fn get_url_host(url: &str) -> Option<String> {
+    parse_url(url)
     .and_then(|p| p.host_str().map(String::from))
-    
 }
 
 pub fn get_url_domain(url: &str) -> Option<String> {
@@ -299,7 +319,9 @@ mod tests {
     #[test]
     fn get_fuzzy_signature_works() {
         let simple_example = Request::new("document", "https://example.com/ad", "example.com", "example.com", "https://example.com", "example.com", "example.com");
-        assert_eq!(simple_example.get_fuzzy_signature().as_slice(), t(&vec!["ad", "https", "com", "example"]).as_slice())
+        let mut tokens = t(&vec!["ad", "https", "com", "example"]);
+        tokens.sort_unstable();
+        assert_eq!(simple_example.get_fuzzy_signature().as_slice(), tokens.as_slice())
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use punycode;
+use idna;
 use regex::Regex;
 use std::fmt;
 
@@ -7,6 +7,7 @@ use crate::utils;
 use crate::utils::Hash;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
+pub static PUNYCODE_PREFIX: &'static str = "xn--";
 
 #[derive(Debug, PartialEq)]
 pub enum FilterError {
@@ -17,7 +18,8 @@ pub enum FilterError {
     NegatedRedirection,
     EmptyRedirection,
     UnrecognisedOption,
-    RegexParsingError
+    RegexParsingError(regex::Error),
+    PunycodeError
 }
 
 bitflags! {
@@ -115,7 +117,7 @@ pub struct NetworkFilter {
     pub raw_line: Option<String>,
 
     // Lazy attributes
-    pub id: Option<Hash>,
+    pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
     pub regex: Option<Regex>,
 }
@@ -433,11 +435,21 @@ impl NetworkFilter {
             };
 
             let lowercase = hostname_normalised.to_lowercase();
-            if utils::has_unicode(&lowercase) {
-                punycode::decode(&lowercase).unwrap()
+            let mut hostname = String::new();
+            if lowercase.is_ascii() {
+                hostname.push_str(&lowercase);
             } else {
-                lowercase
+                let decode_flags = idna::uts46::Flags { 
+                    use_std3_ascii_rules: true,
+                    transitional_processing: true,
+                    verify_dns_length: true
+                };
+                match idna::uts46::to_ascii(&lowercase, decode_flags) {
+                    Ok(x) => hostname.push_str(&x),
+                    Err(_) => return Err(FilterError::PunycodeError)
+                }
             }
+            Ok(hostname)
         });
 
         // TODO: eval impact - regex gets compiled in original code lazily
@@ -450,8 +462,14 @@ impl NetworkFilter {
             match filter_regex {
                 None => None,
                 Some(Ok(regex)) => Some(regex),
-                Some(Err(err)) => return Err(FilterError::RegexParsingError)
+                Some(Err(err)) => {
+                    // if debug {
+                    //     println!("Errored when parsing regex {}: {}", filter.as_ref().unwrap(), err);
+                    // }
+                    return Err(FilterError::RegexParsingError(err))
+                }
             }
+            // None
         } else {
             None
         };
@@ -467,7 +485,7 @@ impl NetworkFilter {
             bug: bug,
             csp: csp,
             filter: filter,
-            hostname: hostname_decoded,
+            hostname: hostname_decoded.map_or(Ok(None), |r| r.map(Some))?,
             mask: mask,
             opt_domains: opt_domains,
             opt_not_domains: opt_not_domains,
@@ -478,7 +496,7 @@ impl NetworkFilter {
             },
             redirect: redirect,
             debug: debug,
-            id: None,
+            id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
             regex: maybe_regex,
         })
@@ -763,6 +781,9 @@ fn compile_regex(filter_str: &str, is_right_anchor: bool, is_left_anchor: bool) 
     let right_anchor = if is_right_anchor { "$" } else { "" };
     let filter = format!("{}{}{}", left_anchor, repl_anchor, right_anchor);
 
+    // FIXME: escape sequences are different, frequently errors on "unrecognised escape sequence", e.g.:
+    // /^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/ ("\/" unrecognised)
+    // /\:\/\/data\..*\\.com\/\[a-za-z0-9\]\{30,\}/ ("\:" unrecognised)
     let regex = Regex::new(&filter)?;
     Ok(regex)
 }
@@ -913,7 +934,10 @@ fn check_pattern_left_right_anchor_filter(
     filter
         .filter
         .as_ref()
-        .map(|f| &request.url == f)
+        .map(|f| {
+            println!("Check if {} == {}", &request.url, f);
+            &request.url == f
+        })
         .unwrap_or(true)
 }
 
@@ -1767,12 +1791,11 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com|baz.com", true).unwrap();
+            let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            domains.sort_unstable();
             assert_eq!(
                 filter.opt_domains,
-                Some(vec![
-                    utils::fast_hash("bar.com"),
-                    utils::fast_hash("baz.com")
-                ])
+                Some(domains)
             );
             assert_eq!(filter.opt_not_domains, None);
         }
@@ -1789,13 +1812,9 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com$domain=~bar.com|~baz.com", true).unwrap();
             assert_eq!(filter.opt_domains, None);
-            assert_eq!(
-                filter.opt_not_domains,
-                Some(vec![
-                    utils::fast_hash("bar.com"),
-                    utils::fast_hash("baz.com")
-                ])
-            );
+            let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            domains.sort_unstable();
+            assert_eq!(filter.opt_not_domains, Some(domains));
         }
         // parses domain and ~domain
         {
@@ -1816,10 +1835,9 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=foo|~bar|baz", true).unwrap();
-            assert_eq!(
-                filter.opt_domains,
-                Some(vec![utils::fast_hash("foo"), utils::fast_hash("baz")])
-            );
+            let mut domains =vec![utils::fast_hash("foo"), utils::fast_hash("baz")];
+            domains.sort();
+            assert_eq!(filter.opt_domains, Some(domains));
             assert_eq!(filter.opt_not_domains, Some(vec![utils::fast_hash("bar")]));
         }
         // defaults to no constraint
@@ -2264,7 +2282,9 @@ mod match_tests {
     fn filter_match_url(filter: &str, url: &str, matching: bool) {
         let network_filter = NetworkFilter::parse(filter, true).unwrap();
         let request = request::Request::from_url(url).unwrap();
-        assert_eq!(network_filter.matches(&request), matching);
+        
+        assert!(network_filter.matches(&request) == matching,
+            "Expected match={} for {} on {}", matching, filter, url);
     }
 
     #[test]
@@ -2375,7 +2395,7 @@ mod match_tests {
     #[test]
     // |pattern|
     fn check_pattern_left_right_anchor_filter_works() {
-        filter_match_url("|https://foo.com|", "https://foo.com", true);
+        filter_match_url("|https://foo.com/|", "https://foo.com", true);
     }
 
     #[test]
@@ -2500,6 +2520,42 @@ mod match_tests {
             let request =
                 request::Request::from_urls("https://foo.com/bar", "http://bar.com", "").unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
+        }
+    }
+
+    #[test]
+    fn check_unicode_handled() {        
+        filter_match_url("||firstrowsports.li/frame/", "https://firstrowsports.li/frame/bar", true);
+        filter_match_url("||fırstrowsports.eu/pu/", "https://fırstrowsports.eu/pu/foo", true);
+        filter_match_url("||fırstrowsports.eu/pu/", "https://xn--frstrowsports-39b.eu/pu/foo", true);
+        
+        filter_match_url("||atđhe.net/pu/", "https://atđhe.net/pu/foo", true);
+        filter_match_url("||atđhe.net/pu/", "https://xn--athe-1ua.net/pu/foo", true);
+    }
+
+    #[test]
+    #[ignore]
+    fn check_regex_escaping_handled() {
+        // A rules that are not correctly escaped for rust Regex
+        {
+            // regex escaping "\/" unrecognised
+            let filter = r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to|1movies.is|activistpost.com|ancient-origins.net|couchtuner.onl|couchtuner.rocks|daclips.in|datpiff.com|dwatchseries.to|estream.nu|estream.to|estream.xyz|eztv.ag|eztv.io|eztv.tf|eztv.yt|fmovies.se|fmovies.taxi|fmovies.to|fmovies.today|fmovies.world|fullmatchesandshows.com|gomovies.sc|gorillavid.in|hdmoza.com|hdonline.is|healthline.com|kickass2.ch|kickass2.st|kimcartoon.to|limetorrents.info|megaup.net|monova.org|monova.to|movies.is|movies123.xyz|moviescouch.co|moviewatcher.is|newser.com|nowvideo.sx|nowwatchtvlive.ws|onhax.me|pirateiro.com|seedpeer.me|skidrowcrack.com|solarmovie.one|solarmoviez.ru|swatchseries.to|thegatewaypundit.com|thewatchseries.ac|tinypic.com|torlock.com|torrentdownload.ch|torrentdownloads.me|torrentfunk.com|torrentfunk2.com|torrentz2.eu|unblckd.org|unblocked.app|unblocked.lol|unblocked.si|watchcartoononline.io|watchseries.sk|watchsomuch.info|yesmovies.to|yify-movies.net|yify.bz|yifyddl.com|yifytorrent.co|ymovies.tv|yourbittorrent2.com|yts.am"#;
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://bit.ly/bar";
+            let source = "http://123movies.com";
+            let request = request::Request::from_urls(url, source, "").unwrap();
+            assert!(network_filter.matches(&request) == true,
+            "Expected match for {} on {}", filter, url);
+        }
+        {
+            // regex escaping "\:" unrecognised
+            let filter = r#"/\:\/\/data.*\.com\/[a-zA-Z0-9]{30,}/$third-party,xmlhttprequest"#;
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
+            let source = "http://123movies.com";
+            let request = request::Request::from_urls(url, source, "xmlhttprequest").unwrap();
+            assert!(network_filter.matches(&request) == true,
+            "Expected match for {} on {}", filter, url);
         }
     }
 

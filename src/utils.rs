@@ -1,5 +1,9 @@
+use std::io::{BufRead, BufReader};
+use std::fs::File;
+use fasthash::xx as hasher;
 
 pub type Hash = u32;
+static HASH_MAX: Hash = std::u32::MAX;
 
 #[inline]
 pub fn bit_count(n: Hash) -> u32 {
@@ -21,19 +25,21 @@ pub fn clear_bit(n: Hash, mask: Hash) -> Hash {
     n & !mask
 }
 
+// #[inline]
+// pub fn fast_hash(input: &str) -> Hash {
+//     // originally uses DJB2 hash
+//     let mut hash: Hash = 5381;
+//     let mut chars = input.chars();
+
+//     while let Some(c) = chars.next() {
+//         hash = hash.wrapping_mul(33) ^ (c as Hash);
+//     }
+//     hash
+// }
+
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
-    // TODO: replace with another hash function?
-    // xxHash is a good candidate:
-    //   use fasthash::{xx, XXHasher};
-    //   let h = xx::hash64(b"hello world\xff");
-    let mut hash: Hash = 5381;
-    let mut chars = input.chars();
-
-    while let Some(c) = chars.next() {
-        hash = hash.wrapping_mul(33) ^ (c as Hash);
-    }
-    hash
+    hasher::hash32(input)
 }
 
 #[inline]
@@ -189,48 +195,73 @@ pub fn has_unicode(pattern: &str) -> bool {
     return false;
 }
 
+const EXPECTED_RULES: usize = 75000;
+
+pub fn read_rules(filename: &str) -> Vec<String> {
+    let f = File::open(filename).unwrap();
+    let reader = BufReader::new(f);
+    let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
+    for line in reader.lines() {
+        let l = line.unwrap();
+        rules.push(l);
+    }
+    rules.shrink_to_fit();
+    rules
+}
+
+pub fn rules_from_lists(lists: Vec<&str>) -> Vec<String> {
+    let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
+    for filename in lists {
+        let mut list_rules = read_rules(filename);
+        rules.append(&mut list_rules);
+    }
+    rules.shrink_to_fit();
+    rules
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn bit_count_works() {
-        assert_eq!(bit_count(0b0011u32), 2);
-        assert_eq!(bit_count(0b10110011u32), 5);
-        assert_eq!(bit_count(std::u32::MAX), 32);
+        assert_eq!(bit_count(0b0011), 2);
+        assert_eq!(bit_count(0b10110011), 5);
+        assert_eq!(bit_count(HASH_MAX), HASH_MAX.count_ones());
         assert_eq!(bit_count(0), 0);
     }
 
     #[test]
     fn get_bit_works() {
-        assert_eq!(get_bit(0b0011u32, 0b0011u32), true);
-        assert_eq!(get_bit(0b10110011u32, 0b10110011u32), true);
-        assert_eq!(get_bit(0b10110011u32, 0b00100000u32), true);
-        assert_eq!(get_bit(0b10110011u32, 0b01001100u32), false);
-        assert_eq!(get_bit(0, std::u32::MAX), false);
+        assert_eq!(get_bit(0b0011, 0b0011), true);
+        assert_eq!(get_bit(0b10110011, 0b10110011), true);
+        assert_eq!(get_bit(0b10110011, 0b00100000), true);
+        assert_eq!(get_bit(0b10110011, 0b01001100), false);
+        assert_eq!(get_bit(0, HASH_MAX), false);
     }
 
     #[test]
     fn set_bit_works() {
-        assert_eq!(set_bit(0b0011u32, 0b0011u32), 0b0011u32);
-        assert_eq!(set_bit(0b10110011u32, 0b100u32), 0b10110111u32);
-        assert_eq!(set_bit(0b10110011u32, 0), 0b10110011u32);
-        assert_eq!(set_bit(std::u32::MAX, 0), std::u32::MAX);
-        assert_eq!(set_bit(0, std::u32::MAX), std::u32::MAX);
+        assert_eq!(set_bit(0b0011, 0b0011), 0b0011);
+        assert_eq!(set_bit(0b10110011, 0b100), 0b10110111);
+        assert_eq!(set_bit(0b10110011, 0), 0b10110011);
+        assert_eq!(set_bit(HASH_MAX, 0), HASH_MAX);
+        assert_eq!(set_bit(0, HASH_MAX), HASH_MAX);
     }
 
     #[test]
     fn clear_bit_works() {
-        assert_eq!(clear_bit(0b10110011u32, 0b1), 0b10110010u32);
-        assert_eq!(clear_bit(0b10110011u32, 0b100u32), 0b10110011u32);
-        assert_eq!(clear_bit(0b10110011u32, 0b10110011u32), 0);
-        assert_eq!(clear_bit(std::u32::MAX, std::u32::MAX), 0);
-        assert_eq!(clear_bit(std::u32::MAX, 0), std::u32::MAX);
-        assert_eq!(clear_bit(0, std::u32::MAX), 0);
+        assert_eq!(clear_bit(0b10110011, 0b1), 0b10110010);
+        assert_eq!(clear_bit(0b10110011, 0b100), 0b10110011);
+        assert_eq!(clear_bit(0b10110011, 0b10110011), 0);
+        assert_eq!(clear_bit(HASH_MAX, HASH_MAX), 0);
+        assert_eq!(clear_bit(HASH_MAX, 0), HASH_MAX);
+        assert_eq!(clear_bit(0, HASH_MAX), 0);
     }
 
     #[test]
-    fn fast_hash_works() {
+    #[ignore]
+    fn fast_hash_matches_ts() {
         assert_eq!(fast_hash("hello world"), 4173747013); // cross-checked with the TS implementation
         assert_eq!(fast_hash("ello worl"), 2759317833); // cross-checked with the TS implementation
         assert_eq!(
@@ -375,9 +406,11 @@ mod tests {
     #[test]
     fn create_fuzzy_signature_works() {
         assert_eq!(create_fuzzy_signature("").as_slice(), t(&vec![]).as_slice());
-        assert_eq!(create_fuzzy_signature("foo bar").as_slice(), t(&vec!["foo", "bar"]).as_slice());
-        assert_eq!(create_fuzzy_signature("bar foo").as_slice(), t(&vec!["foo", "bar"]).as_slice());
-        assert_eq!(create_fuzzy_signature("foo bar foo foo").as_slice(), t(&vec!["foo", "bar"]).as_slice());
+        let mut tokens = t(&vec!["bar", "foo"]);
+        tokens.sort_unstable();
+        assert_eq!(create_fuzzy_signature("foo bar").as_slice(), tokens.as_slice());
+        assert_eq!(create_fuzzy_signature("bar foo").as_slice(), tokens.as_slice());
+        assert_eq!(create_fuzzy_signature("foo bar foo foo").as_slice(), tokens.as_slice());
     }
 
     #[test]
@@ -406,7 +439,7 @@ mod tests {
         assert_ne!(bin_search(&vec![42, 42], 42), None);
 
         // bigger arrays
-        let data : Vec<Hash> = (1u32..=1000).map(|x| x*x).collect();
+        let data : Vec<Hash> = (1..=1000).map(|x| x*x).collect();
         assert_eq!(bin_search(&data, 42), None);
         assert_eq!(bin_search(&data, 1), Some(0));
         assert_eq!(bin_search(&data, 4), Some(1));

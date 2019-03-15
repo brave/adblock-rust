@@ -50650,7 +50650,7 @@ coingamez.com,mangaumaru.com,milfzr.com,pencurimovie.cc#@#div[id^="div-gpt-ad"]
 ||attitude.co.uk/images/Music_Ticket_Button_
 ||attorrents.com/static/images/download3.png
 ||atwonline.com^*/Airbus120x50_
-# ||atđhe.net/pu/
+||atđhe.net/pu/
 ||audioz.download^*/partners/
 ||augusta.com/sites/*/yca_plugin/yahoo.js$domain=augusta.com
 ||auto123.com/sasserve.spy
@@ -51572,7 +51572,7 @@ coingamez.com,mangaumaru.com,milfzr.com,pencurimovie.cc#@#div[id^="div-gpt-ad"]
 ||firstpost.in^*/promo/
 ||firstrow*/pu.js
 ||firstrows.biz/js/bn.js
-# ||firstrowsports.li/frame/
+||firstrowsports.li/frame/
 ||firstrowusa.eu/js/bn.js
 ||firsttoknow.com^*/page-criteo-
 ||fishchannel.com/images/sponsors/
@@ -51671,7 +51671,7 @@ coingamez.com,mangaumaru.com,milfzr.com,pencurimovie.cc#@#div[id^="div-gpt-ad"]
 ||fuse.tv/images/sponsor/
 ||futbol24.com/f24/rek/$~xmlhttprequest
 ||fuzface.com/dcrtv/ad$domain=dcrtv.com
-# ||fırstrowsports.eu/pu/
+||fırstrowsports.eu/pu/
 ||g.brothersoft.com^
 ||g00.msn.com^$other,domain=msn.com
 ||gabzfm.com/images/banners/
