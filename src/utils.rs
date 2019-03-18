@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore] // won't match hard-coded values when using a different hash function
     fn fast_hash_matches_ts() {
         assert_eq!(fast_hash("hello world"), 4173747013); // cross-checked with the TS implementation
         assert_eq!(fast_hash("ello worl"), 2759317833); // cross-checked with the TS implementation

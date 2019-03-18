@@ -1,5 +1,5 @@
 use crate::filters::network::NetworkFilter;
-use itertools::{Either};
+use itertools::Either;
 use rayon::prelude::*;
 
 #[derive(Debug, PartialEq)]
@@ -14,7 +14,7 @@ pub enum FilterError {
     NotSupported,
     NotImplemented,
     Empty,
-    ParseError
+    ParseError,
 }
 
 pub fn parse_filters(
@@ -27,32 +27,31 @@ pub fn parse_filters(
     // let cosmetic_filters = vec![];
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
-    .into_par_iter()
-    .map(|line| {
-        let filter = line.trim();
-        if filter.len() > 0 {
-            let filter_type = detect_filter_type(filter);
-            if filter_type == FilterType::Network && load_network_filters {
-                let network_filter = NetworkFilter::parse(filter, debug);
-                let res: Result<Either<NetworkFilter, String>, FilterError> = network_filter.map(|f| Either::Left(f)).or_else(|_| Err(FilterError::ParseError));
-                res
-            } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
-                // TODO: unimplemented, just return rule as a string
-                Ok(Either::Right(String::from(filter)))
+        .into_par_iter()
+        .map(|line| {
+            let filter = line.trim();
+            if filter.len() > 0 {
+                let filter_type = detect_filter_type(filter);
+                if filter_type == FilterType::Network && load_network_filters {
+                    let network_filter = NetworkFilter::parse(filter, debug);
+                    network_filter
+                        .map(|f| Either::Left(f))
+                        .or_else(|_| Err(FilterError::ParseError))
+                } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
+                    // TODO: unimplemented, just return rule as a string
+                    Ok(Either::Right(String::from(filter)))
+                } else {
+                    Err(FilterError::NotSupported)
+                }
             } else {
-                Err(FilterError::NotSupported)
+                Err(FilterError::Empty)
             }
-        } else {
-            Err(FilterError::Empty)
-        }
-    })
-    .filter_map(Result::ok)
-    .partition_map(|filter| {
-        match filter {
+        })
+        .filter_map(Result::ok)
+        .partition_map(|filter| match filter {
             Either::Left(f) => Either::Left(f),
-            Either::Right(f) => Either::Right(f)
-        }
-    });
+            Either::Right(f) => Either::Right(f),
+        });
 
     (network_filters, cosmetic_filters)
 }

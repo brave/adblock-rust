@@ -17,13 +17,13 @@ punycode = "0.4"
 itertools = "0.8"
 rayon = "1.0"
 fasthash = "0.4"
-serde =  { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 idna = "0.1"
 
 [dev-dependencies]
 criterion = "0.2"
 env_logger = "0.5"
+serde =  { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [[bench]]
 name = "bench_url"

@@ -522,8 +522,15 @@ impl NetworkFilter {
         check_options(&self, request) && check_pattern(&self, request)
     }
 
-    pub fn to_string() -> String {
-        unimplemented!();
+    pub fn to_string(&self) -> String {
+        if self.debug {
+            match self.raw_line.as_ref() {
+                Some(r) => r.clone(),
+                None => String::from("")
+            }
+        } else {
+            unimplemented!();
+        }
     }
 
     pub fn get_id(&self) -> Hash {
@@ -658,7 +665,7 @@ impl NetworkFilter {
         self.mask.contains(NetworkFilterMask::FUZZY_MATCH)
     }
     #[inline]
-    fn is_exception(&self) -> bool {
+    pub fn is_exception(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
     }
     #[inline]
@@ -678,8 +685,12 @@ impl NetworkFilter {
         self.mask.contains(NetworkFilterMask::MATCH_CASE)
     }
     #[inline]
-    fn is_important(&self) -> bool {
+    pub fn is_important(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_IMPORTANT)
+    }
+    #[inline]
+    pub fn is_redirect(&self) -> bool {
+        self.redirect.is_some()
     }
     #[inline]
     fn is_regex(&self) -> bool {
@@ -690,11 +701,11 @@ impl NetworkFilter {
         !self.is_regex()
     }
     #[inline]
-    fn is_csp(&self) -> bool {
+    pub fn is_csp(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_CSP)
     }
     #[inline]
-    fn has_bug(&self) -> bool {
+    pub fn has_bug(&self) -> bool {
         self.bug.is_some()
     }
     #[inline]
@@ -995,7 +1006,6 @@ fn check_pattern_left_right_anchor_filter(
         .filter
         .as_ref()
         .map(|f| {
-            println!("Check if {} == {}", &request.url, f);
             &request.url == f
         })
         .unwrap_or(true)

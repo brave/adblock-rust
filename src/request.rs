@@ -190,7 +190,7 @@ impl<'a> Request {
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
         {
-            let mut signature_cache = self.tokens.borrow_mut();
+            let mut signature_cache = self.fuzzy_signature.borrow_mut();
             if signature_cache.is_some() {
                 return signature_cache.as_ref().unwrap().clone();
             }
