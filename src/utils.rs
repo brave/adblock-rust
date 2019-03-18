@@ -465,6 +465,4 @@ mod tests {
         assert_eq!(has_unicode("( ͡° ͜ʖ ͡°)"), true);
         assert_eq!(has_unicode("¯_(ツ)_/¯"), true);
     }
-
-    // TODO: check for collisions in filters/urls
 }

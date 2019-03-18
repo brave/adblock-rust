@@ -173,10 +173,7 @@ impl NetworkFilter {
             // Parse options and set flags
             filter_index_end = options_index.unwrap();
 
-            // --------------------------------------------------------------------- //
-            // parseOptions
-            // TODO: This could be implemented without string copy,
-            // using indices, like in main parsing functions.
+            // Parse Options
             let raw_options = &line[filter_index_end + 1..];
             let options = raw_options.split(',');
             for raw_option in options {
@@ -488,7 +485,6 @@ impl NetworkFilter {
             Ok(hostname)
         });
 
-        // TODO: eval impact - fuzzy signature gets compiled in original code lazily
         let maybe_fuzzy_signature = if mask.contains(NetworkFilterMask::FUZZY_MATCH) {
             filter.as_ref().map(|f| utils::create_fuzzy_signature(f))
         } else {
@@ -529,7 +525,8 @@ impl NetworkFilter {
                 None => String::from("")
             }
         } else {
-            unimplemented!();
+            // TODO
+            String::from("")
         }
     }
 
@@ -557,7 +554,6 @@ impl NetworkFilter {
                 return Ok(cache.as_ref().unwrap().clone());
             }
 
-            // TODO: eval impact - regex gets compiled in original code lazily
             let maybe_regex = if self.mask.contains(NetworkFilterMask::IS_REGEX) {
                 let filter_regex = self.filter.as_ref().map(|f| {
                     compile_regex(f,

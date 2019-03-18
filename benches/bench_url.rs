@@ -2,6 +2,9 @@ extern crate criterion;
 
 use criterion::*;
 
+use serde::{Deserialize, Serialize};
+use serde_json;
+
 use adblock;
 
 static URLS: &'static [&'static str] = &[
@@ -69,9 +72,6 @@ fn domain_throughput(c: &mut Criterion) {
         ).throughput(|_url| Throughput::Elements(1)),
     );
 }
-
-use serde::{Deserialize, Serialize};
-use serde_json;
 
 #[derive(Serialize, Deserialize)]
 struct TestRequest {

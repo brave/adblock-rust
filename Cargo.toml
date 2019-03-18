@@ -26,13 +26,16 @@ serde =  { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [[bench]]
+name = "bench_matching"
+harness = false
+
+[[bench]]
 name = "bench_url"
 harness = false
 
 [[bench]]
 name = "bench_rules"
 harness = false
-
 
 [features]
 

@@ -7,17 +7,17 @@ use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 
 pub struct BlockerOptions {
-    debug: bool,
-    enable_optimizations: bool,
-    load_cosmetic_filters: bool,
-    load_network_filters: bool,
+    pub debug: bool,
+    pub enable_optimizations: bool,
+    pub load_cosmetic_filters: bool,
+    pub load_network_filters: bool,
 }
 
 pub struct BlockerResult {
-    matched: bool,
-    redirect: Option<String>,
-    exception: Option<String>,
-    filter: Option<String>,
+    pub matched: bool,
+    pub redirect: Option<String>,
+    pub exception: Option<String>,
+    pub filter: Option<String>,
 }
 
 pub struct Blocker {
