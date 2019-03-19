@@ -107,7 +107,8 @@ fn request_parsing_throughput(c: &mut Criterion) {
         Benchmark::new(
             "parse requests",
             move |b| b.iter(|| parse_requests(&requests)),
-        ).throughput(Throughput::Elements(requests_len as u32)),
+        ).throughput(Throughput::Elements(requests_len as u32))
+        .sample_size(10),
     );
 }
 

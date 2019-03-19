@@ -8,20 +8,14 @@ use serde_json;
 use adblock;
 use adblock::utils::{read_rules, rules_from_lists};
 use adblock::blocker::{Blocker, BlockerOptions};
+use adblock::request::Request;
 
 
 fn default_lists() -> Vec<String> {
   rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
-    // "data/easylist.to/easylist/easyprivacy.txt"
+    "data/easylist.to/easylist/easyprivacy.txt"
   ])
-}
-
-fn default_rules_lists() -> Vec<Vec<String>> {
-  vec![
-    read_rules("data/easylist.to/easylist/easylist.txt"),
-    // read_rules("data/easylist.to/easylist/easyprivacy.txt")
-  ]
 }
 
 #[derive(Serialize, Deserialize)]
@@ -57,14 +51,32 @@ fn bench_rule_matching(blocker: &Blocker, requests: &Vec<TestRequest>) -> (u32, 
   requests
     .iter()
     .for_each(|r| {
-      let req: Result<adblock::request::Request, _> = adblock::request::Request::from_urls(&r.url, &r.frameUrl, &r.cpt);
+      let req: Result<Request, _> = Request::from_urls(&r.url, &r.frameUrl, &r.cpt);
       match req.map(|parsed| blocker.check(&parsed)).as_ref() {
         Ok(check) if check.matched => matches += 1,
         Ok(_) => passes += 1,
         Err(_) => errors += 1
       }
     });
+  println!("Got {} matches, {} passes, {} errors", matches, passes, errors);  
   (matches, passes, errors)
+}
+
+fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32) {
+  let mut matches = 0;
+  let mut passes = 0;
+  requests
+    .iter()
+    .for_each(|parsed| {
+      let check =  blocker.check(&parsed);
+      if check.matched {
+        matches += 1;
+      } else {
+        passes += 1;
+      }
+    });
+  println!("Got {} matches, {} passes", matches, passes);  
+  (matches, passes)
 }
 
 fn rule_match(c: &mut Criterion) {
@@ -73,9 +85,9 @@ fn rule_match(c: &mut Criterion) {
   let requests = load_requests();
   let requests_len = requests.len() as u32;
   c.bench(
-        "parse-filters",
+        "rule-match",
         Benchmark::new(
-            "network filters",
+            "easylist",
             move |b| {
               let blocker = get_blocker(&rules);
               b.iter(|| bench_rule_matching(&blocker, &requests))
@@ -85,5 +97,46 @@ fn rule_match(c: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, rule_match);
+fn rule_match_only(c: &mut Criterion) {
+  
+  let rules = default_lists();
+  let requests = load_requests();
+  let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
+  let requests_len = requests_parsed.len() as u32;
+  c.bench(
+        "rule-match-parsed",
+        Benchmark::new(
+            "easylist",
+            move |b| {
+              let blocker = get_blocker(&rules);
+              b.iter(|| bench_matching_only(&blocker, &requests_parsed))
+            },
+        ).throughput(Throughput::Elements(requests_len))
+        .sample_size(10)
+    );
+}
+
+fn rule_match_only_el_ep(c: &mut Criterion) {
+  
+  let rules = rules_from_lists(vec![
+    "data/easylist.to/easylist/easylist.txt",
+    "data/easylist.to/easylist/easyprivacy.txt"
+  ]);
+  let requests = load_requests();
+  let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
+  let requests_len = requests_parsed.len() as u32;
+  c.bench(
+        "rule-match-parsed",
+        Benchmark::new(
+            "el+ep",
+            move |b| {
+              let blocker = get_blocker(&rules);
+              b.iter(|| bench_matching_only(&blocker, &requests_parsed))
+            },
+        ).throughput(Throughput::Elements(requests_len))
+        .sample_size(10)
+    );
+}
+
+criterion_group!(benches, rule_match_only_el_ep, rule_match_only, rule_match);
 criterion_main!(benches);

@@ -34,11 +34,15 @@ pub fn parse_filters(
                 let filter_type = detect_filter_type(filter);
                 if filter_type == FilterType::Network && load_network_filters {
                     let network_filter = NetworkFilter::parse(filter, debug);
+                    // if debug && network_filter.is_err() {
+                    //     println!("Error parsing rule {}: {:?}", filter, network_filter.as_ref().err())
+                    // }
                     network_filter
                         .map(|f| Either::Left(f))
                         .or_else(|_| Err(FilterError::ParseError))
                 } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
                     // TODO: unimplemented, just return rule as a string
+                    println!("Ignoring cosmetic rule {}", filter);
                     Ok(Either::Right(String::from(filter)))
                 } else {
                     Err(FilterError::NotSupported)

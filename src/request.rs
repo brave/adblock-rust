@@ -203,7 +203,8 @@ impl<'a> Request {
 
 
     pub fn from_urls(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
-        let url_parsed: Url = url.parse()?;
+        let url_norm = url.to_lowercase();
+        let url_parsed: Url = url_norm.parse()?;
         // TODO: what is the correct behaviour for handling trailing '/'?
         let url_norm = url_parsed.as_str(); // Get URL back from the library to include consistent punycode handling
         let maybe_hostname = url_parsed.host_str().map(String::from);

@@ -147,6 +147,8 @@ impl Blocker {
 }
 
 struct NetworkFilterList {
+    // A faster structure is possible, but tests didn't indicate much of a difference
+    // for different HashMap implementations bulk of the cost in matching
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
@@ -569,19 +571,35 @@ mod parse_tests {
         ];
 
         let url_results = vec![
-            (Request::from_url("https://firstrowsports.li/frame/bar").unwrap(), true),
-            (Request::from_url("https://secondrowsports.li/frame/bar").unwrap(), false),
-            (Request::from_url("https://fırstrowsports.eu/pu/foo").unwrap(), true),
-            (Request::from_url("https://xn--frstrowsports-39b.eu/pu/foo").unwrap(), true),
-            (Request::from_url("https://atđhe.net/pu/foo").unwrap(), true),
-            (Request::from_url("https://xn--athe-1ua.net/pu/foo").unwrap(), true),
+            (
+                Request::from_url("https://firstrowsports.li/frame/bar").unwrap(),
+                true,
+            ),
+            (
+                Request::from_url("https://secondrowsports.li/frame/bar").unwrap(),
+                false,
+            ),
+            (
+                Request::from_url("https://fırstrowsports.eu/pu/foo").unwrap(),
+                true,
+            ),
+            (
+                Request::from_url("https://xn--frstrowsports-39b.eu/pu/foo").unwrap(),
+                true,
+            ),
+            (
+                Request::from_url("https://atđhe.net/pu/foo").unwrap(),
+                true,
+            ),
+            (
+                Request::from_url("https://xn--athe-1ua.net/pu/foo").unwrap(),
+                true,
+            ),
         ];
 
         let request_expectations: Vec<_> = url_results
             .into_iter()
-            .map(|(request, expected_result)| {
-                (request, expected_result)
-            })
+            .map(|(request, expected_result)| (request, expected_result))
             .collect();
 
         test_requests_filters(&filters, &request_expectations);
@@ -596,15 +614,24 @@ mod parse_tests {
         ];
 
         let url_results = vec![
-            (Request::from_urls("https://bit.ly/bar", "http://123movies.com", "").unwrap(), true),
-            (Request::from_urls("https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer", "http://123movies.com", "xmlhttprequest").unwrap(), true)
+            (
+                Request::from_urls("https://bit.ly/bar", "http://123movies.com", "").unwrap(),
+                true,
+            ),
+            (
+                Request::from_urls(
+                    "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer",
+                    "http://123movies.com",
+                    "xmlhttprequest",
+                )
+                .unwrap(),
+                true,
+            ),
         ];
 
         let request_expectations: Vec<_> = url_results
             .into_iter()
-            .map(|(request, expected_result)| {
-                (request, expected_result)
-            })
+            .map(|(request, expected_result)| (request, expected_result))
             .collect();
 
         test_requests_filters(&filters, &request_expectations);

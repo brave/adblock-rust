@@ -1,7 +1,7 @@
 use idna;
 use regex::Regex;
-use std::fmt;
 use std::cell::RefCell;
+use std::fmt;
 
 use crate::request;
 use crate::utils;
@@ -20,7 +20,7 @@ pub enum FilterError {
     UnrecognisedOption,
     NoRegex,
     RegexParsingError(regex::Error),
-    PunycodeError
+    PunycodeError,
 }
 
 bitflags! {
@@ -120,11 +120,13 @@ pub struct NetworkFilter {
     // Lazy attributes
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
-    
+
     regex: RefCell<Option<Regex>>, // compiled lazily
 
-    #[cfg(feature="full-domain-matching")] pub opt_domains_full: Option<Vec<String>>,
-    #[cfg(feature="full-domain-matching")] pub opt_not_domains_full: Option<Vec<String>>
+    #[cfg(feature = "full-domain-matching")]
+    pub opt_domains_full: Option<Vec<String>>,
+    #[cfg(feature = "full-domain-matching")]
+    pub opt_not_domains_full: Option<Vec<String>>,
 }
 
 impl NetworkFilter {
@@ -145,8 +147,10 @@ impl NetworkFilter {
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
 
-        #[cfg(feature="full-domain-matching")] let mut opt_domains_full: Option<Vec<String>> = None;
-        #[cfg(feature="full-domain-matching")] let mut opt_not_domains_full: Option<Vec<String>> = None;
+        #[cfg(feature = "full-domain-matching")]
+        let mut opt_domains_full: Option<Vec<String>> = None;
+        #[cfg(feature = "full-domain-matching")]
+        let mut opt_not_domains_full: Option<Vec<String>> = None;
 
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
@@ -211,14 +215,15 @@ impl NetworkFilter {
                             }
                         }
 
-                        #[cfg(feature="full-domain-matching")]
+                        #[cfg(feature = "full-domain-matching")]
                         {
                             let mut opt_domains_full_array: Vec<String> = vec![];
                             let mut opt_not_domains_full_array: Vec<String> = vec![];
                             let mut valuesiter = option_values.iter();
                             while let Some(option_value) = valuesiter.next() {
                                 if utils::fast_starts_with(option_value, "~") {
-                                    opt_not_domains_full_array.push(String::from(&option_value[1..]));
+                                    opt_not_domains_full_array
+                                        .push(String::from(&option_value[1..]));
                                 } else {
                                     opt_domains_full_array.push(String::from(&option_value[0..]));
                                 }
@@ -472,14 +477,14 @@ impl NetworkFilter {
             if lowercase.is_ascii() {
                 hostname.push_str(&lowercase);
             } else {
-                let decode_flags = idna::uts46::Flags { 
+                let decode_flags = idna::uts46::Flags {
                     use_std3_ascii_rules: true,
                     transitional_processing: true,
-                    verify_dns_length: true
+                    verify_dns_length: true,
                 };
                 match idna::uts46::to_ascii(&lowercase, decode_flags) {
                     Ok(x) => hostname.push_str(&x),
-                    Err(_) => return Err(FilterError::PunycodeError)
+                    Err(_) => return Err(FilterError::PunycodeError),
                 }
             }
             Ok(hostname)
@@ -490,6 +495,7 @@ impl NetworkFilter {
         } else {
             None
         };
+        
 
         Ok(NetworkFilter {
             bug: bug,
@@ -509,8 +515,10 @@ impl NetworkFilter {
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
             regex: RefCell::default(),
-            #[cfg(feature="full-domain-matching")] opt_domains_full,
-            #[cfg(feature="full-domain-matching")] opt_not_domains_full,
+            #[cfg(feature = "full-domain-matching")]
+            opt_domains_full,
+            #[cfg(feature = "full-domain-matching")]
+            opt_not_domains_full,
         })
     }
 
@@ -522,7 +530,7 @@ impl NetworkFilter {
         if self.debug {
             match self.raw_line.as_ref() {
                 Some(r) => r.clone(),
-                None => String::from("")
+                None => String::from(""),
             }
         } else {
             // TODO
@@ -556,18 +564,20 @@ impl NetworkFilter {
 
             let maybe_regex = if self.mask.contains(NetworkFilterMask::IS_REGEX) {
                 let filter_regex = self.filter.as_ref().map(|f| {
-                    compile_regex(f,
+                    compile_regex(
+                        f,
                         self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
-                        self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR))
+                        self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR),
+                    )
                 });
                 match filter_regex {
                     None => None,
                     Some(Ok(regex)) => Some(regex),
                     Some(Err(err)) => {
-                        // if debug {
-                        //     println!("Errored when parsing regex {}: {}", filter.as_ref().unwrap(), err);
-                        // }
-                        return Err(FilterError::RegexParsingError(err))
+                        if self.debug {
+                            println!("Errored when parsing regex {:?}: {}", self.filter, err);
+                        }
+                        return Err(FilterError::RegexParsingError(err));
                     }
                 }
             } else {
@@ -829,7 +839,11 @@ fn compute_filter_id(
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
  * we try to convert some patterns to plain filters.
  */
-fn compile_regex(filter_str: &str, is_right_anchor: bool, is_left_anchor: bool) -> Result<Regex, regex::Error> {
+fn compile_regex(
+    filter_str: &str,
+    is_right_anchor: bool,
+    is_left_anchor: bool,
+) -> Result<Regex, regex::Error> {
     lazy_static! {
       // Escape special regex characters: |.$+?{}()[]\
       static ref SPECIAL_RE: Regex = Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap();
@@ -945,25 +959,27 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 
 // pattern$fuzzy
 fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    filter.fuzzy_signature.as_ref().map(|signature| {
-        let request_signature = request.get_fuzzy_signature();
+    filter
+        .fuzzy_signature
+        .as_ref()
+        .map(|signature| {
+            let request_signature = request.get_fuzzy_signature();
 
-        if signature.len() > request_signature.len() {
-            return false;
-        }
-
-        for filter_token in signature {
-            // Find the occurrence of `c` in `request_signature`
-            // Can assume fuzzy signatures are sorted
-            if !request_signature.binary_search(filter_token).is_ok() {
+            if signature.len() > request_signature.len() {
                 return false;
             }
-        }
 
-        true
-    })
-    .unwrap_or(true) // corner case of rulle having fuzzy option but no filter
-    
+            for filter_token in signature {
+                // Find the occurrence of `c` in `request_signature`
+                // Can assume fuzzy signatures are sorted
+                if !request_signature.binary_search(filter_token).is_ok() {
+                    return false;
+                }
+            }
+
+            true
+        })
+        .unwrap_or(true) // corner case of rulle having fuzzy option but no filter
 }
 
 // pattern
@@ -1001,16 +1017,24 @@ fn check_pattern_left_right_anchor_filter(
     filter
         .filter
         .as_ref()
-        .map(|f| {
-            &request.url == f
-        })
+        .map(|f| &request.url == f)
         .unwrap_or(true)
 }
 
 // pattern*^
-fn check_pattern_regex_filter_at(filter: &NetworkFilter, request: &request::Request, start_from: usize) -> bool {
-    filter.get_regex().as_ref().map(|r| r.is_match(&request.url[start_from..]))
-        .unwrap_or(true)
+fn check_pattern_regex_filter_at(
+    filter: &NetworkFilter,
+    request: &request::Request,
+    start_from: usize,
+) -> bool {
+    filter
+        .get_regex()
+        .as_ref()
+        .map(|r| r.is_match(&request.url[start_from..]))
+        .unwrap_or_else(|e| {
+            println!("Regex parsing failed ({:?}), falling back to true", e);
+            true
+        })
 }
 fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     check_pattern_regex_filter_at(filter, request, 0)
@@ -1026,7 +1050,11 @@ fn check_pattern_hostname_anchor_regex_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname) {
-                check_pattern_regex_filter_at(filter, request, request.url.find(hostname).unwrap_or_default() + hostname.len())
+                check_pattern_regex_filter_at(
+                    filter,
+                    request,
+                    request.url.find(hostname).unwrap_or_default() + hostname.len(),
+                )
             } else {
                 false
             }
@@ -1859,10 +1887,7 @@ mod parse_tests {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com|baz.com", true).unwrap();
             let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
             domains.sort_unstable();
-            assert_eq!(
-                filter.opt_domains,
-                Some(domains)
-            );
+            assert_eq!(filter.opt_domains, Some(domains));
             assert_eq!(filter.opt_not_domains, None);
         }
 
@@ -1901,7 +1926,7 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=foo|~bar|baz", true).unwrap();
-            let mut domains =vec![utils::fast_hash("foo"), utils::fast_hash("baz")];
+            let mut domains = vec![utils::fast_hash("foo"), utils::fast_hash("baz")];
             domains.sort();
             assert_eq!(filter.opt_domains, Some(domains));
             assert_eq!(filter.opt_not_domains, Some(vec![utils::fast_hash("bar")]));
@@ -2348,9 +2373,14 @@ mod match_tests {
     fn filter_match_url(filter: &str, url: &str, matching: bool) {
         let network_filter = NetworkFilter::parse(filter, true).unwrap();
         let request = request::Request::from_url(url).unwrap();
-        
-        assert!(network_filter.matches(&request) == matching,
-            "Expected match={} for {} on {}", matching, filter, url);
+
+        assert!(
+            network_filter.matches(&request) == matching,
+            "Expected match={} for {} on {}",
+            matching,
+            filter,
+            url
+        );
     }
 
     #[test]
@@ -2590,11 +2620,23 @@ mod match_tests {
     }
 
     #[test]
-    fn check_unicode_handled() {        
-        filter_match_url("||firstrowsports.li/frame/", "https://firstrowsports.li/frame/bar", true);
-        filter_match_url("||fırstrowsports.eu/pu/", "https://fırstrowsports.eu/pu/foo", true);
-        filter_match_url("||fırstrowsports.eu/pu/", "https://xn--frstrowsports-39b.eu/pu/foo", true);
-        
+    fn check_unicode_handled() {
+        filter_match_url(
+            "||firstrowsports.li/frame/",
+            "https://firstrowsports.li/frame/bar",
+            true,
+        );
+        filter_match_url(
+            "||fırstrowsports.eu/pu/",
+            "https://fırstrowsports.eu/pu/foo",
+            true,
+        );
+        filter_match_url(
+            "||fırstrowsports.eu/pu/",
+            "https://xn--frstrowsports-39b.eu/pu/foo",
+            true,
+        );
+
         filter_match_url("||atđhe.net/pu/", "https://atđhe.net/pu/foo", true);
         filter_match_url("||atđhe.net/pu/", "https://xn--athe-1ua.net/pu/foo", true);
     }
@@ -2605,13 +2647,17 @@ mod match_tests {
         // A rules that are not correctly escaped for rust Regex
         {
             // regex escaping "\/" unrecognised
-            let filter = r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to|1movies.is|activistpost.com|ancient-origins.net|couchtuner.onl|couchtuner.rocks|daclips.in|datpiff.com|dwatchseries.to|estream.nu|estream.to|estream.xyz|eztv.ag|eztv.io|eztv.tf|eztv.yt|fmovies.se|fmovies.taxi|fmovies.to|fmovies.today|fmovies.world|fullmatchesandshows.com|gomovies.sc|gorillavid.in|hdmoza.com|hdonline.is|healthline.com|kickass2.ch|kickass2.st|kimcartoon.to|limetorrents.info|megaup.net|monova.org|monova.to|movies.is|movies123.xyz|moviescouch.co|moviewatcher.is|newser.com|nowvideo.sx|nowwatchtvlive.ws|onhax.me|pirateiro.com|seedpeer.me|skidrowcrack.com|solarmovie.one|solarmoviez.ru|swatchseries.to|thegatewaypundit.com|thewatchseries.ac|tinypic.com|torlock.com|torrentdownload.ch|torrentdownloads.me|torrentfunk.com|torrentfunk2.com|torrentz2.eu|unblckd.org|unblocked.app|unblocked.lol|unblocked.si|watchcartoononline.io|watchseries.sk|watchsomuch.info|yesmovies.to|yify-movies.net|yify.bz|yifyddl.com|yifytorrent.co|ymovies.tv|yourbittorrent2.com|yts.am"#;
+            let filter = r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to"#;
             let network_filter = NetworkFilter::parse(filter, true).unwrap();
-            let url = "https://bit.ly/bar";
+            let url = "https://bit.ly/bar/";
             let source = "http://123movies.com";
             let request = request::Request::from_urls(url, source, "").unwrap();
-            assert!(network_filter.matches(&request) == true,
-            "Expected match for {} on {}", filter, url);
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
         }
         {
             // regex escaping "\:" unrecognised
@@ -2620,8 +2666,12 @@ mod match_tests {
             let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
             let source = "http://123movies.com";
             let request = request::Request::from_urls(url, source, "xmlhttprequest").unwrap();
-            assert!(network_filter.matches(&request) == true,
-            "Expected match for {} on {}", filter, url);
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
         }
     }
 
