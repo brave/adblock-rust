@@ -24,7 +24,7 @@ pub enum FilterError {
 }
 
 bitflags! {
-    struct NetworkFilterMask: u32 {
+    pub struct NetworkFilterMask: u32 {
         const FROM_IMAGE = 1 << 0;
         const FROM_MEDIA = 1 << 1;
         const FROM_OBJECT = 1 << 2;
@@ -51,9 +51,10 @@ bitflags! {
         const IS_HOSTNAME_ANCHOR = 1 << 21;
         const IS_EXCEPTION = 1 << 22;
         const IS_CSP = 1 << 23;
+        const IS_COMPLETE_REGEX = 1 << 24;
 
         // "Other" network request types
-        const UNMATCHED = 1 << 24;
+        const UNMATCHED = 1 << 25;
 
         const FROM_ANY = Self::FROM_FONT.bits |
             Self::FROM_IMAGE.bits |
@@ -70,6 +71,13 @@ bitflags! {
         // Careful with checking for NONE - will always match
         const NONE = 0;
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum CompiledRegex {
+    Compiled(Regex),
+    MatchAll,
+    RegexParsingError(regex::Error)
 }
 
 impl fmt::Display for NetworkFilterMask {
@@ -103,8 +111,9 @@ impl From<&request::RequestType> for NetworkFilterMask {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NetworkFilter {
-    mask: NetworkFilterMask,
+    pub mask: NetworkFilterMask,
     pub filter: Option<String>,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
@@ -354,6 +363,10 @@ impl NetworkFilter {
         let is_regex = check_is_regex(&line[filter_index_start..filter_index_end]);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
+        if is_regex && line[filter_index_start..filter_index_end].starts_with('/') && line[filter_index_start..filter_index_end].ends_with('/') {
+            mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+        }
+
         if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
             if is_regex {
                 // Split at the first '/', '*' or '^' character to get the hostname
@@ -569,8 +582,9 @@ impl NetworkFilter {
             let filter = self.filter.as_ref();
             let regex = compile_regex(
                 filter,
-                self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
-                self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR),
+                self.is_right_anchor(),
+                self.is_left_anchor(),
+                self.is_complete_regex()
             );
 
             *cache = Some(regex);
@@ -609,12 +623,16 @@ impl NetworkFilter {
 
         // Get tokens from filter
         self.filter.as_ref().map(|filter| {
-            let skip_last_token = self.is_plain() && !self.is_right_anchor() && !self.is_fuzzy();
-            let skip_first_token = self.is_right_anchor();
-            let mut filter_tokens =
-                utils::tokenize_filter(filter, skip_first_token, skip_last_token);
+            // When the entire filter is a regex, don't try to tokenize it
+            if !self.is_complete_regex() {
+                let skip_last_token = self.is_plain() && !self.is_right_anchor() && !self.is_fuzzy();
+                let skip_first_token = self.is_right_anchor();
 
-            tokens.append(&mut filter_tokens);
+                let mut filter_tokens =
+                    utils::tokenize_filter(filter, skip_first_token, skip_last_token);
+
+                tokens.append(&mut filter_tokens);
+            }
         });
 
         // Append tokens from hostname, if any
@@ -668,11 +686,11 @@ impl NetworkFilter {
         self.mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
     }
     #[inline]
-    fn is_right_anchor(&self) -> bool {
+    pub fn is_right_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
     }
     #[inline]
-    fn is_left_anchor(&self) -> bool {
+    pub fn is_left_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR)
     }
     #[inline]
@@ -688,8 +706,12 @@ impl NetworkFilter {
         self.redirect.is_some()
     }
     #[inline]
-    fn is_regex(&self) -> bool {
+    pub fn is_regex(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_REGEX)
+    }
+    #[inline]
+    pub fn is_complete_regex(&self) -> bool {
+        self.is_regex() && self.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
     }
     #[inline]
     fn is_plain(&self) -> bool {
@@ -823,13 +845,6 @@ fn compute_filter_id(
     hash
 }
 
-#[derive(Debug, Clone)]
-pub enum CompiledRegex {
-    Compiled(Regex),
-    MatchAll,
-    RegexParsingError(regex::Error)
-}
-
 /**
  * Compiles a filter pattern to a regex. This is only performed *lazily* for
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
@@ -839,6 +854,7 @@ fn compile_regex(
     filter: Option<&String>,
     is_right_anchor: bool,
     is_left_anchor: bool,
+    is_complete_regex: bool
 ) -> CompiledRegex {
     lazy_static! {
       // Escape special regex characters: |.$+?{}()[]\
@@ -859,21 +875,35 @@ fn compile_regex(
         return CompiledRegex::MatchAll;
     }
 
-    let repl_special = SPECIAL_RE.replace_all(&filter_str, "\\$1");
-    let repl_wildcard = WILDCARD_RE.replace_all(&repl_special, ".*");
-    let repl_anchor = ANCHOR_RE.replace_all(&repl_wildcard, "(?:[^\\w\\d_.%-]|$)");
+    if is_complete_regex {
+        // unescape unrecognised escaping sequences, otherwise a normal regex
+        let unescaped = filter_str[1..filter_str.len()-1].replace("\\/", "/").replace("\\:", ":");
+
+        let compiled = match Regex::new(&unescaped) {
+            Ok(compiled) => CompiledRegex::Compiled(compiled),
+            Err(e) => {
+                println!("Full Regex parsing from {:?} failed ({:?})", filter, e);
+                CompiledRegex::RegexParsingError(e)
+            }
+        };
+        return compiled;
+    }
+
+    let repl = SPECIAL_RE.replace_all(&filter_str, "\\$1");
+    let repl = WILDCARD_RE.replace_all(&repl, ".*");
+    let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d_.%-]|$)");
 
     // Should match start or end of url
     let left_anchor = if is_left_anchor { "^" } else { "" };
     let right_anchor = if is_right_anchor { "$" } else { "" };
-    let filter = format!("{}{}{}", left_anchor, repl_anchor, right_anchor);
+    let filter = format!("{}{}{}", left_anchor, repl, right_anchor);
 
-    // FIXME: escape sequences are different, frequently errors on "unrecognised escape sequence", e.g.:
-    // /^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/ ("\/" unrecognised)
-    // /\:\/\/data\..*\\.com\/\[a-za-z0-9\]\{30,\}/ ("\:" unrecognised)
     match Regex::new(&filter) {
         Ok(compiled) => CompiledRegex::Compiled(compiled),
-        Err(e) => CompiledRegex::RegexParsingError(e)
+        Err(e) => {
+            println!("Regex parsing failed ({:?})", e);
+            CompiledRegex::RegexParsingError(e)
+        }
     }
 }
 
@@ -1038,14 +1068,12 @@ fn check_pattern_regex_filter_at(
     let regex = filter.get_regex();
 
     match regex {
-        CompiledRegex::MatchAll => true,            // simple case for matching everything, e.g. for empty filter
-        CompiledRegex::RegexParsingError(e) => {
-            // println!("Regex parsing failed ({:?})", e);
-            false  // no match if regex didn't even compile
-        }
+        CompiledRegex::MatchAll => true,                // simple case for matching everything, e.g. for empty filter
+        CompiledRegex::RegexParsingError(_e) => false,  // no match if regex didn't even compile
         CompiledRegex::Compiled(r) => r.is_match(&request.url[start_from..])
     }
 }
+
 fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     check_pattern_regex_filter_at(filter, request, 0)
 }
@@ -2652,7 +2680,6 @@ mod match_tests {
     }
 
     #[test]
-    #[ignore]
     fn check_regex_escaping_handled() {
         // A rules that are not correctly escaped for rust Regex
         {
@@ -2661,7 +2688,7 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true).unwrap();
             let url = "https://bit.ly/bar/";
             let source = "http://123movies.com";
-            let request = request::Request::from_urls(url, source, "").unwrap();
+            let request = request::Request::from_urls("https://bit.ly/bar/", "http://123movies.com", "").unwrap();
             assert!(
                 network_filter.matches(&request) == true,
                 "Expected match for {} on {}",

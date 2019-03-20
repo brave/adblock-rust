@@ -606,16 +606,15 @@ mod parse_tests {
     }
 
     #[test]
-    #[ignore]
     fn network_filter_list_check_works_regex_escaping() {
         let filters = vec![
-            r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to|1movies.is|activistpost.com|ancient-origins.net|couchtuner.onl|couchtuner.rocks|daclips.in|datpiff.com|dwatchseries.to|estream.nu|estream.to|estream.xyz|eztv.ag|eztv.io|eztv.tf|eztv.yt|fmovies.se|fmovies.taxi|fmovies.to|fmovies.today|fmovies.world|fullmatchesandshows.com|gomovies.sc|gorillavid.in|hdmoza.com|hdonline.is|healthline.com|kickass2.ch|kickass2.st|kimcartoon.to|limetorrents.info|megaup.net|monova.org|monova.to|movies.is|movies123.xyz|moviescouch.co|moviewatcher.is|newser.com|nowvideo.sx|nowwatchtvlive.ws|onhax.me|pirateiro.com|seedpeer.me|skidrowcrack.com|solarmovie.one|solarmoviez.ru|swatchseries.to|thegatewaypundit.com|thewatchseries.ac|tinypic.com|torlock.com|torrentdownload.ch|torrentdownloads.me|torrentfunk.com|torrentfunk2.com|torrentz2.eu|unblckd.org|unblocked.app|unblocked.lol|unblocked.si|watchcartoononline.io|watchseries.sk|watchsomuch.info|yesmovies.to|yify-movies.net|yify.bz|yifyddl.com|yifytorrent.co|ymovies.tv|yourbittorrent2.com|yts.am"#,
+            r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to"#,
             r#"/\:\/\/data.*\.com\/[a-zA-Z0-9]{30,}/$third-party,xmlhttprequest"#
         ];
 
         let url_results = vec![
             (
-                Request::from_urls("https://bit.ly/bar", "http://123movies.com", "").unwrap(),
+                Request::from_urls("https://bit.ly/bar/", "http://123movies.com", "").unwrap(),
                 true,
             ),
             (

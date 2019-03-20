@@ -14,7 +14,6 @@ use adblock::request::Request;
 fn default_lists() -> Vec<String> {
   rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
   ])
 }
 
@@ -120,7 +119,7 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
   
   let rules = rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
+    // "data/easylist.to/easylist/easyprivacy.txt"
   ]);
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();

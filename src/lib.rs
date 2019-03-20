@@ -7,6 +7,10 @@ extern crate lazy_static;
 #[macro_use]
 extern crate bitflags;
 
+#[macro_use]
+#[cfg(test)]
+extern crate matches;
+
 extern crate regex;
 extern crate punycode;
 extern crate rayon;
@@ -18,3 +22,5 @@ pub mod request;
 pub mod lists;
 pub mod filters;
 pub mod blocker;
+
+pub mod optimizer;
