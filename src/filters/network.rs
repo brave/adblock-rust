@@ -121,7 +121,7 @@ pub struct NetworkFilter {
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
-    regex: RefCell<Option<Regex>>, // compiled lazily
+    regex: RefCell<Option<CompiledRegex>>, // compiled lazily
 
     #[cfg(feature = "full-domain-matching")]
     pub opt_domains_full: Option<Vec<String>>,
@@ -538,6 +538,10 @@ impl NetworkFilter {
         }
     }
 
+    pub fn get_mask(&self) -> String {
+        self.mask.to_string()
+    }
+
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
             self.csp.as_ref().map(String::as_str),
@@ -550,41 +554,26 @@ impl NetworkFilter {
     }
 
     // Lazily get the regex if the filter has one
-    pub fn get_regex(&self) -> Result<Regex, FilterError> {
+    pub fn get_regex(&self) -> CompiledRegex {
         if !self.is_regex() {
-            return Err(FilterError::NoRegex);
+            return CompiledRegex::MatchAll;
         }
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
             let mut cache = self.regex.borrow_mut();
             if cache.is_some() {
-                return Ok(cache.as_ref().unwrap().clone());
+                return cache.as_ref().unwrap().clone();
             }
 
-            let maybe_regex = if self.mask.contains(NetworkFilterMask::IS_REGEX) {
-                let filter_regex = self.filter.as_ref().map(|f| {
-                    compile_regex(
-                        f,
-                        self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
-                        self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR),
-                    )
-                });
-                match filter_regex {
-                    None => None,
-                    Some(Ok(regex)) => Some(regex),
-                    Some(Err(err)) => {
-                        if self.debug {
-                            println!("Errored when parsing regex {:?}: {}", self.filter, err);
-                        }
-                        return Err(FilterError::RegexParsingError(err));
-                    }
-                }
-            } else {
-                None
-            };
+            let filter = self.filter.as_ref();
+            let regex = compile_regex(
+                filter,
+                self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR),
+                self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR),
+            );
 
-            *cache = maybe_regex;
+            *cache = Some(regex);
         }
         // Recursive call to return the just-cached value.
         // Note that if we had not let the previous borrow
@@ -667,7 +656,7 @@ impl NetworkFilter {
         self.mask & NetworkFilterMask::FROM_ANY
     }
     #[inline]
-    fn is_fuzzy(&self) -> bool {
+    pub fn is_fuzzy(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FUZZY_MATCH)
     }
     #[inline]
@@ -675,7 +664,7 @@ impl NetworkFilter {
         self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
     }
     #[inline]
-    fn is_hostname_anchor(&self) -> bool {
+    pub fn is_hostname_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
     }
     #[inline]
@@ -834,16 +823,23 @@ fn compute_filter_id(
     hash
 }
 
+#[derive(Debug, Clone)]
+pub enum CompiledRegex {
+    Compiled(Regex),
+    MatchAll,
+    RegexParsingError(regex::Error)
+}
+
 /**
  * Compiles a filter pattern to a regex. This is only performed *lazily* for
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
  * we try to convert some patterns to plain filters.
  */
 fn compile_regex(
-    filter_str: &str,
+    filter: Option<&String>,
     is_right_anchor: bool,
     is_left_anchor: bool,
-) -> Result<Regex, regex::Error> {
+) -> CompiledRegex {
     lazy_static! {
       // Escape special regex characters: |.$+?{}()[]\
       static ref SPECIAL_RE: Regex = Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap();
@@ -851,6 +847,16 @@ fn compile_regex(
       static ref WILDCARD_RE: Regex = Regex::new(r"\*").unwrap();
       // ^ can match any separator or the end of the pattern
       static ref ANCHOR_RE: Regex = Regex::new(r"\^").unwrap();
+    }
+
+    if filter.is_none() {
+        return CompiledRegex::MatchAll;
+    }
+
+    let filter_str = filter.unwrap();
+
+    if filter_str.is_empty() {
+        return CompiledRegex::MatchAll;
     }
 
     let repl_special = SPECIAL_RE.replace_all(&filter_str, "\\$1");
@@ -865,8 +871,10 @@ fn compile_regex(
     // FIXME: escape sequences are different, frequently errors on "unrecognised escape sequence", e.g.:
     // /^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/ ("\/" unrecognised)
     // /\:\/\/data\..*\\.com\/\[a-za-z0-9\]\{30,\}/ ("\:" unrecognised)
-    let regex = Regex::new(&filter)?;
-    Ok(regex)
+    match Regex::new(&filter) {
+        Ok(compiled) => CompiledRegex::Compiled(compiled),
+        Err(e) => CompiledRegex::RegexParsingError(e)
+    }
 }
 
 /**
@@ -1027,14 +1035,16 @@ fn check_pattern_regex_filter_at(
     request: &request::Request,
     start_from: usize,
 ) -> bool {
-    filter
-        .get_regex()
-        .as_ref()
-        .map(|r| r.is_match(&request.url[start_from..]))
-        .unwrap_or_else(|e| {
-            println!("Regex parsing failed ({:?}), falling back to true", e);
-            true
-        })
+    let regex = filter.get_regex();
+
+    match regex {
+        CompiledRegex::MatchAll => true,            // simple case for matching everything, e.g. for empty filter
+        CompiledRegex::RegexParsingError(e) => {
+            // println!("Regex parsing failed ({:?})", e);
+            false  // no match if regex didn't even compile
+        }
+        CompiledRegex::Compiled(r) => r.is_match(&request.url[start_from..])
+    }
 }
 fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     check_pattern_regex_filter_at(filter, request, 0)
