@@ -1,7 +1,9 @@
 use crate::filters::network::CompiledRegex;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask};
+use crate::request::Request;
 use itertools::*;
 use std::collections::HashMap;
+use regex::Regex;
 
 trait Optimization {
     fn fusion(&self, filters: &Vec<NetworkFilter>) -> NetworkFilter;
@@ -14,9 +16,12 @@ trait Optimization {
  */
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let simple_pattern_group = SimplePatternGroup {};
+    let filters_len = filters.len();
     let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
 
     fused.append(&mut unfused);
+
+    // println!("Optimized {} filters to {}", filters_len, fused.len());
 
     fused
 }
@@ -79,12 +84,11 @@ impl SimplePatternGroup {
     }
 
     fn escape(s: &String) -> String {
-        // lazy_static! {
-        //     static ref ESCAPE_REF: Regex = Regex::new(r"[-/\\\^\$\*\+\?\.\(\)\|\[\]\{\}]").unwrap();
-        // }
-        // let repl_special = ESCAPE_REF.replace_all(&s, "\\$1");
-
-        return format!("(?:{})", s);
+        lazy_static! {
+            static ref ESCAPE_REF: Regex = Regex::new(r"([\+\?])").unwrap();
+        }
+        let repl_special = ESCAPE_REF.replace_all(&s, "\\$1");
+        return format!("(?:{})", repl_special);
     }
 }
 
@@ -101,14 +105,14 @@ impl Optimization for SimplePatternGroup {
                     f.filter
                         .as_ref()
                         .map(|f| {
-                            FusedPattern::Pattern(format!("{{{}}}$", SimplePatternGroup::escape(f)))
+                            FusedPattern::Pattern(format!("{}$", SimplePatternGroup::escape(f)))
                         })
                         .unwrap_or_else(|| FusedPattern::MatchAll)
                 } else if f.is_left_anchor() {
                     f.filter
                         .as_ref()
                         .map(|f| {
-                            FusedPattern::Pattern(format!("^{{{}}}", SimplePatternGroup::escape(f)))
+                            FusedPattern::Pattern(format!("^{}", SimplePatternGroup::escape(f)))
                         })
                         .unwrap_or_else(|| FusedPattern::MatchAll)
                 } else {
@@ -251,11 +255,16 @@ mod parse_tests {
             "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
         );
 
+        assert!(filter.matches(&Request::from_urls("https://example.com/v1/pixel", "https://my.leadpages.net", "").unwrap()));
+
         assert_eq!(skipped.len(), 1);
         let filter = skipped.get(0).unwrap();
         assert_eq!(
             filter.to_string(),
             "/analytics/v1/*$domain=~my.leadpages.net"
         );
+
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics/v1/foobar", "https://foo.leadpages.net", "").unwrap()))
     }
+
 }

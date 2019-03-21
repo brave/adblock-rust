@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::filters::network::NetworkFilter;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
+use crate::optimizer;
 
 pub struct BlockerOptions {
     pub debug: bool,
@@ -132,11 +133,11 @@ impl Blocker {
         filters.shrink_to_fit();
 
         Blocker {
-            csp: NetworkFilterList::new(csp),
-            exceptions: NetworkFilterList::new(exceptions),
-            importants: NetworkFilterList::new(importants),
-            redirects: NetworkFilterList::new(redirects),
-            filters: NetworkFilterList::new(filters),
+            csp: NetworkFilterList::new(csp, options.enable_optimizations),
+            exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
+            importants: NetworkFilterList::new(importants, options.enable_optimizations),
+            redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
+            filters: NetworkFilterList::new(filters, options.enable_optimizations),
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
@@ -153,7 +154,7 @@ struct NetworkFilterList {
 }
 
 impl NetworkFilterList {
-    pub fn new(filters: Vec<NetworkFilter>) -> NetworkFilterList {
+    pub fn new(filters: Vec<NetworkFilter>, enable_optimizations: bool) -> NetworkFilterList {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -166,8 +167,7 @@ impl NetworkFilterList {
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
-        let mut filter_map =
-            <HashMap<Hash, Vec<Arc<NetworkFilter>>>>::with_capacity(filter_tokens.len());
+        let mut filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_tokens.len());
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -191,10 +191,39 @@ impl NetworkFilterList {
             }
         }
 
-        // won't mutate anymore, shrink to fit items
-        filter_map.shrink_to_fit();
+        // Update all values
+        if enable_optimizations {
+            let mut optimized_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_map.len());
+            for (key, filters) in filter_map {
+                let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
+                let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
+                for f in filters {
+                    match Arc::try_unwrap(f) {
+                        Ok(f) => unoptimized.push(f),
+                        Err(af) => unoptimizable.push(af)
+                    }
+                }
 
-        NetworkFilterList { filter_map }
+                let mut optimized: Vec<_>;
+                if unoptimized.len() > 1 {
+                    optimized = optimizer::optimize(unoptimized).into_iter().map(|f| Arc::new(f)).collect();
+                } else {
+                    // nothing to optimize
+                    optimized = unoptimized.into_iter().map(|f| Arc::new(f)).collect();
+                }
+                
+                optimized.append(&mut unoptimizable);
+                optimized_map.insert(key, optimized);
+            }
+
+            // won't mutate anymore, shrink to fit items
+            optimized_map.shrink_to_fit();
+
+            NetworkFilterList { filter_map: optimized_map }
+        } else {
+            filter_map.shrink_to_fit();
+            NetworkFilterList { filter_map: filter_map }
+        }
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
@@ -342,7 +371,7 @@ mod parse_tests {
                 .map(|f| NetworkFilter::parse(&f, true))
                 .filter_map(Result::ok)
                 .collect();
-            let filter_list = NetworkFilterList::new(network_filters);
+            let filter_list = NetworkFilterList::new(network_filters, false);
             let maybe_matching_filter = filter_list.filter_map.get(&fast_hash("foo"));
             assert!(maybe_matching_filter.is_some(), "Expected filter not found");
         }
@@ -354,7 +383,7 @@ mod parse_tests {
                 .map(|f| NetworkFilter::parse(&f, true))
                 .filter_map(Result::ok)
                 .collect();
-            let filter_list = NetworkFilterList::new(network_filters);
+            let filter_list = NetworkFilterList::new(network_filters, false);
             assert_eq!(
                 filter_list.filter_map.get(&fast_hash("bar")).unwrap().len(),
                 1
@@ -372,7 +401,7 @@ mod parse_tests {
                 .map(|f| NetworkFilter::parse(&f, true))
                 .filter_map(Result::ok)
                 .collect();
-            let filter_list = NetworkFilterList::new(network_filters);
+            let filter_list = NetworkFilterList::new(network_filters, false);
             assert!(
                 filter_list.filter_map.get(&fast_hash("www")).is_some(),
                 "Filter matching {} not found",
@@ -391,7 +420,7 @@ mod parse_tests {
                 .map(|f| NetworkFilter::parse(&f, true))
                 .filter_map(Result::ok)
                 .collect();
-            let filter_list = NetworkFilterList::new(network_filters);
+            let filter_list = NetworkFilterList::new(network_filters, false);
             assert!(
                 filter_list.filter_map.get(&fast_hash("bar.com")).is_some(),
                 "Filter matching {} not found",
@@ -414,7 +443,7 @@ mod parse_tests {
                 .map(|f| NetworkFilter::parse(&f, true))
                 .filter_map(Result::ok)
                 .collect();
-            let filter_list = NetworkFilterList::new(network_filters);
+            let filter_list = NetworkFilterList::new(network_filters, false);
             assert_eq!(filter_list.filter_map.len(), 2);
             assert!(
                 filter_list.filter_map.get(&fast_hash("bar.com")).is_some(),
@@ -451,7 +480,7 @@ mod parse_tests {
             .map(|f| NetworkFilter::parse(&f, true))
             .filter_map(Result::ok)
             .collect();
-        let filter_list = NetworkFilterList::new(network_filters);
+        let filter_list = NetworkFilterList::new(network_filters, false);
 
         requests.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = filter_list.check(&req);

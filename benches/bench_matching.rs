@@ -35,7 +35,7 @@ fn get_blocker(rules: &Vec<String>) -> Blocker {
 
   let blocker_options = BlockerOptions {
     debug: false,
-    enable_optimizations: false,
+    enable_optimizations: true,
     load_cosmetic_filters: false,
     load_network_filters: true
   };
@@ -124,12 +124,12 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
   let requests_len = requests_parsed.len() as u32;
+  let blocker = get_blocker(&rules);
   c.bench(
         "rule-match-parsed",
         Benchmark::new(
             "el+ep",
             move |b| {
-              let blocker = get_blocker(&rules);
               b.iter(|| bench_matching_only(&blocker, &requests_parsed))
             },
         ).throughput(Throughput::Elements(requests_len))

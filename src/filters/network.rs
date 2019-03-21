@@ -882,7 +882,7 @@ fn compile_regex(
         let compiled = match Regex::new(&unescaped) {
             Ok(compiled) => CompiledRegex::Compiled(compiled),
             Err(e) => {
-                println!("Full Regex parsing from {:?} failed ({:?})", filter, e);
+                // println!("Full Regex parsing from {:?} failed ({:?})", filter, e);
                 CompiledRegex::RegexParsingError(e)
             }
         };
