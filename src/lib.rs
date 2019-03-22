@@ -16,6 +16,9 @@ extern crate punycode;
 extern crate rayon;
 extern crate idna;
 
+#[cfg(test)]
+extern crate csv;
+
 pub mod utils;
 pub mod request;
 

@@ -233,6 +233,7 @@ mod parse_tests {
     }
 
     #[test]
+    #[ignore]
     fn separates_pattern_by_grouping() {
         let rules = vec![
             String::from("/analytics-v1."),

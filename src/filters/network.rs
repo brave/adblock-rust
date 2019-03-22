@@ -104,7 +104,6 @@ impl From<&request::RequestType> for NetworkFilterMask {
             request::RequestType::Dtd => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Fetch => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Xlst => NetworkFilterMask::FROM_OTHER,
-            // TODO: check if the logic is actually correct, TS implementation mapping was non-exhaustive, following options added:
             request::RequestType::Document => NetworkFilterMask::UNMATCHED,
             request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
         }
@@ -2577,6 +2576,41 @@ mod match_tests {
     }
 
     #[test]
+    fn check_pattern_hostname_left_right_anchor_regex_filter_works() {
+        filter_match_url("||geo*.hltv.org^", "https://geo2.hltv.org/rekl13.php", true);
+        filter_match_url("||www*.swatchseries.to^", "https://www1.swatchseries.to/sw.js", true);
+        filter_match_url("||imp*.tradedoubler.com^", "https://impde.tradedoubler.com/imp?type(js)g(22608602)a(1725113)epi(30148500144427100033372010772028)preurl(https://pixel.mathtag.com/event/js?mt_id=1160537&mt_adid=166882&mt_exem=&mt_excl=&v1=&v2=&v3=&s1=&s2=&s3=&mt_nsync=1&redirect=https%3A%2F%2Fad28.ad-srv.net%2Fc%2Fczqwm6dm6kagr2j%3Ftprde%3D)768489806", true);
+    }
+
+    #[test]
+    fn check_pattern_exception_works() {
+        {
+            let filter = "@@||fastly.net/ad2/$image,script,xmlhttprequest";
+            let url = "https://0914.global.ssl.fastly.net/ad2/script/x.js?cb=1549980040838";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let request = request::Request::from_urls(url, "https://www.gamespot.com/metro-exodus/", "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+        {
+            let filter = "@@||swatchseries.to/public/js/edit-show.js$script,domain=swatchseries.to";
+            let url = "https://www1.swatchseries.to/public/js/edit-show.js";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let request = request::Request::from_urls(url, "https://www1.swatchseries.to/serie/roswell_new_mexico", "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+    }
+
+    #[test]
     // options
     fn check_options_works() {
         // cpt test
@@ -2681,14 +2715,14 @@ mod match_tests {
 
     #[test]
     fn check_regex_escaping_handled() {
-        // A rules that are not correctly escaped for rust Regex
+        // A few rules that are not correctly escaped for rust Regex
         {
             // regex escaping "\/" unrecognised
             let filter = r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to"#;
             let network_filter = NetworkFilter::parse(filter, true).unwrap();
             let url = "https://bit.ly/bar/";
             let source = "http://123movies.com";
-            let request = request::Request::from_urls("https://bit.ly/bar/", "http://123movies.com", "").unwrap();
+            let request = request::Request::from_urls(url, source, "").unwrap();
             assert!(
                 network_filter.matches(&request) == true,
                 "Expected match for {} on {}",
@@ -2711,5 +2745,27 @@ mod match_tests {
             );
         }
     }
+
+    #[test]
+    #[ignore] // Not going to handle lookaround regexes
+    fn check_lookaround_regex_handled() {
+        {
+            let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let regex = network_filter.get_regex();
+            assert!(matches!(regex, CompiledRegex::Compiled(_)), "Generated incorrect regex: {:?}", regex);
+            let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
+            let source = "http://123movies.com";
+            let request = request::Request::from_urls(url, source, "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+    }
+
+    
 
 }
