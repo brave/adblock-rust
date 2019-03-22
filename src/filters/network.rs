@@ -539,14 +539,9 @@ impl NetworkFilter {
     }
 
     pub fn to_string(&self) -> String {
-        if self.debug {
-            match self.raw_line.as_ref() {
-                Some(r) => r.clone(),
-                None => String::from(""),
-            }
-        } else {
-            // TODO
-            String::from("")
+        match self.raw_line.as_ref() {
+            Some(r) => r.clone(),
+            None => String::from("")
         }
     }
 

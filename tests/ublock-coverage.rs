@@ -45,13 +45,14 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 
 fn get_blocker() -> Blocker {
   let rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt"
+    "data/easylist.to/easylist/easylist.txt",
+    "data/easylist.to/easylist/easyprivacy.txt"
   ]);
 
-  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, false);
+  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
 
   let blocker_options = BlockerOptions {
-    debug: false,
+    debug: true,
     enable_optimizations: false,
     load_cosmetic_filters: false,
     load_network_filters: true
@@ -59,7 +60,6 @@ fn get_blocker() -> Blocker {
   
   Blocker::new(network_filters, &blocker_options)
 }
-
 
 #[test]
 fn check_matching() {
@@ -78,7 +78,6 @@ fn check_matching() {
     let mut mismatch_expected_pass = 0;
     for req in requests {
         let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
-        // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
         assert!(request_res.is_ok(), "Request couldn't be parsed: {} at {}, type {}", req.url, req.sourceUrl, req.r#type);
         let request = request_res.unwrap();
 
