@@ -1,6 +1,5 @@
 use idna;
 use regex::Regex;
-use std::cell::RefCell;
 use std::fmt;
 
 use crate::request;
@@ -79,6 +78,24 @@ pub enum CompiledRegex {
     Compiled(Regex),
     MatchAll,
     RegexParsingError(regex::Error)
+}
+
+impl CompiledRegex {
+    pub fn is_match(&self, pattern: &str) -> bool {
+        match &self {
+            CompiledRegex::MatchAll => true,                // simple case for matching everything, e.g. for empty filter
+            CompiledRegex::RegexParsingError(_e) => false,  // no match if regex didn't even compile
+            CompiledRegex::Compiled(r) => r.is_match(pattern)
+        }
+    }
+
+    pub fn to_string(&self) -> &str {
+        match &self {
+            CompiledRegex::MatchAll => ".*",                // simple case for matching everything, e.g. for empty filter
+            CompiledRegex::RegexParsingError(_e) => "ERROR",  // no match if regex didn't even compile
+            CompiledRegex::Compiled(r) => r.as_str()
+        }
+    }
 }
 
 impl fmt::Display for NetworkFilterMask {
@@ -191,11 +208,11 @@ impl NetworkFilter {
             let options = raw_options.split(',');
             for raw_option in options {
                 // Check for negation: ~option
-                let negation = raw_option.starts_with('~');
-                let maybe_negated_option = raw_option.trim_start_matches('~');
+                let negation = raw_option.starts_with("~");
+                let maybe_negated_option = raw_option.trim_start_matches("~");
 
                 // Check for options: option=value1|value2
-                let mut option_and_values = maybe_negated_option.splitn(2, '=');
+                let mut option_and_values = maybe_negated_option.splitn(2, "=");
                 let (option, value) = (
                     option_and_values.next().unwrap(),
                     option_and_values.next().unwrap_or_default(),
@@ -203,7 +220,7 @@ impl NetworkFilter {
 
                 match (option, negation) {
                     ("domain", _) => {
-                        let mut option_values: Vec<&str> = value.split('|').collect();
+                        let mut option_values: Vec<&str> = value.split("|").collect();
                         // Some rules have duplicate domain options - avoid including duplicates
                         // Benchmarking doesn't indicate signficant performance degradation across the entire easylist
                         option_values.sort();
@@ -214,7 +231,7 @@ impl NetworkFilter {
                         let mut valuesiter = option_values.iter();
 
                         while let Some(option_value) = valuesiter.next() {
-                            if option_value.starts_with('~') {
+                            if option_value.starts_with("~") {
                                 let domain = &option_value[1..];
                                 let domain_hash = utils::fast_hash(&domain);
                                 opt_not_domains_array.push(domain_hash);
@@ -230,7 +247,7 @@ impl NetworkFilter {
                             let mut opt_not_domains_full_array: Vec<String> = vec![];
                             let mut valuesiter = option_values.iter();
                             while let Some(option_value) = valuesiter.next() {
-                                if option_value.starts_with('~') {
+                                if option_value.starts_with("~") {
                                     opt_not_domains_full_array
                                         .push(String::from(&option_value[1..]));
                                 } else {
@@ -347,7 +364,7 @@ impl NetworkFilter {
         // Identify kind of pattern
 
         // Deal with hostname pattern
-        if filter_index_end > 0 && line[filter_index_end-1..].starts_with('|') {
+        if filter_index_end > 0 && line[filter_index_end-1..].starts_with("|") {
             mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
             filter_index_end -= 1;
         }
@@ -355,7 +372,7 @@ impl NetworkFilter {
         if line[filter_index_start..].starts_with("||") {
             mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true);
             filter_index_start += 2;
-        } else if line[filter_index_start..].starts_with('|') {
+        } else if line[filter_index_start..].starts_with("|") {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
             filter_index_start += 1;
         }
@@ -363,7 +380,7 @@ impl NetworkFilter {
         let is_regex = check_is_regex(&line[filter_index_start..filter_index_end]);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
-        if is_regex && line[filter_index_start..filter_index_end].starts_with('/') && line[filter_index_start..filter_index_end].ends_with('/') {
+        if is_regex && line[filter_index_start..filter_index_end].starts_with("/") && line[filter_index_start..filter_index_end].ends_with('/') {
             mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
         }
 
@@ -388,7 +405,7 @@ impl NetworkFilter {
                 // but set the filter as right anchored since there should not be any
                 // other label on the right
                 if filter_index_end - filter_index_start == 1
-                    && line[filter_index_start..].starts_with('^')
+                    && line[filter_index_start..].starts_with("^")
                 {
                     mask.set(NetworkFilterMask::IS_REGEX, false);
                     filter_index_start = filter_index_end;
@@ -402,7 +419,7 @@ impl NetworkFilter {
                 }
             } else {
                 // Look for next /
-                let slash_index = &line[filter_index_start..].find('/');
+                let slash_index = &line[filter_index_start..].find("/");
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
@@ -421,14 +438,14 @@ impl NetworkFilter {
 
         // Remove trailing '*'
         if filter_index_end - filter_index_start > 0
-            && line[filter_index_end-1..].starts_with('*')
+            && line[filter_index_end-1..].starts_with("*")
         {
             filter_index_end -= 1;
         }
 
         // Remove leading '*' if the filter is not hostname anchored.
         if filter_index_end - filter_index_start > 0
-            && line[filter_index_start..].starts_with('*')
+            && line[filter_index_start..].starts_with("*")
         {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
             filter_index_start += 1;
@@ -875,7 +892,9 @@ fn compile_regex(
       // * can match anything
       static ref WILDCARD_RE: Regex = Regex::new(r"\*").unwrap();
       // ^ can match any separator or the end of the pattern
-      static ref ANCHOR_RE: Regex = Regex::new(r"\^").unwrap();
+      static ref ANCHOR_RE: Regex = Regex::new(r"\^(.)").unwrap();
+      // ^ can match any separator or the end of the pattern
+      static ref ANCHOR_RE_EOL: Regex = Regex::new(r"\^$").unwrap();
     }
 
     if filter.is_none() {
@@ -910,7 +929,8 @@ fn compile_regex(
     let repl = WILDCARD_RE.replace_all(&repl, ".*");
     // in adblock rules, '^' is a separator.
     // The separator character is anything but a letter, a digit, or one of the following: _ - . %
-    let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d\\._%-]|$)");
+    let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d\\._%-])$1");
+    let repl = ANCHOR_RE_EOL.replace_all(&repl, "(?:[^\\w\\d\\._%-]|$)");
 
     // Should match start or end of url
     let left_anchor = if is_left_anchor { "^" } else { "" };
@@ -920,7 +940,7 @@ fn compile_regex(
     match Regex::new(&filter) {
         Ok(compiled) => CompiledRegex::Compiled(compiled),
         Err(e) => {
-            println!("Regex parsing failed ({:?})", e);
+            // println!("Regex parsing failed ({:?})", e);
             CompiledRegex::RegexParsingError(e)
         }
     }
@@ -946,18 +966,20 @@ fn check_is_regex(filter: &str) -> bool {
  * of anchor.
  */
 fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
+    let filter_hostname_len = filter_hostname.len();
     // Corner-case, if `filterHostname` is empty, then it's a match
-    if filter_hostname.len() == 0 {
+    if filter_hostname_len == 0 {
         return true;
     }
+    let hostname_len = hostname.len();
 
     // `filterHostname` cannot be longer than actual hostname
-    if filter_hostname.len() > hostname.len() {
+    if filter_hostname_len > hostname_len {
         return false;
     }
 
     // If they have the same len(), they should be equal
-    if filter_hostname.len() == hostname.len() {
+    if filter_hostname_len == hostname_len {
         return filter_hostname == hostname;
     }
 
@@ -977,7 +999,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     //   * (foo, foo.com)
     //   * (sub.foo, sub.foo.com)
     if match_index == 0 {
-        return filter_hostname.ends_with('.') || hostname[filter_hostname.len()..].starts_with('.')
+        return filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.')
     }
 
     // `filter_hostname` is a suffix of `hostname`.
@@ -990,13 +1012,14 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     }
 
     // `filter_hostname` is infix of `hostname` and needs match full labels
-    return (filter_hostname.ends_with('.') || hostname[filter_hostname.len()..].starts_with('.'))
+    return (filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
     && (filter_hostname.starts_with('.') || hostname[match_index-1..].starts_with('.'))
 }
 
+#[inline]
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
     let start = url.find(&hostname).unwrap_or(url.len());
-    &url[start..url.len()]
+    &url[start+hostname.len()..]
 }
 
 // ---------------------------------------------------------------------------
@@ -1074,12 +1097,7 @@ fn check_pattern_regex_filter_at(
     start_from: usize,
 ) -> bool {
     let regex = filter.get_regex();
-
-    match regex {
-        CompiledRegex::MatchAll => true,                // simple case for matching everything, e.g. for empty filter
-        CompiledRegex::RegexParsingError(_e) => false,  // no match if regex didn't even compile
-        CompiledRegex::Compiled(r) => r.is_match(&request.url[start_from..])
-    }
+    regex.is_match(&request.url[start_from..])
 }
 
 fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
@@ -1156,17 +1174,10 @@ fn check_pattern_hostname_left_right_anchor_filter(
                     .filter
                     .as_ref()
                     .map(|f| {
-                        let hostname_pos = request.url.find(hostname).unwrap();
-                        &request.url[hostname_pos+hostname.len()..] == f
-                        // request
-                        //     .url
-                        //     .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
-                        //     .nth(1) // take the part after hostname
-                        //     // Since it must follow immediatly after the hostname and be a suffix of
-                        //     // the URL, we conclude that filter must be equal to the part of the
-                        //     // url following the hostname.
-                        //     .map(|url_end| url_end == f)
-                        //     .unwrap_or(false) // no match if nothing after hostname
+                        // Since it must follow immediatly after the hostname and be a suffix of
+                        // the URL, we conclude that filter must be equal to the part of the
+                        // url following the hostname.
+                        get_url_after_hostname(&request.url, hostname) == f
                     })
                     .unwrap_or(true) // if no filter, we have a match
             } else {
@@ -1191,17 +1202,10 @@ fn check_pattern_hostname_left_anchor_filter(
                     .filter
                     .as_ref()
                     .map(|f| {
-                        let hostname_pos = request.url.find(hostname).unwrap();
-                        request.url[hostname_pos+hostname.len()..].starts_with(f)
-                        // request
-                        //     .url
-                        //     .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
-                        //     .nth(1) // take the part after hostname
-                        //     // Since this is not a regex, the filter pattern must follow the hostname
-                        //     // with nothing in between. So we extract the part of the URL following
-                        //     // after hostname and will perform the matching on it.
-                        //     .map(|url_end| url_end.starts_with(f))
-                        //     .unwrap_or(false) // no match if nothing after hostname
+                        // Since this is not a regex, the filter pattern must follow the hostname
+                        // with nothing in between. So we extract the part of the URL following
+                        // after hostname and will perform the matching on it.
+                        get_url_after_hostname(&request.url, hostname).starts_with(f)
                     })
                     .unwrap_or(true) // if no filter, we have a match
             } else {
@@ -1225,8 +1229,7 @@ fn check_pattern_hostname_anchor_filter(
                     .filter
                     .as_ref()
                     .map(|f| {
-                        let hostname_pos = request.url.find(hostname).unwrap();
-                        request.url[hostname_pos+hostname.len()..].find(f).is_some()
+                        get_url_after_hostname(&request.url, hostname).find(f).is_some()
                     })
                     .unwrap_or(true) // if no filter, we have a match
             } else {

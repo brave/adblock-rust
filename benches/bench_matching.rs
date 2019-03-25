@@ -96,6 +96,26 @@ fn rule_match(c: &mut Criterion) {
     );
 }
 
+fn rule_match_slim(c: &mut Criterion) {
+  let rules = rules_from_lists(vec![
+    "data/slim-list.txt",
+  ]);
+  let requests = load_requests();
+  let requests_len = requests.len() as u32;
+  
+  c.bench(
+        "rule-match",
+        Benchmark::new(
+            "slim",
+            move |b| {
+              let blocker = get_blocker(&rules);
+              b.iter(|| bench_rule_matching(&blocker, &requests))
+            },
+        ).throughput(Throughput::Elements(requests_len))
+        .sample_size(10)
+    );
+}
+
 fn rule_match_only(c: &mut Criterion) {
   
   let rules = default_lists();
@@ -119,7 +139,7 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
   
   let rules = rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
+    "data/easylist.to/easylist/easyprivacy.txt",
   ]);
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
@@ -133,9 +153,45 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
               b.iter(|| bench_matching_only(&blocker, &requests_parsed))
             },
         ).throughput(Throughput::Elements(requests_len))
-        .sample_size(5)
+        .sample_size(10)
     );
 }
 
-criterion_group!(benches, rule_match_only_el_ep, rule_match_only, rule_match);
+fn rule_match_slimlist_comparable(c: &mut Criterion) {
+  
+  let full_rules = rules_from_lists(vec![
+    "data/easylist.to/easylist/easylist.txt",
+    "data/easylist.to/easylist/easyprivacy.txt"
+  ]);
+  let blocker = get_blocker(&full_rules);
+  
+  let requests = load_requests();
+  let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
+  let requests_len = requests_parsed.len() as u32;
+
+  let slim_rules = rules_from_lists(vec![
+    "data/slim-list.txt",
+  ]);
+  let slim_blocker = get_blocker(&slim_rules);
+
+  let requests_copy = load_requests();
+  let requests_parsed_copy: Vec<_> = requests_copy.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
+
+  c.bench(
+        "rule-match-parsed-comparison",
+        Benchmark::new(
+            "el+ep",
+            move |b| {
+              b.iter(|| bench_matching_only(&blocker, &requests_parsed))
+            },
+        )
+        .with_function("slimlist", move |b| {
+              b.iter(|| bench_matching_only(&slim_blocker, &requests_parsed_copy))
+            },)
+        .throughput(Throughput::Elements(requests_len))
+        .sample_size(10)
+    );
+}
+
+criterion_group!(benches, rule_match_only_el_ep, rule_match_slimlist_comparable, rule_match_only, rule_match, rule_match_slim);
 criterion_main!(benches);

@@ -30,6 +30,11 @@ csv = "1"
 [lib]
 bench = false
 
+
+[[bench]]
+name = "bench_regex"
+harness = false
+
 [[bench]]
 name = "bench_matching"
 harness = false

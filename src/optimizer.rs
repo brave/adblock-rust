@@ -177,16 +177,8 @@ mod parse_tests {
     use crate::lists;
 
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
-        match regex {
-            CompiledRegex::MatchAll => assert_eq!(true, matches), // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => assert_eq!(false, matches), // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => assert!(
-                r.is_match(pattern) == matches,
-                "Expected {} to match {}",
-                r.as_str(),
-                pattern
-            ),
-        }
+        let is_match = regex.is_match(pattern);
+        assert!(is_match == matches, "Expected {} to match {}", regex.to_string(), pattern);
     }
 
     #[test]
