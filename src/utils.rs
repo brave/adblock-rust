@@ -5,26 +5,6 @@ use fasthash::xx as hasher;
 pub type Hash = u32;
 static HASH_MAX: Hash = std::u32::MAX;
 
-#[inline]
-pub fn bit_count(n: Hash) -> u32 {
-    n.count_ones()
-}
-
-#[inline]
-pub fn get_bit(n: Hash, mask: Hash) -> bool {
-    (n & mask) != 0
-}
-
-#[inline]
-pub fn set_bit(n: Hash, mask: Hash) -> Hash {
-    n | mask
-}
-
-#[inline]
-pub fn clear_bit(n: Hash, mask: Hash) -> Hash {
-    n & !mask
-}
-
 // #[inline]
 // pub fn fast_hash(input: &str) -> Hash {
 //     // originally uses DJB2 hash
@@ -40,16 +20,6 @@ pub fn clear_bit(n: Hash, mask: Hash) -> Hash {
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
     hasher::hash32(input)
-}
-
-#[inline]
-pub fn fast_starts_with(haystack: &str, needle: &str) -> bool {
-    haystack.starts_with(needle)
-}
-
-#[inline]
-pub fn fast_starts_with_from(haystack: &str, needle: &str, start: usize) -> bool {
-    haystack[start..].starts_with(needle)
 }
 
 #[inline]
@@ -224,42 +194,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bit_count_works() {
-        assert_eq!(bit_count(0b0011), 2);
-        assert_eq!(bit_count(0b10110011), 5);
-        assert_eq!(bit_count(HASH_MAX), HASH_MAX.count_ones());
-        assert_eq!(bit_count(0), 0);
-    }
-
-    #[test]
-    fn get_bit_works() {
-        assert_eq!(get_bit(0b0011, 0b0011), true);
-        assert_eq!(get_bit(0b10110011, 0b10110011), true);
-        assert_eq!(get_bit(0b10110011, 0b00100000), true);
-        assert_eq!(get_bit(0b10110011, 0b01001100), false);
-        assert_eq!(get_bit(0, HASH_MAX), false);
-    }
-
-    #[test]
-    fn set_bit_works() {
-        assert_eq!(set_bit(0b0011, 0b0011), 0b0011);
-        assert_eq!(set_bit(0b10110011, 0b100), 0b10110111);
-        assert_eq!(set_bit(0b10110011, 0), 0b10110011);
-        assert_eq!(set_bit(HASH_MAX, 0), HASH_MAX);
-        assert_eq!(set_bit(0, HASH_MAX), HASH_MAX);
-    }
-
-    #[test]
-    fn clear_bit_works() {
-        assert_eq!(clear_bit(0b10110011, 0b1), 0b10110010);
-        assert_eq!(clear_bit(0b10110011, 0b100), 0b10110011);
-        assert_eq!(clear_bit(0b10110011, 0b10110011), 0);
-        assert_eq!(clear_bit(HASH_MAX, HASH_MAX), 0);
-        assert_eq!(clear_bit(HASH_MAX, 0), HASH_MAX);
-        assert_eq!(clear_bit(0, HASH_MAX), 0);
-    }
-
-    #[test]
     #[ignore] // won't match hard-coded values when using a different hash function
     fn fast_hash_matches_ts() {
         assert_eq!(fast_hash("hello world"), 4173747013); // cross-checked with the TS implementation
@@ -269,14 +203,6 @@ mod tests {
             fast_hash("ello worl")
         );
         assert_eq!(fast_hash(&"hello world"[1..5]), fast_hash("ello"));
-    }
-
-    #[test]
-    fn fast_starts_with_from_works() {
-        assert_eq!(fast_starts_with_from("hello world", "hello", 0), true);
-        assert_eq!(fast_starts_with_from("hello world", "hello", 1), false);
-        assert_eq!(fast_starts_with_from("hello", "hello world", 1), false);
-        assert_eq!(fast_starts_with_from("hello world", " world", 5), true);
     }
 
     fn t(tokens: &[&str]) -> Vec<Hash> {

@@ -45,3 +45,4 @@ harness = false
 [features]
 
 full-domain-matching = [] # feature has no explicit dependencies
+full-regex-rules = []

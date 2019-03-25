@@ -169,7 +169,7 @@ impl NetworkFilter {
         let mut filter_index_end: usize = line.len();
 
         // @@filter == Exception
-        if utils::fast_starts_with(line, "@@") {
+        if line.starts_with("@@") {
             filter_index_start += 2;
             mask.set(NetworkFilterMask::IS_EXCEPTION, true);
         }
@@ -190,7 +190,7 @@ impl NetworkFilter {
             let options = raw_options.split(',');
             for raw_option in options {
                 // Check for negation: ~option
-                let negation = utils::fast_starts_with(&raw_option, "~");
+                let negation = raw_option.starts_with('~');
                 let maybe_negated_option = raw_option.trim_start_matches('~');
 
                 // Check for options: option=value1|value2
@@ -213,7 +213,7 @@ impl NetworkFilter {
                         let mut valuesiter = option_values.iter();
 
                         while let Some(option_value) = valuesiter.next() {
-                            if utils::fast_starts_with(option_value, "~") {
+                            if option_value.starts_with('~') {
                                 let domain = &option_value[1..];
                                 let domain_hash = utils::fast_hash(&domain);
                                 opt_not_domains_array.push(domain_hash);
@@ -229,7 +229,7 @@ impl NetworkFilter {
                             let mut opt_not_domains_full_array: Vec<String> = vec![];
                             let mut valuesiter = option_values.iter();
                             while let Some(option_value) = valuesiter.next() {
-                                if utils::fast_starts_with(option_value, "~") {
+                                if option_value.starts_with('~') {
                                     opt_not_domains_full_array
                                         .push(String::from(&option_value[1..]));
                                 } else {
@@ -346,15 +346,15 @@ impl NetworkFilter {
         // Identify kind of pattern
 
         // Deal with hostname pattern
-        if filter_index_end > 0 && utils::fast_starts_with_from(line, "|", filter_index_end - 1) {
+        if filter_index_end > 0 && line[filter_index_end-1..].starts_with('|') {
             mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
             filter_index_end -= 1;
         }
 
-        if utils::fast_starts_with_from(line, "||", filter_index_start) {
+        if line[filter_index_start..].starts_with("||") {
             mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true);
             filter_index_start += 2;
-        } else if utils::fast_starts_with_from(line, "|", filter_index_start) {
+        } else if line[filter_index_start..].starts_with('|') {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
             filter_index_start += 1;
         }
@@ -387,7 +387,7 @@ impl NetworkFilter {
                 // but set the filter as right anchored since there should not be any
                 // other label on the right
                 if filter_index_end - filter_index_start == 1
-                    && utils::fast_starts_with_from(&line, "^", filter_index_start)
+                    && line[filter_index_start..].starts_with('^')
                 {
                     mask.set(NetworkFilterMask::IS_REGEX, false);
                     filter_index_start = filter_index_end;
@@ -420,14 +420,14 @@ impl NetworkFilter {
 
         // Remove trailing '*'
         if filter_index_end - filter_index_start > 0
-            && utils::fast_starts_with_from(&line, "*", filter_index_end - 1)
+            && line[filter_index_end-1..].starts_with('*')
         {
             filter_index_end -= 1;
         }
 
         // Remove leading '*' if the filter is not hostname anchored.
         if filter_index_end - filter_index_start > 0
-            && utils::fast_starts_with_from(&line, "*", filter_index_start)
+            && line[filter_index_start..].starts_with('*')
         {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
             filter_index_start += 1;
@@ -436,27 +436,27 @@ impl NetworkFilter {
         // Transform filters on protocol (http, https, ws)
         if mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
             if filter_index_end - filter_index_start == 5
-                && utils::fast_starts_with_from(line, "ws://", filter_index_start)
+                && line[filter_index_start..].starts_with("ws://")
             {
                 mask.set(NetworkFilterMask::FROM_WEBSOCKET, true);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end - filter_index_start == 7
-                && utils::fast_starts_with_from(line, "http://", filter_index_start)
+                && line[filter_index_start..].starts_with("http://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTP, true);
                 mask.set(NetworkFilterMask::FROM_HTTPS, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end - filter_index_start == 8
-                && utils::fast_starts_with_from(line, "https://", filter_index_start)
+                && line[filter_index_start..].starts_with("https://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTPS, true);
                 mask.set(NetworkFilterMask::FROM_HTTP, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end - filter_index_start == 8
-                && utils::fast_starts_with_from(line, "http*://", filter_index_start)
+                && line[filter_index_start..].starts_with("http*://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTPS, true);
                 mask.set(NetworkFilterMask::FROM_HTTP, true);
@@ -863,29 +863,35 @@ fn compile_regex(
         return CompiledRegex::MatchAll;
     }
 
+    // Guaranteed to be something with above check
     let filter_str = filter.unwrap();
 
     if filter_str.is_empty() {
         return CompiledRegex::MatchAll;
     }
 
-    if is_complete_regex {
-        // unescape unrecognised escaping sequences, otherwise a normal regex
-        let unescaped = filter_str[1..filter_str.len()-1].replace("\\/", "/").replace("\\:", ":");
+    #[cfg(feature = "full-regex-rules")]
+    {
+        if is_complete_regex {
+            // unescape unrecognised escaping sequences, otherwise a normal regex
+            let unescaped = filter_str[1..filter_str.len()-1].replace("\\/", "/").replace("\\:", ":");
 
-        let compiled = match Regex::new(&unescaped) {
-            Ok(compiled) => CompiledRegex::Compiled(compiled),
-            Err(e) => {
-                // println!("Full Regex parsing from {:?} failed ({:?})", filter, e);
-                CompiledRegex::RegexParsingError(e)
-            }
-        };
-        return compiled;
+            let compiled = match Regex::new(&unescaped) {
+                Ok(compiled) => CompiledRegex::Compiled(compiled),
+                Err(e) => {
+                    // println!("Full Regex parsing from {:?} failed ({:?})", filter, e);
+                    CompiledRegex::RegexParsingError(e)
+                }
+            };
+            return compiled;
+        }
     }
 
     let repl = SPECIAL_RE.replace_all(&filter_str, "\\$1");
     let repl = WILDCARD_RE.replace_all(&repl, ".*");
-    let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d_.%-]|$)");
+    // in adblock rules, '^' is a separator.
+    // The separator character is anything but a letter, a digit, or one of the following: _ - . %
+    let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d\\._%-]|$)");
 
     // Should match start or end of url
     let left_anchor = if is_left_anchor { "^" } else { "" };
@@ -952,10 +958,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     //   * (foo, foo.com)
     //   * (sub.foo, sub.foo.com)
     if match_index == 0 {
-        return filter_hostname.ends_with('.') || {
-            let (_, remains) = hostname.split_at(filter_hostname.len());
-            remains.starts_with('.')
-        };
+        return filter_hostname.ends_with('.') || hostname[filter_hostname.len()..].starts_with('.')
     }
 
     // `filter_hostname` is a suffix of `hostname`.
@@ -964,20 +967,12 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     //    * (foo.com, sub.foo.com)
     //    * (com, foo.com)
     if hostname.len() == match_index + filter_hostname.len() {
-        return filter_hostname.starts_with('.') || {
-            let (_, remains) = hostname.split_at(match_index - 1);
-            remains.starts_with('.')
-        };
+        return filter_hostname.starts_with('.') || hostname[match_index-1..].starts_with('.')
     }
 
     // `filter_hostname` is infix of `hostname` and needs match full labels
-    return (filter_hostname.ends_with('.') || {
-        let (_, remains) = hostname.split_at(filter_hostname.len());
-        remains.starts_with('.')
-    }) && (filter_hostname.starts_with('.') || {
-        let (_, remains) = hostname.split_at(match_index - 1);
-        remains.starts_with('.')
-    });
+    return (filter_hostname.ends_with('.') || hostname[filter_hostname.len()..].starts_with('.'))
+    && (filter_hostname.starts_with('.') || hostname[match_index-1..].starts_with('.'))
 }
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
@@ -1182,7 +1177,7 @@ fn check_pattern_hostname_left_anchor_filter(
                             // Since this is not a regex, the filter pattern must follow the hostname
                             // with nothing in between. So we extract the part of the URL following
                             // after hostname and will perform the matching on it.
-                            .map(|url_end| utils::fast_starts_with(url_end, f))
+                            .map(|url_end| url_end.starts_with(f))
                             .unwrap_or(false) // no match if nothing after hostname
                     })
                     .unwrap_or(true) // if no filter, we have a match

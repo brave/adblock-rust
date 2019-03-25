@@ -35,7 +35,7 @@ fn get_blocker(rules: &Vec<String>) -> Blocker {
 
   let blocker_options = BlockerOptions {
     debug: false,
-    enable_optimizations: true,
+    enable_optimizations: false,
     load_cosmetic_filters: false,
     load_network_filters: true
   };
@@ -119,7 +119,7 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
   
   let rules = rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
-    // "data/easylist.to/easylist/easyprivacy.txt"
+    "data/easylist.to/easylist/easyprivacy.txt"
   ]);
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
