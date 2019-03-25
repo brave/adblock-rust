@@ -6,6 +6,7 @@ use url::{Url};
 use std::collections::HashMap;
 use std::cell::RefCell;
 use idna;
+use std::sync::{Mutex, Arc};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -97,8 +98,8 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: RefCell<Option<Vec<utils::Hash>>>, // evaluated lazily
-    fuzzy_signature: RefCell<Option<Vec<utils::Hash>>> // evaluated lazily
+    tokens: Arc<Mutex<Option<Vec<utils::Hash>>>>, // evaluated lazily
+    fuzzy_signature: Arc<Mutex<Option<Vec<utils::Hash>>>> // evaluated lazily
 }
 
 impl<'a> Request {
@@ -154,8 +155,8 @@ impl<'a> Request {
             is_https: is_https,
             is_supported: is_supported,
             bug: None,
-            tokens: RefCell::default(),
-            fuzzy_signature: RefCell::default()
+            tokens: Arc::new(Mutex::new(None)),
+            fuzzy_signature: Arc::new(Mutex::new(None))
         }
     }
 
@@ -163,7 +164,7 @@ impl<'a> Request {
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
-            let mut tokens_cache = self.tokens.borrow_mut();
+            let mut tokens_cache = self.tokens.lock().unwrap();
             if tokens_cache.is_some() {
                 return tokens_cache.as_ref().unwrap().clone();
             }
@@ -190,7 +191,7 @@ impl<'a> Request {
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
         {
-            let mut signature_cache = self.fuzzy_signature.borrow_mut();
+            let mut signature_cache = self.fuzzy_signature.lock().unwrap();
             if signature_cache.is_some() {
                 return signature_cache.as_ref().unwrap().clone();
             }

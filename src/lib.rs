@@ -12,18 +12,17 @@ extern crate bitflags;
 extern crate matches;
 
 extern crate regex;
-extern crate punycode;
-extern crate rayon;
-extern crate idna;
+extern crate punycode;  // utf domain handling
+extern crate rayon;     // parallelism
+extern crate idna;      // utf domain handling
 
 #[cfg(test)]
-extern crate csv;
+extern crate csv;       // csv handling library used for processing test data
 
+// Own modules, currently everything is exposed, will need to limit
 pub mod utils;
 pub mod request;
-
 pub mod lists;
 pub mod filters;
 pub mod blocker;
-
 pub mod optimizer;

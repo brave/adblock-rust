@@ -133,7 +133,7 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
               b.iter(|| bench_matching_only(&blocker, &requests_parsed))
             },
         ).throughput(Throughput::Elements(requests_len))
-        .sample_size(10)
+        .sample_size(5)
     );
 }
 

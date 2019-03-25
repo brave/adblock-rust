@@ -7,6 +7,8 @@ use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
 
+use rayon::prelude::*;
+
 pub struct BlockerOptions {
     pub debug: bool,
     pub enable_optimizations: bool,
@@ -221,33 +223,81 @@ impl NetworkFilterList {
 
             NetworkFilterList { filter_map: optimized_map }
         } else {
+
+            // for (_, filters) in filter_map.iter_mut() {
+            //     filters.sort_by(|a, b| a.get_cost().partial_cmp(&b.get_cost()).unwrap())
+            // }
+
             filter_map.shrink_to_fit();
             NetworkFilterList { filter_map: filter_map }
         }
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
-        let request_tokens = request.get_tokens();
+        let mut request_tokens = request.get_tokens();
+        request_tokens.push(0); // add 0 token as the fallback
+        
+        // let mut tokens_checked = 0;
+        // let mut filters_checked = 0;
+        // let res = request_tokens.into_par_iter()
+        // .map(|token| {
+        //     let maybe_filter_bucket = self.filter_map.get(&token);
+        //     for filter_bucket in maybe_filter_bucket {
+        //         for filter in filter_bucket {
+        //             // filters_checked += 1;
+        //             if filter.matches(request) {
+        //                 // println!("Parallel checker found match {:?} for {}!", filter.raw_line, request.url);
+        //                 // println!("Filters checked MATCH : {} in {} buckets", filters_checked, tokens_checked);
+        //                 return Some(filter);
+        //             }
+        //         }
+        //     }
+        //     return None;
+        // }).find_any(|&r| r.is_some());
+
+        // match res {
+        //     Some(Some(rc)) => Some(rc),
+        //     Some(None) => None,
+        //     None => None
+        // }
+
         for token in request_tokens {
             let maybe_filter_bucket = self.filter_map.get(&token);
             for filter_bucket in maybe_filter_bucket {
-                for filter in filter_bucket {
+                let res = filter_bucket.into_par_iter().map(|filter|{
                     if filter.matches(request) {
-                        return Some(filter);
+                        // println!("Filters checked MATCH : {} in {} buckets", filters_checked, tokens_checked);
+                        Some(filter)
+                    } else {
+                        None
                     }
+                }).find_any(|&r| r.is_some());
+
+                match res {
+                    Some(Some(rc)) => return Some(rc),
+                    Some(None) => {}
+                    None => {}
                 }
+
             }
         }
 
-        // If no match, check the 0 (wildcard) bucket
-        let maybe_filter_bucket = self.filter_map.get(&0);
-        for filter_bucket in maybe_filter_bucket {
-            for filter in filter_bucket {
-                if filter.matches(request) {
-                    return Some(filter);
-                }
-            }
-        }
+        // for token in request_tokens {
+        //     tokens_checked += 1;
+        //     let maybe_filter_bucket = self.filter_map.get(&token);
+        //     for filter_bucket in maybe_filter_bucket {
+        //         for filter in filter_bucket {
+        //             filters_checked += 1;
+        //             if filter.matches(request) {
+        //                 // println!("Filters checked MATCH : {} in {} buckets", filters_checked, tokens_checked);
+        //                 return Some(filter);
+        //             }
+        //         }
+        //     }
+        // }
+
+        // println!("Filters checked PASS : {} in {} buckets", filters_checked, tokens_checked);
+
 
         return None;
     }

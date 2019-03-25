@@ -6,6 +6,7 @@ use std::fmt;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
+use std::sync::{Mutex, Arc};
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -129,7 +130,7 @@ pub struct NetworkFilter {
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
-    regex: RefCell<Option<CompiledRegex>>, // compiled lazily
+    regex: Arc<Mutex<Option<CompiledRegex>>>, // compiled lazily
 
     #[cfg(feature = "full-domain-matching")]
     pub opt_domains_full: Option<Vec<String>>,
@@ -526,7 +527,7 @@ impl NetworkFilter {
             debug: debug,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
-            regex: RefCell::default(),
+            regex: Arc::new(Mutex::new(None)),
             #[cfg(feature = "full-domain-matching")]
             opt_domains_full,
             #[cfg(feature = "full-domain-matching")]
@@ -560,6 +561,24 @@ impl NetworkFilter {
         )
     }
 
+    pub fn get_cost(&self) -> u8 {
+        if self.is_regex() {
+            0b00000001
+        } else if self.is_left_anchor() && self.is_right_anchor() {
+            0b00100011
+        } else if self.is_left_anchor() {
+            0b00100010
+        } else if self.is_right_anchor() {
+            0b00100010
+        } else if self.is_fuzzy() {
+            0b00110000
+        } else if self.is_hostname_anchor() {
+            0b00100111
+        } else {
+            0b00100001
+        }
+    }
+
     // Lazily get the regex if the filter has one
     pub fn get_regex(&self) -> CompiledRegex {
         if !self.is_regex() {
@@ -568,7 +587,7 @@ impl NetworkFilter {
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
-            let mut cache = self.regex.borrow_mut();
+            let mut cache = self.regex.lock().unwrap();
             if cache.is_some() {
                 return cache.as_ref().unwrap().clone();
             }
@@ -1137,15 +1156,17 @@ fn check_pattern_hostname_left_right_anchor_filter(
                     .filter
                     .as_ref()
                     .map(|f| {
-                        request
-                            .url
-                            .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
-                            .nth(1) // take the part after hostname
-                            // Since it must follow immediatly after the hostname and be a suffix of
-                            // the URL, we conclude that filter must be equal to the part of the
-                            // url following the hostname.
-                            .map(|url_end| url_end == f)
-                            .unwrap_or(false) // no match if nothing after hostname
+                        let hostname_pos = request.url.find(hostname).unwrap();
+                        &request.url[hostname_pos+hostname.len()..] == f
+                        // request
+                        //     .url
+                        //     .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
+                        //     .nth(1) // take the part after hostname
+                        //     // Since it must follow immediatly after the hostname and be a suffix of
+                        //     // the URL, we conclude that filter must be equal to the part of the
+                        //     // url following the hostname.
+                        //     .map(|url_end| url_end == f)
+                        //     .unwrap_or(false) // no match if nothing after hostname
                     })
                     .unwrap_or(true) // if no filter, we have a match
             } else {
@@ -1170,15 +1191,17 @@ fn check_pattern_hostname_left_anchor_filter(
                     .filter
                     .as_ref()
                     .map(|f| {
-                        request
-                            .url
-                            .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
-                            .nth(1) // take the part after hostname
-                            // Since this is not a regex, the filter pattern must follow the hostname
-                            // with nothing in between. So we extract the part of the URL following
-                            // after hostname and will perform the matching on it.
-                            .map(|url_end| url_end.starts_with(f))
-                            .unwrap_or(false) // no match if nothing after hostname
+                        let hostname_pos = request.url.find(hostname).unwrap();
+                        request.url[hostname_pos+hostname.len()..].starts_with(f)
+                        // request
+                        //     .url
+                        //     .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
+                        //     .nth(1) // take the part after hostname
+                        //     // Since this is not a regex, the filter pattern must follow the hostname
+                        //     // with nothing in between. So we extract the part of the URL following
+                        //     // after hostname and will perform the matching on it.
+                        //     .map(|url_end| url_end.starts_with(f))
+                        //     .unwrap_or(false) // no match if nothing after hostname
                     })
                     .unwrap_or(true) // if no filter, we have a match
             } else {
@@ -1202,12 +1225,8 @@ fn check_pattern_hostname_anchor_filter(
                     .filter
                     .as_ref()
                     .map(|f| {
-                        request
-                            .url
-                            .splitn(2, hostname) // split at hostname - guaranteed to be there by above check
-                            .nth(1) // take the part after hostname
-                            .map(|url_end| url_end.find(f).is_some()) // We consider this a match if the plain patter (i.e.: filter) appears anywhere.
-                            .unwrap_or(false) // no match if nothing after hostname
+                        let hostname_pos = request.url.find(hostname).unwrap();
+                        request.url[hostname_pos+hostname.len()..].find(f).is_some()
                     })
                     .unwrap_or(true) // if no filter, we have a match
             } else {
