@@ -641,6 +641,7 @@ mod parse_tests {
     }
 
     #[test]
+    #[ignore]
     fn network_filter_list_check_works_regex_escaping() {
         let filters = vec![
             r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to"#,

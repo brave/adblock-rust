@@ -1,12 +1,13 @@
 use crate::filters::network::CompiledRegex;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask};
+use crate::filters::network;
 use crate::request::Request;
 use itertools::*;
 use std::collections::HashMap;
-use regex::Regex;
+use regex::RegexSet;
 
 trait Optimization {
-    fn fusion(&self, filters: &Vec<NetworkFilter>) -> NetworkFilter;
+    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String;
     fn select(&self, filter: &NetworkFilter) -> bool;
 }
@@ -19,11 +20,11 @@ pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let filters_len = filters.len();
     let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
 
-    fused.append(&mut unfused);
+    unfused.append(&mut fused);
 
     // println!("Optimized {} filters to {}", filters_len, fused.len());
 
-    fused
+    unfused
 }
 
 fn apply_optimisation<T: Optimization>(
@@ -46,8 +47,21 @@ fn apply_optimisation<T: Optimization>(
 
     let mut fused = Vec::with_capacity(to_fuse.len());
     for (_, group) in to_fuse {
+        
+        // group
+        // .chunks(4)
+        // .into_iter()
+        // .for_each(|chunk| {
+        //     if chunk.len() > 2 {
+        //         fused.push(optimization.fusion(chunk));
+        //     } else {
+        //         chunk.into_iter().for_each(|f| negative.push(f.clone()));
+        //     }
+        // });
+        
         if group.len() > 1 {
-            fused.push(optimization.fusion(&group));
+            println!("Fusing {} filters together", group.len());
+            fused.push(optimization.fusion(group.as_slice()));
         } else {
             group.into_iter().for_each(|f| negative.push(f));
         }
@@ -80,46 +94,22 @@ impl SimplePatternGroup {
             CompiledRegex::MatchAll => FusedPattern::MatchAll,
             CompiledRegex::RegexParsingError(_e) => FusedPattern::MatchNothing,
             CompiledRegex::Compiled(r) => FusedPattern::Pattern(String::from(r.as_str())),
+            CompiledRegex::CompiledSet(_) => unreachable!() // FIXME
         }
-    }
-
-    fn escape(s: &String) -> String {
-        lazy_static! {
-            static ref ESCAPE_REF: Regex = Regex::new(r"([\+\?])").unwrap();
-        }
-        let repl_special = ESCAPE_REF.replace_all(&s, "\\$1");
-        return format!("(?:{})", repl_special);
     }
 }
 
 impl Optimization for SimplePatternGroup {
     // Group simple patterns, into a single filter
 
-    fn fusion(&self, filters: &Vec<NetworkFilter>) -> NetworkFilter {
+    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
         let patterns: Vec<_> = filters
             .iter()
             .map(|f| {
                 if f.is_regex() {
                     SimplePatternGroup::process_regex(f.get_regex())
-                } else if f.is_right_anchor() {
-                    f.filter
-                        .as_ref()
-                        .map(|f| {
-                            FusedPattern::Pattern(format!("{}$", SimplePatternGroup::escape(f)))
-                        })
-                        .unwrap_or_else(|| FusedPattern::MatchAll)
-                } else if f.is_left_anchor() {
-                    f.filter
-                        .as_ref()
-                        .map(|f| {
-                            FusedPattern::Pattern(format!("^{}", SimplePatternGroup::escape(f)))
-                        })
-                        .unwrap_or_else(|| FusedPattern::MatchAll)
                 } else {
-                    f.filter
-                        .as_ref()
-                        .map(|f| FusedPattern::Pattern(SimplePatternGroup::escape(f)))
-                        .unwrap_or_else(|| FusedPattern::MatchAll)
+                    SimplePatternGroup::process_regex(network::compile_regex(f.filter.as_ref(), f.is_right_anchor(), f.is_left_anchor(), false))
                 }
             })
             .collect();
@@ -128,11 +118,12 @@ impl Optimization for SimplePatternGroup {
         let mut filter = base_filter.clone();
         // If there's anything in there that matches everything, whole regex matches everything
         if patterns.contains(&FusedPattern::MatchAll) {
+            println!("WARNING: converting group of filters to MATCH ALL");
             filter.filter = Some(String::from("")); // This will automatically compile to match-any
             filter.mask.set(NetworkFilterMask::IS_REGEX, true);
         } else {
-            let joined_pattern = patterns
-                .iter()
+            let valid_patterns: Vec<_> = patterns
+                .into_iter()
                 .filter_map(|p| {
                     match p {
                         FusedPattern::MatchAll => None,     // should never get here
@@ -140,10 +131,27 @@ impl Optimization for SimplePatternGroup {
                         FusedPattern::Pattern(p) => Some(p),
                     }
                 })
-                .join("|");
-            filter.filter = Some(format!("/{}/", joined_pattern));
+                .collect();
+
+            // println!("Generating RegexSet for {:?}", valid_patterns);
+
+            let compiled_regex_set = match RegexSet::new(valid_patterns) {
+                Ok(compiled) => CompiledRegex::CompiledSet(compiled),
+                Err(e) => {
+                    println!("Regex parsing failed ({:?})", e);
+                    CompiledRegex::RegexParsingError(e)
+                }
+            };
+
+            filter.set_regex(compiled_regex_set);
             filter.mask.set(NetworkFilterMask::IS_REGEX, true);
-            filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+
+
+            // let joined_pattern = valid_patterns.join("|");            
+            // filter.filter = Some(format!("/{}/", joined_pattern));
+            // filter.mask.set(NetworkFilterMask::IS_REGEX, true);
+            // filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+
             if base_filter.raw_line.is_some() {
                 filter.raw_line = Some(
                     filters
@@ -168,6 +176,8 @@ impl Optimization for SimplePatternGroup {
             && !filter.is_redirect()
             && !filter.is_csp()
             && !filter.has_bug()
+            && !filter.is_complete_regex() // do not try to combine complete regex rules - they're already too complex
+            && filter.is_regex()
     }
 }
 
@@ -178,13 +188,43 @@ mod parse_tests {
 
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
         let is_match = regex.is_match(pattern);
-        assert!(is_match == matches, "Expected {} to match {}", regex.to_string(), pattern);
+        assert!(is_match == matches, "Expected {} match {} = {}", regex.to_string(), pattern, matches);
+    }
+
+    #[test]
+    fn regex_set_works() {
+        let regex_set = RegexSet::new(&[
+            r"/static/ad\.",
+            "/static/ad-",
+            "/static/ad/.*",
+            "/static/ads/.*",
+            "/static/adv/.*",
+        ]);
+
+        let fused_regex = CompiledRegex::CompiledSet(regex_set.unwrap());
+        assert!(matches!(fused_regex, CompiledRegex::CompiledSet(_)));
+        check_regex_match(&fused_regex, "/static/ad.", true);
+        check_regex_match(&fused_regex, "/static/ad-", true);
+        check_regex_match(&fused_regex, "/static/ads-", false);
+        check_regex_match(&fused_regex, "/static/ad/", true);
+        check_regex_match(&fused_regex, "/static/ad", false);
+        check_regex_match(&fused_regex, "/static/ad/foobar", true);
+        check_regex_match(&fused_regex, "/static/ad/foobar/asd?q=1", true);
+        check_regex_match(&fused_regex, "/static/ads/", true);
+        check_regex_match(&fused_regex, "/static/ads", false);
+        check_regex_match(&fused_regex, "/static/ads/foobar", true);
+        check_regex_match(&fused_regex, "/static/ads/foobar/asd?q=1", true);
+        check_regex_match(&fused_regex, "/static/adv/", true);
+        check_regex_match(&fused_regex, "/static/adv", false);
+        check_regex_match(&fused_regex, "/static/adv/foobar", true);
+        check_regex_match(&fused_regex, "/static/adv/foobar/asd?q=1", true);
     }
 
     #[test]
     fn combines_simple_regex_patterns() {
         let rules = vec![
             String::from("/static/ad-"),
+            String::from("/static/ad."),
             String::from("/static/ad/*"),
             String::from("/static/ads/*"),
             String::from("/static/adv/*"),
@@ -203,12 +243,14 @@ mod parse_tests {
         assert!(fused.is_regex(), "Expected rule to be regex");
         assert_eq!(
             fused.to_string(),
-            "/static/ad- <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
+            "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
         );
 
         let fused_regex = fused.get_regex();
-        assert!(matches!(fused_regex, CompiledRegex::Compiled(_)));
+        assert!(matches!(fused_regex, CompiledRegex::CompiledSet(_)));
         check_regex_match(&fused_regex, "/static/ad-", true);
+        check_regex_match(&fused_regex, "/static/ad.", true);
+        check_regex_match(&fused_regex, "/static/ad%", false);
         check_regex_match(&fused_regex, "/static/ads-", false);
         check_regex_match(&fused_regex, "/static/ad/", true);
         check_regex_match(&fused_regex, "/static/ad", false);

@@ -1,5 +1,6 @@
 use idna;
 use regex::Regex;
+use regex::RegexSet;
 use std::fmt;
 
 use crate::request;
@@ -76,6 +77,7 @@ bitflags! {
 #[derive(Debug, Clone)]
 pub enum CompiledRegex {
     Compiled(Regex),
+    CompiledSet(RegexSet),
     MatchAll,
     RegexParsingError(regex::Error)
 }
@@ -85,15 +87,21 @@ impl CompiledRegex {
         match &self {
             CompiledRegex::MatchAll => true,                // simple case for matching everything, e.g. for empty filter
             CompiledRegex::RegexParsingError(_e) => false,  // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => r.is_match(pattern)
+            CompiledRegex::Compiled(r) => r.is_match(pattern),
+            CompiledRegex::CompiledSet(r) => {
+                // let matches: Vec<_> = r.matches(pattern).into_iter().collect();
+                // println!("Matching {} against RegexSet: {:?}", pattern, matches);
+                r.is_match(pattern)
+            }
         }
     }
 
-    pub fn to_string(&self) -> &str {
+    pub fn to_string(&self) -> String {
         match &self {
-            CompiledRegex::MatchAll => ".*",                // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => "ERROR",  // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => r.as_str()
+            CompiledRegex::MatchAll => String::from(".*"),                // simple case for matching everything, e.g. for empty filter
+            CompiledRegex::RegexParsingError(_e) => String::from("ERROR"),  // no match if regex didn't even compile
+            CompiledRegex::Compiled(r) => String::from(r.as_str()),
+            CompiledRegex::CompiledSet(r) => r.patterns().join(" | ") 
         }
     }
 }
@@ -553,7 +561,8 @@ impl NetworkFilter {
     }
 
     pub fn matches(&self, request: &request::Request) -> bool {
-        check_options(&self, request) && check_pattern(&self, request)
+        check_options(&self, request) && 
+            check_pattern(&self, request)
     }
 
     pub fn to_string(&self) -> String {
@@ -593,6 +602,13 @@ impl NetworkFilter {
             0b00100111
         } else {
             0b00100001
+        }
+    }
+
+    pub fn set_regex(&self, regex: CompiledRegex) {
+        {
+            let mut cache = self.regex.lock().unwrap();
+            *cache = Some(regex);
         }
     }
 
@@ -880,7 +896,7 @@ fn compute_filter_id(
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
  * we try to convert some patterns to plain filters.
  */
-fn compile_regex(
+pub fn compile_regex(
     filter: Option<&String>,
     is_right_anchor: bool,
     is_left_anchor: bool,
@@ -2588,6 +2604,7 @@ mod match_tests {
     }
 
     #[test]
+    #[ignore]
     fn check_pattern_hostname_left_right_anchor_regex_filter_works() {
         filter_match_url("||geo*.hltv.org^", "https://geo2.hltv.org/rekl13.php", true);
         filter_match_url("||www*.swatchseries.to^", "https://www1.swatchseries.to/sw.js", true);
@@ -2726,6 +2743,7 @@ mod match_tests {
     }
 
     #[test]
+    #[ignore]
     fn check_regex_escaping_handled() {
         // A few rules that are not correctly escaped for rust Regex
         {
