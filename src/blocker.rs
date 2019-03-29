@@ -1,7 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::rc::Rc;
 
 use crate::filters::network::NetworkFilter;
 use crate::request::Request;
@@ -148,10 +147,12 @@ impl Blocker {
     }
 }
 
+use std::cell::RefCell;
+
 struct NetworkFilterList {
     // A faster structure is possible, but tests didn't indicate much of a difference
     // for different HashMap implementations bulk of the cost in matching
-    filter_map: HashMap<Hash, Vec<Rc<NetworkFilter>>>,
+    filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
 impl NetworkFilterList {
@@ -161,14 +162,14 @@ impl NetworkFilterList {
             .into_iter()
             .map(|filter| {
                 let tokens = filter.get_tokens();
-                (Rc::new(filter), tokens)
+                (Arc::new(filter), tokens)
             })
             .collect();
         // compute the tokens' frequency histogram
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
-        // Build a HashMap of tokens to Network Filters (held through Rc, Atomic Reference Counter)
-        let mut filter_map: HashMap<Hash, Vec<Rc<NetworkFilter>>> = HashMap::with_capacity(filter_tokens.len());
+        // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
+        let mut filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_tokens.len());
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -187,19 +188,19 @@ impl NetworkFilterList {
                             _ => {}
                         }
                     }
-                    insert_dup(&mut filter_map, best_token, Rc::clone(&filter_pointer));
+                    insert_dup(&mut filter_map, best_token, Arc::clone(&filter_pointer));
                 }
             }
         }
 
         // Update all values
         if enable_optimizations {
-            let mut optimized_map: HashMap<Hash, Vec<Rc<NetworkFilter>>> = HashMap::with_capacity(filter_map.len());
+            let mut optimized_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_map.len());
             for (key, filters) in filter_map {
                 let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
-                let mut unoptimizable: Vec<Rc<NetworkFilter>> = Vec::with_capacity(filters.len());
+                let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
                 for f in filters {
-                    match Rc::try_unwrap(f) {
+                    match Arc::try_unwrap(f) {
                         Ok(f) => unoptimized.push(f),
                         Err(af) => unoptimizable.push(af)
                     }
@@ -207,10 +208,10 @@ impl NetworkFilterList {
 
                 let mut optimized: Vec<_>;
                 if unoptimized.len() > 1 {
-                    optimized = optimizer::optimize(unoptimized).into_iter().map(|f| Rc::new(f)).collect();
+                    optimized = optimizer::optimize(unoptimized).into_iter().map(|f| Arc::new(f)).collect();
                 } else {
                     // nothing to optimize
-                    optimized = unoptimized.into_iter().map(|f| Rc::new(f)).collect();
+                    optimized = unoptimized.into_iter().map(|f| Arc::new(f)).collect();
                 }
                 
                 optimized.append(&mut unoptimizable);

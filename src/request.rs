@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use idna;
 use std::sync::{Mutex, Arc};
+use std::sync::RwLock;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -98,8 +99,8 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: Arc<Mutex<Option<Vec<utils::Hash>>>>, // evaluated lazily
-    fuzzy_signature: Arc<Mutex<Option<Vec<utils::Hash>>>> // evaluated lazily
+    tokens: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
+    fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>> // evaluated lazily
 }
 
 impl<'a> Request {
@@ -155,8 +156,8 @@ impl<'a> Request {
             is_https: is_https,
             is_supported: is_supported,
             bug: None,
-            tokens: Arc::new(Mutex::new(None)),
-            fuzzy_signature: Arc::new(Mutex::new(None))
+            tokens: Arc::new(RwLock::new(None)),
+            fuzzy_signature: Arc::new(RwLock::new(None))
         }
     }
 
@@ -164,11 +165,13 @@ impl<'a> Request {
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
-            let mut tokens_cache = self.tokens.lock().unwrap();
+            let tokens_cache = self.tokens.read().unwrap();
             if tokens_cache.is_some() {
                 return tokens_cache.as_ref().unwrap().clone();
             }
-
+        }
+        {
+            let mut tokens_cache = self.tokens.write().unwrap();
             let mut tokens: Vec<utils::Hash> = vec![];
 
             if self.source_hostname.len() > 0 {
@@ -191,11 +194,13 @@ impl<'a> Request {
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
         {
-            let mut signature_cache = self.fuzzy_signature.lock().unwrap();
+            let signature_cache = self.fuzzy_signature.read().unwrap();
             if signature_cache.is_some() {
                 return signature_cache.as_ref().unwrap().clone();
             }
-
+        }
+        {
+            let mut signature_cache = self.fuzzy_signature.write().unwrap();
             let signature = utils::create_fuzzy_signature(&self.url);
             *signature_cache = Some(signature);
         }

@@ -6,7 +6,7 @@ use std::fmt;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use std::sync::{Mutex, Arc};
+use std::sync::{RwLock, Arc};
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -155,7 +155,7 @@ pub struct NetworkFilter {
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
-    regex: Arc<Mutex<Option<CompiledRegex>>>, // compiled lazily
+    regex: Arc<RwLock<Option<CompiledRegex>>>, // compiled lazily
 
     #[cfg(feature = "full-domain-matching")]
     pub opt_domains_full: Option<Vec<String>>,
@@ -552,7 +552,7 @@ impl NetworkFilter {
             debug: debug,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
-            regex: Arc::new(Mutex::new(None)),
+            regex: Arc::new(RwLock::new(None)),
             #[cfg(feature = "full-domain-matching")]
             opt_domains_full,
             #[cfg(feature = "full-domain-matching")]
@@ -607,7 +607,7 @@ impl NetworkFilter {
 
     pub fn set_regex(&self, regex: CompiledRegex) {
         {
-            let mut cache = self.regex.lock().unwrap();
+            let mut cache = self.regex.write().unwrap();
             *cache = Some(regex);
         }
     }
@@ -620,11 +620,13 @@ impl NetworkFilter {
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
-            let mut cache = self.regex.lock().unwrap();
+            let cache = self.regex.read().unwrap();
             if cache.is_some() {
                 return cache.as_ref().unwrap().clone();
             }
-
+        }
+        {
+            let mut cache = self.regex.write().unwrap();
             let filter = self.filter.as_ref();
             let regex = compile_regex(
                 filter,
