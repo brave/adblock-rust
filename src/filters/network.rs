@@ -6,7 +6,7 @@ use std::fmt;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use std::sync::{RwLock, Arc};
+use std::sync::{RwLock, Arc, RwLockReadGuard};
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -155,7 +155,14 @@ pub struct NetworkFilter {
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
-    regex: Arc<RwLock<Option<CompiledRegex>>>, // compiled lazily
+    // Regex compild lazily, using "Interior Mutability"
+    // Arc (Atomic Reference Counter) allows for cloned NetworkFilters
+    // to point to the same RwLock and what is inside.
+    // RwLock allows for concurrent access when reading as well as writing
+    // from the inside.
+    // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to Some<CompiledRegex>
+    // to avoid expensive cloning of the Regex itself.
+    regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>,
 
     #[cfg(feature = "full-domain-matching")]
     pub opt_domains_full: Option<Vec<String>>,
@@ -608,21 +615,21 @@ impl NetworkFilter {
     pub fn set_regex(&self, regex: CompiledRegex) {
         {
             let mut cache = self.regex.write().unwrap();
-            *cache = Some(regex);
+            *cache = Some(Arc::new(regex));
         }
     }
 
     // Lazily get the regex if the filter has one
-    pub fn get_regex(&self) -> CompiledRegex {
+    pub fn get_regex(&self) -> Arc<CompiledRegex> {
         if !self.is_regex() {
-            return CompiledRegex::MatchAll;
+            return Arc::new(CompiledRegex::MatchAll);
         }
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
             let cache = self.regex.read().unwrap();
             if cache.is_some() {
-                return cache.as_ref().unwrap().clone();
+                return cache.as_ref().unwrap().clone(); // Only clones the Arc, not the entire regex
             }
         }
         {
@@ -635,7 +642,7 @@ impl NetworkFilter {
                 self.is_complete_regex()
             );
 
-            *cache = Some(regex);
+            *cache = Some(Arc::new(regex));
         }
         // Recursive call to return the just-cached value.
         // Note that if we had not let the previous borrow

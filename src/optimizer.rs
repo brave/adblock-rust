@@ -5,6 +5,7 @@ use crate::request::Request;
 use itertools::*;
 use std::collections::HashMap;
 use regex::RegexSet;
+use std::sync::Arc;
 
 trait Optimization {
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
@@ -60,7 +61,7 @@ fn apply_optimisation<T: Optimization>(
         // });
         
         if group.len() > 1 {
-            println!("Fusing {} filters together", group.len());
+            // println!("Fusing {} filters together", group.len());
             fused.push(optimization.fusion(group.as_slice()));
         } else {
             group.into_iter().for_each(|f| negative.push(f));
@@ -89,7 +90,7 @@ enum FusedPattern {
 struct SimplePatternGroup {}
 
 impl SimplePatternGroup {
-    fn process_regex(r: CompiledRegex) -> FusedPattern {
+    fn process_regex(r: &CompiledRegex) -> FusedPattern {
         match r {
             CompiledRegex::MatchAll => FusedPattern::MatchAll,
             CompiledRegex::RegexParsingError(_e) => FusedPattern::MatchNothing,
@@ -107,9 +108,9 @@ impl Optimization for SimplePatternGroup {
             .iter()
             .map(|f| {
                 if f.is_regex() {
-                    SimplePatternGroup::process_regex(f.get_regex())
+                    SimplePatternGroup::process_regex(&f.get_regex())
                 } else {
-                    SimplePatternGroup::process_regex(network::compile_regex(f.filter.as_ref(), f.is_right_anchor(), f.is_left_anchor(), false))
+                    SimplePatternGroup::process_regex(&network::compile_regex(f.filter.as_ref(), f.is_right_anchor(), f.is_left_anchor(), false))
                 }
             })
             .collect();
@@ -177,7 +178,7 @@ impl Optimization for SimplePatternGroup {
             && !filter.is_csp()
             && !filter.has_bug()
             && !filter.is_complete_regex() // do not try to combine complete regex rules - they're already too complex
-            && filter.is_regex()
+            // && filter.is_regex()
     }
 }
 

@@ -7,6 +7,8 @@ use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
 
+use rand::{thread_rng, Rng};
+
 pub struct BlockerOptions {
     pub debug: bool,
     pub enable_optimizations: bool,
@@ -147,7 +149,7 @@ impl Blocker {
     }
 }
 
-use std::cell::RefCell;
+use std::sync::RwLock;
 
 struct NetworkFilterList {
     // A faster structure is possible, but tests didn't indicate much of a difference
@@ -223,11 +225,6 @@ impl NetworkFilterList {
 
             NetworkFilterList { filter_map: optimized_map }
         } else {
-
-            // for (_, filters) in filter_map.iter_mut() {
-            //     filters.sort_by(|a, b| a.get_cost().partial_cmp(&b.get_cost()).unwrap())
-            // }
-
             filter_map.shrink_to_fit();
             NetworkFilterList { filter_map: filter_map }
         }
@@ -237,8 +234,6 @@ impl NetworkFilterList {
         let mut request_tokens = request.get_tokens();
         request_tokens.push(0); // add 0 token as the fallback
         
-        // let mut tokens_checked = 0;
-        // let mut filters_checked = 0;
         for token in request_tokens {
             // tokens_checked += 1;
             let maybe_filter_bucket = self.filter_map.get(&token);

@@ -14,6 +14,7 @@ use adblock::request::Request;
 fn default_lists() -> Vec<String> {
   rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
+    "data/easylist.to/easylist/easyprivacy.txt"
   ])
 }
 
@@ -35,7 +36,7 @@ fn get_blocker(rules: &Vec<String>) -> Blocker {
 
   let blocker_options = BlockerOptions {
     debug: false,
-    enable_optimizations: false,
+    enable_optimizations: true,
     load_cosmetic_filters: false,
     load_network_filters: true
   };
