@@ -1,11 +1,9 @@
 use crate::filters::network::CompiledRegex;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::filters::network;
-use crate::request::Request;
 use itertools::*;
 use std::collections::HashMap;
 use regex::RegexSet;
-use std::sync::Arc;
 
 trait Optimization {
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
@@ -18,14 +16,9 @@ trait Optimization {
  */
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let simple_pattern_group = SimplePatternGroup {};
-    let filters_len = filters.len();
     let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
-
-    unfused.append(&mut fused);
-
-    // println!("Optimized {} filters to {}", filters_len, fused.len());
-
-    unfused
+    fused.append(&mut unfused);
+    fused
 }
 
 fn apply_optimisation<T: Optimization>(
@@ -186,6 +179,7 @@ impl Optimization for SimplePatternGroup {
 mod parse_tests {
     use super::*;
     use crate::lists;
+    use crate::request::Request;
 
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
         let is_match = regex.is_match(pattern);
@@ -248,7 +242,6 @@ mod parse_tests {
         );
 
         let fused_regex = fused.get_regex();
-        assert!(matches!(fused_regex, CompiledRegex::CompiledSet(_)));
         check_regex_match(&fused_regex, "/static/ad-", true);
         check_regex_match(&fused_regex, "/static/ad.", true);
         check_regex_match(&fused_regex, "/static/ad%", false);
@@ -268,7 +261,6 @@ mod parse_tests {
     }
 
     #[test]
-    #[ignore]
     fn separates_pattern_by_grouping() {
         let rules = vec![
             String::from("/analytics-v1."),
@@ -291,7 +283,7 @@ mod parse_tests {
             "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
         );
 
-        assert!(filter.matches(&Request::from_urls("https://example.com/v1/pixel", "https://my.leadpages.net", "").unwrap()));
+        assert!(filter.matches(&Request::from_urls("https://example.com/v1/pixel?", "https://my.leadpages.net", "").unwrap()));
 
         assert_eq!(skipped.len(), 1);
         let filter = skipped.get(0).unwrap();

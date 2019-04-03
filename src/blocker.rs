@@ -7,8 +7,6 @@ use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
 
-use rand::{thread_rng, Rng};
-
 pub struct BlockerOptions {
     pub debug: bool,
     pub enable_optimizations: bool,
@@ -65,10 +63,13 @@ impl Blocker {
         let exception = filter.as_ref().and_then(|f| {
             // Set `bug` of request
             // TODO - avoid mutability
-            // if f.has_bug() {
-            //     request.bug = f.bug;
-            // }
-            self.exceptions.check(request)
+            if f.has_bug() {
+                let mut request_bug = request.clone();
+                request_bug.bug = f.bug;
+                self.exceptions.check(&request_bug)
+            } else {
+                self.exceptions.check(request)
+            }
         });
 
         // If there is a match
@@ -93,7 +94,7 @@ impl Blocker {
      * Given a "main_frame" request, check if some content security policies
      * should be injected in the page.
      */
-    pub fn get_csp_directives(&self, request: Request) -> Option<String> {
+    pub fn get_csp_directives(&self, _request: Request) -> Option<String> {
         unimplemented!()
     }
 
@@ -148,8 +149,6 @@ impl Blocker {
         }
     }
 }
-
-use std::sync::RwLock;
 
 struct NetworkFilterList {
     // A faster structure is possible, but tests didn't indicate much of a difference
@@ -637,7 +636,6 @@ mod parse_tests {
     }
 
     #[test]
-    #[ignore]
     fn network_filter_list_check_works_regex_escaping() {
         let filters = vec![
             r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to"#,

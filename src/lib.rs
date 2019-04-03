@@ -8,8 +8,7 @@ extern crate lazy_static;
 extern crate bitflags;
 
 #[macro_use]
-#[cfg(test)]
-extern crate matches;
+extern crate matches; // #[cfg(test)]
 
 extern crate regex;
 extern crate punycode;  // utf domain handling
@@ -26,3 +25,4 @@ pub mod lists;
 pub mod filters;
 pub mod blocker;
 pub mod optimizer;
+pub mod parser;

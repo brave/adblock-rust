@@ -36,7 +36,6 @@ impl Hostname {
     pub fn parse(input: &str) -> Result<Hostname, ParseError> {
         Parser {
             serialization: String::with_capacity(input.len()),
-            violation_fn: ViolationFn::NoOp,
         }.parse_url(input)
     }
 
@@ -209,54 +208,6 @@ impl From<idna::uts46::Errors> for ParseError {
     fn from(_: idna::uts46::Errors) -> ParseError { ParseError::IdnaError }
 }
 
-macro_rules! syntax_violation_enum {
-    ($($name: ident => $description: expr,)+) => {
-        /// Non-fatal syntax violations that can occur during parsing.
-        #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-        pub enum SyntaxViolation {
-            $(
-                $name,
-            )+
-        }
-
-        impl SyntaxViolation {
-            pub fn description(&self) -> &'static str {
-                match *self {
-                    $(
-                        SyntaxViolation::$name => $description,
-                    )+
-                }
-            }
-        }
-    }
-}
-
-syntax_violation_enum! {
-    Backslash => "backslash",
-    C0SpaceIgnored =>
-        "leading or trailing control or space character are ignored in URLs",
-    EmbeddedCredentials =>
-        "embedding authentication information (username or password) \
-         in an URL is not recommended",
-    ExpectedDoubleSlash => "expected //",
-    ExpectedFileDoubleSlash => "expected // after file:",
-    FileWithHostAndWindowsDrive => "file: with host and Windows drive letter",
-    NonUrlCodePoint => "non-URL code point",
-    NullInFragment => "NULL characters are ignored in URL fragment identifiers",
-    PercentDecode => "expected 2 hex digits after %",
-    TabOrNewlineIgnored => "tabs or newlines are ignored in URLs",
-    UnencodedAtSign => "unencoded @ sign in username or password",
-}
-
-#[cfg(feature = "heapsize")]
-known_heap_size!(0, SyntaxViolation);
-
-impl fmt::Display for SyntaxViolation {
-    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        self.description().fmt(fmt)
-    }
-}
-
 #[derive(Copy, Clone)]
 pub enum SchemeType {
     File,
@@ -289,19 +240,8 @@ pub struct Input<'i> {
 
 impl<'i> Input<'i> {
     pub fn new(input: &'i str) -> Self {
-        Input::with_log(input, ViolationFn::NoOp)
-    }
-
-    pub fn with_log(original_input: &'i str, vfn: ViolationFn) -> Self {
-        let input = original_input.trim_matches(c0_control_or_space);
-        if vfn.is_set() {
-            if input.len() < original_input.len() {
-                vfn.call(SyntaxViolation::C0SpaceIgnored)
-            }
-            if input.chars().any(|c| matches!(c, '\t' | '\n' | '\r')) {
-                vfn.call(SyntaxViolation::TabOrNewlineIgnored)
-            }
-        }
+        let input = input.trim_matches(c0_control_or_space);
+        
         Input { chars: input.chars() }
     }
 
@@ -392,66 +332,16 @@ impl<'i> Iterator for Input<'i> {
     }
 }
 
-/// Wrapper for syntax violation callback functions.
-#[derive(Copy, Clone)]
-pub enum ViolationFn<'a> {
-    NewFn(&'a (Fn(SyntaxViolation) + 'a)),
-    OldFn(&'a (Fn(&'static str) + 'a)),
-    NoOp
-}
-
-impl<'a> ViolationFn<'a> {
-    /// Call with a violation.
-    pub fn call(self, v: SyntaxViolation) {
-        match self {
-            ViolationFn::NewFn(f) => f(v),
-            ViolationFn::OldFn(f) => f(v.description()),
-            ViolationFn::NoOp => {}
-        }
-    }
-
-    /// Call with a violation, if provided test returns true. Avoids
-    /// the test entirely if `NoOp`.
-    pub fn call_if<F>(self, v: SyntaxViolation, test: F)
-        where F: Fn() -> bool
-    {
-        match self {
-            ViolationFn::NewFn(f) => if test() { f(v) },
-            ViolationFn::OldFn(f) => if test() { f(v.description()) },
-            ViolationFn::NoOp => {} // avoid test
-        }
-    }
-
-    /// True if not `NoOp`
-    pub fn is_set(self) -> bool {
-        match self {
-            ViolationFn::NoOp => false,
-            _ => true
-        }
-    }
-}
-
-impl<'a> fmt::Debug for ViolationFn<'a> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match *self {
-            ViolationFn::NewFn(_) => write!(f, "NewFn(Fn(SyntaxViolation))"),
-            ViolationFn::OldFn(_) => write!(f, "OldFn(Fn(&'static str))"),
-            ViolationFn::NoOp     => write!(f, "NoOp")
-        }
-    }
-}
-
-pub struct Parser<'a> {
+pub struct Parser {
     pub serialization: String,
-    pub violation_fn: ViolationFn<'a>,
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
 
     /// https://url.spec.whatwg.org/#concept-basic-url-parser
     pub fn parse_url(mut self, input: &str) -> ParseResult<Hostname> {
         // println!("Parse {}", input);
-        let input = Input::with_log(input, self.violation_fn);
+        let input = Input::new(input);
         if let Ok(remaining) = self.parse_scheme(input.clone()) {
             return self.parse_with_scheme(remaining)
         }
@@ -482,7 +372,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_with_scheme(mut self, input: Input) -> ParseResult<Hostname> {
-        use SyntaxViolation::{ExpectedFileDoubleSlash, ExpectedDoubleSlash};
         let scheme_end = to_u32(self.serialization.len())?;
         let scheme_type = SchemeType::from(&self.serialization);
         self.serialization.push(':');
@@ -494,12 +383,8 @@ impl<'a> Parser<'a> {
             SchemeType::SpecialNotFile => {
                 // println!("Parse special, not file");
                 // special relative or authority state
-                let (slashes_count, remaining) = input.count_matching(|c| matches!(c, '/' | '\\'));
+                let (_, remaining) = input.count_matching(|c| matches!(c, '/' | '\\'));
                 // special authority slashes state
-                self.violation_fn.call_if(ExpectedDoubleSlash, || {
-                    input.clone().take_while(|&c| matches!(c, '/' | '\\'))
-                    .collect::<String>() != "//"
-                });
                 // println!("Parse after double slash {}", remaining.chars.as_str());
                 self.after_double_slash(remaining, scheme_type, scheme_end)
             }
@@ -511,7 +396,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Scheme other than file, http, https, ws, ws, ftp, gopher.
-    fn parse_non_special(mut self, input: Input, scheme_type: SchemeType, scheme_end: u32)
+    fn parse_non_special(self, input: Input, scheme_type: SchemeType, scheme_end: u32)
                          -> ParseResult<Hostname> {
         // path or authority state (
         if let Some(input) = input.split_prefix("//") {
@@ -566,11 +451,6 @@ impl<'a> Parser<'a> {
         while let Some(c) = remaining.next() {
             match c {
                 '@' => {
-                    if last_at.is_some() {
-                        self.violation_fn.call(SyntaxViolation::UnencodedAtSign)
-                    } else {
-                        self.violation_fn.call(SyntaxViolation::EmbeddedCredentials)
-                    }
                     last_at = Some((char_count, remaining.clone()))
                 },
                 '/' | '?' | '#' => break,
@@ -603,7 +483,6 @@ impl<'a> Parser<'a> {
                 if !has_password {
                     has_username = true;
                 }
-                self.check_url_code_point(c, &input);
                 self.serialization.extend(utf8_percent_encode(utf8_c, USERINFO_ENCODE_SET));
             }
         }
@@ -673,52 +552,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    
-    fn check_url_code_point(&self, c: char, input: &Input) {
-        let vfn = self.violation_fn;
-        if vfn.is_set() {
-            if c == '%' {
-                let mut input = input.clone();
-                if !matches!((input.next(), input.next()), (Some(a), Some(b))
-                             if is_ascii_hex_digit(a) && is_ascii_hex_digit(b)) {
-                    vfn.call(SyntaxViolation::PercentDecode)
-                }
-            } else if !is_url_code_point(c) {
-                vfn.call(SyntaxViolation::NonUrlCodePoint)
-            }
-        }
-    }
-}
-
-#[inline]
-fn is_ascii_hex_digit(c: char) -> bool {
-    matches!(c, 'a'...'f' | 'A'...'F' | '0'...'9')
-}
-
-// Non URL code points:
-// U+0000 to U+0020 (space)
-// " # % < > [ \ ] ^ ` { | }
-// U+007F to U+009F
-// surrogates
-// U+FDD0 to U+FDEF
-// Last two of each plane: U+__FFFE to U+__FFFF for __ in 00 to 10 hex
-#[inline]
-fn is_url_code_point(c: char) -> bool {
-    matches!(c,
-        'a'...'z' |
-        'A'...'Z' |
-        '0'...'9' |
-        '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' |
-        '.' | '/' | ':' | ';' | '=' | '?' | '@' | '_' | '~' |
-        '\u{A0}'...'\u{D7FF}' | '\u{E000}'...'\u{FDCF}' | '\u{FDF0}'...'\u{FFFD}' |
-        '\u{10000}'...'\u{1FFFD}' | '\u{20000}'...'\u{2FFFD}' |
-        '\u{30000}'...'\u{3FFFD}' | '\u{40000}'...'\u{4FFFD}' |
-        '\u{50000}'...'\u{5FFFD}' | '\u{60000}'...'\u{6FFFD}' |
-        '\u{70000}'...'\u{7FFFD}' | '\u{80000}'...'\u{8FFFD}' |
-        '\u{90000}'...'\u{9FFFD}' | '\u{A0000}'...'\u{AFFFD}' |
-        '\u{B0000}'...'\u{BFFFD}' | '\u{C0000}'...'\u{CFFFD}' |
-        '\u{D0000}'...'\u{DFFFD}' | '\u{E1000}'...'\u{EFFFD}' |
-        '\u{F0000}'...'\u{FFFFD}' | '\u{100000}'...'\u{10FFFD}')
 }
 
 /// https://url.spec.whatwg.org/#c0-controls-and-space
@@ -739,5 +572,45 @@ pub fn to_u32(i: usize) -> ParseResult<u32> {
         Ok(i as u32)
     } else {
         Err(ParseError::Overflow)
+    }
+}
+
+use regex::Regex;
+
+pub fn get_hostname_regex(url: &str) -> Option<&str> {
+    lazy_static! {
+        static ref HOSTNAME_REGEX_STR: &'static str = concat!(
+            r"[a-z][a-z0-9+\-.]*://",                       // Scheme
+            r"(?:[a-z0-9\-._~%!$&'()*+,;=]+@)?",              // User
+            r"(?P<host>[a-z0-9\-._~%]+",                            // Named host
+            r"|\[[a-f0-9:.]+\]",                            // IPv6 host
+            r"|\[v[a-f0-9][a-z0-9\-._~%!$&'()*+,;=:]+\])",  // IPvFuture host
+            // r"(?::[0-9]+)?",                                  // Port
+            // r"(?:/[a-z0-9\-._~%!$&'()*+,;=:@]+)*/?",          // Path
+            // r"(?:\?[a-z0-9\-._~%!$&'()*+,;=:@/?]*)?",         // Query
+            // r"(?:\#[a-z0-9\-._~%!$&'()*+,;=:@/?]*)?",         // Fragment
+        );
+        static ref HOST_REGEX: Regex = Regex::new(&HOSTNAME_REGEX_STR).unwrap();
+    }
+
+    HOST_REGEX.captures(url).and_then(|c| c.name("host")).map(|m| m.as_str())
+}
+
+#[cfg(test)]
+mod parse_tests {
+    use super::*;
+
+    #[test]
+    // pattern
+    fn parses_hostname() {
+        assert_eq!(get_hostname_regex("http://example.foo.edu.au"), Some("example.foo.edu.au"));
+        assert_eq!(get_hostname_regex("http://example.foo.edu.sh"), Some("example.foo.edu.sh"));
+        assert_eq!(get_hostname_regex("http://example.foo.nom.br"), Some("example.foo.nom.br"));
+        assert_eq!(get_hostname_regex("http://example.foo.nom.br:80/"), Some("example.foo.nom.br"));
+        assert_eq!(get_hostname_regex("http://example.foo.nom.br:8080/hello?world=true"), Some("example.foo.nom.br"));
+        assert_eq!(get_hostname_regex("http://example.foo.nom.br/hello#world"), Some("example.foo.nom.br"));
+        assert_eq!(get_hostname_regex("http://127.0.0.1:80"), Some("127.0.0.1"));
+        assert_eq!(get_hostname_regex("http://[2001:470:20::2]"), Some("[2001:470:20::2]"));
+        assert_eq!(get_hostname_regex("http://[2001:4860:4860::1:8888]"), Some("[2001:4860:4860::1:8888]"));
     }
 }

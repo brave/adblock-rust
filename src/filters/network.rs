@@ -6,7 +6,7 @@ use std::fmt;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use std::sync::{RwLock, Arc, RwLockReadGuard};
+use std::sync::{RwLock, Arc};
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -395,7 +395,8 @@ impl NetworkFilter {
         let is_regex = check_is_regex(&line[filter_index_start..filter_index_end]);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
-        if is_regex && line[filter_index_start..filter_index_end].starts_with("/") && line[filter_index_start..filter_index_end].ends_with('/') {
+        
+        if line[filter_index_start..filter_index_end].starts_with("/") && line[filter_index_start..filter_index_end].ends_with('/') {
             mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
         }
 
@@ -539,8 +540,7 @@ impl NetworkFilter {
             filter.as_ref().map(|f| utils::create_fuzzy_signature(f))
         } else {
             None
-        };
-        
+        };        
 
         Ok(NetworkFilter {
             bug: bug,
@@ -594,24 +594,6 @@ impl NetworkFilter {
         )
     }
 
-    pub fn get_cost(&self) -> u8 {
-        if self.is_regex() {
-            0b00000001
-        } else if self.is_left_anchor() && self.is_right_anchor() {
-            0b00100011
-        } else if self.is_left_anchor() {
-            0b00100010
-        } else if self.is_right_anchor() {
-            0b00100010
-        } else if self.is_fuzzy() {
-            0b00110000
-        } else if self.is_hostname_anchor() {
-            0b00100111
-        } else {
-            0b00100001
-        }
-    }
-
     pub fn set_regex(&self, regex: CompiledRegex) {
         {
             let mut cache = self.regex.write().unwrap();
@@ -621,7 +603,7 @@ impl NetworkFilter {
 
     // Lazily get the regex if the filter has one
     pub fn get_regex(&self) -> Arc<CompiledRegex> {
-        if !self.is_regex() {
+        if !self.is_regex() && !self.is_complete_regex() {
             return Arc::new(CompiledRegex::MatchAll);
         }
         // Create a new scope to contain the lifetime of the
@@ -766,7 +748,7 @@ impl NetworkFilter {
     }
     #[inline]
     pub fn is_complete_regex(&self) -> bool {
-        self.is_regex() && self.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
+        self.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
     }
     #[inline]
     fn is_plain(&self) -> bool {
@@ -933,7 +915,6 @@ pub fn compile_regex(
         return CompiledRegex::MatchAll;
     }
 
-    #[cfg(feature = "full-regex-rules")]
     {
         if is_complete_regex {
             // unescape unrecognised escaping sequences, otherwise a normal regex
@@ -942,7 +923,6 @@ pub fn compile_regex(
             let compiled = match Regex::new(&unescaped) {
                 Ok(compiled) => CompiledRegex::Compiled(compiled),
                 Err(e) => {
-                    // println!("Full Regex parsing from {:?} failed ({:?})", filter, e);
                     CompiledRegex::RegexParsingError(e)
                 }
             };
@@ -1301,7 +1281,7 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
         } else {
             check_pattern_hostname_anchor_filter(filter, request)
         }
-    } else if filter.is_regex() {
+    } else if filter.is_regex() || filter.is_complete_regex() {
         check_pattern_regex_filter(filter, request)
     } else if filter.is_left_anchor() && filter.is_right_anchor() {
         check_pattern_left_right_anchor_filter(filter, request)
@@ -2565,7 +2545,7 @@ mod match_tests {
     #[test]
     // |pattern|
     fn check_pattern_left_right_anchor_filter_works() {
-        filter_match_url("|https://foo.com/|", "https://foo.com", true);
+        filter_match_url("|https://foo.com|", "https://foo.com", true);
     }
 
     #[test]
@@ -2752,7 +2732,6 @@ mod match_tests {
     }
 
     #[test]
-    #[ignore]
     fn check_regex_escaping_handled() {
         // A few rules that are not correctly escaped for rust Regex
         {
@@ -2783,6 +2762,20 @@ mod match_tests {
                 url
             );
         }
+        //
+        {
+            let filter = r#"/\.(accountant|bid|click|club|com|cricket|date|download|faith|link|loan|lol|men|online|party|racing|review|science|site|space|stream|top|trade|webcam|website|win|xyz|com)\/(([0-9]{2,9})(\.|\/)(css|\?)?)$/$script,stylesheet,third-party,xmlhttprequest"#;
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://hello.club/123.css";
+            let source = "http://123movies.com";
+            let request = request::Request::from_urls(url, source, "stylesheet").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
     }
 
     #[test]
@@ -2791,7 +2784,7 @@ mod match_tests {
         {
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
             let network_filter = NetworkFilter::parse(filter, true).unwrap();
-            let regex = network_filter.get_regex();
+            let regex = Arc::try_unwrap(network_filter.get_regex()).unwrap();
             assert!(matches!(regex, CompiledRegex::Compiled(_)), "Generated incorrect regex: {:?}", regex);
             let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
             let source = "http://123movies.com";

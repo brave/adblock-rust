@@ -1,13 +1,12 @@
 
 use crate::utils;
+use crate::parser;
 
 use addr::{DomainName};
 use url::{Url};
 use std::collections::HashMap;
-use std::cell::RefCell;
 use idna;
-use std::sync::{Mutex, Arc};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -79,6 +78,7 @@ lazy_static! {
     };
 }
 
+#[derive(Clone, Debug)]
 pub struct Request {
     pub raw_type: String,
     pub request_type: RequestType,
@@ -210,10 +210,11 @@ impl<'a> Request {
 
     pub fn from_urls(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
         let url_norm = url.to_lowercase();
-        let url_parsed: Url = url_norm.parse()?;
+        // let url_parsed: Url = url_norm.parse()?;
         // TODO: what is the correct behaviour for handling trailing '/'?
-        let url_norm = url_parsed.as_str(); // Get URL back from the library to include consistent punycode handling
-        let maybe_hostname = url_parsed.host_str().map(String::from);
+        // let url_norm = url_parsed.as_str(); // Get URL back from the library to include consistent punycode handling
+
+        let maybe_hostname = get_url_host(&url_norm);
         if maybe_hostname.is_none() {
             return Err(RequestError::HostnameParseError);
         }
@@ -222,10 +223,7 @@ impl<'a> Request {
 
         let source_url_norm = source_url.to_lowercase();
         let source_hostname = get_url_host(&source_url_norm).unwrap_or_default();
-        // TODO: may make sense to fail if source hostname can't be parsed
-        // let source_hostname = if maybe_source_hostname.is_none() {
-        //     return Err(RequestError::SourceHostnameParseError);
-        // }
+        
         let source_domain = get_host_domain(&source_hostname);
 
         Ok(Request::new(request_type,
@@ -259,14 +257,30 @@ pub fn get_host_domain(host: &str) -> String {
     }
 }
 
-fn parse_url(url: &str) -> Option<Url> {
-    url.parse::<Url>()
-    .ok() // convert to Option
-}
+// fn parse_url(url: &str) -> Option<Url> {
+//     url.parse::<Url>()
+//     .ok() // convert to Option
+// }
+
+// pub fn get_url_host(url: &str) -> Option<String> {
+//     parse_url(url)
+//     .and_then(|p| p.host_str().map(String::from))
+// }
 
 pub fn get_url_host(url: &str) -> Option<String> {
-    parse_url(url)
-    .and_then(|p| p.host_str().map(String::from))
+    let decode_flags = idna::uts46::Flags {
+        use_std3_ascii_rules: true,
+        transitional_processing: true,
+        verify_dns_length: true,
+    };
+    parser::get_hostname_regex(&url)
+        .and_then(|h| {
+            if h.is_ascii() {
+                Some(String::from(h))
+            } else {
+                idna::uts46::to_ascii(&h, decode_flags).ok()
+            }
+        })
 }
 
 pub fn get_url_domain(url: &str) -> Option<String> {

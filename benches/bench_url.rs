@@ -36,6 +36,8 @@ static URLS: &'static [&'static str] = &[
     "http://forums.news.cnn.com"
 ];
 
+
+
 fn host_throughput(c: &mut Criterion) {
     c.bench(
         "throughput-host",
@@ -43,7 +45,11 @@ fn host_throughput(c: &mut Criterion) {
             "get hostname",
             |b, url| b.iter(|| adblock::request::get_url_host(url)),
             URLS,
-        ).throughput(|_url| Throughput::Elements(1)),
+        ).throughput(|_url| Throughput::Elements(1))
+        .with_function("hand-rolled",
+            move |b, url| {
+              b.iter(|| adblock::parser::get_hostname_regex(url))
+            },)
     );
 }
 

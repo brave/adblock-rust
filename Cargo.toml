@@ -39,9 +39,9 @@ harness = false
 name = "bench_matching"
 harness = false
 
-[[bench]]
-name = "bench_url"
-harness = false
+# [[bench]]
+# name = "bench_url"
+# harness = false
 
 [[bench]]
 name = "bench_rules"
@@ -50,4 +50,3 @@ harness = false
 [features]
 
 full-domain-matching = [] # feature has no explicit dependencies
-full-regex-rules = []
