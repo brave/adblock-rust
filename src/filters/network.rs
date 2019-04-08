@@ -1317,8 +1317,8 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
     // Source URL must be among these domains to match
     if filter.opt_domains.is_some() {
         let domains = filter.opt_domains.as_ref().unwrap();
-        if !utils::bin_lookup(&domains, request.source_hostname_hash)
-            && !utils::bin_lookup(&domains, request.source_domain_hash)
+        if !utils::bin_lookup_optional(&domains, request.source_hostname_hash)
+            && !utils::bin_lookup_optional(&domains, request.source_domain_hash)
         {
             return false;
         }
@@ -1326,8 +1326,8 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
 
     if filter.opt_not_domains.is_some() {
         let domains = filter.opt_not_domains.as_ref().unwrap();
-        if utils::bin_lookup(&domains, request.source_hostname_hash)
-            || utils::bin_lookup(&domains, request.source_domain_hash)
+        if utils::bin_lookup_optional(&domains, request.source_hostname_hash)
+            || utils::bin_lookup_optional(&domains, request.source_domain_hash)
         {
             return false;
         }

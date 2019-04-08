@@ -25,4 +25,4 @@ pub mod lists;
 pub mod filters;
 pub mod blocker;
 pub mod optimizer;
-pub mod parser;
+pub mod url_parser;

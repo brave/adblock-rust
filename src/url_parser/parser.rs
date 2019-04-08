@@ -13,9 +13,7 @@ use std::error::Error;
 use std::fmt::{self, Formatter, Write};
 use std::str;
 
-use url::Host;
 use url::idna;
-use std::net::{Ipv4Addr, Ipv6Addr};
 use url::percent_encoding::{utf8_percent_encode, USERINFO_ENCODE_SET};
 use std::ops::{Range, RangeFrom, RangeTo};
 
@@ -24,11 +22,10 @@ pub struct Hostname {
     serialization: String,
 
     // Components
-    scheme_end: u32,  // Before ':'
-    username_end: u32,  // Before ':' (if a password is given) or '@' (if not)
-    host_start: u32,
-    host_end: u32,
-    host: HostInternal
+    pub scheme_end: usize,  // Before ':'
+    pub username_end: usize,  // Before ':' (if a password is given) or '@' (if not)
+    pub host_start: usize,
+    pub host_end: usize,
 }
 
 impl Hostname {
@@ -60,8 +57,8 @@ impl Hostname {
     /// # }
     /// # run().unwrap();
     /// ```
-    pub fn has_host(&self) -> bool {
-        !matches!(self.host, HostInternal::None)
+    fn has_host(&self) -> bool {
+        self.host_end > self.host_start
     }
 
     /// Return the string representation of the host (domain or IP address) for this URL, if any.
@@ -96,12 +93,18 @@ impl Hostname {
     /// # }
     /// # run().unwrap();
     /// ```
+    #[inline]
     pub fn host_str(&self) -> Option<&str> {
         if self.has_host() {
             Some(self.slice(self.host_start..self.host_end))
         } else {
             None
         }
+    }
+
+    #[inline]
+    pub fn url_str(&self) -> String {
+        self.serialization.clone()
     }
 
     // Private helper methods:
@@ -116,43 +119,24 @@ trait RangeArg {
     fn slice_of<'a>(&self, s: &'a str) -> &'a str;
 }
 
-impl RangeArg for Range<u32> {
+impl RangeArg for Range<usize> {
     #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
-        &s[self.start as usize .. self.end as usize]
+        &s[self.start .. self.end ]
     }
 }
 
-impl RangeArg for RangeFrom<u32> {
+impl RangeArg for RangeFrom<usize> {
     #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
-        &s[self.start as usize ..]
+        &s[self.start ..]
     }
 }
 
-impl RangeArg for RangeTo<u32> {
+impl RangeArg for RangeTo<usize> {
     #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
-        &s[.. self.end as usize]
-    }
-}
-
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum HostInternal {
-    None,
-    Domain,
-    Ipv4(Ipv4Addr),
-    Ipv6(Ipv6Addr),
-}
-
-impl<S> From<Host<S>> for HostInternal {
-    fn from(host: Host<S>) -> HostInternal {
-        match host {
-            Host::Domain(_) => HostInternal::Domain,
-            Host::Ipv4(address) => HostInternal::Ipv4(address),
-            Host::Ipv6(address) => HostInternal::Ipv6(address),
-        }
+        &s[.. self.end]
     }
 }
 
@@ -372,7 +356,7 @@ impl Parser {
     }
 
     fn parse_with_scheme(mut self, input: Input) -> ParseResult<Hostname> {
-        let scheme_end = to_u32(self.serialization.len())?;
+        let scheme_end = self.serialization.len();
         let scheme_type = SchemeType::from(&self.serialization);
         self.serialization.push(':');
         match scheme_type {
@@ -396,18 +380,21 @@ impl Parser {
     }
 
     /// Scheme other than file, http, https, ws, ws, ftp, gopher.
-    fn parse_non_special(self, input: Input, scheme_type: SchemeType, scheme_end: u32)
+    fn parse_non_special(mut self, input: Input, scheme_type: SchemeType, scheme_end: usize)
                          -> ParseResult<Hostname> {
         // path or authority state (
         if let Some(input) = input.split_prefix("//") {
             return self.after_double_slash(input, scheme_type, scheme_end)
         }
         // Anarchist URL (no authority)
-        let path_start = to_u32(self.serialization.len())?;
+        let path_start = self.serialization.len();
         let username_end = path_start;
         let host_start = path_start;
         let host_end = path_start;
-        let host = HostInternal::None;
+        let mut remaining = input.clone();
+        while let Some(c) = remaining.next() {
+            self.serialization.push(c);
+        }
 
         Ok(Hostname {
             serialization: self.serialization,
@@ -415,22 +402,22 @@ impl Parser {
             username_end: username_end,
             host_start: host_start,
             host_end: host_end,
-            host: host.into()
         })
     }
 
-    fn after_double_slash(mut self, input: Input, scheme_type: SchemeType, scheme_end: u32)
+    fn after_double_slash(mut self, input: Input, scheme_type: SchemeType, scheme_end: usize)
                           -> ParseResult<Hostname> {
         self.serialization.push('/');
         self.serialization.push('/');
         // authority state
         let (username_end, remaining) = self.parse_userinfo(input, scheme_type)?;
         // host state
-        let host_start = to_u32(self.serialization.len())?;
+        let host_start = self.serialization.len();
         // println!("Parse host {}", remaining.chars.as_str());
-        let (host, _) = Parser::parse_host(remaining, scheme_type)?;
-        write!(&mut self.serialization, "{}", host).unwrap();
-        let host_end = to_u32(self.serialization.len())?;
+        let (host_end, mut remaining) = self.parse_host(remaining, scheme_type)?;
+        while let Some(c) = remaining.next() {
+            self.serialization.push(c);
+        }
         // println!("Return hostname {} from {} to {}", self.serialization, host_start, host_end);
         Ok(Hostname {
             serialization: self.serialization,
@@ -438,13 +425,12 @@ impl Parser {
             username_end: username_end,
             host_start: host_start,
             host_end: host_end,
-            host: host.into()
         })
     }
 
     /// Return (username_end, remaining)
     fn parse_userinfo<'i>(&mut self, mut input: Input<'i>, scheme_type: SchemeType)
-                          -> ParseResult<(u32, Input<'i>)> {
+                          -> ParseResult<(usize, Input<'i>)> {
         let mut last_at = None;
         let mut remaining = input.clone();
         let mut char_count = 0;
@@ -460,8 +446,8 @@ impl Parser {
             char_count += 1;
         }
         let (mut userinfo_char_count, remaining) = match last_at {
-            None => return Ok((to_u32(self.serialization.len())?, input)),
-            Some((0, remaining)) => return Ok((to_u32(self.serialization.len())?, remaining)),
+            None => return Ok((self.serialization.len(), input)),
+            Some((0, remaining)) => return Ok((self.serialization.len(), remaining)),
             Some(x) => x
         };
 
@@ -473,7 +459,7 @@ impl Parser {
             userinfo_char_count -= 1;
             if c == ':' && username_end.is_none() {
                 // Start parsing password
-                username_end = Some(to_u32(self.serialization.len())?);
+                username_end = Some(self.serialization.len());
                 // We don't add a colon if the password is empty
                 if userinfo_char_count > 0 {
                     self.serialization.push(':');
@@ -488,7 +474,7 @@ impl Parser {
         }
         let username_end = match username_end {
             Some(i) => i,
-            None => to_u32(self.serialization.len())?,
+            None => self.serialization.len(),
         };
         if has_username || has_password {
             self.serialization.push('@');
@@ -496,11 +482,12 @@ impl Parser {
         Ok((username_end, remaining))
     }
 
-    pub fn parse_host(mut input: Input, scheme_type: SchemeType)
-                             -> ParseResult<(Host<String>, Input)> {
+    pub fn parse_host<'i>(&mut self, mut input: Input<'i>, scheme_type: SchemeType)
+                             -> ParseResult<(usize, Input<'i>)> {
         // Undo the Input abstraction here to avoid allocating in the common case
         // where the host part of the input does not contain any tab or newline
         let input_str = input.chars.as_str();
+        let mut remaining = input.clone();
         let mut inside_square_brackets = false;
         let mut has_ignored_chars = false;
         let mut non_ignored_chars = 0;
@@ -523,6 +510,7 @@ impl Parser {
                 }
                 _ => non_ignored_chars += 1
             }
+            remaining.next();
             bytes += c.len_utf8();
         }
         let replaced: String;
@@ -537,19 +525,22 @@ impl Parser {
                 host_str = &input_str[..bytes]
             }
         }
-        if scheme_type.is_special() && host_str.is_empty() {
-            return Err(ParseError::EmptyHost)
+
+        let decode_flags = idna::uts46::Flags {
+            use_std3_ascii_rules: true,
+            transitional_processing: true,
+            verify_dns_length: true,
+        };
+
+        if host_str.is_ascii() {
+            write!(&mut self.serialization, "{}", host_str).unwrap();
+        } else {
+            let encoded = idna::uts46::to_ascii(&host_str, decode_flags)?;
+            write!(&mut self.serialization, "{}", encoded).unwrap();
         }
-        if !scheme_type.is_special() {
-            match Host::parse_opaque(host_str) {
-                Ok(host) => return Ok((host, input)),
-                Err(_) => return Err(ParseError::HostParseError)
-            }
-        }
-        match Host::parse(host_str) {
-            Ok(host) => return Ok((host, input)),
-            Err(_) => return Err(ParseError::HostParseError)
-        }
+
+        let host_end = self.serialization.len();
+        Ok((host_end, remaining))
     }
 
 }
@@ -566,51 +557,3 @@ pub fn ascii_alpha(ch: char) -> bool {
     matches!(ch, 'a'...'z' | 'A'...'Z')
 }
 
-#[inline]
-pub fn to_u32(i: usize) -> ParseResult<u32> {
-    if i <= ::std::u32::MAX as usize {
-        Ok(i as u32)
-    } else {
-        Err(ParseError::Overflow)
-    }
-}
-
-use regex::Regex;
-
-pub fn get_hostname_regex(url: &str) -> Option<&str> {
-    lazy_static! {
-        static ref HOSTNAME_REGEX_STR: &'static str = concat!(
-            r"[a-z][a-z0-9+\-.]*://",                       // Scheme
-            r"(?:[a-z0-9\-._~%!$&'()*+,;=]+@)?",              // User
-            r"(?P<host>[a-z0-9\-._~%]+",                            // Named host
-            r"|\[[a-f0-9:.]+\]",                            // IPv6 host
-            r"|\[v[a-f0-9][a-z0-9\-._~%!$&'()*+,;=:]+\])",  // IPvFuture host
-            // r"(?::[0-9]+)?",                                  // Port
-            // r"(?:/[a-z0-9\-._~%!$&'()*+,;=:@]+)*/?",          // Path
-            // r"(?:\?[a-z0-9\-._~%!$&'()*+,;=:@/?]*)?",         // Query
-            // r"(?:\#[a-z0-9\-._~%!$&'()*+,;=:@/?]*)?",         // Fragment
-        );
-        static ref HOST_REGEX: Regex = Regex::new(&HOSTNAME_REGEX_STR).unwrap();
-    }
-
-    HOST_REGEX.captures(url).and_then(|c| c.name("host")).map(|m| m.as_str())
-}
-
-#[cfg(test)]
-mod parse_tests {
-    use super::*;
-
-    #[test]
-    // pattern
-    fn parses_hostname() {
-        assert_eq!(get_hostname_regex("http://example.foo.edu.au"), Some("example.foo.edu.au"));
-        assert_eq!(get_hostname_regex("http://example.foo.edu.sh"), Some("example.foo.edu.sh"));
-        assert_eq!(get_hostname_regex("http://example.foo.nom.br"), Some("example.foo.nom.br"));
-        assert_eq!(get_hostname_regex("http://example.foo.nom.br:80/"), Some("example.foo.nom.br"));
-        assert_eq!(get_hostname_regex("http://example.foo.nom.br:8080/hello?world=true"), Some("example.foo.nom.br"));
-        assert_eq!(get_hostname_regex("http://example.foo.nom.br/hello#world"), Some("example.foo.nom.br"));
-        assert_eq!(get_hostname_regex("http://127.0.0.1:80"), Some("127.0.0.1"));
-        assert_eq!(get_hostname_regex("http://[2001:470:20::2]"), Some("[2001:470:20::2]"));
-        assert_eq!(get_hostname_regex("http://[2001:4860:4860::1:8888]"), Some("[2001:4860:4860::1:8888]"));
-    }
-}

@@ -32,7 +32,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 
     let mut reqs: Vec<RequestRuleMatch> = Vec::new();
     for result in rdr.deserialize() {
-        if (result.is_ok()) {
+        if result.is_ok() {
             let record: RequestRuleMatch = result.unwrap();
             reqs.push(record);
         } else {
@@ -62,10 +62,19 @@ fn get_blocker() -> Blocker {
 }
 
 #[test]
+fn check_specifics() {
+    let blocker = get_blocker();
+
+    {
+        let request = adblock::request::Request::from_url("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8").unwrap();
+        let checked = blocker.check(&request);
+        assert_eq!(checked.matched, true);
+    }
+}
+
+#[test]
 fn check_matching() {
     let requests = load_requests();
-
-    let mut requests_checked = 0;
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
 

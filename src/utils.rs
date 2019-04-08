@@ -155,6 +155,12 @@ pub fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
 
+pub fn bin_lookup_optional<T: Ord>(arr: &[T], elt: Option<T>) -> bool {
+    elt.map(|i| {
+        arr.binary_search(&i).is_ok()
+    }).unwrap_or(false)
+}
+
 pub fn has_unicode(pattern: &str) -> bool {
     let mut chars = pattern.chars();
     while let Some(c) = chars.next() {

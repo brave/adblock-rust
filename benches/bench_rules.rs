@@ -4,7 +4,7 @@ use criterion::*;
 
 use adblock;
 use adblock::utils::{read_rules, rules_from_lists};
-
+use adblock::blocker::{Blocker, BlockerOptions};
 
 
 fn default_lists() -> Vec<String> {
@@ -84,5 +84,40 @@ fn list_parse(c: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, list_parse, string_hashing, string_tokenize);
+
+fn get_blocker(rules: &Vec<String>) -> Blocker {
+  let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
+
+  println!("Got {} network filters", network_filters.len());
+
+  let blocker_options = BlockerOptions {
+    debug: false,
+    enable_optimizations: true,
+    load_cosmetic_filters: false,
+    load_network_filters: true
+  };
+  
+  Blocker::new(network_filters, &blocker_options)
+}
+
+
+fn blocker_new(c: &mut Criterion) {
+  let rules = rules_from_lists(vec![
+    "data/easylist.to/easylist/easylist.txt",
+    "data/easylist.to/easylist/easyprivacy.txt"
+  ]);
+
+  c.bench(
+        "blocker_new",
+        Benchmark::new(
+            "el+ep",
+            move |b| b.iter(|| get_blocker(&rules)),
+        ).throughput(Throughput::Elements(1))
+        .sample_size(10)
+    );
+}
+
+
+
+criterion_group!(benches, blocker_new, list_parse, string_hashing, string_tokenize);
 criterion_main!(benches);

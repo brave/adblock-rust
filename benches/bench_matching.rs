@@ -6,18 +6,11 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use adblock;
-use adblock::utils::{read_rules, rules_from_lists};
+use adblock::utils::rules_from_lists;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
 
-
-fn default_lists() -> Vec<String> {
-  rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
-  ])
-}
-
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 struct TestRequest {
     frameUrl: String,
@@ -58,7 +51,7 @@ fn bench_rule_matching(blocker: &Blocker, requests: &Vec<TestRequest>) -> (u32, 
         Err(_) => errors += 1
       }
     });
-  println!("Got {} matches, {} passes, {} errors", matches, passes, errors);  
+  // println!("Got {} matches, {} passes, {} errors", matches, passes, errors);  
   (matches, passes, errors)
 }
 
@@ -81,13 +74,36 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
 
 fn rule_match(c: &mut Criterion) {
   
-  let rules = default_lists();
+  let rules = rules_from_lists(vec![
+    "data/easylist.to/easylist/easylist.txt",
+  ]);
   let requests = load_requests();
   let requests_len = requests.len() as u32;
   c.bench(
         "rule-match",
         Benchmark::new(
-            "easylist",
+            "el",
+            move |b| {
+              let blocker = get_blocker(&rules);
+              b.iter(|| bench_rule_matching(&blocker, &requests))
+            },
+        ).throughput(Throughput::Elements(requests_len))
+        .sample_size(10)
+    );
+}
+
+fn rule_match_elep(c: &mut Criterion) {
+  
+  let rules = rules_from_lists(vec![
+    "data/easylist.to/easylist/easylist.txt",
+    "data/easylist.to/easylist/easyprivacy.txt"
+  ]);
+  let requests = load_requests();
+  let requests_len = requests.len() as u32;
+  c.bench(
+        "rule-match",
+        Benchmark::new(
+            "el+ep",
             move |b| {
               let blocker = get_blocker(&rules);
               b.iter(|| bench_rule_matching(&blocker, &requests))
@@ -117,30 +133,10 @@ fn rule_match_slim(c: &mut Criterion) {
     );
 }
 
-fn rule_match_only(c: &mut Criterion) {
-  
-  let rules = default_lists();
-  let requests = load_requests();
-  let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
-  let requests_len = requests_parsed.len() as u32;
-  c.bench(
-        "rule-match-parsed",
-        Benchmark::new(
-            "easylist",
-            move |b| {
-              let blocker = get_blocker(&rules);
-              b.iter(|| bench_matching_only(&blocker, &requests_parsed))
-            },
-        ).throughput(Throughput::Elements(requests_len))
-        .sample_size(10)
-    );
-}
-
-fn rule_match_only_el_ep(c: &mut Criterion) {
+fn rule_match_only_el(c: &mut Criterion) {
   
   let rules = rules_from_lists(vec![
     "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt",
   ]);
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
@@ -149,7 +145,7 @@ fn rule_match_only_el_ep(c: &mut Criterion) {
   c.bench(
         "rule-match-parsed",
         Benchmark::new(
-            "el+ep",
+            "el",
             move |b| {
               b.iter(|| bench_matching_only(&blocker, &requests_parsed))
             },
@@ -179,7 +175,7 @@ fn rule_match_slimlist_comparable(c: &mut Criterion) {
   let requests_parsed_copy: Vec<_> = requests_copy.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
 
   c.bench(
-        "rule-match-parsed-comparison",
+        "rule-match-parsed",
         Benchmark::new(
             "el+ep",
             move |b| {
@@ -194,5 +190,5 @@ fn rule_match_slimlist_comparable(c: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, rule_match_only_el_ep, rule_match_slimlist_comparable, rule_match_only, rule_match, rule_match_slim);
+criterion_group!(benches, rule_match_only_el, rule_match_slimlist_comparable, rule_match, rule_match_elep, rule_match_slim);
 criterion_main!(benches);
