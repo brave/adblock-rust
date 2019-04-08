@@ -4,18 +4,20 @@ use adblock::utils;
 use adblock::lists::parse_filters;
 use adblock::filters::network::NetworkFilter;
 
+#[cfg(feature="full-domain-matching")]
 use itertools::Itertools;
 
 fn get_network_filters() -> Vec<NetworkFilter> {
-    let rules_lists = utils::rules_from_lists(vec![
-        "data/easylist.to/easylist/easylist.txt",
-        "data/easylist.to/easylist/easyprivacy.txt",
+    let rules_lists = utils::rules_from_lists(&vec![
+        String::from("data/easylist.to/easylist/easylist.txt"),
+        String::from("data/easylist.to/easylist/easyprivacy.txt"),
     ]);
 
     let (network_filters, _) = parse_filters(&rules_lists, true, false, true);
     network_filters
 }
 
+#[cfg(feature="full-domain-matching")]
 fn has_unique_elements<T>(iter: T) -> bool
 where
     T: IntoIterator,

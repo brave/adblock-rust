@@ -1,19 +1,16 @@
 extern crate adblock;
 
-use adblock::lists::parse_filters;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
-use adblock::filters::network::NetworkFilter;
 use adblock::utils::rules_from_lists;
 
-use serde::{Deserialize, Serialize};
-use serde_json;
+use serde::{Deserialize};
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::BufReader;
 
 use csv;
 
+#[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 struct RequestRuleMatch {
     url: String,
@@ -44,9 +41,9 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 }
 
 fn get_blocker() -> Blocker {
-  let rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
+  let rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
+    String::from("data/easylist.to/easylist/easyprivacy.txt")
   ]);
 
   let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);

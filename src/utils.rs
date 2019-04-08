@@ -174,7 +174,7 @@ pub fn has_unicode(pattern: &str) -> bool {
 const EXPECTED_RULES: usize = 75000;
 
 pub fn read_rules(filename: &str) -> Vec<String> {
-    let f = File::open(filename).unwrap();
+    let f = File::open(filename).expect(&format!("File {} not found", filename));
     let reader = BufReader::new(f);
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for line in reader.lines() {
@@ -185,7 +185,7 @@ pub fn read_rules(filename: &str) -> Vec<String> {
     rules
 }
 
-pub fn rules_from_lists(lists: Vec<&str>) -> Vec<String> {
+pub fn rules_from_lists(lists: &Vec<String>) -> Vec<String> {
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for filename in lists {
         let mut list_rules = read_rules(filename);
