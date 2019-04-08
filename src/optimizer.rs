@@ -108,7 +108,7 @@ impl Optimization for SimplePatternGroup {
             })
             .collect();
 
-        let base_filter = filters.get(0).unwrap(); // FIXME: can technically panic, if filters list is empty
+        let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
         // If there's anything in there that matches everything, whole regex matches everything
         if patterns.contains(&FusedPattern::MatchAll) {

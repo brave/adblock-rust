@@ -112,7 +112,7 @@ impl<'a> Request {
         source_hostname: &str,
         source_domain: &str,
     ) -> Request {
-        let first_party = if source_domain.len() == 0 {
+        let first_party = if source_domain.is_empty() {
             None
         } else {
             Some(source_domain == domain)
@@ -144,7 +144,7 @@ impl<'a> Request {
         }
 
         Request {
-            request_type: request_type,
+            request_type,
             url: String::from(url),
             hostname: String::from(hostname),
             #[cfg(feature = "full-domain-matching")]
@@ -153,13 +153,13 @@ impl<'a> Request {
             source_hostname: String::from(source_hostname),
             #[cfg(feature = "full-domain-matching")]
             source_domain: String::from(source_domain),
-            source_hostname_hash: if source_hostname.len() > 0 { Some(utils::fast_hash(&source_hostname)) } else { None },
-            source_domain_hash: if source_hostname.len() > 0 { Some(utils::fast_hash(&source_domain)) } else { None },
+            source_hostname_hash: if !source_hostname.is_empty() { Some(utils::fast_hash(&source_hostname)) } else { None },
+            source_domain_hash: if !source_hostname.is_empty() { Some(utils::fast_hash(&source_domain)) } else { None },
             is_first_party: first_party,
             is_third_party: third_party,
-            is_http: is_http,
-            is_https: is_https,
-            is_supported: is_supported,
+            is_http,
+            is_https,
+            is_supported,
             bug: None,
             tokens: Arc::new(RwLock::new(None)),
             fuzzy_signature: Arc::new(RwLock::new(None)),
@@ -179,8 +179,8 @@ impl<'a> Request {
             let mut tokens_cache = self.tokens.write().unwrap();
             let mut tokens: Vec<utils::Hash> = vec![];
 
-            self.source_domain_hash.map(|h| tokens.push(h));
-            self.source_hostname_hash.map(|h| tokens.push(h));
+            if let Some(h) = self.source_domain_hash { tokens.push(h) }
+            if let Some(h) = self.source_hostname_hash { tokens.push(h) }
 
             let mut url_tokens = utils::tokenize(&self.url);
             tokens.append(&mut url_tokens);

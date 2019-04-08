@@ -84,7 +84,7 @@ impl Blocker {
 
         BlockerResult {
             matched: exception.is_none() && filter.is_some(),
-            redirect: redirect,
+            redirect,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
         }
@@ -113,7 +113,7 @@ impl Blocker {
         // Injections
         // TODO: resource handling
 
-        if network_filters.len() > 0 && options.load_network_filters {
+        if !network_filters.is_empty() && options.load_network_filters {
             for filter in network_filters {
                 if filter.is_csp() {
                     csp.push(filter);
@@ -207,13 +207,12 @@ impl NetworkFilterList {
                     }
                 }
 
-                let mut optimized: Vec<_>;
-                if unoptimized.len() > 1 {
-                    optimized = optimizer::optimize(unoptimized).into_iter().map(|f| Arc::new(f)).collect();
+                let mut optimized: Vec<_> = if unoptimized.len() > 1 {
+                    optimizer::optimize(unoptimized).into_iter().map(Arc::new).collect()
                 } else {
                     // nothing to optimize
-                    optimized = unoptimized.into_iter().map(|f| Arc::new(f)).collect();
-                }
+                    unoptimized.into_iter().map(Arc::new).collect()
+                };
                 
                 optimized.append(&mut unoptimizable);
                 optimized_map.insert(key, optimized);
@@ -225,7 +224,7 @@ impl NetworkFilterList {
             NetworkFilterList { filter_map: optimized_map }
         } else {
             filter_map.shrink_to_fit();
-            NetworkFilterList { filter_map: filter_map }
+            NetworkFilterList { filter_map }
         }
     }
 
@@ -234,23 +233,17 @@ impl NetworkFilterList {
         request_tokens.push(0); // add 0 token as the fallback
         
         for token in request_tokens {
-            // tokens_checked += 1;
             let maybe_filter_bucket = self.filter_map.get(&token);
-            for filter_bucket in maybe_filter_bucket {
+            if let Some(filter_bucket) = maybe_filter_bucket {
                 for filter in filter_bucket {
-                    // filters_checked += 1;
                     if filter.matches(request) {
-                        // println!("Filters checked MATCH : {} in {} buckets", filters_checked, tokens_checked);
                         return Some(filter);
                     }
                 }
             }
         }
 
-        // println!("Filters checked PASS : {} in {} buckets", filters_checked, tokens_checked);
-
-
-        return None;
+        None
     }
 }
 
@@ -273,7 +266,7 @@ where
     }
 }
 
-fn token_histogram<T>(filter_tokens: &Vec<(T, Vec<Vec<Hash>>)>) -> (u32, HashMap<Hash, u32>) {
+fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Hash, u32>) {
     let mut tokens_histogram: HashMap<Hash, u32> = HashMap::new();
     let mut number_of_tokens = 0;
     for (_, tokens) in filter_tokens.iter() {

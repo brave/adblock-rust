@@ -26,7 +26,7 @@ pub enum FilterError {
 
 bitflags! {
     pub struct NetworkFilterMask: u32 {
-        const FROM_IMAGE = 1 << 0;
+        const FROM_IMAGE = 1; // 1 << 0;
         const FROM_MEDIA = 1 << 1;
         const FROM_OBJECT = 1 << 2;
         const FROM_OTHER = 1 << 3;
@@ -212,7 +212,7 @@ impl NetworkFilter {
         // |     |
         // |     optionsIndex
         // filterIndexStart
-        let options_index: Option<usize> = line.rfind("$");
+        let options_index: Option<usize> = line.rfind('$');
 
         if options_index.is_some() {
             // Parse options and set flags
@@ -223,11 +223,11 @@ impl NetworkFilter {
             let options = raw_options.split(',');
             for raw_option in options {
                 // Check for negation: ~option
-                let negation = raw_option.starts_with("~");
-                let maybe_negated_option = raw_option.trim_start_matches("~");
+                let negation = raw_option.starts_with('~');
+                let maybe_negated_option = raw_option.trim_start_matches('~');
 
                 // Check for options: option=value1|value2
-                let mut option_and_values = maybe_negated_option.splitn(2, "=");
+                let mut option_and_values = maybe_negated_option.splitn(2, '=');
                 let (option, value) = (
                     option_and_values.next().unwrap(),
                     option_and_values.next().unwrap_or_default(),
@@ -235,7 +235,7 @@ impl NetworkFilter {
 
                 match (option, negation) {
                     ("domain", _) => {
-                        let mut option_values: Vec<&str> = value.split("|").collect();
+                        let mut option_values: Vec<&str> = value.split('|').collect();
                         // Some rules have duplicate domain options - avoid including duplicates
                         // Benchmarking doesn't indicate signficant performance degradation across the entire easylist
                         option_values.sort();
@@ -246,7 +246,7 @@ impl NetworkFilter {
                         let mut valuesiter = option_values.iter();
 
                         while let Some(option_value) = valuesiter.next() {
-                            if option_value.starts_with("~") {
+                            if option_value.starts_with('~') {
                                 let domain = &option_value[1..];
                                 let domain_hash = utils::fast_hash(&domain);
                                 opt_not_domains_array.push(domain_hash);
@@ -262,7 +262,7 @@ impl NetworkFilter {
                             let mut opt_not_domains_full_array: Vec<String> = vec![];
                             let mut valuesiter = option_values.iter();
                             while let Some(option_value) = valuesiter.next() {
-                                if option_value.starts_with("~") {
+                                if option_value.starts_with('~') {
                                     opt_not_domains_full_array
                                         .push(String::from(&option_value[1..]));
                                 } else {
@@ -279,11 +279,11 @@ impl NetworkFilter {
                             }
                         }
 
-                        if opt_domains_array.len() > 0 {
+                        if !opt_domains_array.is_empty() {
                             opt_domains_array.sort();
                             opt_domains = Some(opt_domains_array);
                         }
-                        if opt_not_domains_array.len() > 0 {
+                        if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort();
                             opt_not_domains = Some(opt_not_domains_array);
                         }
@@ -313,7 +313,7 @@ impl NetworkFilter {
                     ("redirect", true) => return Err(FilterError::NegatedRedirection),
                     ("redirect", false) => {
                         // Ignore this filter if no redirection resource is specified
-                        if value.len() == 0 {
+                        if value.is_empty() {
                             return Err(FilterError::EmptyRedirection);
                         }
 
@@ -321,7 +321,7 @@ impl NetworkFilter {
                     }
                     ("csp", _) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
-                        if value.len() > 0 {
+                        if !value.is_empty() {
                             csp = Some(String::from(value));
                         }
                     }
@@ -379,7 +379,7 @@ impl NetworkFilter {
         // Identify kind of pattern
 
         // Deal with hostname pattern
-        if filter_index_end > 0 && line[filter_index_end-1..].starts_with("|") {
+        if filter_index_end > 0 && line[filter_index_end-1..].starts_with('|') {
             mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
             filter_index_end -= 1;
         }
@@ -387,7 +387,7 @@ impl NetworkFilter {
         if line[filter_index_start..].starts_with("||") {
             mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true);
             filter_index_start += 2;
-        } else if line[filter_index_start..].starts_with("|") {
+        } else if line[filter_index_start..].starts_with('|') {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
             filter_index_start += 1;
         }
@@ -396,7 +396,7 @@ impl NetworkFilter {
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
         
-        if line[filter_index_start..filter_index_end].starts_with("/") && line[filter_index_start..filter_index_end].ends_with('/') {
+        if line[filter_index_start..filter_index_end].starts_with('/') && line[filter_index_start..filter_index_end].ends_with('/') {
             mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
         }
 
@@ -421,7 +421,7 @@ impl NetworkFilter {
                 // but set the filter as right anchored since there should not be any
                 // other label on the right
                 if filter_index_end - filter_index_start == 1
-                    && line[filter_index_start..].starts_with("^")
+                    && line[filter_index_start..].starts_with('^')
                 {
                     mask.set(NetworkFilterMask::IS_REGEX, false);
                     filter_index_start = filter_index_end;
@@ -435,13 +435,13 @@ impl NetworkFilter {
                 }
             } else {
                 // Look for next /
-                let slash_index = &line[filter_index_start..].find("/");
+                let slash_index = &line[filter_index_start..].find('/');
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
                             &line[filter_index_start..filter_index_start + i],
                         ));
-                        filter_index_start = filter_index_start + i;
+                        filter_index_start += i;
                         mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
                     })
                     .or_else(|| {
@@ -454,14 +454,14 @@ impl NetworkFilter {
 
         // Remove trailing '*'
         if filter_index_end - filter_index_start > 0
-            && line[filter_index_end-1..].starts_with("*")
+            && line[filter_index_end-1..].starts_with('*')
         {
             filter_index_end -= 1;
         }
 
         // Remove leading '*' if the filter is not hostname anchored.
         if filter_index_end - filter_index_start > 0
-            && line[filter_index_start..].starts_with("*")
+            && line[filter_index_start..].starts_with('*')
         {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
             filter_index_start += 1;
@@ -543,20 +543,20 @@ impl NetworkFilter {
         };        
 
         Ok(NetworkFilter {
-            bug: bug,
-            csp: csp,
-            filter: filter,
+            bug,
+            csp,
+            filter,
             hostname: hostname_decoded.map_or(Ok(None), |r| r.map(Some))?,
-            mask: mask,
-            opt_domains: opt_domains,
-            opt_not_domains: opt_not_domains,
+            mask,
+            opt_domains,
+            opt_not_domains,
             raw_line: if debug {
                 Some(String::from(line))
             } else {
                 None
             },
-            redirect: redirect,
-            debug: debug,
+            redirect,
+            debug,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
             regex: Arc::new(RwLock::new(None)),
@@ -654,12 +654,12 @@ impl NetworkFilter {
             && self.opt_domains.as_ref().map(|d| d.len()) == Some(1)
         {
             let domains = self.opt_domains.as_ref().unwrap();
-            let domain = domains.get(0).unwrap();
+            let domain = &domains[0];
             tokens.push(*domain)
         }
 
         // Get tokens from filter
-        self.filter.as_ref().map(|filter| {
+        if let Some(filter) = self.filter.as_ref() {
             // When the entire filter is a regex, don't try to tokenize it
             if !self.is_complete_regex() {
                 let skip_last_token = self.is_plain() && !self.is_right_anchor() && !self.is_fuzzy();
@@ -670,17 +670,17 @@ impl NetworkFilter {
 
                 tokens.append(&mut filter_tokens);
             }
-        });
+        }
 
         // Append tokens from hostname, if any
-        self.hostname.as_ref().map(|hostname| {
+        if let Some(hostname) = self.hostname.as_ref() {
             let mut hostname_tokens = utils::tokenize(&hostname);
             tokens.append(&mut hostname_tokens);
-        });
+        }
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
-        if tokens.len() == 0 && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
+        if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
             self.opt_domains
                 .as_ref()
                 .unwrap_or(&vec![])
@@ -846,38 +846,38 @@ fn compute_filter_id(
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ (mask.bits as Hash);
 
-    csp.map(|s| {
-        let mut chars = s.chars();
-        while let Some(c) = chars.next() {
+    if let Some(s) = csp {
+        let chars = s.chars();
+        for c in chars {
             hash = hash.wrapping_mul(33) ^ (c as Hash);
         }
-    });
+    };
 
-    opt_domains.map(|domains| {
+    if let Some(domains) = opt_domains {
         for d in domains {
             hash = hash.wrapping_mul(33) ^ d;
         }
-    });
+    };
 
-    opt_not_domains.map(|domains| {
+    if let Some(domains) = opt_not_domains {
         for d in domains {
             hash = hash.wrapping_mul(33) ^ d;
         }
-    });
+    }
 
-    filter.map(|s| {
-        let mut chars = s.chars();
-        while let Some(c) = chars.next() {
+    if let Some(s) = filter {
+        let chars = s.chars();
+        for c in chars {
             hash = hash.wrapping_mul(33) ^ (c as Hash);
         }
-    });
+    }
 
-    hostname.map(|s| {
-        let mut chars = s.chars();
-        while let Some(c) = chars.next() {
+    if let Some(s) = hostname {
+        let chars = s.chars();
+        for c in chars {
             hash = hash.wrapping_mul(33) ^ (c as Hash);
         }
-    });
+    }
 
     hash
 }
@@ -959,8 +959,8 @@ pub fn compile_regex(
  * // TODO - we could use sticky regex here
  */
 fn check_is_regex(filter: &str) -> bool {
-    let start_index = filter.find("*");
-    let separator_index = filter.find("^");
+    let start_index = filter.find('*');
+    let separator_index = filter.find('^');
     start_index.is_some() || separator_index.is_some()
 }
 
@@ -1017,13 +1017,13 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     }
 
     // `filter_hostname` is infix of `hostname` and needs match full labels
-    return (filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
+    (filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
     && (filter_hostname.starts_with('.') || hostname[match_index-1..].starts_with('.'))
 }
 
 #[inline]
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = url.find(&hostname).unwrap_or(url.len());
+    let start = url.find(&hostname).unwrap_or_else(|| url.len());
     &url[start+hostname.len()..]
 }
 
@@ -1046,7 +1046,7 @@ fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request
             for filter_token in signature {
                 // Find the occurrence of `c` in `request_signature`
                 // Can assume fuzzy signatures are sorted
-                if !request_signature.binary_search(filter_token).is_ok() {
+                if request_signature.binary_search(filter_token).is_err() {
                     return false;
                 }
             }
@@ -1141,7 +1141,7 @@ fn check_pattern_hostname_right_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname) {
-                let matches = filter
+                filter
                     .filter
                     .as_ref()
                     .map(|_| check_pattern_right_anchor_filter(filter, request))
@@ -1152,8 +1152,7 @@ fn check_pattern_hostname_right_anchor_filter(
                     .unwrap_or_else(|| {
                         request.hostname.len() == hostname.len()
                             || request.hostname.ends_with(hostname)
-                    });
-                matches
+                    })
             } else {
                 false
             }
@@ -1333,7 +1332,7 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         }
     }
 
-    return true;
+    true
 }
 
 #[cfg(test)]

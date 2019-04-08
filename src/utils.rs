@@ -47,9 +47,9 @@ fn fast_tokenizer_no_regex(
     let mut inside: bool = false;
     let mut start = 0;
     let mut preceding_ch: Option<char> = None; // Used to check if a '*' is not just before a token
-    let mut chars = pattern.char_indices();
+    let chars = pattern.char_indices();
 
-    while let Some((i, c)) = chars.next() {
+    for (i, c) in chars {
         if tokens_buffer_index >= TOKENS_BUFFER_SIZE {
             break;
         }
@@ -94,9 +94,9 @@ fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash
     let mut tokens_buffer_index = 0;
     let mut inside: bool = false;
     let mut start = 0;
-    let mut chars = pattern.char_indices();
+    let chars = pattern.char_indices();
 
-    while let Some((i, c)) = chars.next() {
+    for (i, c) in chars {
         if tokens_buffer_index >= TOKENS_BUFFER_SIZE {
             break;
         }
@@ -162,13 +162,13 @@ pub fn bin_lookup_optional<T: Ord>(arr: &[T], elt: Option<T>) -> bool {
 }
 
 pub fn has_unicode(pattern: &str) -> bool {
-    let mut chars = pattern.chars();
-    while let Some(c) = chars.next() {
+    let chars = pattern.chars();
+    for c in chars {
         if !c.is_ascii() {
             return true
         }
     }
-    return false;
+    false
 }
 
 const EXPECTED_RULES: usize = 75000;

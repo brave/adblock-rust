@@ -18,7 +18,7 @@ pub enum FilterError {
 }
 
 pub fn parse_filters(
-    list: &Vec<String>,
+    list: &[String],
     load_network_filters: bool,
     load_cosmetic_filters: bool,
     debug: bool,
@@ -30,7 +30,7 @@ pub fn parse_filters(
         .into_par_iter()
         .map(|line| {
             let filter = line.trim();
-            if filter.len() > 0 {
+            if !filter.is_empty() {
                 let filter_type = detect_filter_type(filter);
                 if filter_type == FilterType::Network && load_network_filters {
                     let network_filter = NetworkFilter::parse(filter, debug);
@@ -38,7 +38,7 @@ pub fn parse_filters(
                     //     println!("Error parsing rule {}: {:?}", filter, network_filter.as_ref().err())
                     // }
                     network_filter
-                        .map(|f| Either::Left(f))
+                        .map(Either::Left)
                         .or_else(|_| Err(FilterError::ParseError))
                 } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
                     // TODO: unimplemented, just return rule as a string
@@ -102,7 +102,7 @@ fn detect_filter_type(filter: &str) -> FilterType {
             || filter[after_sharp_index..].starts_with(/* #?# */ "?#")
         {
             return FilterType::NotSupported;
-        } else if filter[after_sharp_index..].starts_with(/* ## */ "#")
+        } else if filter[after_sharp_index..].starts_with(/* ## */ '#')
             || filter[after_sharp_index..].starts_with(/* #@# */ "@#")
         {
             // Parse supported cosmetic filter
@@ -112,5 +112,5 @@ fn detect_filter_type(filter: &str) -> FilterType {
     }
 
     // Everything else is a network filter
-    return FilterType::Network;
+    FilterType::Network
 }

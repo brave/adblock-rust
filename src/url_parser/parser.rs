@@ -200,12 +200,12 @@ pub enum SchemeType {
 }
 
 impl SchemeType {
-    pub fn is_special(&self) -> bool {
-        !matches!(*self, SchemeType::NotSpecial)
+    pub fn is_special(self) -> bool {
+        !matches!(self, SchemeType::NotSpecial)
     }
 
-    pub fn is_file(&self) -> bool {
-        matches!(*self, SchemeType::File)
+    pub fn is_file(self) -> bool {
+        matches!(self, SchemeType::File)
     }
 
     pub fn from(s: &str) -> Self {
@@ -391,17 +391,17 @@ impl Parser {
         let username_end = path_start;
         let host_start = path_start;
         let host_end = path_start;
-        let mut remaining = input.clone();
-        while let Some(c) = remaining.next() {
+        let remaining = input.clone();
+        for c in remaining {
             self.serialization.push(c);
         }
 
         Ok(Hostname {
             serialization: self.serialization,
-            scheme_end: scheme_end,
-            username_end: username_end,
-            host_start: host_start,
-            host_end: host_end,
+            scheme_end,
+            username_end,
+            host_start,
+            host_end,
         })
     }
 
@@ -414,17 +414,17 @@ impl Parser {
         // host state
         let host_start = self.serialization.len();
         // println!("Parse host {}", remaining.chars.as_str());
-        let (host_end, mut remaining) = self.parse_host(remaining, scheme_type)?;
-        while let Some(c) = remaining.next() {
+        let (host_end, remaining) = self.parse_host(remaining, scheme_type)?;
+        for c in remaining {
             self.serialization.push(c);
         }
         // println!("Return hostname {} from {} to {}", self.serialization, host_start, host_end);
         Ok(Hostname {
             serialization: self.serialization,
-            scheme_end: scheme_end,
-            username_end: username_end,
-            host_start: host_start,
-            host_end: host_end,
+            scheme_end,
+            username_end,
+            host_start,
+            host_end,
         })
     }
 
