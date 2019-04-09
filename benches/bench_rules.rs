@@ -8,16 +8,14 @@ use adblock::blocker::{Blocker, BlockerOptions};
 
 
 fn default_lists() -> Vec<String> {
-  rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
-    // "data/easylist.to/easylist/easyprivacy.txt"
+  rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
   ])
 }
 
 fn default_rules_lists() -> Vec<Vec<String>> {
   vec![
     read_rules("data/easylist.to/easylist/easylist.txt"),
-    // read_rules("data/easylist.to/easylist/easyprivacy.txt")
   ]
 }
 
@@ -102,9 +100,9 @@ fn get_blocker(rules: &Vec<String>) -> Blocker {
 
 
 fn blocker_new(c: &mut Criterion) {
-  let rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
+  let rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
+    String::from("data/easylist.to/easylist/easyprivacy.txt")
   ]);
 
   c.bench(

@@ -74,8 +74,8 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
 
 fn rule_match(c: &mut Criterion) {
   
-  let rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
+  let rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
   ]);
   let requests = load_requests();
   let requests_len = requests.len() as u32;
@@ -94,9 +94,9 @@ fn rule_match(c: &mut Criterion) {
 
 fn rule_match_elep(c: &mut Criterion) {
   
-  let rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
+  let rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
+    String::from("data/easylist.to/easylist/easyprivacy.txt"),
   ]);
   let requests = load_requests();
   let requests_len = requests.len() as u32;
@@ -114,8 +114,8 @@ fn rule_match_elep(c: &mut Criterion) {
 }
 
 fn rule_match_slim(c: &mut Criterion) {
-  let rules = rules_from_lists(vec![
-    "data/slim-list.txt",
+  let rules = rules_from_lists(&vec![
+    String::from("data/slim-list.txt"),
   ]);
   let requests = load_requests();
   let requests_len = requests.len() as u32;
@@ -135,8 +135,8 @@ fn rule_match_slim(c: &mut Criterion) {
 
 fn rule_match_only_el(c: &mut Criterion) {
   
-  let rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
+  let rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
   ]);
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
@@ -156,9 +156,9 @@ fn rule_match_only_el(c: &mut Criterion) {
 
 fn rule_match_slimlist_comparable(c: &mut Criterion) {
   
-  let full_rules = rules_from_lists(vec![
-    "data/easylist.to/easylist/easylist.txt",
-    "data/easylist.to/easylist/easyprivacy.txt"
+  let full_rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
+    String::from("data/easylist.to/easylist/easyprivacy.txt")
   ]);
   let blocker = get_blocker(&full_rules);
   
@@ -166,8 +166,8 @@ fn rule_match_slimlist_comparable(c: &mut Criterion) {
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
   let requests_len = requests_parsed.len() as u32;
 
-  let slim_rules = rules_from_lists(vec![
-    "data/slim-list.txt",
+  let slim_rules = rules_from_lists(&vec![
+    String::from("data/slim-list.txt"),
   ]);
   let slim_blocker = get_blocker(&slim_rules);
 
