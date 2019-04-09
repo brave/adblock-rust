@@ -1,5 +1,10 @@
 use crate::filters::network::NetworkFilter;
 use itertools::Either;
+
+#[cfg(not(any(unix, windows)))]
+use itertools::Itertools;
+
+#[cfg(any(unix, windows))]
 use rayon::prelude::*;
 
 #[derive(Debug, PartialEq)]
@@ -23,11 +28,14 @@ pub fn parse_filters(
     load_cosmetic_filters: bool,
     debug: bool,
 ) -> (Vec<NetworkFilter>, Vec<String>) {
-    // let mut network_filters = Vec::with_capacity(list.len());
-    // let cosmetic_filters = vec![];
 
-    let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
-        .into_par_iter()
+    #[cfg(not(any(unix, windows)))]
+    let list_iter = list.into_iter();
+
+    #[cfg(any(unix, windows))]
+    let list_iter = list.into_par_iter();
+
+    let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
         .map(|line| {
             let filter = line.trim();
             if !filter.is_empty() {

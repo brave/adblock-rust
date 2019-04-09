@@ -12,8 +12,10 @@ extern crate matches; // #[cfg(test)]
 
 extern crate regex;
 extern crate punycode;  // utf domain handling
-extern crate rayon;     // parallelism
 extern crate idna;      // utf domain handling
+
+#[cfg(target_arch = "x86")]
+extern crate rayon;     // parallelism
 
 #[cfg(test)]
 extern crate csv;       // csv handling library used for processing test data
