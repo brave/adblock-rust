@@ -70,6 +70,19 @@ fn check_specifics() {
 }
 
 #[test]
+fn check_basic_works_after_deserialization() {
+    let blocker = get_blocker();
+    let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
+    let deserialized_blocker = adblock::blocker::blocker_deserialize(&serialized).unwrap();
+
+    {
+        let request = adblock::request::Request::from_url("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8").unwrap();
+        let checked = deserialized_blocker.check(&request);
+        assert_eq!(checked.matched, true);
+    }
+}
+
+#[test]
 fn check_matching() {
     let requests = load_requests();
 
@@ -105,4 +118,30 @@ fn check_matching() {
     assert!(ratio < 0.05); 
 }
 
+#[test]
+fn check_works_same_after_deserialization() {
+    let requests = load_requests();
+
+    assert!(requests.len() > 0, "List of parsed request info is empty");
+
+    let blocker = get_blocker();
+    let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
+
+    let deserialized_blocker = adblock::blocker::blocker_deserialize(&serialized).unwrap();
+
+    for req in requests {
+        let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
+        assert!(request_res.is_ok(), "Request couldn't be parsed: {} at {}, type {}", req.url, req.sourceUrl, req.r#type);
+        let request = request_res.unwrap();
+
+        let checked = blocker.check(&request);
+        let deserialized_checked = deserialized_blocker.check(&request);
+
+        assert_eq!(checked.matched, deserialized_checked.matched);
+        assert_eq!(checked.filter, deserialized_checked.filter);
+        assert_eq!(checked.exception, deserialized_checked.exception);
+        assert_eq!(checked.redirect, deserialized_checked.redirect);
+    }
+
+}
 

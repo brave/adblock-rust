@@ -190,5 +190,47 @@ fn rule_match_slimlist_comparable(c: &mut Criterion) {
     );
 }
 
-criterion_group!(benches, rule_match_only_el, rule_match_slimlist_comparable, rule_match, rule_match_elep, rule_match_slim);
+fn serialization(c: &mut Criterion) {
+  c.bench(
+        "blocker-serialization",
+        Benchmark::new(
+            "el+ep",
+            move |b| {
+              let full_rules = rules_from_lists(&vec![
+                String::from("data/easylist.to/easylist/easylist.txt"),
+                String::from("data/easylist.to/easylist/easyprivacy.txt")
+              ]);
+
+              let blocker = get_blocker(&full_rules);
+
+              b.iter(|| assert!(adblock::blocker::blocker_serialize(&blocker).unwrap().len() > 0) )
+            },
+        )
+        .with_function(
+          "el",
+            move |b| {
+              let full_rules = rules_from_lists(&vec![
+                String::from("data/easylist.to/easylist/easylist.txt"),
+              ]);
+
+              let blocker = get_blocker(&full_rules);
+
+              b.iter(|| assert!(adblock::blocker::blocker_serialize(&blocker).unwrap().len() > 0) )
+            },)
+        .with_function(
+          "slimlist",
+            move |b| {
+              let full_rules = rules_from_lists(&vec![
+                String::from("data/slim-list.txt"),
+              ]);
+
+              let blocker = get_blocker(&full_rules);
+
+              b.iter(|| assert!(adblock::blocker::blocker_serialize(&blocker).unwrap().len() > 0) )
+            },)
+        .sample_size(20)
+    );
+}
+
+criterion_group!(benches, rule_match_only_el, rule_match_slimlist_comparable, rule_match, rule_match_elep, rule_match_slim, serialization);
 criterion_main!(benches);

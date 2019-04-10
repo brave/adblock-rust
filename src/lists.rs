@@ -1,10 +1,10 @@
 use crate::filters::network::NetworkFilter;
 use itertools::Either;
 
-#[cfg(not(any(unix, windows)))]
+#[cfg(target_arch = "wasm32")]
 use itertools::Itertools;
 
-#[cfg(any(unix, windows))]
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
 #[derive(Debug, PartialEq)]
@@ -29,10 +29,10 @@ pub fn parse_filters(
     debug: bool,
 ) -> (Vec<NetworkFilter>, Vec<String>) {
 
-    #[cfg(not(any(unix, windows)))]
+    #[cfg(target_arch = "wasm32")]
     let list_iter = list.into_iter();
 
-    #[cfg(any(unix, windows))]
+    #[cfg(not(target_arch = "wasm32"))]
     let list_iter = list.into_par_iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter

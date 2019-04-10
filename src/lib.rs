@@ -10,11 +10,12 @@ extern crate bitflags;
 #[macro_use]
 extern crate matches; // #[cfg(test)]
 
+extern crate bincode;   // binary serialization/deserialization
 extern crate regex;
 extern crate punycode;  // utf domain handling
 extern crate idna;      // utf domain handling
 
-#[cfg(target_arch = "x86")]
+#[cfg(target_arch = "wasm32")]
 extern crate rayon;     // parallelism
 
 #[cfg(test)]

@@ -2,6 +2,7 @@ use idna;
 use regex::Regex;
 use regex::RegexSet;
 use std::fmt;
+use serde::{Deserialize, Serialize};
 
 use crate::request;
 use crate::utils;
@@ -25,6 +26,7 @@ pub enum FilterError {
 }
 
 bitflags! {
+    #[derive(Serialize, Deserialize)]
     pub struct NetworkFilterMask: u32 {
         const FROM_IMAGE = 1; // 1 << 0;
         const FROM_MEDIA = 1 << 1;
@@ -136,7 +138,7 @@ impl From<&request::RequestType> for NetworkFilterMask {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkFilter {
     pub mask: NetworkFilterMask,
     pub filter: Option<String>,
@@ -162,6 +164,7 @@ pub struct NetworkFilter {
     // from the inside.
     // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to Some<CompiledRegex>
     // to avoid expensive cloning of the Regex itself.
+    #[serde(skip_serializing, skip_deserializing)]
     regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>,
 
     #[cfg(feature = "full-domain-matching")]
@@ -2332,6 +2335,43 @@ mod parse_tests {
                 set_all_options(&mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
+        }
+    }
+
+
+    use bincode::{serialize, deserialize};
+
+    #[test]
+    fn binary_serialization_works() {
+        {
+            let filter = NetworkFilter::parse("||foo.com/bar/baz$important", true).unwrap();
+
+            let encoded: Vec<u8> = serialize(&filter).unwrap();
+            let decoded: NetworkFilter = deserialize(&encoded[..]).unwrap();
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some(String::from("foo.com"));
+            defaults.filter = Some(String::from("/bar/baz"));
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_important = true;
+            defaults.is_left_anchor = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded))
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com*bar^", true).unwrap();
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some(String::from("foo.com"));
+            defaults.filter = Some(String::from("bar^"));
+            defaults.is_hostname_anchor = true;
+            defaults.is_regex = true;
+            defaults.is_plain = false;
+
+            let encoded: Vec<u8> = serialize(&filter).unwrap();
+            let decoded: NetworkFilter = deserialize(&encoded[..]).unwrap();
+
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded));
+
+            assert_eq!(decoded.get_regex().is_match("bar/"), true);
         }
     }
 

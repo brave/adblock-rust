@@ -165,17 +165,17 @@ macro_rules! simple_enum_error {
 }
 
 simple_enum_error! {
-    EmptyHost => "empty host",
+    // EmptyHost => "empty host",
     IdnaError => "invalid international domain name",
-    InvalidPort => "invalid port number",
-    InvalidIpv4Address => "invalid IPv4 address",
-    InvalidIpv6Address => "invalid IPv6 address",
-    InvalidDomainCharacter => "invalid domain character",
-    HostParseError => "internal host parse error",
+    // InvalidPort => "invalid port number",
+    // InvalidIpv4Address => "invalid IPv4 address",
+    // InvalidIpv6Address => "invalid IPv6 address",
+    // InvalidDomainCharacter => "invalid domain character",
+    // HostParseError => "internal host parse error",
     RelativeUrlWithoutBase => "relative URL without a base",
-    RelativeUrlWithCannotBeABaseBase => "relative URL with a cannot-be-a-base base",
-    SetHostOnCannotBeABaseUrl => "a cannot-be-a-base URL doesn’t have a host to set",
-    Overflow => "URLs more than 4 GB are not supported",
+    // RelativeUrlWithCannotBeABaseBase => "relative URL with a cannot-be-a-base base",
+    // SetHostOnCannotBeABaseUrl => "a cannot-be-a-base URL doesn’t have a host to set",
+    // Overflow => "URLs more than 4 GB are not supported",
     FileUrlNotSupported => "file URLs are not supported",
 }
 
@@ -202,10 +202,6 @@ pub enum SchemeType {
 impl SchemeType {
     pub fn is_special(self) -> bool {
         !matches!(self, SchemeType::NotSpecial)
-    }
-
-    pub fn is_file(self) -> bool {
-        matches!(self, SchemeType::File)
     }
 
     pub fn from(s: &str) -> Self {
@@ -247,12 +243,6 @@ impl<'i> Input<'i> {
         } else {
             None
         }
-    }
-
-    #[inline]
-    fn split_first(&self) -> (Option<char>, Self) {
-        let mut remaining = self.clone();
-        (remaining.next(), remaining)
     }
 
     #[inline]

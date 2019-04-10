@@ -1,6 +1,7 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use bincode::{serialize, deserialize};
 
 use crate::filters::network::NetworkFilter;
 use crate::request::Request;
@@ -21,6 +22,13 @@ pub struct BlockerResult {
     pub filter: Option<String>,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum BlockerError {
+    SerializationError,
+    DeserializationError
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Blocker {
     csp: NetworkFilterList,
     exceptions: NetworkFilterList,
@@ -150,6 +158,7 @@ impl Blocker {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 struct NetworkFilterList {
     // A faster structure is possible, but tests didn't indicate much of a difference
     // for different HashMap implementations bulk of the cost in matching
@@ -254,18 +263,6 @@ where
     map.entry(k).or_insert_with(Vec::new).push(v)
 }
 
-fn remove_dup<K, V>(map: &mut HashMap<K, Vec<V>>, k: K)
-where
-    K: Ord + std::hash::Hash,
-{
-    if let Entry::Occupied(mut entry) = map.entry(k) {
-        entry.get_mut().pop();
-        if entry.get().is_empty() {
-            entry.remove();
-        }
-    }
-}
-
 fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Hash, u32>) {
     let mut tokens_histogram: HashMap<Hash, u32> = HashMap::new();
     let mut number_of_tokens = 0;
@@ -285,8 +282,18 @@ fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Ha
     (number_of_tokens, tokens_histogram)
 }
 
+pub fn blocker_serialize(blocker: &Blocker) -> Result<Vec<u8>, BlockerError> {
+    serialize(blocker)
+        .or_else(|_| Err(BlockerError::SerializationError))
+}
+
+pub fn blocker_deserialize(blocker: &[u8]) -> Result<Blocker, BlockerError> {
+    deserialize(&blocker[..])
+        .or_else(|_| Err(BlockerError::DeserializationError))
+}
+
 #[cfg(test)]
-mod parse_tests {
+mod tests {
     use super::*;
 
     #[test]
@@ -658,4 +665,5 @@ mod parse_tests {
 
         test_requests_filters(&filters, &request_expectations);
     }
+
 }
