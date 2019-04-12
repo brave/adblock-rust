@@ -1,3 +1,3 @@
 const blocker = require('../native');
 
-exports.Blocker = blocker.Blocker;
+exports.Engine = blocker.Engine;

@@ -1,15 +1,12 @@
 #[macro_use]
 extern crate neon;
-
-use neon::prelude::*;
-
 extern crate adblock;
 
-use adblock::blocker::Blocker;
-use adblock::request::Request;
+use neon::prelude::*;
+use adblock::engine::Engine;
 
 declare_types! {
-    pub class JsBlocker for Blocker {
+    pub class JsEngine for Engine {
         init(mut cx) {
             // Take the first argument, which must be an array
             let rules_handle: Handle<JsArray> = cx.argument(0)?;
@@ -23,43 +20,60 @@ declare_types! {
                 rules.push(rule);
             }
 
-            Ok(blocker_new(&rules))
+            Ok(Engine::from_rules(&rules))
         }
 
-        method block(mut cx) {
+        method check(mut cx) {
             let url: String = cx.argument::<JsString>(0)?.value();
             let source_url: String = cx.argument::<JsString>(1)?.value();
             let request_type: String = cx.argument::<JsString>(2)?.value();
 
             let this = cx.this();
 
-            let request = Request::from_urls(&url, &source_url, &request_type).unwrap();
-
             let result = {
                 let guard = cx.lock();
-                let blocker = this.borrow(&guard);
-                blocker.check(&request)
+                let engine = this.borrow(&guard);
+                engine.check_network_urls(&url, &source_url, &request_type)
             };
             Ok(cx.boolean(result.matched).upcast())
+        }
+
+        method serialize(mut cx) {
+            let this = cx.this();
+            let serialized = {
+                let guard = cx.lock();
+                let engine = this.borrow(&guard);
+                engine.serialize().unwrap()
+            };
+
+            // initialise new Array Buffer in the JS context
+            let mut buffer = JsArrayBuffer::new(&mut cx, serialized.len() as u32)?;
+            // copy data from Rust buffer to JS Array Buffer
+            cx.borrow_mut(&mut buffer, |bufferdata| {
+                let slice = bufferdata.as_mut_slice::<u8>();
+                slice.copy_from_slice(&serialized)
+            });
+            
+            Ok(buffer.upcast())
+        }
+
+        method deserialize(mut cx) {
+            let serialized_handle = cx.argument::<JsArrayBuffer>(0)?;
+            let mut this = cx.this();
+            let guard = cx.lock();
+            let _result = cx.borrow(&serialized_handle, |bufferdata| {
+                let slice = bufferdata.as_slice::<u8>();
+                let mut engine = this.borrow_mut(&guard);
+                engine.deserialize(&slice)
+            }).unwrap();
+
+            Ok(JsNull::new().upcast())
         }
     }
 }
 
 register_module!(mut m, {
-    // Export the `JsBlocker` class
-    m.export_class::<JsBlocker>("Blocker")?;
+    // Export the `JsEngine` class
+    m.export_class::<JsEngine>("Engine")?;
     Ok(())
 });
-
-fn blocker_new(rules: &Vec<String>) -> Blocker {
-    let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, false);
-
-    let blocker_options = adblock::blocker::BlockerOptions {
-        debug: false,
-        enable_optimizations: true,
-        load_cosmetic_filters: false,
-        load_network_filters: true
-    };
-
-    adblock::blocker::Blocker::new(network_filters, &blocker_options)
-}
