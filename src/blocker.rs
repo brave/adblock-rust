@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
-use bincode::{serialize, deserialize};
 
 use crate::filters::network::NetworkFilter;
 use crate::request::Request;
@@ -71,12 +70,16 @@ impl Blocker {
         let exception = filter.as_ref().and_then(|f| {
             // Set `bug` of request
             // TODO - avoid mutability
-            if f.has_bug() {
-                let mut request_bug = request.clone();
-                request_bug.bug = f.bug;
-                self.exceptions.check(&request_bug)
+            if !f.is_important() {
+                if f.has_bug() {
+                    let mut request_bug = request.clone();
+                    request_bug.bug = f.bug;
+                    self.exceptions.check(&request_bug)
+                } else {
+                    self.exceptions.check(request)
+                }
             } else {
-                self.exceptions.check(request)
+                None
             }
         });
 
@@ -263,6 +266,14 @@ where
     map.entry(k).or_insert_with(Vec::new).push(v)
 }
 
+fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V>(map: &HashMap<K, Vec<V>>) -> usize {
+    let mut size = 0 as usize;
+    for (_, val) in map.iter() {
+        size += val.len();
+    }
+    size
+}
+
 fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Hash, u32>) {
     let mut tokens_histogram: HashMap<Hash, u32> = HashMap::new();
     let mut number_of_tokens = 0;
@@ -280,16 +291,6 @@ fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Ha
     }
 
     (number_of_tokens, tokens_histogram)
-}
-
-pub fn blocker_serialize(blocker: &Blocker) -> Result<Vec<u8>, BlockerError> {
-    serialize(blocker)
-        .or_else(|_| Err(BlockerError::SerializationError))
-}
-
-pub fn blocker_deserialize(blocker: &[u8]) -> Result<Blocker, BlockerError> {
-    deserialize(&blocker[..])
-        .or_else(|_| Err(BlockerError::DeserializationError))
 }
 
 #[cfg(test)]
@@ -666,4 +667,135 @@ mod tests {
         test_requests_filters(&filters, &request_expectations);
     }
 
+}
+
+mod legacy_rule_parsing_tests {
+    use crate::utils::rules_from_lists;
+    use crate::lists::parse_filters;
+    use crate::blocker::{Blocker, BlockerOptions};
+    use crate::blocker::vec_hashmap_len;
+
+    struct ListCounts {
+        pub filters: usize,
+        pub cosmetic_filters: usize,
+        pub exceptions: usize
+    }
+
+    // number of expected EasyList cosmetic rules from old engine is 31144, but is incorrect as it skips a few particularly long rules that are nevertheless valid
+    // easyList = { 24478, 31144, 0, 5589 };
+    // not handling (and not including) filters with the following options: 
+    // - $popup
+    // - $generichide
+    // - $subdocument
+    // - $document
+    // - $elemhide
+    // difference from original counts caused by not handling document/subdocument options and possibly miscounting on the blocker side.
+    // Printing all non-cosmetic, non-html, non-comment/-empty rules and ones with no unsupported options yields 29142 items
+    // This engine also handles 3 rules that old one does not
+    const EASY_LIST: ListCounts = ListCounts { filters: 24062+3, cosmetic_filters: 31163, exceptions: 5080-23 };
+    // easyPrivacy = { 11817, 0, 0, 1020 };
+    // differences in counts explained by hashset size underreporting as detailed in the next two cases
+    const EASY_PRIVACY: ListCounts = ListCounts { filters: 11889, cosmetic_filters: 0, exceptions: 1021 };
+    // ublockUnbreak = { 4, 8, 0, 94 };
+    // differences in counts explained by client.hostAnchoredExceptionHashSet->GetSize() underreporting when compared to client.numHostAnchoredExceptionFilters
+    const UBLOCK_UNBREAK: ListCounts = ListCounts { filters: 4, cosmetic_filters: 8, exceptions: 98 };
+    // braveUnbreak = { 31, 0, 0, 4 };
+    // differences in counts explained by client.hostAnchoredHashSet->GetSize() underreporting when compared to client.numHostAnchoredFilters
+    const BRAVE_UNBREAK: ListCounts = ListCounts { filters: 32, cosmetic_filters: 0, exceptions: 4 };
+    // disconnectSimpleMalware = { 2450, 0, 0, 0 };
+    const DISCONNECT_SIMPLE_MALWARE: ListCounts = ListCounts { filters: 2450, cosmetic_filters: 0, exceptions: 0 };
+    // spam404MainBlacklist = { 5629, 166, 0, 0 };
+    const SPAM_404_MAIN_BLACKLIST: ListCounts = ListCounts { filters: 5629, cosmetic_filters: 166, exceptions: 0 };
+
+    fn check_list_counts(rule_lists: &Vec<String>, expectation: ListCounts) {
+        let rules = rules_from_lists(rule_lists);
+        
+        // load_network_filters = true, load)cosmetic_filters = true, debug = true
+        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, true, true); 
+
+        assert_eq!(
+            (network_filters.len(),
+            network_filters.iter().filter(|f| f.is_exception()).count(),
+            cosmetic_filters.len()),
+            (expectation.filters + expectation.exceptions,
+            expectation.exceptions,
+            expectation.cosmetic_filters),
+            "Number of collected filters does not match expectation");
+        
+        let blocker_options = BlockerOptions {
+            debug: false,
+            enable_optimizations: false,    // optimizations will reduce number of rules
+            load_cosmetic_filters: false,   
+            load_network_filters: true
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
+        assert!(vec_hashmap_len(&blocker.exceptions.filter_map) >= expectation.exceptions, "Number of collected exceptions does not match expectation");
+
+        assert!(vec_hashmap_len(&blocker.filters.filter_map) + 
+            vec_hashmap_len(&blocker.importants.filter_map) +
+            vec_hashmap_len(&blocker.redirects.filter_map) +
+            vec_hashmap_len(&blocker.csp.filter_map) >=
+            expectation.filters, "Number of collected network filters does not match expectation");
+    }
+
+    #[test]
+    fn parse_easylist() {
+        check_list_counts(&vec![String::from("./data/test/easylist.txt")], EASY_LIST);
+    }
+
+    #[test]
+    fn parse_easyprivacy() {
+        check_list_counts(&vec![String::from("./data/test/easyprivacy.txt")], EASY_PRIVACY);
+    }
+
+    #[test]
+    fn parse_ublock_unbreak() {
+        check_list_counts(&vec![String::from("./data/test/ublock-unbreak.txt")], UBLOCK_UNBREAK);
+    }
+
+    #[test]
+    fn parse_brave_unbreak() {
+        check_list_counts(&vec![String::from("./data/test/brave-unbreak.txt")], BRAVE_UNBREAK);
+    }
+
+    #[test]
+    fn parse_brave_disconnect_simple_malware() {
+        check_list_counts(&vec![String::from("./data/test/disconnect-simple-malware.txt")], DISCONNECT_SIMPLE_MALWARE);
+    }
+
+    #[test]
+    fn parse_spam404_main_blacklist() {
+        check_list_counts(&vec![String::from("./data/test/spam404-main-blacklist.txt")], SPAM_404_MAIN_BLACKLIST);
+    }
+
+    #[test]
+    fn parse_multilist() {
+        let expectation = ListCounts {
+            filters: EASY_LIST.filters + EASY_PRIVACY.filters + UBLOCK_UNBREAK.filters + BRAVE_UNBREAK.filters,
+            cosmetic_filters: EASY_LIST.cosmetic_filters + EASY_PRIVACY.cosmetic_filters + UBLOCK_UNBREAK.cosmetic_filters + BRAVE_UNBREAK.cosmetic_filters,
+            exceptions: EASY_LIST.exceptions + EASY_PRIVACY.exceptions + UBLOCK_UNBREAK.exceptions + BRAVE_UNBREAK.exceptions
+        };
+        check_list_counts(&vec![
+            String::from("./data/test/easylist.txt"),
+            String::from("./data/test/easyprivacy.txt"),
+            String::from("./data/test/ublock-unbreak.txt"),
+            String::from("./data/test/brave-unbreak.txt"),
+        ], expectation)
+    }
+
+    #[test]
+    fn parse_malware_multilist() {
+        let expectation = ListCounts {
+            filters: SPAM_404_MAIN_BLACKLIST.filters + DISCONNECT_SIMPLE_MALWARE.filters,
+            cosmetic_filters: SPAM_404_MAIN_BLACKLIST.cosmetic_filters + DISCONNECT_SIMPLE_MALWARE.cosmetic_filters,
+            exceptions: SPAM_404_MAIN_BLACKLIST.exceptions + DISCONNECT_SIMPLE_MALWARE.exceptions,
+        };
+        check_list_counts(&vec![
+            String::from("./data/test/spam404-main-blacklist.txt"),
+            String::from("./data/test/disconnect-simple-malware.txt"),
+        ], expectation)
+    }
 }
