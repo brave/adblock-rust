@@ -47,7 +47,7 @@ fn check_matching() {
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if request_res.is_ok() {
                 let request = request_res.unwrap();
-                assert!(network_filter.matches(&request));
+                assert!(network_filter.matches(&request), "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
                 requests_checked += 1;
             }
         }

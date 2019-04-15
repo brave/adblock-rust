@@ -50,7 +50,6 @@ pub fn parse_filters(
                         .or_else(|_| Err(FilterError::ParseError))
                 } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
                     // TODO: unimplemented, just return rule as a string
-                    println!("Ignoring cosmetic rule {}", filter);
                     Ok(Either::Right(String::from(filter)))
                 } else {
                     Err(FilterError::NotSupported)

@@ -10,10 +10,18 @@ pub struct Engine {
 
 impl Engine {
     pub fn from_rules(network_filters: &[String]) -> Engine {
-        let (parsed_network_filters, _) = parse_filters(&network_filters, true, false, false);
+        Self::from_rules_parametrised(&network_filters, false)
+    }
+
+    pub fn from_rules_debug(network_filters: &[String]) -> Engine {
+        Self::from_rules_parametrised(&network_filters, true)
+    }
+
+    fn from_rules_parametrised(network_filters: &[String], debug: bool) -> Engine {
+        let (parsed_network_filters, _) = parse_filters(&network_filters, true, false, debug);
 
         let blocker_options = BlockerOptions {
-            debug: false,
+            debug: debug,
             enable_optimizations: true,
             load_cosmetic_filters: false,
             load_network_filters: true

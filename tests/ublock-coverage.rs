@@ -1,6 +1,7 @@
 extern crate adblock;
 
 use adblock::blocker::{Blocker, BlockerOptions};
+use adblock::engine::Engine;
 use adblock::request::Request;
 use adblock::utils::rules_from_lists;
 
@@ -40,7 +41,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-fn get_blocker() -> Blocker {
+fn get_blocker_engine() -> Engine {
   let rules = rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
     String::from("data/easylist.to/easylist/easyprivacy.txt")
@@ -55,29 +56,29 @@ fn get_blocker() -> Blocker {
     load_network_filters: true
   };
   
-  Blocker::new(network_filters, &blocker_options)
+    Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    }
 }
 
 #[test]
 fn check_specifics() {
-    let blocker = get_blocker();
-
+    let engine = get_blocker_engine();
     {
-        let request = adblock::request::Request::from_url("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8").unwrap();
-        let checked = blocker.check(&request);
+        let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
     }
 }
 
 #[test]
 fn check_basic_works_after_deserialization() {
-    let blocker = get_blocker();
-    let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
-    let deserialized_blocker = adblock::blocker::blocker_deserialize(&serialized).unwrap();
+    let engine = get_blocker_engine();
+    let serialized = engine.serialize().unwrap();
+    let mut deserialized_engine = Engine::from_rules(&[]);
+    deserialized_engine.deserialize(&serialized).unwrap();
 
     {
-        let request = adblock::request::Request::from_url("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8").unwrap();
-        let checked = deserialized_blocker.check(&request);
+        let checked = deserialized_engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
     }
 }
@@ -88,7 +89,7 @@ fn check_matching() {
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
 
-    let blocker = get_blocker();
+    let engine = get_blocker_engine();
 
     let requests_len = requests.len() as u32;
 
@@ -96,11 +97,7 @@ fn check_matching() {
     let mut mismatch_expected_exception = 0;
     let mut mismatch_expected_pass = 0;
     for req in requests {
-        let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
-        assert!(request_res.is_ok(), "Request couldn't be parsed: {} at {}, type {}", req.url, req.sourceUrl, req.r#type);
-        let request = request_res.unwrap();
-
-        let checked = blocker.check(&request);
+        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
             println!("Expected match, uBo matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, req.filter);
@@ -124,18 +121,14 @@ fn check_works_same_after_deserialization() {
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
 
-    let blocker = get_blocker();
-    let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
-
-    let deserialized_blocker = adblock::blocker::blocker_deserialize(&serialized).unwrap();
+    let engine = get_blocker_engine();
+    let serialized = engine.serialize().unwrap();
+    let mut deserialized_engine = Engine::from_rules(&[]);
+    deserialized_engine.deserialize(&serialized).unwrap();
 
     for req in requests {
-        let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
-        assert!(request_res.is_ok(), "Request couldn't be parsed: {} at {}, type {}", req.url, req.sourceUrl, req.r#type);
-        let request = request_res.unwrap();
-
-        let checked = blocker.check(&request);
-        let deserialized_checked = deserialized_blocker.check(&request);
+        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+        let deserialized_checked = deserialized_engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
 
         assert_eq!(checked.matched, deserialized_checked.matched);
         assert_eq!(checked.filter, deserialized_checked.filter);
