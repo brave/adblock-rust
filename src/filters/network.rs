@@ -44,10 +44,10 @@ bitflags! {
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
         const FUZZY_MATCH = 1 << 15;
-
-        // Kind of pattern
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
+
+        // Kind of pattern
         const IS_REGEX = 1 << 18;
         const IS_LEFT_ANCHOR = 1 << 19;
         const IS_RIGHT_ANCHOR = 1 << 20;
@@ -70,6 +70,13 @@ bitflags! {
             Self::FROM_SUBDOCUMENT.bits |
             Self::FROM_WEBSOCKET.bits |
             Self::FROM_XMLHTTPREQUEST.bits;
+
+        // Unless filter specifies otherwise, all these options are set by default
+        const DEFAULT_OPTIONS = Self::FROM_ANY.bits | 
+            Self::FROM_HTTP.bits |
+            Self::FROM_HTTPS.bits |
+            Self::THIRD_PARTY.bits |
+            Self::FIRST_PARTY.bits;
 
         // Careful with checking for NONE - will always match
         const NONE = 0;

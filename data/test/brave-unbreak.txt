@@ -1,0 +1,49 @@
+||ntv.io^$third-party
+@@||creative.sonobi.com
+@@||adm.fwmrm.net^*/AdManager.js$domain=msnbc.com|sky.com|cnbc.com
+||novately.com^$third-party
+||webspectator.com^$third-party
+! Would be nice to find an alt fix, but unbreaks cnet video
+@@||tags.tiqcdn.com/utag/*/utag.js$domain=cnet.com
+! Twitch main video
+||cloudfront.net/esf.js$domain=twitch.tv
+! LA Times forced-whitelisting modal fix
+||tribdss.com/meter/assets$script,domain=www.latimes.com
+! LA Times and Chicago Tribune native ads fixes
+||aggrego.org^$script,image,domain=latimes.com|chicagotribune.com
+||jadserve.postrelease.com^$script,image,domain=latimes.com|chicagotribune.com
+||troncdata.com^$script,image,domain=latimes.com
+||polarmobile.com^$script,image,domain=latimes.com|chicagotribune.com
+||ntv.io^$script,image,domain=latimes.com|chicagotribune.com
+! Expressen.se and aftonbladet.set ad blocking evasion fix
+||biowebb-data.s3.amazonaws.com^$script,image,domain=expressen.se|aftonbladet.se
+||richmetrics.com^$script,image,domain=expressen.se|aftonbladet.se
+||adtomafusion.net^$script,image,domain=expressen.se|aftonbladet.se
+||ld1.lpbeta.com^$script,image,domain=expressen.se|aftonbladet.se
+||csp.screen9.com^$script,image,domain=expressen.se|aftonbladet.se
+||glimr.io^$script,image,domain=expressen.se|aftonbladet.se
+||aka-cdn-ns.adtech.de^$script,image,domain=aftonbladet.se|expressen.se
+! Hearst anti-ad blocking fix
+||aps.hearstnp.com^$script,image
+! Sailthru native ad aggregator fix
+||ak.sail-horizon.com^$script,image
+! gRPC client ad tracking data fix boston.com sfgate.com
+||g.3gl.net^$domain=sfgate.com|boston.com
+! 123movies.is video player display banner overlay fix
+||123clouds.ru/*/custombanner.js^$script,domain=123movies.is
+! vendors serving video ads and tracking via proxied requests
+||track.atom-data.io^$third-party
+||vidazoo.com/aggregate^$third-party
+||vidazoo.com/proxy^$third-party
+||vidible.tv^$third-party
+||mediabong.net^$third-party
+||imprvdosrv.com^$third-party
+! yt embed exceptions
+@@||youtube.com/yts/jsbin^$domain=thegatewaypundit.com|godlikeproductions.com|techcrunch.com
+! fb widget audience, ad and marketing tracking
+||connect.facebook.net/*/fbevents.js$third-party
+||facebook.com/tr^$image,third-party
+||graph.facebook.com^$third-party
+! theatlantic.com anti-blocker filters
+||theatlantic.blueconic.net$domain=theatlantic.com
+||theatlantic.com/please-support-us^
