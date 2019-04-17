@@ -2,7 +2,6 @@ extern crate adblock;
 
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
-use adblock::request::Request;
 use adblock::utils::rules_from_lists;
 
 use serde::{Deserialize};

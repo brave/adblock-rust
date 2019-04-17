@@ -1,9 +1,6 @@
-use crate::filters::network::CompiledRegex;
-use crate::filters::network::{NetworkFilter, NetworkFilterMask};
-use crate::filters::network;
+use crate::filters::network::{NetworkFilter, NetworkFilterMask, FilterPart};
 use itertools::*;
 use std::collections::HashMap;
-use regex::RegexSet;
 
 trait Optimization {
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
@@ -41,18 +38,6 @@ fn apply_optimisation<T: Optimization>(
 
     let mut fused = Vec::with_capacity(to_fuse.len());
     for (_, group) in to_fuse {
-        
-        // group
-        // .chunks(4)
-        // .into_iter()
-        // .for_each(|chunk| {
-        //     if chunk.len() > 2 {
-        //         fused.push(optimization.fusion(chunk));
-        //     } else {
-        //         chunk.into_iter().for_each(|f| negative.push(f.clone()));
-        //     }
-        // });
-        
         if group.len() > 1 {
             // println!("Fusing {} filters together", group.len());
             fused.push(optimization.fusion(group.as_slice()));
@@ -73,94 +58,57 @@ where
     map.entry(k).or_insert_with(Vec::new).push(v)
 }
 
-#[derive(Debug, PartialEq)]
-enum FusedPattern {
-    MatchAll,
-    MatchNothing,
-    Pattern(String),
-}
-
 struct SimplePatternGroup {}
-
-impl SimplePatternGroup {
-    fn process_regex(r: &CompiledRegex) -> FusedPattern {
-        match r {
-            CompiledRegex::MatchAll => FusedPattern::MatchAll,
-            CompiledRegex::RegexParsingError(_e) => FusedPattern::MatchNothing,
-            CompiledRegex::Compiled(r) => FusedPattern::Pattern(String::from(r.as_str())),
-            CompiledRegex::CompiledSet(_) => unreachable!() // FIXME
-        }
-    }
-}
 
 impl Optimization for SimplePatternGroup {
     // Group simple patterns, into a single filter
 
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
-        let patterns: Vec<_> = filters
-            .iter()
-            .map(|f| {
-                if f.is_regex() {
-                    SimplePatternGroup::process_regex(&f.get_regex())
-                } else {
-                    SimplePatternGroup::process_regex(&network::compile_regex(f.filter.as_ref(), f.is_right_anchor(), f.is_left_anchor(), false))
-                }
-            })
-            .collect();
-
         let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
-        // If there's anything in there that matches everything, whole regex matches everything
-        if patterns.contains(&FusedPattern::MatchAll) {
-            println!("WARNING: converting group of filters to MATCH ALL");
-            filter.filter = Some(String::from("")); // This will automatically compile to match-any
-            filter.mask.set(NetworkFilterMask::IS_REGEX, true);
+
+        // if any filter is empty (meaning matches anything), the entire combiation matches anything
+        if filters.iter().any(|f| matches!(f.filter, FilterPart::Empty)) {
+            filter.filter = FilterPart::Empty
         } else {
-            let valid_patterns: Vec<_> = patterns
-                .into_iter()
-                .filter_map(|p| {
-                    match p {
-                        FusedPattern::MatchAll => None,     // should never get here
-                        FusedPattern::MatchNothing => None, // just ignore
-                        FusedPattern::Pattern(p) => Some(p),
-                    }
-                })
-                .collect();
-
-            // println!("Generating RegexSet for {:?}", valid_patterns);
-
-            let compiled_regex_set = match RegexSet::new(valid_patterns) {
-                Ok(compiled) => CompiledRegex::CompiledSet(compiled),
-                Err(e) => {
-                    println!("Regex parsing failed ({:?})", e);
-                    CompiledRegex::RegexParsingError(e)
+            let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
+            for f in filters {
+                match &f.filter {
+                    FilterPart::Empty => (),
+                    FilterPart::Simple(s) => flat_patterns.push(s.clone()),
+                    FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s)
                 }
-            };
-
-            filter.set_regex(compiled_regex_set);
-            filter.mask.set(NetworkFilterMask::IS_REGEX, true);
-
-
-            // let joined_pattern = valid_patterns.join("|");            
-            // filter.filter = Some(format!("/{}/", joined_pattern));
-            // filter.mask.set(NetworkFilterMask::IS_REGEX, true);
-            // filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
-
-            if base_filter.raw_line.is_some() {
-                filter.raw_line = Some(
-                    filters
-                        .iter()
-                        .flat_map(|f| f.raw_line.clone())
-                        .join(" <+> "),
-                )
+            }
+            
+            if flat_patterns.is_empty() {
+                filter.filter = FilterPart::Empty;
+            } else if flat_patterns.len() == 1 {
+                filter.filter = FilterPart::Simple(flat_patterns[0].clone())
+            } else {
+                filter.filter = FilterPart::AnyOf(flat_patterns)
             }
         }
+
+        // let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
+        filter.mask.set(NetworkFilterMask::IS_REGEX, true);
+        let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
+        filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
+
+        if base_filter.raw_line.is_some() {
+            filter.raw_line = Some(
+                filters
+                    .iter()
+                    .flat_map(|f| f.raw_line.clone())
+                    .join(" <+> "),
+            )
+        }
+        
 
         filter
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
-        filter.get_mask()
+        format!("{:b}:{:?}", filter.mask, filter.is_complete_regex())
     }
     fn select(&self, filter: &NetworkFilter) -> bool {
         !filter.is_fuzzy()
@@ -178,6 +126,9 @@ mod parse_tests {
     use super::*;
     use crate::lists;
     use crate::request::Request;
+    use regex::RegexSet;
+    use crate::filters::network::CompiledRegex;
+    use crate::filters::network::NetworkMatchable;
 
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
         let is_match = regex.is_match(pattern);

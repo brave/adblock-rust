@@ -21,7 +21,7 @@ impl Engine {
         let (parsed_network_filters, _) = parse_filters(&network_filters, true, false, debug);
 
         let blocker_options = BlockerOptions {
-            debug: debug,
+            debug,
             enable_optimizations: true,
             load_cosmetic_filters: false,
             load_network_filters: true

@@ -5,18 +5,6 @@ use fasthash::xx as hasher;
 pub type Hash = u32;
 static HASH_MAX: Hash = std::u32::MAX;
 
-// #[inline]
-// pub fn fast_hash(input: &str) -> Hash {
-//     // originally uses DJB2 hash
-//     let mut hash: Hash = 5381;
-//     let mut chars = input.chars();
-
-//     while let Some(c) = chars.next() {
-//         hash = hash.wrapping_mul(33) ^ (c as Hash);
-//     }
-//     hash
-// }
-
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
     hasher::hash32(input)
@@ -147,6 +135,18 @@ pub fn create_fuzzy_signature(pattern: &str) -> Vec<Hash> {
     tokens
 }
 
+#[inline]
+pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
+    let mut tokens = vec![];
+    for p in patterns {
+        let mut ptokens = fast_tokenizer(p, &is_allowed_filter);
+        tokens.append(&mut ptokens);
+    }
+    
+    compact_tokens(&mut tokens);
+    tokens
+}
+
 pub fn bin_search<T: Ord>(arr: &[T], elt: T) -> Option<usize> {
     arr.binary_search(&elt).ok()
 }
@@ -174,7 +174,7 @@ pub fn has_unicode(pattern: &str) -> bool {
 const EXPECTED_RULES: usize = 75000;
 
 pub fn read_rules(filename: &str) -> Vec<String> {
-    let f = File::open(filename).expect(&format!("File {} not found", filename));
+    let f = File::open(filename).unwrap_or_else(|_| panic!("File {} not found", filename));
     let reader = BufReader::new(f);
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for line in reader.lines() {
@@ -185,7 +185,7 @@ pub fn read_rules(filename: &str) -> Vec<String> {
     rules
 }
 
-pub fn rules_from_lists(lists: &Vec<String>) -> Vec<String> {
+pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for filename in lists {
         let mut list_rules = read_rules(filename);

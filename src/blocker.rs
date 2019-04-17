@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{NetworkFilter, NetworkMatchable};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -707,7 +707,7 @@ mod legacy_rule_parsing_tests {
     // spam404MainBlacklist = { 5629, 166, 0, 0 };
     const SPAM_404_MAIN_BLACKLIST: ListCounts = ListCounts { filters: 5629, cosmetic_filters: 166, exceptions: 0 };
 
-    fn check_list_counts(rule_lists: &Vec<String>, expectation: ListCounts) {
+    fn check_list_counts(rule_lists: &[String], expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
         
         // load_network_filters = true, load)cosmetic_filters = true, debug = true

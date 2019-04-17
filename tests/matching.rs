@@ -2,6 +2,7 @@ extern crate adblock;
 
 use adblock::request::Request;
 use adblock::filters::network::NetworkFilter;
+use adblock::filters::network::NetworkMatchable;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
