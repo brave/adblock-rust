@@ -9,6 +9,7 @@ use adblock;
 use adblock::utils::rules_from_lists;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
+use adblock::engine::Engine;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
@@ -201,9 +202,8 @@ fn serialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easyprivacy.txt")
               ]);
 
-              let blocker = get_blocker(&full_rules);
-
-              b.iter(|| assert!(adblock::blocker::blocker_serialize(&blocker).unwrap().len() > 0) )
+              let engine = Engine::from_rules(&full_rules);
+              b.iter(|| assert!(engine.serialize().unwrap().len() > 0) )
             },
         )
         .with_function(
@@ -213,9 +213,8 @@ fn serialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easylist.txt"),
               ]);
 
-              let blocker = get_blocker(&full_rules);
-
-              b.iter(|| assert!(adblock::blocker::blocker_serialize(&blocker).unwrap().len() > 0) )
+              let engine = Engine::from_rules(&full_rules);
+              b.iter(|| assert!(engine.serialize().unwrap().len() > 0) )
             },)
         .with_function(
           "slimlist",
@@ -224,9 +223,8 @@ fn serialization(c: &mut Criterion) {
                 String::from("data/slim-list.txt"),
               ]);
 
-              let blocker = get_blocker(&full_rules);
-
-              b.iter(|| assert!(adblock::blocker::blocker_serialize(&blocker).unwrap().len() > 0) )
+              let engine = Engine::from_rules(&full_rules);
+              b.iter(|| assert!(engine.serialize().unwrap().len() > 0) )
             },)
         .sample_size(20)
     );
@@ -243,9 +241,13 @@ fn deserialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easyprivacy.txt")
               ]);
 
-              let blocker = get_blocker(&full_rules);
-              let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
-              b.iter(|| assert!(adblock::blocker::blocker_deserialize(&serialized).is_ok()) )
+              let engine = Engine::from_rules(&full_rules);
+              let serialized = engine.serialize().unwrap();
+              
+              b.iter(|| {
+                let mut deserialized = Engine::from_rules(&[]);
+                assert!(deserialized.deserialize(&serialized).is_ok());
+              })
             },
         )
         .with_function(
@@ -255,9 +257,13 @@ fn deserialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easylist.txt"),
               ]);
 
-              let blocker = get_blocker(&full_rules);
-              let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
-              b.iter(|| assert!(adblock::blocker::blocker_deserialize(&serialized).is_ok()) )
+              let engine = Engine::from_rules(&full_rules);
+              let serialized = engine.serialize().unwrap();
+              
+              b.iter(|| {
+                let mut deserialized = Engine::from_rules(&[]);
+                assert!(deserialized.deserialize(&serialized).is_ok());
+              })
             },)
         .with_function(
           "slimlist",
@@ -266,9 +272,13 @@ fn deserialization(c: &mut Criterion) {
                 String::from("data/slim-list.txt"),
               ]);
 
-              let blocker = get_blocker(&full_rules);
-              let serialized = adblock::blocker::blocker_serialize(&blocker).unwrap();
-              b.iter(|| assert!(adblock::blocker::blocker_deserialize(&serialized).is_ok()) )
+              let engine = Engine::from_rules(&full_rules);
+              let serialized = engine.serialize().unwrap();
+              
+              b.iter(|| {
+                let mut deserialized = Engine::from_rules(&[]);
+                assert!(deserialized.deserialize(&serialized).is_ok());
+              })
             },)
         .sample_size(20)
     );

@@ -170,8 +170,6 @@ impl Optimization for SimplePatternGroup {
             && !filter.is_redirect()
             && !filter.is_csp()
             && !filter.has_bug()
-            && !filter.is_complete_regex() // do not try to combine complete regex rules - they're already too complex
-            // && filter.is_regex()
     }
 }
 
