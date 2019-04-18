@@ -180,7 +180,11 @@ impl<'a> Request {
             let mut tokens: Vec<utils::Hash> = vec![];
 
             if let Some(h) = self.source_domain_hash { tokens.push(h) }
-            if let Some(h) = self.source_hostname_hash { tokens.push(h) }
+            if let Some(h) = self.source_hostname_hash { 
+                if self.source_domain_hash != self.source_hostname_hash {
+                    tokens.push(h)
+                }
+            }
 
             let mut url_tokens = utils::tokenize(&self.url);
             tokens.append(&mut url_tokens);
