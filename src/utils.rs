@@ -147,8 +147,8 @@ pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
     tokens
 }
 
-pub fn bin_search<T: Ord>(arr: &[T], elt: T) -> Option<usize> {
-    arr.binary_search(&elt).ok()
+pub fn bin_search<T: Ord>(arr: &[T], elt: &T) -> Option<usize> {
+    arr.binary_search(elt).ok()
 }
 
 pub fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
@@ -360,22 +360,22 @@ mod tests {
     #[test]
     fn bin_search_works() {
         // empty array
-        assert_eq!(bin_search(&Vec::new(), 42), None);
+        assert_eq!(bin_search(&Vec::new(), &42), None);
         // array of length 1
-        assert_eq!(bin_search(&vec![1], 42), None);
-        assert_eq!(bin_search(&vec![42], 42), Some(0));
+        assert_eq!(bin_search(&vec![1], &42), None);
+        assert_eq!(bin_search(&vec![42], &42), Some(0));
         // array of length 2
-        assert_eq!(bin_search(&vec![0, 1], 42), None);
-        assert_eq!(bin_search(&vec![1, 42], 42), Some(1));
-        assert_eq!(bin_search(&vec![42, 45], 42), Some(0));
-        assert_ne!(bin_search(&vec![42, 42], 42), None);
+        assert_eq!(bin_search(&vec![0, 1], &42), None);
+        assert_eq!(bin_search(&vec![1, 42], &42), Some(1));
+        assert_eq!(bin_search(&vec![42, 45], &42), Some(0));
+        assert_ne!(bin_search(&vec![42, 42], &42), None);
 
         // bigger arrays
         let data : Vec<Hash> = (1..=1000).map(|x| x*x).collect();
-        assert_eq!(bin_search(&data, 42), None);
-        assert_eq!(bin_search(&data, 1), Some(0));
-        assert_eq!(bin_search(&data, 4), Some(1));
-        assert_eq!(bin_search(&data, 1000*1000), Some(1000-1));
+        assert_eq!(bin_search(&data, &42), None);
+        assert_eq!(bin_search(&data, &1), Some(0));
+        assert_eq!(bin_search(&data, &4), Some(1));
+        assert_eq!(bin_search(&data, &(1000*1000)), Some(1000-1));
     }
 
     #[test]
