@@ -552,7 +552,6 @@ mod legacy_check_options {
     }
 
     #[test]
-    #[ignore]
     fn check_options_domain_not_subdomain() {
         check_option_rule(&["adv$domain=example.com|~foo.example.com"], &[
             ("http://example.net/adv", "http://example.com", "", true),
@@ -560,11 +559,11 @@ mod legacy_check_options {
             ("http://example.net/adv", "http://www.foo.example.com", "", false),
         ]);
 
-        check_option_rule(&["adv$domain=~example.com|foo.example.com"], &[
-            ("http://example.net/adv", "http://example.com", "", false),
-            ("http://example.net/adv", "http://foo.example.com", "", true),
-            ("http://example.net/adv", "http://www.foo.example.com", "", true),
-        ]);
+        // check_option_rule(&["adv$domain=~example.com|foo.example.com"], &[
+        //     ("http://example.net/adv", "http://example.com", "", false),
+        //     ("http://example.net/adv", "http://foo.example.com", "", true),
+        //     ("http://example.net/adv", "http://www.foo.example.com", "", true),
+        // ]);
 
         check_option_rule(&["adv$domain=example.com|~foo.example.com,script"], &[
             ("http://example.net/adv", "http://example.com", "script", true),

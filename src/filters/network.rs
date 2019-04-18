@@ -268,9 +268,7 @@ impl NetworkFilter {
                         let mut opt_domains_array: Vec<Hash> = vec![];
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
 
-                        let mut valuesiter = option_values.iter();
-
-                        while let Some(option_value) = valuesiter.next() {
+                        for option_value in option_values {
                             if option_value.starts_with('~') {
                                 let domain = &option_value[1..];
                                 let domain_hash = utils::fast_hash(&domain);
@@ -286,7 +284,7 @@ impl NetworkFilter {
                             let mut opt_domains_full_array: Vec<String> = vec![];
                             let mut opt_not_domains_full_array: Vec<String> = vec![];
                             let mut valuesiter = option_values.iter();
-                            while let Some(option_value) = valuesiter.next() {
+                            for option_value in option_values {
                                 if option_value.starts_with('~') {
                                     opt_not_domains_full_array
                                         .push(String::from(&option_value[1..]));
@@ -1366,26 +1364,82 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         return false;
     }
 
-    // Source URL must be among these domains to match
-    if filter.opt_domains.is_some() {
-        let domains = filter.opt_domains.as_ref().unwrap();
-        if !utils::bin_lookup_optional(&domains, request.source_hostname_hash)
-            && !utils::bin_lookup_optional(&domains, request.source_domain_hash)
-        {
-            return false;
+    #[cfg(feature = "full-domain-matching")]
+    {
+        // Source URL must be among these domains to match
+        let found_domain: Option<&String> = if let Some(domains) = filter.opt_domains_full.as_ref() {
+            utils::bin_search(&domains, &request.source_hostname)
+                .or_else(|| utils::bin_search(&domains, &request.source_domain))
+                .and_then(|idx| domains.get(idx))
+        } else {
+            None
+        };
+
+        let found_not_domain: Option<&String> = if let Some(domains) = filter.opt_not_domains_full.as_ref() {
+            utils::bin_search(&domains, &request.source_hostname)
+                .or_else(|| utils::bin_search(&domains, &request.source_domain))
+                .and_then(|idx| domains.get(idx))
+        } else {
+            None
+        };
+
+        println!("Checking {:?} and ~{:?} for {} {}\nFound {:?} and ~{:?}",
+            filter.opt_domains_full,
+            filter.opt_not_domains_full,
+            request.source_hostname,
+            request.source_domain,
+            found_domain,
+            found_not_domain);
+
+        // If positive domain options are specified but do there's no match
+        if filter.opt_domains_full.is_some() && found_domain.is_none() {
+            false
+        }
+        // If positive domain options are not specified but negative domain option are and match
+        else if filter.opt_domains_full.is_none() && found_not_domain.is_some() {
+            false
+        }
+        // If both positive and negative options are found, check which is more specific
+        else if found_domain.is_some() && found_not_domain.is_some() {
+                let positive = found_domain.unwrap();
+                let negative = found_not_domain.unwrap();
+                // check which is more specific
+                if negative.len() >= positive.len() {
+                    false
+                } else {
+                    true
+                }
+            }
+        else {
+            true
         }
     }
 
-    if filter.opt_not_domains.is_some() {
-        let domains = filter.opt_not_domains.as_ref().unwrap();
-        if utils::bin_lookup_optional(&domains, request.source_hostname_hash)
-            || utils::bin_lookup_optional(&domains, request.source_domain_hash)
-        {
-            return false;
+    #[cfg(not(feature = "full-domain-matching"))]
+    {
+        // Source URL must be among these domains to match
+        if filter.opt_domains.is_some() {
+            let domains = filter.opt_domains.as_ref().unwrap();
+            if request.source_hostname_hashes.is_some() {
+                let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
+                if source_hashes.iter().all(|h| !utils::bin_lookup(&domains, *h)) {
+                    return false
+                }
+            }
         }
-    }
 
-    true
+        if filter.opt_not_domains.is_some() {
+            let domains = filter.opt_not_domains.as_ref().unwrap();
+            if request.source_hostname_hashes.is_some() {
+                let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
+                if source_hashes.iter().any(|h| utils::bin_lookup(&domains, *h)) {
+                    return false
+                }
+            }
+        }
+
+        true
+    }
 }
 
 #[cfg(test)]

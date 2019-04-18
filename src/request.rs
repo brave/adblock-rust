@@ -91,10 +91,9 @@ pub struct Request {
     // pub source_url: String,
     #[cfg(feature = "full-domain-matching")]
     pub source_hostname: String,
-    pub source_hostname_hash: Option<utils::Hash>,
     #[cfg(feature = "full-domain-matching")]
     pub source_domain: String,
-    pub source_domain_hash: Option<utils::Hash>,
+    pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     // mutable fields, set later
     pub bug: Option<u32>,
@@ -143,6 +142,22 @@ impl<'a> Request {
             }
         }
 
+        let source_hostname_hashes = if !source_hostname.is_empty() {
+            // println!("Processing URL {}", url);
+            let mut hashes = Vec::with_capacity(2);
+            hashes.push(utils::fast_hash(&source_hostname));
+            for (i, c) in source_hostname[..source_hostname.len()-source_domain.len()].char_indices() {
+                if c == '.' {
+                    // println!("Hashing hostname part {} of {}", &source_hostname[i+1..], url);
+                    hashes.push(utils::fast_hash(&source_hostname[i+1..]));
+                }
+            }
+            hashes.shrink_to_fit();
+            Some(hashes)
+        } else {
+            None
+        };
+
         Request {
             request_type,
             url: String::from(url),
@@ -153,8 +168,7 @@ impl<'a> Request {
             source_hostname: String::from(source_hostname),
             #[cfg(feature = "full-domain-matching")]
             source_domain: String::from(source_domain),
-            source_hostname_hash: if !source_hostname.is_empty() { Some(utils::fast_hash(&source_hostname)) } else { None },
-            source_domain_hash: if !source_hostname.is_empty() { Some(utils::fast_hash(&source_domain)) } else { None },
+            source_hostname_hashes,
             is_first_party: first_party,
             is_third_party: third_party,
             is_http,
@@ -179,8 +193,11 @@ impl<'a> Request {
             let mut tokens_cache = self.tokens.write().unwrap();
             let mut tokens: Vec<utils::Hash> = vec![];
 
-            if let Some(h) = self.source_domain_hash { tokens.push(h) }
-            if let Some(h) = self.source_hostname_hash { tokens.push(h) }
+            if let Some(hashes) = self.source_hostname_hashes.as_ref() {
+                for h in hashes {
+                    tokens.push(*h)
+                }
+            }
 
             let mut url_tokens = utils::tokenize(&self.url);
             tokens.append(&mut url_tokens);
@@ -303,12 +320,12 @@ mod tests {
         assert_eq!(simple_example.is_third_party, Some(false));
         assert_eq!(simple_example.request_type, RequestType::Document);
         assert_eq!(
-            simple_example.source_domain_hash,
-            Some(utils::fast_hash("example.com"))
+            simple_example.source_hostname_hashes.as_ref().and_then(|h| h.last()),
+            Some(&utils::fast_hash("example.com"))
         );
         assert_eq!(
-            simple_example.source_hostname_hash,
-            Some(utils::fast_hash("example.com"))
+            simple_example.source_hostname_hashes.as_ref().and_then(|h| h.first()),
+            Some(&utils::fast_hash("example.com"))
         );
 
         let unsupported_example = Request::new(
@@ -419,8 +436,8 @@ mod tests {
         assert_eq!(
             simple_example.get_tokens().as_slice(),
             t(&vec![
-                "example.com",
                 "subdomain.example.com",
+                "example.com",
                 "https",
                 "subdomain",
                 "example",
@@ -449,9 +466,9 @@ mod tests {
         assert_eq!(parsed.hostname, "subdomain.example.com");
 
         // assert_eq!(parsed.source_domain, "example.com");
-        assert_eq!(parsed.source_domain_hash, Some(utils::fast_hash("example.com")));
+        assert_eq!(parsed.source_hostname_hashes.as_ref().and_then(|h| h.first()), Some(&utils::fast_hash("example.com")));
         // assert_eq!(parsed.source_hostname, "example.com");
-        assert_eq!(parsed.source_hostname_hash, Some(utils::fast_hash("example.com")));
+        assert_eq!(parsed.source_hostname_hashes.as_ref().and_then(|h| h.last()), Some(&utils::fast_hash("example.com")));
 
         let bad_url = Request::from_urls(
             "subdomain.example.com/ad",
