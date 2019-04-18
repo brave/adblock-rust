@@ -232,8 +232,8 @@ impl<'a> Request {
         source_url: &str,
         request_type: &str,
     ) -> Result<Request, RequestError> {
-        let url_norm = url.to_lowercase();
-        let source_url_norm = source_url.to_lowercase();
+        let url_norm = url.to_ascii_lowercase();
+        let source_url_norm = source_url.to_ascii_lowercase();
 
         let maybe_parsed_url = Request::get_url_host(&url_norm);
         if maybe_parsed_url.is_none() {
@@ -274,7 +274,7 @@ impl<'a> Request {
         source_hostname: &str,
         request_type: &str,
     ) -> Request {
-        let url_norm = url.to_lowercase();
+        let url_norm = url.to_ascii_lowercase();
         let domain = get_host_domain(&hostname);
 
         let source_domain = get_host_domain(&source_hostname);
