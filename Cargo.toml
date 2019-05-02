@@ -5,6 +5,19 @@ version = "0.1.0"
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
 edition = "2018"
 
+description = "Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching."
+repository = "https://github.com/brave/adblock-rust/"
+license = "MPL-2.0"
+readme = "README.md"
+
+exclude = [
+    "data/requests.json",
+    "data/matching-tests-requests.json",
+    "data/ublock-matches.tsv",
+    "data/easylist-parse-errors.log",
+]
+
+
 [dependencies]
 addr = "0.2"
 url = "1.7"
@@ -28,7 +41,6 @@ serde_json = "1.0"
 
 [lib]
 bench = false
-
 
 [[bench]]
 name = "bench_regex"
