@@ -12,7 +12,6 @@ extern crate matches; // #[cfg(test)]
 
 extern crate bincode;   // binary serialization/deserialization
 extern crate regex;
-extern crate punycode;  // utf domain handling
 extern crate idna;      // utf domain handling
 
 #[cfg(target_arch = "wasm32")]
