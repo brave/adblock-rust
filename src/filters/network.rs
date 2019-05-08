@@ -1419,20 +1419,20 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
     {
         // Source URL must be among these domains to match
         if filter.opt_domains.is_some() {
-            let domains = filter.opt_domains.as_ref().unwrap();
+            let included_domains = filter.opt_domains.as_ref().unwrap();
             if request.source_hostname_hashes.is_some() {
                 let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
-                if source_hashes.iter().all(|h| !utils::bin_lookup(&domains, *h)) {
+                if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
                     return false
                 }
             }
         }
 
         if filter.opt_not_domains.is_some() {
-            let domains = filter.opt_not_domains.as_ref().unwrap();
+            let excluded_domains = filter.opt_not_domains.as_ref().unwrap();
             if request.source_hostname_hashes.is_some() {
                 let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
-                if source_hashes.iter().any(|h| utils::bin_lookup(&domains, *h)) {
+                if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
                     return false
                 }
             }
@@ -2863,6 +2863,43 @@ mod match_tests {
                 request::Request::from_urls("https://foo.com/bar", "http://bar.com", "").unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
         }
+    }
+
+    #[test]
+    fn check_domain_option_subsetting_works() {
+        {
+            let network_filter = NetworkFilter::parse("adv$domain=example.com|~foo.example.com", true).unwrap();
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
+        }
+        {
+            let network_filter = NetworkFilter::parse("adv$domain=~example.com|~foo.example.com", true).unwrap();
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == true);
+        }
+        {
+            let network_filter = NetworkFilter::parse("adv$domain=example.com|foo.example.com", true).unwrap();
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
+        }
+        {
+            let network_filter = NetworkFilter::parse("adv$domain=~example.com|foo.example.com", true).unwrap();
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
+        }
+        
     }
 
     #[test]
