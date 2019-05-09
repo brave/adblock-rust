@@ -304,18 +304,14 @@ mod legacy_check_match {
 
     fn check_match<'a>(rules: &[&'a str], blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
+        let mut engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
+        engine.with_tags(tags);
+            
         let mut engine_deserialized = Engine::from_rules(&vec![]);          // second empty
         {
             let engine_serialized = engine.serialize().unwrap();
             engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy
         }
-
-        // TODO: handle tags
-        // std::for_each(tags.begin(), tags.end(),
-        //     [&client](string const &tag) {
-        //     client.addTag(tag);
-        // });
 
         for to_block in blocked {
             assert!(
@@ -409,7 +405,6 @@ mod legacy_check_match {
     }
 
     #[test]
-    #[ignore] // FIXME: need to implement tag support
     fn tag_tests() {
         // No matching tags should not match a tagged filter
         check_match(&["adv$tag=stuff",
@@ -711,19 +706,16 @@ mod legacy_misc_tests {
     }
 
     #[test]
-    #[ignore]   // need to implement explicitcancel option
     fn matches_with_filter_info_preserves_explicitcancel() {
         // Testing matchingFilter
         let engine = Engine::from_rules_debug(&[
             String::from("||brianbondy.com^$explicitcancel"),
         ]);
 
-        let checked = engine.check_network_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", "https://test.com", "script");
+        let checked = engine.check_network_urls("https://brianbondy.com/t", "https://test.com", "script");
         assert_eq!(checked.matched, true);
         assert!(checked.filter.is_some(), "Expected filter to match");
-        // let matched_filter = checked.filter.unwrap();
-        // TODO
-        // assert!(matched_filter.is_explicit_cancel(), "Expected explicit cancel option to be preserved");
+        assert!(checked.explicit_cancel, "Expected explicit cancel option to be preserved by {:?}", checked.filter);
         assert!(checked.exception.is_none(), "Expected no exception to match");
     }
 

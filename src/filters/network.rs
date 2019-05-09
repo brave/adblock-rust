@@ -17,7 +17,9 @@ pub enum FilterError {
     BadFilter,
     NegatedImportant,
     NegatedOptionMatchCase,
+    NegatedExplicitCancel,
     NegatedRedirection,
+    NegatedTag,
     EmptyRedirection,
     UnrecognisedOption,
     NoRegex,
@@ -46,6 +48,7 @@ bitflags! {
         const FUZZY_MATCH = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
+        const EXPLICIT_CANCEL = 1 << 26;
 
         // Kind of pattern
         const IS_REGEX = 1 << 18;
@@ -172,10 +175,10 @@ pub struct NetworkFilter {
     pub hostname: Option<String>,
     pub csp: Option<String>,
     pub bug: Option<u32>,
+    pub tag: Option<String>,
 
     pub raw_line: Option<String>,
 
-    // Lazy attributes
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
@@ -221,6 +224,7 @@ impl NetworkFilter {
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
         let mut bug: Option<u32> = None;
+        let mut tag: Option<String> = None;
 
         // Start parsing
         let mut filter_index_start: usize = 0;
@@ -332,6 +336,8 @@ impl NetworkFilter {
                     ("fuzzy", _) => mask.set(NetworkFilterMask::FUZZY_MATCH, true),
                     ("collapse", _) => {}
                     ("bug", _) => bug = value.parse::<u32>().ok(),
+                    ("tag", false) => tag = Some(String::from(value)),
+                    ("tag", true) => return Err(FilterError::NegatedTag),
                     // Negation of redirection doesn't make sense
                     ("redirect", true) => return Err(FilterError::NegatedRedirection),
                     ("redirect", false) => {
@@ -342,6 +348,8 @@ impl NetworkFilter {
 
                         redirect = Some(String::from(value));
                     }
+                    ("explicitcancel", true) => return Err(FilterError::NegatedExplicitCancel),
+                    ("explicitcancel", false) => mask.set(NetworkFilterMask::EXPLICIT_CANCEL, true),
                     ("csp", _) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
                         if !value.is_empty() {
@@ -577,6 +585,7 @@ impl NetworkFilter {
             mask,
             opt_domains,
             opt_not_domains,
+            tag,
             raw_line: if debug {
                 Some(String::from(line))
             } else {
@@ -730,6 +739,10 @@ impl NetworkFilter {
     #[inline]
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
+    }
+    #[inline]
+    pub fn is_explicit_cancel(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL)
     }
     #[inline]
     pub fn is_regex(&self) -> bool {
