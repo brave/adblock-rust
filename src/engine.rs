@@ -48,4 +48,9 @@ impl Engine {
         let request = Request::from_urls(&url, &source_url, &request_type).unwrap();
         self.blocker.check(&request)
     }
+
+    pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Engine {
+        self.blocker.with_tags(tags);
+        self
+    }
 }

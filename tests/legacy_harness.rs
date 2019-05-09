@@ -304,18 +304,14 @@ mod legacy_check_match {
 
     fn check_match<'a>(rules: &[&'a str], blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
+        let mut engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
+        engine.with_tags(tags);
+            
         let mut engine_deserialized = Engine::from_rules(&vec![]);          // second empty
         {
             let engine_serialized = engine.serialize().unwrap();
             engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy
         }
-
-        // TODO: handle tags
-        // std::for_each(tags.begin(), tags.end(),
-        //     [&client](string const &tag) {
-        //     client.addTag(tag);
-        // });
 
         for to_block in blocked {
             assert!(
@@ -409,7 +405,6 @@ mod legacy_check_match {
     }
 
     #[test]
-    #[ignore] // FIXME: need to implement tag support
     fn tag_tests() {
         // No matching tags should not match a tagged filter
         check_match(&["adv$tag=stuff",

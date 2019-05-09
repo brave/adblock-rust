@@ -33,7 +33,10 @@ pub struct Blocker {
     exceptions: NetworkFilterList,
     importants: NetworkFilterList,
     redirects: NetworkFilterList,
+    enabled_tags: NetworkFilterList,
     filters: NetworkFilterList,
+
+    all_tags: Vec<NetworkFilter>,
 
     debug: bool,
     enable_optimizations: bool,
@@ -64,6 +67,7 @@ impl Blocker {
         let filter = self
             .importants
             .check(request)
+            .or_else(|| self.enabled_tags.check(request))
             .or_else(|| self.redirects.check(request))
             .or_else(|| self.filters.check(request));
 
@@ -118,6 +122,8 @@ impl Blocker {
         let mut importants = Vec::with_capacity(network_filters.len());
         // $redirect
         let mut redirects = Vec::with_capacity(network_filters.len());
+        // $tag=
+        let mut all_tags = Vec::with_capacity(network_filters.len());
         // All other filters
         let mut filters = Vec::with_capacity(network_filters.len());
 
@@ -134,6 +140,8 @@ impl Blocker {
                     importants.push(filter);
                 } else if filter.is_redirect() {
                     redirects.push(filter);
+                } else if filter.tag.is_some() {
+                    all_tags.push(filter);
                 } else {
                     filters.push(filter);
                 }
@@ -144,6 +152,7 @@ impl Blocker {
         exceptions.shrink_to_fit();
         importants.shrink_to_fit();
         redirects.shrink_to_fit();
+        all_tags.shrink_to_fit();
         filters.shrink_to_fit();
 
         Blocker {
@@ -151,13 +160,25 @@ impl Blocker {
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
             importants: NetworkFilterList::new(importants, options.enable_optimizations),
             redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
+            enabled_tags: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
             filters: NetworkFilterList::new(filters, options.enable_optimizations),
+            // Tags special case for enabling/disabling them dynamically
+            all_tags,
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
             load_cosmetic_filters: options.load_cosmetic_filters,
             load_network_filters: options.load_network_filters,
         }
+    }
+
+    pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+        let enabled_tags: Vec<NetworkFilter> = self.all_tags.iter()
+            .filter(|n| n.tag.is_some() && tags.contains(&n.tag.as_ref().unwrap().as_str()))
+            .map(|n| n.clone())
+            .collect();
+        self.enabled_tags = NetworkFilterList::new(enabled_tags, self.enable_optimizations);
+        self
     }
 }
 

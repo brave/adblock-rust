@@ -18,6 +18,7 @@ pub enum FilterError {
     NegatedImportant,
     NegatedOptionMatchCase,
     NegatedRedirection,
+    NegatedTag,
     EmptyRedirection,
     UnrecognisedOption,
     NoRegex,
@@ -172,10 +173,10 @@ pub struct NetworkFilter {
     pub hostname: Option<String>,
     pub csp: Option<String>,
     pub bug: Option<u32>,
+    pub tag: Option<String>,
 
     pub raw_line: Option<String>,
 
-    // Lazy attributes
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
@@ -221,6 +222,7 @@ impl NetworkFilter {
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
         let mut bug: Option<u32> = None;
+        let mut tag: Option<String> = None;
 
         // Start parsing
         let mut filter_index_start: usize = 0;
@@ -332,6 +334,8 @@ impl NetworkFilter {
                     ("fuzzy", _) => mask.set(NetworkFilterMask::FUZZY_MATCH, true),
                     ("collapse", _) => {}
                     ("bug", _) => bug = value.parse::<u32>().ok(),
+                    ("tag", false) => tag = Some(String::from(value)),
+                    ("tag", true) => return Err(FilterError::NegatedTag),
                     // Negation of redirection doesn't make sense
                     ("redirect", true) => return Err(FilterError::NegatedRedirection),
                     ("redirect", false) => {
@@ -577,6 +581,7 @@ impl NetworkFilter {
             mask,
             opt_domains,
             opt_not_domains,
+            tag,
             raw_line: if debug {
                 Some(String::from(line))
             } else {
