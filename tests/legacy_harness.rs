@@ -706,19 +706,16 @@ mod legacy_misc_tests {
     }
 
     #[test]
-    #[ignore]   // need to implement explicitcancel option
     fn matches_with_filter_info_preserves_explicitcancel() {
         // Testing matchingFilter
         let engine = Engine::from_rules_debug(&[
             String::from("||brianbondy.com^$explicitcancel"),
         ]);
 
-        let checked = engine.check_network_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", "https://test.com", "script");
+        let checked = engine.check_network_urls("https://brianbondy.com/t", "https://test.com", "script");
         assert_eq!(checked.matched, true);
         assert!(checked.filter.is_some(), "Expected filter to match");
-        // let matched_filter = checked.filter.unwrap();
-        // TODO
-        // assert!(matched_filter.is_explicit_cancel(), "Expected explicit cancel option to be preserved");
+        assert!(checked.explicit_cancel, "Expected explicit cancel option to be preserved by {:?}", checked.filter);
         assert!(checked.exception.is_none(), "Expected no exception to match");
     }
 

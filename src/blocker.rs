@@ -16,6 +16,7 @@ pub struct BlockerOptions {
 
 pub struct BlockerResult {
     pub matched: bool,
+    pub explicit_cancel: bool,
     pub redirect: Option<String>,
     pub exception: Option<String>,
     pub filter: Option<String>,
@@ -53,6 +54,7 @@ impl Blocker {
         if !self.load_network_filters || !request.is_supported {
             return BlockerResult {
                 matched: false,
+                explicit_cancel: false,
                 redirect: None,
                 exception: None,
                 filter: None,
@@ -97,8 +99,10 @@ impl Blocker {
             }
         });
 
+        let matched = exception.is_none() && filter.is_some();
         BlockerResult {
-            matched: exception.is_none() && filter.is_some(),
+            matched,
+            explicit_cancel: matched && filter.is_some() && filter.as_ref().map(|f| f.is_explicit_cancel()).unwrap_or_else(|| false),
             redirect,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter

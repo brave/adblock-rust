@@ -17,6 +17,7 @@ pub enum FilterError {
     BadFilter,
     NegatedImportant,
     NegatedOptionMatchCase,
+    NegatedExplicitCancel,
     NegatedRedirection,
     NegatedTag,
     EmptyRedirection,
@@ -47,6 +48,7 @@ bitflags! {
         const FUZZY_MATCH = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
+        const EXPLICIT_CANCEL = 1 << 26;
 
         // Kind of pattern
         const IS_REGEX = 1 << 18;
@@ -346,6 +348,8 @@ impl NetworkFilter {
 
                         redirect = Some(String::from(value));
                     }
+                    ("explicitcancel", true) => return Err(FilterError::NegatedExplicitCancel),
+                    ("explicitcancel", false) => mask.set(NetworkFilterMask::EXPLICIT_CANCEL, true),
                     ("csp", _) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
                         if !value.is_empty() {
@@ -735,6 +739,10 @@ impl NetworkFilter {
     #[inline]
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
+    }
+    #[inline]
+    pub fn is_explicit_cancel(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL)
     }
     #[inline]
     pub fn is_regex(&self) -> bool {
