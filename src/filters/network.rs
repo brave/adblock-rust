@@ -14,7 +14,7 @@ pub const TOKENS_BUFFER_SIZE: usize = 200;
 #[derive(Debug, PartialEq)]
 pub enum FilterError {
     FilterParseError,
-    BadFilter,
+    NegatedBadFilter,
     NegatedImportant,
     NegatedOptionMatchCase,
     NegatedExplicitCancel,
@@ -49,6 +49,7 @@ bitflags! {
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const EXPLICIT_CANCEL = 1 << 26;
+        const BAD_FILTER = 1 << 27;
 
         // Kind of pattern
         const IS_REGEX = 1 << 18;
@@ -315,11 +316,8 @@ impl NetworkFilter {
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
-                    // TODO - how to handle those, if we start in mask, then the id will
-                    // differ from the other filter. We could keep original line. How do
-                    // to eliminate thos efficiently? They will probably endup in the same
-                    // bucket, so maybe we could do that on a per-bucket basis?
-                    ("badfilter", _) => return Err(FilterError::BadFilter),
+                    ("badfilter", false) => mask.set(NetworkFilterMask::BAD_FILTER, true),
+                    ("badfilter", true) => return Err(FilterError::NegatedBadFilter),
                     // Note: `negation` should always be `false` here.
                     ("important", true) => return Err(FilterError::NegatedImportant),
                     ("important", false) => mask.set(NetworkFilterMask::IS_IMPORTANT, true),
@@ -370,9 +368,8 @@ impl NetworkFilter {
                             "ping" => option_mask.set(NetworkFilterMask::FROM_PING, true),
                             "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
                             "script" => option_mask.set(NetworkFilterMask::FROM_SCRIPT, true),
-                            "stylesheet" => {
-                                option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true)
-                            }
+                            "css" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
+                            "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
                             "subdocument" => {
                                 option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true)
                             }
@@ -609,6 +606,19 @@ impl NetworkFilter {
         }
     }
 
+    pub fn get_id_without_badfilter(&self) -> Hash {
+        let mut mask = self.mask;
+        mask.set(NetworkFilterMask::BAD_FILTER, false);
+        compute_filter_id(
+            self.csp.as_ref().map(String::as_str),
+            mask,
+            self.filter.string_view().as_ref().map(|s| s.as_str()),
+            self.hostname.as_ref().map(String::as_str),
+            self.opt_domains.as_ref(),
+            self.opt_not_domains.as_ref(),
+        )
+    }
+
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
             self.csp.as_ref().map(String::as_str),
@@ -743,6 +753,10 @@ impl NetworkFilter {
     #[inline]
     pub fn is_explicit_cancel(&self) -> bool {
         self.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL)
+    }
+    #[inline]
+    pub fn is_badfilter(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::BAD_FILTER)
     }
     #[inline]
     pub fn is_regex(&self) -> bool {
@@ -1360,6 +1374,10 @@ pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> 
 }
 
 fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
+    // Bad filter never matches
+    if filter.is_badfilter() {
+        return false;
+    }
     // We first discard requests based on type, protocol and party. This is really
     // cheap and should be done first.
     if !check_cpt_allowed(&filter, &request.request_type)
