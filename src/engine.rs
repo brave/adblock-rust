@@ -49,6 +49,11 @@ impl Engine {
         self.blocker.check(&request)
     }
 
+    pub fn check_network_urls_with_hostnames(&self, url: &str, hostname: &str, source_hostname: &str, request_type: &str, third_party_request: Option<bool>) -> BlockerResult {
+        let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        self.blocker.check(&request)
+    }
+
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Engine {
         self.blocker.with_tags(tags);
         self

@@ -2,6 +2,8 @@ extern crate adblock;
 
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
+use adblock::request::Request;
+use adblock::url_parser::{get_host_domain, UrlParser};
 use adblock::utils::rules_from_lists;
 
 use serde::{Deserialize};
@@ -112,6 +114,36 @@ fn check_matching() {
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
     assert!(ratio < 0.05); 
+}
+
+#[test]
+fn check_matching_hostnames() {
+    // Makes sure that reuqests are handled with the same result whether parsed form full url or from pre-parsed hostname
+    let requests = load_requests();
+
+    assert!(requests.len() > 0, "List of parsed request info is empty");
+
+    let engine = get_blocker_engine();
+
+    for req in requests {
+        let url_host = Request::get_url_host(&req.url).unwrap();
+        let source_host = Request::get_url_host(&req.sourceUrl).unwrap();
+        let domain = get_host_domain(&url_host.hostname());
+        let source_domain = get_host_domain(&source_host.hostname());
+        let third_party = if source_domain.is_empty() {
+            None
+        } else {
+            Some(source_domain != domain)
+        };
+        
+        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+        let checked_hostnames = engine.check_network_urls_with_hostnames(&req.url, url_host.hostname(), source_host.hostname(), &req.r#type, third_party);
+
+        assert_eq!(checked.matched, checked_hostnames.matched);
+        assert_eq!(checked.filter, checked_hostnames.filter);
+        assert_eq!(checked.exception, checked_hostnames.exception);
+        assert_eq!(checked.redirect, checked_hostnames.redirect);
+    }
 }
 
 #[test]
