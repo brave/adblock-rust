@@ -1,13 +1,13 @@
 [package]
-name = "adblock-node-native"
-version = "0.1.0"
+name = "adblock-rs"
+version = "0.1.2"
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
-license = "MIT"
+license = "MPL-2.0"
 build = "build.rs"
 exclude = ["artifacts.json", "index.node"]
 
 [lib]
-name = "adblock_node_native"
+name = "adblock_rs"
 crate-type = ["dylib"]
 
 [build-dependencies]
@@ -15,4 +15,4 @@ neon-build = "0.2.0"
 
 [dependencies]
 neon = "0.2.0"
-adblock = { path = "../../", version = "0.1.0" }
+adblock = { path = "../" }

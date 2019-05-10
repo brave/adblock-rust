@@ -14,7 +14,7 @@ Somewhat graphical explanation of the algorithm:
 
 Demo use in Rust:
 
-```
+```rust
 extern crate adblock;
 
 use adblock::engine::Engine;
@@ -33,6 +33,24 @@ fn check_simple_use() {
     assert!(blocker_result.matched);
 }
 
+```
+
+## Node.js module demo
+
+Note the Node.js module has overheads inherent to boundary crossing between JS and native code.
+
+```js
+const AdBlockClient = require('adblock-rs');
+let rules = fs.readFileSync('./data/easylist.to/easylist/easylist.txt', { encoding: 'utf-8' }).split('\n');
+
+const client = new AdBlockClient.Engine(rules);
+
+const serializedArrayBuffer = client.serialize(); // Serialize the engine to an ArrayBuffer
+
+console.log(`Engine size: ${(serializedArrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
+
+console.log("Matching:", client.check("http://example.com/-advertisement-icon.", "http://example.com/helloworld", "image"))
+console.log("Matching:", client.check("https://github.githubassets.com/assets/frameworks-64831a3d.js", "https://github.com/AndriusA", "script"))
 ```
 
 
