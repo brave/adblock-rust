@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable};
 use crate::request::Request;
@@ -118,16 +119,20 @@ impl Blocker {
     }
 
     pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Blocker {
+        // Capacity of filter subsets estimated based on counts in EasyList and EasyPrivacy - if necessary
+        // the Vectors will grow beyond the pre-set capacity, but it is more efficient to allocate all at once
         // $csp=
-        let mut csp = Vec::with_capacity(network_filters.len());
+        let mut csp = Vec::with_capacity(200);
         // @@filter
-        let mut exceptions = Vec::with_capacity(network_filters.len());
+        let mut exceptions = Vec::with_capacity(network_filters.len() / 8);
         // $important
-        let mut importants = Vec::with_capacity(network_filters.len());
+        let mut importants = Vec::with_capacity(200);
         // $redirect
-        let mut redirects = Vec::with_capacity(network_filters.len());
+        let mut redirects = Vec::with_capacity(200);
         // $tag=
-        let mut all_tags = Vec::with_capacity(network_filters.len());
+        let mut all_tags = Vec::with_capacity(200);
+        // $badfilter
+        let mut badfilters = Vec::with_capacity(100);
         // All other filters
         let mut filters = Vec::with_capacity(network_filters.len());
 
@@ -135,7 +140,18 @@ impl Blocker {
         // TODO: resource handling
 
         if !network_filters.is_empty() && options.load_network_filters {
+            for filter in network_filters.iter() {
+                if filter.is_badfilter() {
+                    badfilters.push(filter);
+                }
+            }
+            let badfilter_ids: HashSet<Hash> = badfilters.iter().map(|f| f.get_id_without_badfilter()).collect();
             for filter in network_filters {
+                // skip any bad filters
+                let filter_id = filter.get_id();
+                if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
+                    continue;
+                }
                 if filter.is_csp() {
                     csp.push(filter);
                 } else if filter.is_exception() {
@@ -158,7 +174,7 @@ impl Blocker {
         redirects.shrink_to_fit();
         all_tags.shrink_to_fit();
         filters.shrink_to_fit();
-
+        
         Blocker {
             csp: NetworkFilterList::new(csp, options.enable_optimizations),
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
@@ -514,7 +530,7 @@ mod tests {
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {
-                assert!(matched_rule.is_none(), "Expected no match for {}", req.url);
+                assert!(matched_rule.is_none(), "Expected no match for {}, matched with {}", req.url, matched_rule.unwrap().to_string());
             }
         });
     }
@@ -680,6 +696,97 @@ mod tests {
                     "xmlhttprequest",
                 )
                 .unwrap(),
+                true,
+            ),
+        ];
+
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(request, expected_result)| (request, expected_result))
+            .collect();
+
+        test_requests_filters(&filters, &request_expectations);
+    }
+}
+
+mod blocker_tests {
+
+    use crate::blocker::{Blocker, BlockerOptions};
+    use crate::lists::parse_filters;
+    use crate::request::Request;
+
+    fn test_requests_filters(filters: &[String], requests: &Vec<(Request, bool)>) {
+        let (network_filters, _) = parse_filters(filters, true, true, true); 
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            debug: false,
+            enable_optimizations: false,    // optimizations will reduce number of rules
+            load_cosmetic_filters: false,   
+            load_network_filters: true
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        requests.into_iter().for_each(|(req, expected_result)| {
+            let matched_rule = blocker.check(&req);
+            if *expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", req.url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
+            }
+        });
+    }
+
+    #[test]
+    fn badfilter_does_not_match() {
+        let filters = vec![
+            String::from("||foo.com$badfilter")
+        ];
+        let url_results = vec![
+            (
+                Request::from_urls("https://foo.com", "https://bar.com", "image").unwrap(),
+                false,
+            ),
+        ];
+
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(request, expected_result)| (request, expected_result))
+            .collect();
+
+        test_requests_filters(&filters, &request_expectations);
+    }
+
+    #[test]
+    fn badfilter_cancels_with_same_id() {
+        let filters = vec![
+            String::from("||foo.com$domain=bar.com|foo.com,badfilter"),
+            String::from("||foo.com$domain=foo.com|bar.com")
+        ];
+        let url_results = vec![
+            (
+                Request::from_urls("https://foo.com", "https://bar.com", "image").unwrap(),
+                false,
+            ),
+        ];
+
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(request, expected_result)| (request, expected_result))
+            .collect();
+
+        test_requests_filters(&filters, &request_expectations);
+    }
+
+    #[test]
+    fn badfilter_does_not_cancel_similar_filter() {
+        let filters = vec![
+            String::from("||foo.com$domain=bar.com|foo.com,badfilter"),
+            String::from("||foo.com$domain=foo.com|bar.com,image")
+        ];
+        let url_results = vec![
+            (
+                Request::from_urls("https://foo.com", "https://bar.com", "image").unwrap(),
                 true,
             ),
         ];
