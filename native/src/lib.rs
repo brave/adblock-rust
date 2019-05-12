@@ -4,6 +4,7 @@ extern crate adblock;
 
 use neon::prelude::*;
 use adblock::engine::Engine;
+use adblock::filter_lists;
 
 declare_types! {
     pub class JsEngine for Engine {
@@ -68,6 +69,18 @@ declare_types! {
             }).unwrap();
 
             Ok(JsNull::new().upcast())
+        }
+
+        method lists(mut cx) {
+            let category: String = cx.argument::<JsString>(0)?.value();
+            let filter_list: Vec<adblock::lists::FilterList>;
+            if category == "regions" {
+                filter_list = filter_lists.regions.regions();
+            } else {
+                filter_list = filter_lists.default.default();
+            }
+
+            Ok(filter_list);
         }
     }
 }

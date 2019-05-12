@@ -1,5 +1,6 @@
 use crate::filters::network::NetworkFilter;
 use itertools::Either;
+use serde::{Serialize, Deserialize};
 
 #[cfg(target_arch = "wasm32")]
 use itertools::Itertools;
@@ -20,6 +21,17 @@ pub enum FilterError {
     NotImplemented,
     Empty,
     ParseError,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FilterList {
+    pub uuid: String,
+    pub url: String,
+    pub title: String,
+    pub langs: Vec<String>,
+    pub support_url: String,
+    pub component_id: String,
+    pub base64_public_key: String,
 }
 
 pub fn parse_filters(
