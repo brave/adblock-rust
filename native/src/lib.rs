@@ -1,9 +1,12 @@
 #[macro_use]
 extern crate neon;
+
+extern crate neon_serde;
 extern crate adblock;
 
 use neon::prelude::*;
 use adblock::engine::Engine;
+use adblock::filter_lists;
 
 declare_types! {
     pub class JsEngine for Engine {
@@ -72,8 +75,23 @@ declare_types! {
     }
 }
 
+fn lists(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let category: String = cx.argument::<JsString>(0)?.value();
+    let filter_list: Vec<adblock::lists::FilterList>;
+    if category == "regions" {
+        filter_list = filter_lists::regions::regions();
+    } else {
+        filter_list = filter_lists::default::default_lists();
+    }
+
+    let js_list = neon_serde::to_value(&mut cx, &filter_list)?;
+
+    Ok(js_list)
+}
+
 register_module!(mut m, {
     // Export the `JsEngine` class
     m.export_class::<JsEngine>("Engine")?;
+    m.export_function("lists", lists)?;
     Ok(())
 });
