@@ -29,3 +29,4 @@ pub mod blocker;
 pub mod optimizer;
 pub mod url_parser;
 pub mod engine;
+pub mod filter_lists;
