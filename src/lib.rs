@@ -14,7 +14,7 @@ extern crate bincode;   // binary serialization/deserialization
 extern crate regex;
 extern crate idna;      // utf domain handling
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(target_arch = "wasm32"))]
 extern crate rayon;     // parallelism
 
 #[cfg(test)]
