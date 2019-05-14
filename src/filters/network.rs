@@ -406,18 +406,18 @@ impl NetworkFilter {
 
         // Identify kind of pattern
 
-        // Deal with hostname pattern
-        if filter_index_end > 0 && line[filter_index_end - 1..].starts_with('|') {
-            mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
-            filter_index_end -= 1;
-        }
-
         if line[filter_index_start..].starts_with("||") {
             mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true);
             filter_index_start += 2;
         } else if line[filter_index_start..].starts_with('|') {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
             filter_index_start += 1;
+        }
+
+        // Deal with hostname pattern
+        if filter_index_end > 0 && filter_index_end > filter_index_start && line[filter_index_end - 1..].starts_with('|') {
+            mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
+            filter_index_end -= 1;
         }
 
         let is_regex = check_is_regex(&line[filter_index_start..filter_index_end]);
@@ -2324,7 +2324,6 @@ mod parse_tests {
     #[test]
     fn handles_unsupported_options() {
         let options = vec![
-            "badfilter",
             "genericblock",
             "generichide",
             "inline-script",
@@ -2507,6 +2506,24 @@ mod parse_tests {
 
             assert_eq!(decoded.get_regex().is_match("bar/"), true);
         }
+    }
+
+    #[test]
+    fn parse_empty_host_anchor_exception() {
+        let filter_parsed = NetworkFilter::parse("@@||$domain=auth.wi-fi.ru", true);
+        assert!(filter_parsed.is_ok());
+
+        let filter = filter_parsed.unwrap();
+
+        let mut defaults = default_network_filter_breakdown();
+
+        defaults.hostname = Some(String::from(""));
+        defaults.is_hostname_anchor = true;
+        defaults.is_exception = true;
+        defaults.is_plain = true;
+        defaults.from_any = true;
+        defaults.opt_domains = Some(vec![utils::fast_hash("auth.wi-fi.ru")]);
+        assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
     }
 
 }
@@ -3017,6 +3034,36 @@ mod match_tests {
             );
             let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
             let source = "http://123movies.com";
+            let request = request::Request::from_urls(url, source, "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+    }
+
+    #[test]
+    fn check_empty_host_anchor_matches() {
+        {
+            let filter = "||$domain=auth.wi-fi.ru";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://example.com/ad.js";
+            let source = "http://auth.wi-fi.ru";
+            let request = request::Request::from_urls(url, source, "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+        {
+            let filter = "@@||$domain=auth.wi-fi.ru";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://example.com/ad.js";
+            let source = "http://auth.wi-fi.ru";
             let request = request::Request::from_urls(url, source, "script").unwrap();
             assert!(
                 network_filter.matches(&request) == true,
