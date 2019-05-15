@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use adblock;
-use adblock::utils::rules_from_lists;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
 use adblock::engine::Engine;
@@ -75,7 +74,7 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
 
 fn rule_match(c: &mut Criterion) {
   
-  let rules = rules_from_lists(&vec![
+  let rules = adblock::utils::rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
   ]);
   let requests = load_requests();
@@ -95,7 +94,7 @@ fn rule_match(c: &mut Criterion) {
 
 fn rule_match_elep(c: &mut Criterion) {
   
-  let rules = rules_from_lists(&vec![
+  let rules = adblock::utils::rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
     String::from("data/easylist.to/easylist/easyprivacy.txt"),
   ]);
@@ -136,7 +135,7 @@ fn rule_match_slim(c: &mut Criterion) {
 
 fn rule_match_only_el(c: &mut Criterion) {
   
-  let rules = rules_from_lists(&vec![
+  let rules = adblock::utils::rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
   ]);
   let requests = load_requests();
@@ -157,7 +156,7 @@ fn rule_match_only_el(c: &mut Criterion) {
 
 fn rule_match_slimlist_comparable(c: &mut Criterion) {
   
-  let full_rules = rules_from_lists(&vec![
+  let full_rules = adblock::utils::rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
     String::from("data/easylist.to/easylist/easyprivacy.txt")
   ]);
@@ -197,7 +196,7 @@ fn serialization(c: &mut Criterion) {
         Benchmark::new(
             "el+ep",
             move |b| {
-              let full_rules = rules_from_lists(&vec![
+              let full_rules = adblock::utils::rules_from_lists(&vec![
                 String::from("data/easylist.to/easylist/easylist.txt"),
                 String::from("data/easylist.to/easylist/easyprivacy.txt")
               ]);
@@ -209,7 +208,7 @@ fn serialization(c: &mut Criterion) {
         .with_function(
           "el",
             move |b| {
-              let full_rules = rules_from_lists(&vec![
+              let full_rules = adblock::utils::rules_from_lists(&vec![
                 String::from("data/easylist.to/easylist/easylist.txt"),
               ]);
 
@@ -219,7 +218,7 @@ fn serialization(c: &mut Criterion) {
         .with_function(
           "slimlist",
             move |b| {
-              let full_rules = rules_from_lists(&vec![
+              let full_rules = adblock::utils::rules_from_lists(&vec![
                 String::from("data/slim-list.txt"),
               ]);
 
@@ -236,7 +235,7 @@ fn deserialization(c: &mut Criterion) {
         Benchmark::new(
             "el+ep",
             move |b| {
-              let full_rules = rules_from_lists(&vec![
+              let full_rules = adblock::utils::rules_from_lists(&vec![
                 String::from("data/easylist.to/easylist/easylist.txt"),
                 String::from("data/easylist.to/easylist/easyprivacy.txt")
               ]);
@@ -253,7 +252,7 @@ fn deserialization(c: &mut Criterion) {
         .with_function(
           "el",
             move |b| {
-              let full_rules = rules_from_lists(&vec![
+              let full_rules = adblock::utils::rules_from_lists(&vec![
                 String::from("data/easylist.to/easylist/easylist.txt"),
               ]);
 
@@ -268,7 +267,7 @@ fn deserialization(c: &mut Criterion) {
         .with_function(
           "slimlist",
             move |b| {
-              let full_rules = rules_from_lists(&vec![
+              let full_rules = adblock::utils::rules_from_lists(&vec![
                 String::from("data/slim-list.txt"),
               ]);
 

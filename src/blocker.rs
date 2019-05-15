@@ -801,6 +801,7 @@ mod blocker_tests {
 
 }
 
+#[cfg(test)]
 mod legacy_rule_parsing_tests {
     use crate::utils::rules_from_lists;
     use crate::lists::parse_filters;

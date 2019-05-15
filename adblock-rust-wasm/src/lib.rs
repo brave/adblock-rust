@@ -1,43 +1,49 @@
+extern crate wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
+extern crate js_sys;
 extern crate adblock;
 extern crate serde_json;
 
-use adblock::blocker::Blocker;
-use adblock::request::Request;
+use adblock::engine::Engine;
 
 
-fn blocker_new(rules: &Vec<String>) -> Blocker {
-    let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, false);
-
-    let blocker_options = adblock::blocker::BlockerOptions {
-        debug: false,
-        enable_optimizations: true,
-        load_cosmetic_filters: false,
-        load_network_filters: true
-    };
-
-    adblock::blocker::Blocker::new(network_filters, &blocker_options)
+fn blocker_new(rules: &Vec<String>, rules_debug: bool) -> Engine {
+    if rules_debug {
+        Engine::from_rules_debug(&rules)
+    } else {
+        Engine::from_rules(&rules)
+    }
 }
 
 #[wasm_bindgen]
 pub struct JsBlocker {
-    blocker: Blocker   
+    engine: Engine
 }
 
 #[wasm_bindgen]
 impl JsBlocker {
     pub fn new(rules_js: &JsValue) -> JsBlocker {
-        // let rules: Vec<String> = rules_js.into_serde().unwrap();
-        let blocker = blocker_new(&Vec::new());
+        let iterator = js_sys::try_iter(rules_js).unwrap().unwrap();
+
+        let mut rules = Vec::new();
+        for x in iterator {
+            let x = x.unwrap();
+
+            // If `x` is a string, add it to our array of rules
+            if x.is_string() {
+                let rule = x.as_string().unwrap();
+                rules.push(rule);
+            }
+        }
+        let engine = blocker_new(&rules, false);
         JsBlocker {
-            blocker
+            engine
         }
     }
 
     pub fn check(&self, url: &str, source_url: &str, request_type: &str) -> bool {
-        let request = Request::from_urls(url, source_url, request_type).unwrap();
-        let result = self.blocker.check(&request);
+        let result = self.engine.check_network_urls(&url, &source_url, &request_type);
         result.matched
     }
 }
