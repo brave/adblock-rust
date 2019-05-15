@@ -2,7 +2,10 @@
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::lists::parse_filters;
 use crate::request::Request;
-use bincode::{serialize, deserialize};
+use bincode;
+use flate2::write::GzEncoder;
+use flate2::read::GzDecoder;
+use flate2::Compression;
 
 pub struct Engine {
     pub blocker: Blocker
@@ -33,13 +36,23 @@ impl Engine {
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, BlockerError> {
-        serialize(&self.blocker)
-            .or_else(|_| Err(BlockerError::SerializationError))
+        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+
+        bincode::serialize_into(&mut gz, &self.blocker)
+            .or_else(|_| Err(BlockerError::SerializationError))?;
+        
+        let compressed = gz.finish()
+            .or_else(|_| Err(BlockerError::SerializationError))?;
+        Ok(compressed)
     }
 
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), BlockerError> {
-        let blocker = deserialize(&serialized[..])
-            .or_else(|_| Err(BlockerError::DeserializationError))?;
+        let gz = GzDecoder::new(serialized);
+        let blocker = bincode::deserialize_from(gz)
+            .or_else(|e| {
+                println!("Error deserializing: {:?}", e);
+                Err(BlockerError::DeserializationError)
+            })?;
         self.blocker = blocker;
         Ok(())
     }
