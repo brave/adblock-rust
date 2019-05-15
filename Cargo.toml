@@ -30,6 +30,7 @@ idna = "0.1"
 fasthash = "0.4"
 serde =  { version = "1.0", features = ["derive", "rc"] }
 bincode = "1.1"
+flate2 = "1"
 
 [target.'cfg(any(unix, windows))'.dependencies]
 rayon = "1.0"
