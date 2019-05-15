@@ -71,4 +71,12 @@ impl Engine {
         self.blocker.with_tags(tags);
         self
     }
+
+    pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) -> () {
+        self.blocker.tags_enable(tags);
+    }
+
+    pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> () {
+        self.blocker.tags_disable(tags);
+    }
 }
