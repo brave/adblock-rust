@@ -13,6 +13,14 @@ declare_types! {
         init(mut cx) {
             // Take the first argument, which must be an array
             let rules_handle: Handle<JsArray> = cx.argument(0)?;
+
+            let rules_debug = match cx.argument_opt(1) {
+                Some(arg) => {
+                    // Throw if the argument exist and it cannot be downcasted to a boolean
+                    arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value()
+                }
+                None => false,
+            };
             // Convert a JsArray to a Rust Vec
             let rules_wrapped: Vec<_> = rules_handle.to_vec(&mut cx)?;
 
@@ -23,7 +31,11 @@ declare_types! {
                 rules.push(rule);
             }
 
-            Ok(Engine::from_rules(&rules))
+            if rules_debug {
+                Ok(Engine::from_rules_debug(&rules))
+            } else {
+                Ok(Engine::from_rules(&rules))
+            }            
         }
 
         method check(mut cx) {
