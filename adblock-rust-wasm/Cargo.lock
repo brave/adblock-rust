@@ -29,7 +29,7 @@ dependencies = [
 
 [[package]]
 name = "adblock-rs-wasm"
-version = "0.1.0"
+version = "0.1.5"
 dependencies = [
  "adblock 0.1.5",
  "js-sys 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
