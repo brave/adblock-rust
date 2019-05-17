@@ -1,6 +1,7 @@
 use crate::filters::network::{NetworkFilter, NetworkFilterMask, FilterPart};
 use itertools::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 
 trait Optimization {
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
@@ -13,9 +14,16 @@ trait Optimization {
  */
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let simple_pattern_group = SimplePatternGroup {};
-    let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
-    fused.append(&mut unfused);
-    fused
+    let union_domain_group = UnionDomainGroup {};
+    let mut optimized: Vec<NetworkFilter> = Vec::new();
+    let (mut fused, unfused) = apply_optimisation(&union_domain_group, filters);
+    optimized.append(&mut fused);
+    let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, unfused);
+    optimized.append(&mut fused);
+    
+    // Append whatever is still left unfused
+    optimized.append(&mut unfused);
+    optimized
 }
 
 fn apply_optimisation<T: Optimization>(
@@ -121,8 +129,67 @@ impl Optimization for SimplePatternGroup {
     }
 }
 
+struct UnionDomainGroup {}
+
+impl Optimization for UnionDomainGroup {
+
+    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
+        let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
+        let mut filter = base_filter.clone();
+        let mut domains = HashSet::new();
+        let mut not_domains = HashSet::new();
+
+        filters.iter().for_each(|f| {
+            if f.opt_domains.is_some() {
+                for d in f.opt_domains.as_ref().unwrap() {
+                    domains.insert(d);
+                }
+            }
+            if f.opt_not_domains.is_some() {
+                for d in f.opt_not_domains.as_ref().unwrap() {
+                    not_domains.insert(d);
+                }
+            }
+        });
+
+        if domains.len() > 0 {
+            let mut domains = Vec::from_iter(domains.into_iter().cloned());
+            domains.sort();
+            filter.opt_domains = Some(domains);
+        }
+        if not_domains.len() > 0 {
+            let mut domains = Vec::from_iter(not_domains.into_iter().cloned());
+            domains.sort();
+            filter.opt_not_domains = Some(domains);
+        }
+
+
+        if base_filter.raw_line.is_some() {
+            filter.raw_line = Some(
+                filters
+                    .iter()
+                    .flat_map(|f| f.raw_line.clone())
+                    .join(" <+> "),
+            )
+        }
+
+        filter
+    }
+
+    fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
+        format!("{:?}:{}:{:b}:{:?}", filter.hostname.as_ref(), filter.filter.string_view().unwrap_or_default(), filter.mask, filter.redirect.as_ref())
+    }
+
+    fn select(&self, filter: &NetworkFilter) -> bool {
+        !filter.is_fuzzy()
+            && !filter.is_csp()
+            && !filter.has_bug()
+            && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
+    }
+}
+
 #[cfg(test)]
-mod parse_tests {
+mod optimization_tests_pattern_group {
     use super::*;
     use crate::lists;
     use crate::request::Request;
@@ -242,6 +309,101 @@ mod parse_tests {
         );
 
         assert!(filter.matches(&Request::from_urls("https://example.com/analytics/v1/foobar", "https://foo.leadpages.net", "").unwrap()))
+    }
+
+}
+
+
+#[cfg(test)]
+mod optimization_tests_union_domain {
+    use super::*;
+    use crate::lists;
+    use crate::request::Request;
+    use crate::filters::network::NetworkMatchable;
+    use crate::utils;
+
+    #[test]
+    fn merges_domains() {
+        let rules = vec![
+            String::from("/analytics-v1$domain=google.com"),
+            String::from("/analytics-v1$domain=example.com"),
+        ];
+
+        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let optimization = UnionDomainGroup {};
+        let (fused, _) = apply_optimisation(&optimization, filters);
+
+        assert_eq!(fused.len(), 1);
+        let filter = fused.get(0).unwrap();
+        assert_eq!(
+            filter.to_string(),
+            "/analytics-v1$domain=google.com <+> /analytics-v1$domain=example.com"
+        );
+
+        let expected_domains = vec![utils::fast_hash("example.com"), utils::fast_hash("google.com")];
+        assert!(filter.opt_domains.is_some());
+        let filter_domains = filter.opt_domains.as_ref().unwrap();
+        for dom in expected_domains {
+            assert!(filter_domains.contains(&dom));
+        }
+
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
+    }
+
+    #[test]
+    fn skips_rules_with_no_domain() {
+        let rules = vec![
+            String::from("/analytics-v1$domain=google.com"),
+            String::from("/analytics-v1$domain=example.com"),
+            String::from("/analytics-v1"),
+        ];
+
+        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let optimization = UnionDomainGroup {};
+        let (_, skipped) = apply_optimisation(&optimization, filters);
+
+        assert_eq!(skipped.len(), 1);
+        let filter = skipped.get(0).unwrap();
+        assert_eq!(
+            filter.to_string(),
+            "/analytics-v1"
+        );
+    }
+    
+    #[test]
+    fn optimises_domains() {
+        let rules = vec![
+            String::from("/analytics-v1$domain=google.com"),
+            String::from("/analytics-v1$domain=example.com"),
+            String::from("/analytics-v1$domain=exampleone.com|exampletwo.com"),
+            String::from("/analytics-v1"),
+        ];
+
+        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+
+        let optimization = UnionDomainGroup {};
+
+        let (fused, skipped) = apply_optimisation(&optimization, filters);
+
+        assert_eq!(fused.len(), 1);
+        let filter = fused.get(0).unwrap();
+        assert_eq!(
+            filter.to_string(),
+            "/analytics-v1$domain=google.com <+> /analytics-v1$domain=example.com <+> /analytics-v1$domain=exampleone.com|exampletwo.com"
+        );
+
+        assert_eq!(skipped.len(), 1);
+        let skipped_filter = skipped.get(0).unwrap();
+        assert_eq!(
+            skipped_filter.to_string(),
+            "/analytics-v1"
+        );
+
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://example.com", "").unwrap()) == true);
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://exampletwo.com", "").unwrap()) == true);
+        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
     }
 
 }
