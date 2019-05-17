@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "adblock-rust-wasm"
+name = "adblock-rs-wasm"
 version = "0.1.0"
 dependencies = [
  "adblock 0.1.5",
