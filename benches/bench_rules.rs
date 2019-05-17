@@ -23,7 +23,7 @@ fn default_rules_lists() -> Vec<Vec<String>> {
 fn bench_string_hashing(filters: &Vec<String>) -> adblock::utils::Hash {
   let mut dummy: adblock::utils::Hash = 0;
   for filter in filters {
-    dummy = (dummy + adblock::utils::fast_hash(filter)) % 1000000000;
+    dummy = (dummy + adblock::utils::fast_hash(filter)) % 10000;
   }
   dummy
 }
@@ -31,7 +31,7 @@ fn bench_string_hashing(filters: &Vec<String>) -> adblock::utils::Hash {
 fn bench_string_tokenize(filters: &Vec<String>) -> usize {
   let mut dummy: usize = 0;
   for filter in filters {
-    dummy = (dummy + adblock::utils::tokenize(filter).len()) % 1000000000;
+    dummy = (dummy + adblock::utils::tokenize(filter).len()) % 10000;
   }
   dummy
 }

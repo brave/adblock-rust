@@ -855,7 +855,8 @@ fn compute_filter_id(
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
-    let mut hash: Hash = (5408 * 33) ^ (mask.bits as Hash);
+    let mut hash: Hash = 5408;
+    hash = hash.wrapping_mul(33) ^ (mask.bits as Hash);
 
     if let Some(s) = csp {
         let chars = s.chars();

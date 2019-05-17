@@ -2,21 +2,14 @@
 use std::io::{BufRead, BufReader};
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
-// use fasthash::xx as hasher;
+use seahash::hash;
 
 pub type Hash = u32;
 static HASH_MAX: Hash = std::u32::MAX;
 
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
-    // hasher::hash32(input)
-    let mut hash: Hash = 5381;
-    let mut chars = input.chars();
-
-    while let Some(c) = chars.next() {
-        hash = hash.wrapping_mul(33) ^ (c as Hash);
-    }
-    hash
+    hash(input.as_bytes()) as Hash
 }
 
 #[inline]
@@ -181,7 +174,7 @@ pub fn has_unicode(pattern: &str) -> bool {
 }
 
 const EXPECTED_RULES: usize = 75000;
-#[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn read_rules(filename: &str) -> Vec<String> {
     let f = File::open(filename).unwrap_or_else(|_| panic!("File {} not found", filename));
     let reader = BufReader::new(f);
@@ -193,8 +186,7 @@ pub fn read_rules(filename: &str) -> Vec<String> {
     rules.shrink_to_fit();
     rules
 }
-
-#[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for filename in lists {

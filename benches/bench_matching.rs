@@ -114,7 +114,7 @@ fn rule_match_elep(c: &mut Criterion) {
 }
 
 fn rule_match_slim(c: &mut Criterion) {
-  let rules = rules_from_lists(&vec![
+  let rules = adblock::utils::rules_from_lists(&vec![
     String::from("data/slim-list.txt"),
   ]);
   let requests = load_requests();
@@ -166,7 +166,7 @@ fn rule_match_slimlist_comparable(c: &mut Criterion) {
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
   let requests_len = requests_parsed.len() as u32;
 
-  let slim_rules = rules_from_lists(&vec![
+  let slim_rules = adblock::utils::rules_from_lists(&vec![
     String::from("data/slim-list.txt"),
   ]);
   let slim_blocker = get_blocker(&slim_rules);
