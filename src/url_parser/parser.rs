@@ -103,8 +103,8 @@ impl Hostname {
     }
 
     #[inline]
-    pub fn url_str(&self) -> String {
-        self.serialization.clone()
+    pub fn url_str(&self) -> &str {
+        &self.serialization
     }
 
     // Private helper methods:

@@ -1,6 +1,7 @@
 mod parser;
 use crate::request::Request;
 use addr::DomainName;
+mod parser_regex;
 
 pub struct RequestUrl {
     pub url: String,
@@ -34,7 +35,7 @@ impl UrlParser for Request {
         parsed.and_then(|h| {
             match h.host_str() {
                 Some(_host) => Some(RequestUrl {
-                    url: h.url_str(),
+                    url: h.url_str().to_owned(),
                     schema_end: h.scheme_end,
                     hostname_pos: (h.host_start, h.host_end),
                     domain: get_host_domain(&url[h.host_start..h.host_end])
@@ -44,6 +45,19 @@ impl UrlParser for Request {
         })
 
     }
+
+    // #[inline]
+    // fn get_url_host(url: &str) -> Option<RequestUrl> {
+    //     let parsed = parser_regex::get_url_host(&url);
+    //     parsed.map(|(url, schema_end, (host_start, host_end))| {
+    //         RequestUrl {
+    //             url: url,
+    //             schema_end: schema_end,
+    //             hostname_pos: (host_start, host_end),
+    //             domain: get_host_domain(&url[host_start..host_end])
+    //         }
+    //     })
+    // }
 }
 
 pub fn get_host_domain(host: &str) -> String {
