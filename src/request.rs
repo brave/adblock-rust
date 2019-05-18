@@ -86,10 +86,6 @@ pub struct Request {
     pub is_third_party: Option<bool>,
     pub url: String,
     pub hostname: String,
-    #[cfg(feature = "full-domain-matching")]
-    pub source_hostname: String,
-    #[cfg(feature = "full-domain-matching")]
-    pub source_domain: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     // mutable fields, set later
@@ -151,7 +147,7 @@ impl<'a> Request {
             is_supported = true;
         } else {
             is_http = schema == "http";
-            is_https = schema == "https";
+            is_https = !is_http && schema == "https";
 
             let is_websocket = !is_http && !is_https && (schema == "ws" || schema == "wss");
             is_supported = is_http || is_https || is_websocket;
@@ -161,18 +157,15 @@ impl<'a> Request {
         }
 
         let source_hostname_hashes = if !source_hostname.is_empty() {
-            // println!("Processing URL {}", url);
-            let mut hashes = Vec::with_capacity(2);
+            let mut hashes = Vec::with_capacity(4);
             hashes.push(utils::fast_hash(&source_hostname));
             for (i, c) in
                 source_hostname[..source_hostname.len() - source_domain.len()].char_indices()
             {
                 if c == '.' {
-                    // println!("Hashing hostname part {} of {}", &source_hostname[i+1..], url);
                     hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
                 }
             }
-            hashes.shrink_to_fit();
             Some(hashes)
         } else {
             None
@@ -180,12 +173,8 @@ impl<'a> Request {
 
         Request {
             request_type,
-            url: String::from(url),
-            hostname: String::from(hostname),
-            #[cfg(feature = "full-domain-matching")]
-            source_hostname: String::from(source_hostname),
-            #[cfg(feature = "full-domain-matching")]
-            source_domain: String::from(source_domain),
+            url: url.to_owned(),
+            hostname: hostname.to_owned(),
             source_hostname_hashes,
             is_first_party: first_party,
             is_third_party: third_party,

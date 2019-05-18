@@ -192,11 +192,6 @@ pub struct NetworkFilter {
     // to avoid expensive cloning of the Regex itself.
     #[serde(skip_serializing, skip_deserializing)]
     regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>,
-
-    #[cfg(feature = "full-domain-matching")]
-    pub opt_domains_full: Option<Vec<String>>,
-    #[cfg(feature = "full-domain-matching")]
-    pub opt_not_domains_full: Option<Vec<String>>,
 }
 
 impl NetworkFilter {
@@ -216,11 +211,6 @@ impl NetworkFilter {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
-
-        #[cfg(feature = "full-domain-matching")]
-        let mut opt_domains_full: Option<Vec<String>> = None;
-        #[cfg(feature = "full-domain-matching")]
-        let mut opt_not_domains_full: Option<Vec<String>> = None;
 
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
@@ -281,29 +271,6 @@ impl NetworkFilter {
                             } else {
                                 let domain_hash = utils::fast_hash(&option_value);
                                 opt_domains_array.push(domain_hash);
-                            }
-                        }
-
-                        #[cfg(feature = "full-domain-matching")]
-                        {
-                            let mut opt_domains_full_array: Vec<String> = vec![];
-                            let mut opt_not_domains_full_array: Vec<String> = vec![];
-                            let mut valuesiter = option_values.iter();
-                            for option_value in option_values {
-                                if option_value.starts_with('~') {
-                                    opt_not_domains_full_array
-                                        .push(String::from(&option_value[1..]));
-                                } else {
-                                    opt_domains_full_array.push(String::from(&option_value[0..]));
-                                }
-                            }
-                            if opt_domains_array.len() > 0 {
-                                opt_domains_full_array.sort();
-                                opt_domains_full = Some(opt_domains_full_array);
-                            }
-                            if opt_not_domains_array.len() > 0 {
-                                opt_not_domains_full_array.sort();
-                                opt_not_domains_full = Some(opt_not_domains_full_array);
                             }
                         }
 
@@ -591,11 +558,7 @@ impl NetworkFilter {
             redirect,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
-            regex: Arc::new(RwLock::new(None)),
-            #[cfg(feature = "full-domain-matching")]
-            opt_domains_full,
-            #[cfg(feature = "full-domain-matching")]
-            opt_not_domains_full,
+            regex: Arc::new(RwLock::new(None))
         })
     }
 
@@ -1395,82 +1358,29 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         return false;
     }
 
-    #[cfg(feature = "full-domain-matching")]
-    {
-        // Source URL must be among these domains to match
-        let found_domain: Option<&String> = if let Some(domains) = filter.opt_domains_full.as_ref() {
-            utils::bin_search(&domains, &request.source_hostname)
-                .or_else(|| utils::bin_search(&domains, &request.source_domain))
-                .and_then(|idx| domains.get(idx))
-        } else {
-            None
-        };
-
-        let found_not_domain: Option<&String> = if let Some(domains) = filter.opt_not_domains_full.as_ref() {
-            utils::bin_search(&domains, &request.source_hostname)
-                .or_else(|| utils::bin_search(&domains, &request.source_domain))
-                .and_then(|idx| domains.get(idx))
-        } else {
-            None
-        };
-
-        println!("Checking {:?} and ~{:?} for {} {}\nFound {:?} and ~{:?}",
-            filter.opt_domains_full,
-            filter.opt_not_domains_full,
-            request.source_hostname,
-            request.source_domain,
-            found_domain,
-            found_not_domain);
-
-        // If positive domain options are specified but do there's no match
-        if filter.opt_domains_full.is_some() && found_domain.is_none() {
-            false
-        }
-        // If positive domain options are not specified but negative domain option are and match
-        else if filter.opt_domains_full.is_none() && found_not_domain.is_some() {
-            false
-        }
-        // If both positive and negative options are found, check which is more specific
-        else if found_domain.is_some() && found_not_domain.is_some() {
-                let positive = found_domain.unwrap();
-                let negative = found_not_domain.unwrap();
-                // check which is more specific
-                if negative.len() >= positive.len() {
-                    false
-                } else {
-                    true
-                }
+    
+    // Source URL must be among these domains to match
+    if filter.opt_domains.is_some() {
+        let included_domains = filter.opt_domains.as_ref().unwrap();
+        if request.source_hostname_hashes.is_some() {
+            let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
+            if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
+                return false
             }
-        else {
-            true
         }
     }
 
-    #[cfg(not(feature = "full-domain-matching"))]
-    {
-        // Source URL must be among these domains to match
-        if filter.opt_domains.is_some() {
-            let included_domains = filter.opt_domains.as_ref().unwrap();
-            if request.source_hostname_hashes.is_some() {
-                let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
-                if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
-                    return false
-                }
+    if filter.opt_not_domains.is_some() {
+        let excluded_domains = filter.opt_not_domains.as_ref().unwrap();
+        if request.source_hostname_hashes.is_some() {
+            let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
+            if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
+                return false
             }
         }
-
-        if filter.opt_not_domains.is_some() {
-            let excluded_domains = filter.opt_not_domains.as_ref().unwrap();
-            if request.source_hostname_hashes.is_some() {
-                let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
-                if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
-                    return false
-                }
-            }
-        }
-
-        true
     }
+
+    true   
 }
 
 #[cfg(test)]
