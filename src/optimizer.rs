@@ -152,12 +152,12 @@ impl Optimization for UnionDomainGroup {
             }
         });
 
-        if domains.len() > 0 {
+        if !domains.is_empty() {
             let mut domains = Vec::from_iter(domains.into_iter().cloned());
             domains.sort();
             filter.opt_domains = Some(domains);
         }
-        if not_domains.len() > 0 {
+        if !not_domains.is_empty() {
             let mut domains = Vec::from_iter(not_domains.into_iter().cloned());
             domains.sort();
             filter.opt_not_domains = Some(domains);

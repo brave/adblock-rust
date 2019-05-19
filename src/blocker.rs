@@ -195,7 +195,7 @@ impl Blocker {
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
         let enabled_tags: Vec<NetworkFilter> = self.all_tags.iter()
             .filter(|n| n.tag.is_some() && tags.contains(&n.tag.as_ref().unwrap().as_str()))
-            .map(|n| n.clone())
+            .cloned()
             .collect();
         self.enabled_tags = NetworkFilterList::new(enabled_tags, self.enable_optimizations);
         self
@@ -715,7 +715,7 @@ mod blocker_tests {
     use crate::lists::parse_filters;
     use crate::request::Request;
 
-    fn test_requests_filters(filters: &[String], requests: &Vec<(Request, bool)>) {
+    fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
         let (network_filters, _) = parse_filters(filters, true, true, true); 
 
         let blocker_options: BlockerOptions = BlockerOptions {
@@ -727,7 +727,7 @@ mod blocker_tests {
 
         let blocker = Blocker::new(network_filters, &blocker_options);
 
-        requests.into_iter().for_each(|(req, expected_result)| {
+        requests.iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if *expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);

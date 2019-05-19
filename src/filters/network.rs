@@ -861,6 +861,7 @@ fn compute_filter_id(
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
  * we try to convert some patterns to plain filters.
  */
+#[allow(clippy::trivial_regex)]
 pub fn compile_regex(
     filter: &FilterPart,
     is_right_anchor: bool,
