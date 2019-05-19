@@ -383,7 +383,7 @@ impl Parser {
         let host_end = path_start;
         let remaining = input.clone();
         for c in remaining {
-            self.serialization.push(c);
+            self.serialization.push(c.to_ascii_lowercase());
         }
 
         Ok(Hostname {
@@ -406,7 +406,7 @@ impl Parser {
         // println!("Parse host {}", remaining.chars.as_str());
         let (host_end, remaining) = self.parse_host(remaining, scheme_type)?;
         for c in remaining {
-            self.serialization.push(c);
+            self.serialization.push(c.to_ascii_lowercase());
         }
         // println!("Return hostname {} from {} to {}", self.serialization, host_start, host_end);
         Ok(Hostname {

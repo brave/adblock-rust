@@ -45,6 +45,21 @@ pub fn get_url_host(url: &str) -> Option<(String, usize, (usize, usize))> {
         })
 }
 
+impl super::UrlParser for crate::request::Request {
+    #[inline]
+    fn parse_url(url: &str) -> Option<super::RequestUrl> {
+        let parsed = get_url_host(&url);
+        parsed.map(|(url, schema_end, (host_start, host_end))| {
+            super::RequestUrl {
+                url: url,
+                schema_end: schema_end,
+                hostname_pos: (host_start, host_end),
+                domain: super::get_host_domain(&url[host_start..host_end])
+            }
+        })
+    }
+}
+
 
 #[cfg(test)]
 mod parse_tests {

@@ -95,6 +95,53 @@ pub struct Request {
 }
 
 impl<'a> Request {
+    pub fn get_tokens(&self) -> Vec<utils::Hash> {
+        // Create a new scope to contain the lifetime of the
+        // dynamic borrow
+        {
+            let tokens_cache = self.tokens.read().unwrap();
+            if tokens_cache.is_some() {
+                return tokens_cache.as_ref().unwrap().clone();
+            }
+        }
+        {
+            let mut tokens_cache = self.tokens.write().unwrap();
+            let mut tokens: Vec<utils::Hash> = vec![];
+
+            if let Some(hashes) = self.source_hostname_hashes.as_ref() {
+                for h in hashes {
+                    tokens.push(*h)
+                }
+            }
+
+            let mut url_tokens = utils::tokenize(&self.url);
+            tokens.append(&mut url_tokens);
+
+            *tokens_cache = Some(tokens);
+        }
+        // Recursive call to return the just-cached value.
+        // Note that if we had not let the previous borrow
+        // of the cache fall out of scope then the subsequent
+        // recursive borrow would cause a dynamic thread panic.
+        // This is the major hazard of using `RefCell`.
+        self.get_tokens()
+    }
+
+    pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
+        {
+            let signature_cache = self.fuzzy_signature.read().unwrap();
+            if signature_cache.is_some() {
+                return signature_cache.as_ref().unwrap().clone();
+            }
+        }
+        {
+            let mut signature_cache = self.fuzzy_signature.write().unwrap();
+            let signature = utils::create_fuzzy_signature(&self.url);
+            *signature_cache = Some(signature);
+        }
+        self.get_fuzzy_signature()
+    }
+
     pub fn new(
         raw_type: &str,
         url: &str,
@@ -187,91 +234,48 @@ impl<'a> Request {
         }
     }
 
-    pub fn get_tokens(&self) -> Vec<utils::Hash> {
-        // Create a new scope to contain the lifetime of the
-        // dynamic borrow
-        {
-            let tokens_cache = self.tokens.read().unwrap();
-            if tokens_cache.is_some() {
-                return tokens_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut tokens_cache = self.tokens.write().unwrap();
-            let mut tokens: Vec<utils::Hash> = vec![];
-
-            if let Some(hashes) = self.source_hostname_hashes.as_ref() {
-                for h in hashes {
-                    tokens.push(*h)
-                }
-            }
-
-            let mut url_tokens = utils::tokenize(&self.url);
-            tokens.append(&mut url_tokens);
-
-            *tokens_cache = Some(tokens);
-        }
-        // Recursive call to return the just-cached value.
-        // Note that if we had not let the previous borrow
-        // of the cache fall out of scope then the subsequent
-        // recursive borrow would cause a dynamic thread panic.
-        // This is the major hazard of using `RefCell`.
-        self.get_tokens()
-    }
-
-    pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
-        {
-            let signature_cache = self.fuzzy_signature.read().unwrap();
-            if signature_cache.is_some() {
-                return signature_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut signature_cache = self.fuzzy_signature.write().unwrap();
-            let signature = utils::create_fuzzy_signature(&self.url);
-            *signature_cache = Some(signature);
-        }
-        self.get_fuzzy_signature()
-    }
-
     pub fn from_urls(
         url: &str,
         source_url: &str,
         request_type: &str,
     ) -> Result<Request, RequestError> {
-        let url_norm = url.to_ascii_lowercase();
-        let source_url_norm = source_url.to_ascii_lowercase();
-
-        let maybe_parsed_url = Request::get_url_host(&url_norm);
+        let maybe_parsed_url = Request::parse_url(&url);
         if maybe_parsed_url.is_none() {
             return Err(RequestError::HostnameParseError);
         }
         let parsed_url = maybe_parsed_url.unwrap();
 
-        let maybe_parsed_source = Request::get_url_host(&source_url_norm);
-
+        let maybe_parsed_source = Request::parse_url(&source_url);
         if maybe_parsed_source.is_none() {
-            Ok(Request::new(
+            Ok(Request::from_detailed_parameters(
                 request_type,
                 &parsed_url.url,
                 parsed_url.schema(),
                 parsed_url.hostname(),
-                &parsed_url.domain,
                 "",
                 "",
+                None,
             ))
         } else {
             let parsed_source = maybe_parsed_source.unwrap();
-            Ok(Request::new(
+            let source_domain = parsed_source.domain();
+
+            let third_party = if source_domain.is_empty() {
+                None
+            } else {
+                Some(source_domain != parsed_url.domain())
+            };
+
+            Ok(Request::from_detailed_parameters(
                 request_type,
                 &parsed_url.url,
                 parsed_url.schema(),
                 parsed_url.hostname(),
-                &parsed_url.domain,
                 parsed_source.hostname(),
-                &parsed_source.domain,
+                source_domain,
+                third_party,
             ))
-        }
+        }        
     }
 
     pub fn from_urls_with_hostname(
@@ -283,13 +287,15 @@ impl<'a> Request {
     ) -> Request {
         let url_norm = url.to_ascii_lowercase();
 
-        let source_domain = get_host_domain(&source_hostname);
+        let (source_domain_start, source_domain_end) = get_host_domain(&source_hostname);
+        let source_domain = &source_hostname[source_domain_start..source_domain_end];
 
         let splitter = url_norm.find(':').unwrap_or(0);
-        let protocol: &str = &url[..splitter];
+        let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {
-            let domain = get_host_domain(&hostname);
+            let (domain_start, domain_end) = get_host_domain(&hostname);
+            let domain = &hostname[domain_start..domain_end];
             if source_domain.is_empty() {
                 None
             } else {
@@ -302,7 +308,7 @@ impl<'a> Request {
         Request::from_detailed_parameters(
             request_type,
             &url_norm,
-            &protocol,
+            &schema,
             &hostname,
             &source_hostname,
             &source_domain,
