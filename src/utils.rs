@@ -4,8 +4,8 @@ use std::io::{BufRead, BufReader};
 use std::fs::File;
 use seahash::hash;
 
-pub type Hash = u32;
-static HASH_MAX: Hash = std::u32::MAX;
+pub type Hash = u64;
+static HASH_MAX: Hash = std::u64::MAX;
 
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
@@ -22,25 +22,25 @@ fn is_allowed_hostname(ch: char) -> bool {
     is_allowed_filter(ch) || ch == '_' /* '_' */ || ch == '-' /* '-' */
 }
 
-pub const TOKENS_BUFFER_SIZE: usize = 200;
+pub const TOKENS_BUFFER_SIZE: usize = 128 - 4 - 1;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,
     is_allowed_code: &Fn(char) -> bool,
-    sip_first_token: bool,
+    skip_first_token: bool,
     skip_last_token: bool,
 ) -> Vec<Hash> {
     
-    let mut tokens_buffer: [Hash; TOKENS_BUFFER_SIZE] = [0; TOKENS_BUFFER_SIZE];
+    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
 
-    let mut tokens_buffer_index = 0;
+    // let mut tokens_buffer_index = 0;
     let mut inside: bool = false;
     let mut start = 0;
     let mut preceding_ch: Option<char> = None; // Used to check if a '*' is not just before a token
     let chars = pattern.char_indices();
 
     for (i, c) in chars {
-        if tokens_buffer_index >= TOKENS_BUFFER_SIZE {
+        if tokens_buffer.len() >= TOKENS_BUFFER_SIZE {
             break;
         }
         if is_allowed_code(c) {
@@ -51,13 +51,14 @@ fn fast_tokenizer_no_regex(
         } else if inside {
             inside = false;
             // Should not be followed by '*'
-            if (!sip_first_token || start != 0)
+            if (!skip_first_token || start != 0)
                 && i - start > 1
                 && c != '*'
-                && (preceding_ch.is_none() || preceding_ch.unwrap() != '*')
+                && (preceding_ch != Some('*'))
             {
-                tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..i]);
-                tokens_buffer_index += 1;
+                let hash = fast_hash(&pattern[start..i]);
+                tokens_buffer.push(hash);
+                
             }
             preceding_ch = Some(c)
         } else {
@@ -71,23 +72,22 @@ fn fast_tokenizer_no_regex(
         && (preceding_ch.is_none() || preceding_ch.unwrap() != '*')
         && !skip_last_token
     {
-        tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..]);
-        tokens_buffer_index += 1;
+        let hash = fast_hash(&pattern[start..]);
+        tokens_buffer.push(hash);
     }
-
-    tokens_buffer[0..tokens_buffer_index].to_vec()
+    
+    tokens_buffer
 }
 
 fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash> {
-    let mut tokens_buffer: [Hash; TOKENS_BUFFER_SIZE] = [0; TOKENS_BUFFER_SIZE];
+    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
 
-    let mut tokens_buffer_index = 0;
     let mut inside: bool = false;
     let mut start = 0;
     let chars = pattern.char_indices();
 
     for (i, c) in chars {
-        if tokens_buffer_index >= TOKENS_BUFFER_SIZE {
+        if tokens_buffer.len() >= TOKENS_BUFFER_SIZE {
             break;
         }
         if is_allowed_code(c) {
@@ -97,17 +97,17 @@ fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash
             }
         } else if inside {
             inside = false;
-            tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..i]);
-            tokens_buffer_index += 1;
+            let hash = fast_hash(&pattern[start..i]);
+            tokens_buffer.push(hash);
         }
     }
 
     if inside {
-        tokens_buffer[tokens_buffer_index] = fast_hash(&pattern[start..]);
-        tokens_buffer_index += 1;
+        let hash = fast_hash(&pattern[start..]);
+        tokens_buffer.push(hash);
     }
 
-    tokens_buffer[0..tokens_buffer_index].to_vec()
+    tokens_buffer
 }
 
 #[inline]
@@ -116,8 +116,8 @@ pub fn tokenize(pattern: &str) -> Vec<Hash> {
 }
 
 #[inline]
-pub fn tokenize_filter(pattern: &str, sip_first_token: bool, skip_last_token: bool) -> Vec<Hash> {
-    fast_tokenizer_no_regex(pattern, &is_allowed_filter, sip_first_token, skip_last_token)
+pub fn tokenize_filter(pattern: &str, skip_first_token: bool, skip_last_token: bool) -> Vec<Hash> {
+    fast_tokenizer_no_regex(pattern, &is_allowed_filter, skip_first_token, skip_last_token)
 }
 
 #[inline]

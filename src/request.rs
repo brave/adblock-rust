@@ -2,7 +2,6 @@ use crate::url_parser::{get_host_domain, UrlParser};
 use crate::utils;
 
 use idna;
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, PartialEq, Debug)]
@@ -45,34 +44,33 @@ impl From<url::ParseError> for RequestError {
     }
 }
 
-lazy_static! {
-    static ref CPT_TO_TYPE: HashMap<&'static str, RequestType> = {
-        let mut map = HashMap::new();
-        map.insert("beacon", RequestType::Ping);
-        map.insert("csp_report", RequestType::Csp);
-        map.insert("document", RequestType::Document);
-        map.insert("font", RequestType::Font);
-        map.insert("image", RequestType::Image);
-        map.insert("imageset", RequestType::Image);
-        map.insert("main_frame", RequestType::Document);
-        map.insert("media", RequestType::Media);
-        map.insert("object", RequestType::Object);
-        map.insert("object_subrequest", RequestType::Object);
-        map.insert("other", RequestType::Other);
-        map.insert("ping", RequestType::Ping);
-        map.insert("script", RequestType::Script);
-        map.insert("speculative", RequestType::Other);
-        map.insert("stylesheet", RequestType::Stylesheet);
-        map.insert("sub_frame", RequestType::Subdocument);
-        map.insert("web_manifest", RequestType::Other);
-        map.insert("websocket", RequestType::Websocket);
-        map.insert("xbl", RequestType::Other);
-        map.insert("xhr", RequestType::Xmlhttprequest);
-        map.insert("xml_dtd", RequestType::Other);
-        map.insert("xmlhttprequest", RequestType::Xmlhttprequest);
-        map.insert("xslt", RequestType::Other);
-        map
-    };
+fn cpt_match_type(cpt: &str) -> RequestType {
+    match cpt {
+        "beacon" => RequestType::Ping,
+        "csp_report" => RequestType::Csp,
+        "document" => RequestType::Document,
+        "font" => RequestType::Font,
+        "image" => RequestType::Image,
+        "imageset" => RequestType::Image,
+        "main_frame" => RequestType::Document,
+        "media" => RequestType::Media,
+        "object" => RequestType::Object,
+        "object_subrequest" => RequestType::Object,
+        "other" => RequestType::Other,
+        "ping" => RequestType::Ping,
+        "script" => RequestType::Script,
+        "speculative" => RequestType::Other,
+        "stylesheet" => RequestType::Stylesheet,
+        "sub_frame" => RequestType::Subdocument,
+        "web_manifest" => RequestType::Other,
+        "websocket" => RequestType::Websocket,
+        "xbl" => RequestType::Other,
+        "xhr" => RequestType::Xmlhttprequest,
+        "xml_dtd" => RequestType::Other,
+        "xmlhttprequest" => RequestType::Xmlhttprequest,
+        "xslt" => RequestType::Other,
+        _ => RequestType::Other
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -90,41 +88,13 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
+    tokens: Vec<utils::Hash>,
     fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
 }
 
 impl<'a> Request {
-    pub fn get_tokens(&self) -> Vec<utils::Hash> {
-        // Create a new scope to contain the lifetime of the
-        // dynamic borrow
-        {
-            let tokens_cache = self.tokens.read().unwrap();
-            if tokens_cache.is_some() {
-                return tokens_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut tokens_cache = self.tokens.write().unwrap();
-            let mut tokens: Vec<utils::Hash> = vec![];
-
-            if let Some(hashes) = self.source_hostname_hashes.as_ref() {
-                for h in hashes {
-                    tokens.push(*h)
-                }
-            }
-
-            let mut url_tokens = utils::tokenize(&self.url);
-            tokens.append(&mut url_tokens);
-
-            *tokens_cache = Some(tokens);
-        }
-        // Recursive call to return the just-cached value.
-        // Note that if we had not let the previous borrow
-        // of the cache fall out of scope then the subsequent
-        // recursive borrow would cause a dynamic thread panic.
-        // This is the major hazard of using `RefCell`.
-        self.get_tokens()
+    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
+        &self.tokens
     }
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
@@ -182,16 +152,14 @@ impl<'a> Request {
         let is_http: bool;
         let is_https: bool;
         let is_supported: bool;
-        let mut request_type: RequestType = CPT_TO_TYPE
-            .get(&raw_type)
-            .map(|v| v.to_owned())
-            .unwrap_or(RequestType::Other);
+        let request_type: RequestType;
 
         if schema.is_empty() {
             // no ':' was found
             is_https = true;
             is_http = false;
             is_supported = true;
+            request_type = cpt_match_type(raw_type);
         } else {
             is_http = schema == "http";
             is_https = !is_http && schema == "https";
@@ -200,6 +168,8 @@ impl<'a> Request {
             is_supported = is_http || is_https || is_websocket;
             if is_websocket {
                 request_type = RequestType::Websocket;
+            } else {
+                request_type = cpt_match_type(raw_type);
             }
         }
 
@@ -218,6 +188,19 @@ impl<'a> Request {
             None
         };
 
+        let mut tokens: Vec<utils::Hash> = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE + 4 + 1);
+
+        if let Some(hashes) = source_hostname_hashes.as_ref() {
+            for h in hashes {
+                tokens.push(*h)
+            }
+        }
+
+        let mut url_tokens = utils::tokenize(url);
+        tokens.append(&mut url_tokens);
+        // Add zero token as a fallback to wildcard rule bucket
+        tokens.push(0);
+
         Request {
             request_type,
             url: url.to_owned(),
@@ -229,7 +212,7 @@ impl<'a> Request {
             is_https,
             is_supported,
             bug: None,
-            tokens: Arc::new(RwLock::new(None)),
+            tokens: tokens,
             fuzzy_signature: Arc::new(RwLock::new(None)),
         }
     }
@@ -428,8 +411,10 @@ mod tests {
         assert_eq!(assumed_https.is_supported, true);
     }
 
-    fn t(tokens: &[&str]) -> Vec<utils::Hash> {
-        tokens.into_iter().map(|t| utils::fast_hash(&t)).collect()
+    fn tokenize(tokens: &[&str], extra_tokens: &[utils::Hash]) -> Vec<utils::Hash> {
+        let mut tokens: Vec<_> = tokens.into_iter().map(|t| utils::fast_hash(&t)).collect();
+        tokens.extend(extra_tokens);
+        tokens
     }
 
     #[test]
@@ -443,7 +428,7 @@ mod tests {
             "example.com",
             "example.com",
         );
-        let mut tokens = t(&vec!["ad", "https", "com", "example"]);
+        let mut tokens = tokenize(&["ad", "https", "com", "example"], &[]);
         tokens.sort_unstable();
         assert_eq!(
             simple_example.get_fuzzy_signature().as_slice(),
@@ -464,7 +449,7 @@ mod tests {
         );
         assert_eq!(
             simple_example.get_tokens().as_slice(),
-            t(&vec![
+            tokenize(&[
                 "subdomain.example.com",
                 "example.com",
                 "https",
@@ -472,7 +457,7 @@ mod tests {
                 "example",
                 "com",
                 "ad"
-            ])
+            ], &[0])
             .as_slice()
         )
     }

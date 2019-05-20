@@ -393,6 +393,7 @@ impl NetworkFilter {
         if line[filter_index_start..filter_index_end].starts_with('/')
             && line[filter_index_start..filter_index_end].ends_with('/')
         {
+            // return Err(FilterError::NoRegex);
             mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
         }
 
@@ -961,47 +962,37 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     }
     let hostname_len = hostname.len();
 
-    // `filterHostname` cannot be longer than actual hostname
+    
     if filter_hostname_len > hostname_len {
-        return false;
+        // `filterHostname` cannot be longer than actual hostname
+        false
+    } else if filter_hostname_len == hostname_len {
+        // If they have the same len(), they should be equal
+        filter_hostname == hostname
+    } else if let Some(match_index) = hostname.find(filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
+        if match_index == 0 {
+            // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
+            //
+            // Examples (filter_hostname, hostname):
+            //   * (foo, foo.com)
+            //   * (sub.foo, sub.foo.com)
+            filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with(".")
+        } else if match_index == hostname_len - filter_hostname_len {
+            // `filter_hostname` is a suffix of `hostname`.
+            //
+            // Examples (filter_hostname, hostname):
+            //    * (foo.com, sub.foo.com)
+            //    * (com, foo.com)
+            filter_hostname.starts_with(".") || hostname[match_index - 1..].starts_with(".")
+        } else {
+            // `filter_hostname` is infix of `hostname` and needs match full labels
+            (filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with("."))
+                && (filter_hostname.starts_with(".") || hostname[match_index - 1..].starts_with("."))
+        }
+    } else {
+        // No match
+        false
     }
-
-    // If they have the same len(), they should be equal
-    if filter_hostname_len == hostname_len {
-        return filter_hostname == hostname;
-    }
-
-    // Check if `filter_hostname` appears anywhere in `hostname`
-    let hostname_found = hostname.find(filter_hostname);
-
-    // No match
-    if hostname_found.is_none() {
-        return false;
-    }
-
-    let match_index = hostname_found.unwrap();
-
-    // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
-    //
-    // Examples (filter_hostname, hostname):
-    //   * (foo, foo.com)
-    //   * (sub.foo, sub.foo.com)
-    if match_index == 0 {
-        return filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.');
-    }
-
-    // `filter_hostname` is a suffix of `hostname`.
-    //
-    // Examples (filter_hostname, hostname):
-    //    * (foo.com, sub.foo.com)
-    //    * (com, foo.com)
-    if hostname.len() == match_index + filter_hostname.len() {
-        return filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.');
-    }
-
-    // `filter_hostname` is infix of `hostname` and needs match full labels
-    (filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
-        && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
 }
 
 #[inline]

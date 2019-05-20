@@ -204,8 +204,6 @@ impl Blocker {
 
 #[derive(Serialize, Deserialize)]
 struct NetworkFilterList {
-    // A faster structure is possible, but tests didn't indicate much of a difference
-    // for different HashMap implementations bulk of the cost in matching
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
@@ -223,7 +221,7 @@ impl NetworkFilterList {
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
-        let mut filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_tokens.len());
+        let mut filter_map = HashMap::with_capacity(filter_tokens.len());
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -249,7 +247,7 @@ impl NetworkFilterList {
 
         // Update all values
         if enable_optimizations {
-            let mut optimized_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_map.len());
+            let mut optimized_map = HashMap::with_capacity(filter_map.len());
             for (key, filters) in filter_map {
                 let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
                 let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
@@ -282,8 +280,7 @@ impl NetworkFilterList {
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
-        let mut request_tokens = request.get_tokens();
-        request_tokens.push(0); // add 0 token as the fallback
+        let request_tokens = request.get_tokens();
         
         for token in request_tokens {
             let maybe_filter_bucket = self.filter_map.get(&token);
@@ -300,14 +297,14 @@ impl NetworkFilterList {
     }
 }
 
-fn insert_dup<K, V>(map: &mut HashMap<K, Vec<V>>, k: K, v: V)
+fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
 where
     K: std::cmp::Ord + std::hash::Hash,
 {
     map.entry(k).or_insert_with(Vec::new).push(v)
 }
 
-fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V>(map: &HashMap<K, Vec<V>>) -> usize {
+fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(map: &HashMap<K, Vec<V>, H>) -> usize {
     let mut size = 0 as usize;
     for (_, val) in map.iter() {
         size += val.len();
