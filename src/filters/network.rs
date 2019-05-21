@@ -327,10 +327,14 @@ impl NetworkFilter {
                     // ~third-party means we should clear the flag
                     ("third-party", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     ("third-party", false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
+                    ("3p", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
+                    ("3p", false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
                     // ~first-party means we should clear the flag
                     ("first-party", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
                     // first-party means ~third-party
                     ("first-party", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
+                    ("1p", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
+                    ("1p", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     ("fuzzy", _) => mask.set(NetworkFilterMask::FUZZY_MATCH, true),
                     ("collapse", _) => {}
                     ("bug", _) => bug = value.parse::<u32>().ok(),
@@ -360,23 +364,13 @@ impl NetworkFilter {
                         match option {
                             "image" => option_mask.set(NetworkFilterMask::FROM_IMAGE, true),
                             "media" => option_mask.set(NetworkFilterMask::FROM_MEDIA, true),
-                            "object" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
-                            "object-subrequest" => {
-                                option_mask.set(NetworkFilterMask::FROM_OBJECT, true)
-                            }
+                            "object" | "object-subrequest" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
                             "other" => option_mask.set(NetworkFilterMask::FROM_OTHER, true),
-                            "ping" => option_mask.set(NetworkFilterMask::FROM_PING, true),
-                            "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
+                            "ping" | "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
                             "script" => option_mask.set(NetworkFilterMask::FROM_SCRIPT, true),
-                            "css" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
-                            "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
-                            "subdocument" => {
-                                option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true)
-                            }
-                            "xmlhttprequest" => {
-                                option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true)
-                            }
-                            "xhr" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
+                            "css" | "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
+                            "frame" | "subdocument" => option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true),
+                            "xhr" | "xmlhttprequest" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
                             "websocket" => option_mask.set(NetworkFilterMask::FROM_WEBSOCKET, true),
                             "font" => option_mask.set(NetworkFilterMask::FROM_FONT, true),
                             _ => return Err(FilterError::UnrecognisedOption),
