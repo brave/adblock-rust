@@ -29,7 +29,6 @@ pub struct Hostname {
 }
 
 impl Hostname {
-    #[inline]
     pub fn parse(input: &str) -> Result<Hostname, ParseError> {
         Parser {
             serialization: String::with_capacity(input.len()),
@@ -93,7 +92,6 @@ impl Hostname {
     /// # }
     /// # run().unwrap();
     /// ```
-    #[inline]
     pub fn host_str(&self) -> Option<&str> {
         if self.has_host() {
             Some(self.slice(self.host_start..self.host_end))
@@ -102,14 +100,12 @@ impl Hostname {
         }
     }
 
-    #[inline]
     pub fn url_str(&self) -> &str {
         &self.serialization
     }
 
     // Private helper methods:
 
-    #[inline]
     fn slice<R>(&self, range: R) -> &str where R: RangeArg {
         range.slice_of(&self.serialization)
     }
@@ -120,21 +116,18 @@ trait RangeArg {
 }
 
 impl RangeArg for Range<usize> {
-    #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
         &s[self.start .. self.end ]
     }
 }
 
 impl RangeArg for RangeFrom<usize> {
-    #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
         &s[self.start ..]
     }
 }
 
 impl RangeArg for RangeTo<usize> {
-    #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
         &s[.. self.end]
     }
@@ -225,17 +218,14 @@ impl<'i> Input<'i> {
         Input { chars: input.chars() }
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.clone().next().is_none()
     }
 
-    #[inline]
     fn starts_with<P: Pattern>(&self, p: P) -> bool {
         p.split_prefix(&mut self.clone())
     }
 
-    #[inline]
     pub fn split_prefix<P: Pattern>(&self, p: P) -> Option<Self> {
         let mut remaining = self.clone();
         if p.split_prefix(&mut remaining) {
@@ -245,7 +235,6 @@ impl<'i> Input<'i> {
         }
     }
 
-    #[inline]
     fn count_matching<F: Fn(char) -> bool>(&self, f: F) -> (u32, Self) {
         let mut count = 0;
         let mut remaining = self.clone();
@@ -260,7 +249,6 @@ impl<'i> Input<'i> {
         }
     }
 
-    #[inline]
     fn next_utf8(&mut self) -> Option<(char, &'i str)> {
         loop {
             let utf8 = self.chars.as_str();

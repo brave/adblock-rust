@@ -194,7 +194,13 @@ impl Blocker {
 
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
         let enabled_tags: Vec<NetworkFilter> = self.all_tags.iter()
-            .filter(|n| n.tag.is_some() && tags.contains(&n.tag.as_ref().unwrap().as_str()))
+            .filter(|n| {
+                if let Some(tag) = n.tag.as_ref() {
+                    tags.contains(&tag.as_str())
+                } else {
+                    false
+                }
+            })
             .cloned()
             .collect();
         self.enabled_tags = NetworkFilterList::new(enabled_tags, self.enable_optimizations);
@@ -280,11 +286,20 @@ impl NetworkFilterList {
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
-        let request_tokens = request.get_tokens();
+        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
+            for token in source_hostname_hashes {
+                if let Some(filter_bucket) = self.filter_map.get(token) {
+                    for filter in filter_bucket {
+                        if filter.matches(request) {
+                            return Some(filter);
+                        }
+                    }
+                }
+            }
+        }
         
-        for token in request_tokens {
-            let maybe_filter_bucket = self.filter_map.get(&token);
-            if let Some(filter_bucket) = maybe_filter_bucket {
+        for token in request.get_tokens() {
+            if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     if filter.matches(request) {
                         return Some(filter);

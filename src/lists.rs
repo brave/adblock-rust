@@ -106,9 +106,8 @@ fn detect_filter_type(filter: &str) -> FilterType {
     }
 
     // Check if filter is cosmetics
-    let sharp_index = filter.find('#');
-    if sharp_index.is_some() {
-        let after_sharp_index = sharp_index.unwrap() + 1;
+    if let Some(sharp_index) = filter.find('#') {
+        let after_sharp_index = sharp_index + 1;
 
         // Ignore Adguard cosmetics
         // `#$#` `#@$#`

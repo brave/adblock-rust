@@ -1,6 +1,5 @@
 use regex::Regex;
 
-#[inline]
 pub fn get_hostname_regex(url: &str) -> Option<(usize, (usize, usize))> {
     lazy_static! {
         static ref HOSTNAME_REGEX_STR: &'static str = concat!(
@@ -23,8 +22,6 @@ pub fn get_hostname_regex(url: &str) -> Option<(usize, (usize, usize))> {
         })
 }
 
-
-#[inline]
 pub fn get_url_host(url: &str) -> Option<(String, usize, (usize, usize))> {
     let decode_flags = idna::uts46::Flags {
         use_std3_ascii_rules: true,
@@ -46,7 +43,6 @@ pub fn get_url_host(url: &str) -> Option<(String, usize, (usize, usize))> {
 }
 
 impl super::UrlParser for crate::request::Request {
-    #[inline]
     fn parse_url(url: &str) -> Option<super::RequestUrl> {
         let parsed = get_url_host(&url);
         parsed.map(|(url, schema_end, (host_start, host_end))| {

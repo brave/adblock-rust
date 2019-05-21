@@ -7,22 +7,24 @@ use seahash::hash;
 pub type Hash = u64;
 static HASH_MAX: Hash = std::u64::MAX;
 
-#[inline]
+
 pub fn fast_hash(input: &str) -> Hash {
     hash(input.as_bytes()) as Hash
 }
 
-#[inline]
+
 fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
-#[inline]
+
 fn is_allowed_hostname(ch: char) -> bool {
     is_allowed_filter(ch) || ch == '_' /* '_' */ || ch == '-' /* '-' */
 }
 
-pub const TOKENS_BUFFER_SIZE: usize = 128 - 4 - 1;
+pub const TOKENS_BUFFER_SIZE: usize = 128;
+pub const TOKENS_BUFFER_RESERVED: usize = 1;
+const TOKENS_MAX: usize = TOKENS_BUFFER_SIZE - TOKENS_BUFFER_RESERVED;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,
@@ -40,7 +42,7 @@ fn fast_tokenizer_no_regex(
     let chars = pattern.char_indices();
 
     for (i, c) in chars {
-        if tokens_buffer.len() >= TOKENS_BUFFER_SIZE {
+        if tokens_buffer.len() >= TOKENS_MAX {
             break;
         }
         if is_allowed_code(c) {
@@ -67,10 +69,10 @@ fn fast_tokenizer_no_regex(
         
     }
 
-    if inside
+    if !skip_last_token
+        && inside
         && pattern.len() - start > 1
-        && (preceding_ch.is_none() || preceding_ch.unwrap() != '*')
-        && !skip_last_token
+        && (preceding_ch != Some('*'))
     {
         let hash = fast_hash(&pattern[start..]);
         tokens_buffer.push(hash);
@@ -87,7 +89,7 @@ fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash
     let chars = pattern.char_indices();
 
     for (i, c) in chars {
-        if tokens_buffer.len() >= TOKENS_BUFFER_SIZE {
+        if tokens_buffer.len() >= TOKENS_MAX {
             break;
         }
         if is_allowed_code(c) {
@@ -110,17 +112,17 @@ fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash
     tokens_buffer
 }
 
-#[inline]
+
 pub fn tokenize(pattern: &str) -> Vec<Hash> {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false)
 }
 
-#[inline]
+
 pub fn tokenize_filter(pattern: &str, skip_first_token: bool, skip_last_token: bool) -> Vec<Hash> {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, skip_first_token, skip_last_token)
 }
 
-#[inline]
+
 pub fn tokenize_hostnames(pattern: &str) -> Vec<Hash> {
     fast_tokenizer(&pattern, &is_allowed_hostname)
 }
@@ -130,14 +132,14 @@ fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
     tokens.dedup();
 }
 
-#[inline]
+
 pub fn create_fuzzy_signature(pattern: &str) -> Vec<Hash> {
     let mut tokens = fast_tokenizer(pattern, &is_allowed_filter);
     compact_tokens(&mut tokens);
     tokens
 }
 
-#[inline]
+
 pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
     let mut tokens = vec![];
     for p in patterns {

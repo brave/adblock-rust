@@ -187,17 +187,8 @@ impl<'a> Request {
         } else {
             None
         };
-
-        let mut tokens: Vec<utils::Hash> = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE + 4 + 1);
-
-        if let Some(hashes) = source_hostname_hashes.as_ref() {
-            for h in hashes {
-                tokens.push(*h)
-            }
-        }
-
-        let mut url_tokens = utils::tokenize(url);
-        tokens.append(&mut url_tokens);
+        
+        let mut tokens = utils::tokenize(url);
         // Add zero token as a fallback to wildcard rule bucket
         tokens.push(0);
 
@@ -222,43 +213,39 @@ impl<'a> Request {
         source_url: &str,
         request_type: &str,
     ) -> Result<Request, RequestError> {
-        let maybe_parsed_url = Request::parse_url(&url);
-        if maybe_parsed_url.is_none() {
+        if let Some(parsed_url) = Request::parse_url(&url) {
+            if let Some(parsed_source) = Request::parse_url(&source_url) {
+                let source_domain = parsed_source.domain();
+
+                let third_party = if source_domain.is_empty() {
+                    None
+                } else {
+                    Some(source_domain != parsed_url.domain())
+                };
+
+                Ok(Request::from_detailed_parameters(
+                    request_type,
+                    &parsed_url.url,
+                    parsed_url.schema(),
+                    parsed_url.hostname(),
+                    parsed_source.hostname(),
+                    source_domain,
+                    third_party,
+                ))
+            } else {
+                Ok(Request::from_detailed_parameters(
+                    request_type,
+                    &parsed_url.url,
+                    parsed_url.schema(),
+                    parsed_url.hostname(),
+                    "",
+                    "",
+                    None,
+                ))
+            }
+        } else {
             return Err(RequestError::HostnameParseError);
         }
-        let parsed_url = maybe_parsed_url.unwrap();
-
-        let maybe_parsed_source = Request::parse_url(&source_url);
-        if maybe_parsed_source.is_none() {
-            Ok(Request::from_detailed_parameters(
-                request_type,
-                &parsed_url.url,
-                parsed_url.schema(),
-                parsed_url.hostname(),
-                "",
-                "",
-                None,
-            ))
-        } else {
-            let parsed_source = maybe_parsed_source.unwrap();
-            let source_domain = parsed_source.domain();
-
-            let third_party = if source_domain.is_empty() {
-                None
-            } else {
-                Some(source_domain != parsed_url.domain())
-            };
-
-            Ok(Request::from_detailed_parameters(
-                request_type,
-                &parsed_url.url,
-                parsed_url.schema(),
-                parsed_url.hostname(),
-                parsed_source.hostname(),
-                source_domain,
-                third_party,
-            ))
-        }        
     }
 
     pub fn from_urls_with_hostname(

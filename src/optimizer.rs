@@ -140,13 +140,13 @@ impl Optimization for UnionDomainGroup {
         let mut not_domains = HashSet::new();
 
         filters.iter().for_each(|f| {
-            if f.opt_domains.is_some() {
-                for d in f.opt_domains.as_ref().unwrap() {
+            if let Some(opt_domains) = f.opt_domains.as_ref() {
+                for d in opt_domains {
                     domains.insert(d);
                 }
             }
-            if f.opt_not_domains.is_some() {
-                for d in f.opt_not_domains.as_ref().unwrap() {
+            if let Some(opt_not_domains) = f.opt_not_domains.as_ref() {
+                for d in opt_not_domains {
                     not_domains.insert(d);
                 }
             }
@@ -155,12 +155,16 @@ impl Optimization for UnionDomainGroup {
         if !domains.is_empty() {
             let mut domains = Vec::from_iter(domains.into_iter().cloned());
             domains.sort();
+            let opt_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
             filter.opt_domains = Some(domains);
+            filter.opt_domains_union = opt_domains_union;
         }
         if !not_domains.is_empty() {
             let mut domains = Vec::from_iter(not_domains.into_iter().cloned());
             domains.sort();
+            let opt_not_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
             filter.opt_not_domains = Some(domains);
+            filter.opt_not_domains_union = opt_not_domains_union;
         }
 
 

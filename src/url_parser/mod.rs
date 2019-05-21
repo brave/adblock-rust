@@ -32,7 +32,6 @@ pub trait UrlParser {
 }
 
 impl UrlParser for Request {
-    #[inline]
     fn parse_url(url: &str) -> Option<RequestUrl> {
         let parsed = parser::Hostname::parse(&url).ok();
         parsed.and_then(|h| {
