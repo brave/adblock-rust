@@ -7,7 +7,8 @@ use std::fmt;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use std::sync::{Arc, RwLock};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -195,7 +196,7 @@ pub struct NetworkFilter {
     // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to Some<CompiledRegex>
     // to avoid expensive cloning of the Regex itself.
     #[serde(skip_serializing, skip_deserializing)]
-    regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>,
+    regex: Rc<RefCell<Option<Rc<CompiledRegex>>>>
 }
 
 impl NetworkFilter {
@@ -571,7 +572,7 @@ impl NetworkFilter {
             fuzzy_signature: maybe_fuzzy_signature,
             opt_domains_union,
             opt_not_domains_union,
-            regex: Arc::new(RwLock::new(None))
+            regex: Rc::new(RefCell::new(None))
         })
     }
 
@@ -773,7 +774,7 @@ impl NetworkFilter {
 
 pub trait NetworkMatchable {
     fn matches(&self, request: &request::Request) -> bool;
-    fn get_regex(&self) -> Arc<CompiledRegex>;
+    fn get_regex(&self) -> Rc<CompiledRegex>;
 }
 
 impl NetworkMatchable for NetworkFilter {
@@ -783,20 +784,18 @@ impl NetworkMatchable for NetworkFilter {
     }
 
     // Lazily get the regex if the filter has one
-    fn get_regex(&self) -> Arc<CompiledRegex> {
+    fn get_regex(&self) -> Rc<CompiledRegex> {
         if !self.is_regex() && !self.is_complete_regex() {
-            return Arc::new(CompiledRegex::MatchAll);
+            return Rc::new(CompiledRegex::MatchAll);
         }
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
-            let cache = self.regex.read().unwrap();
+            let mut cache = self.regex.borrow_mut();
             if cache.is_some() {
                 return cache.as_ref().unwrap().clone(); // Only clones the Arc, not the entire regex
             }
-        }
-        {
-            let mut cache = self.regex.write().unwrap();
+        
             let regex = compile_regex(
                 &self.filter,
                 self.is_right_anchor(),
@@ -804,7 +803,7 @@ impl NetworkMatchable for NetworkFilter {
                 self.is_complete_regex(),
             );
 
-            *cache = Some(Arc::new(regex));
+            *cache = Some(Rc::new(regex));
         }
         // Recursive call to return the just-cached value.
         // Note that if we had not let the previous borrow
@@ -2945,7 +2944,7 @@ mod match_tests {
         {
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
             let network_filter = NetworkFilter::parse(filter, true).unwrap();
-            let regex = Arc::try_unwrap(network_filter.get_regex()).unwrap();
+            let regex = Rc::try_unwrap(network_filter.get_regex()).unwrap();
             assert!(
                 matches!(regex, CompiledRegex::Compiled(_)),
                 "Generated incorrect regex: {:?}",

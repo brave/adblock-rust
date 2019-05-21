@@ -435,10 +435,16 @@ mod tests {
             "example.com",
         );
         assert_eq!(
-            simple_example.get_tokens().as_slice(),
+            simple_example.source_hostname_hashes.as_ref().unwrap().as_slice(),
             tokenize(&[
                 "subdomain.example.com",
                 "example.com",
+            ], &[])
+            .as_slice()
+        );
+        assert_eq!(
+            simple_example.get_tokens().as_slice(),
+            tokenize(&[
                 "https",
                 "subdomain",
                 "example",
