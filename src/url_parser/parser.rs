@@ -290,7 +290,7 @@ impl<F: FnMut(char) -> bool> Pattern for F {
 impl<'i> Iterator for Input<'i> {
     type Item = char;
     fn next(&mut self) -> Option<char> {
-        self.chars.by_ref().find(|&c| !matches!(c, '\t' | '\n' | '\r'))
+        self.chars.next() //by_ref().find(|&c| !matches!(c, '\t' | '\n' | '\r'))
     }
 }
 
@@ -319,8 +319,11 @@ impl Parser {
         debug_assert!(self.serialization.is_empty());
         while let Some(c) = input.next() {
             match c {
-                'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '.' => {
+                'a'...'z' | 'A'...'Z' => {
                     self.serialization.push(c.to_ascii_lowercase())
+                }
+                '0'...'9' | '+' | '-' | '.' => {
+                    self.serialization.push(c)
                 }
                 ':' => return Ok(input),
                 _ => {
@@ -369,10 +372,13 @@ impl Parser {
         let username_end = path_start;
         let host_start = path_start;
         let host_end = path_start;
-        let remaining = input.clone();
-        for c in remaining {
-            self.serialization.push(c.to_ascii_lowercase());
-        }
+        self.serialization.push_str(&input.chars.as_str());
+        let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
+        ser_remaining.map(|s| {
+            s.make_ascii_lowercase();
+            &*s
+        });
+
 
         Ok(Hostname {
             serialization: self.serialization,
@@ -385,18 +391,18 @@ impl Parser {
 
     fn after_double_slash(mut self, input: Input, scheme_type: SchemeType, scheme_end: usize)
                           -> ParseResult<Hostname> {
-        self.serialization.push('/');
-        self.serialization.push('/');
+        self.serialization.push_str("//");
         // authority state
         let (username_end, remaining) = self.parse_userinfo(input, scheme_type)?;
         // host state
         let host_start = self.serialization.len();
-        // println!("Parse host {}", remaining.chars.as_str());
         let (host_end, remaining) = self.parse_host(remaining, scheme_type)?;
-        for c in remaining {
-            self.serialization.push(c.to_ascii_lowercase());
-        }
-        // println!("Return hostname {} from {} to {}", self.serialization, host_start, host_end);
+        self.serialization.push_str(&remaining.chars.as_str());
+        let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
+        ser_remaining.map(|s| {
+            s.make_ascii_lowercase();
+            &*s
+        });
         Ok(Hostname {
             serialization: self.serialization,
             scheme_end,
