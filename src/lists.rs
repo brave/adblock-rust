@@ -2,11 +2,7 @@ use crate::filters::network::NetworkFilter;
 use itertools::Either;
 use serde::{Serialize, Deserialize};
 
-#[cfg(target_arch = "wasm32")]
 use itertools::Itertools;
-
-#[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
 
 #[derive(Debug, PartialEq)]
 pub enum FilterType {
@@ -41,11 +37,7 @@ pub fn parse_filters(
     debug: bool,
 ) -> (Vec<NetworkFilter>, Vec<String>) {
 
-    #[cfg(target_arch = "wasm32")]
     let list_iter = list.into_iter();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let list_iter = list.into_par_iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
         .map(|line| {
@@ -106,9 +98,8 @@ fn detect_filter_type(filter: &str) -> FilterType {
     }
 
     // Check if filter is cosmetics
-    let sharp_index = filter.find('#');
-    if sharp_index.is_some() {
-        let after_sharp_index = sharp_index.unwrap() + 1;
+    if let Some(sharp_index) = filter.find('#') {
+        let after_sharp_index = sharp_index + 1;
 
         // Ignore Adguard cosmetics
         // `#$#` `#@$#`

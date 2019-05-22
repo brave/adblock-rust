@@ -229,8 +229,6 @@ impl Blocker {
 
 #[derive(Serialize, Deserialize)]
 struct NetworkFilterList {
-    // A faster structure is possible, but tests didn't indicate much of a difference
-    // for different HashMap implementations bulk of the cost in matching
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
@@ -248,7 +246,7 @@ impl NetworkFilterList {
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
-        let mut filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_tokens.len());
+        let mut filter_map = HashMap::with_capacity(filter_tokens.len());
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -274,7 +272,7 @@ impl NetworkFilterList {
 
         // Update all values
         if enable_optimizations {
-            let mut optimized_map: HashMap<Hash, Vec<Arc<NetworkFilter>>> = HashMap::with_capacity(filter_map.len());
+            let mut optimized_map = HashMap::with_capacity(filter_map.len());
             for (key, filters) in filter_map {
                 let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
                 let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
@@ -307,12 +305,20 @@ impl NetworkFilterList {
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
-        let mut request_tokens = request.get_tokens();
-        request_tokens.push(0); // add 0 token as the fallback
+        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
+            for token in source_hostname_hashes {
+                if let Some(filter_bucket) = self.filter_map.get(token) {
+                    for filter in filter_bucket {
+                        if filter.matches(request) {
+                            return Some(filter);
+                        }
+                    }
+                }
+            }
+        }
         
-        for token in request_tokens {
-            let maybe_filter_bucket = self.filter_map.get(&token);
-            if let Some(filter_bucket) = maybe_filter_bucket {
+        for token in request.get_tokens() {
+            if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     if filter.matches(request) {
                         return Some(filter);
@@ -325,14 +331,14 @@ impl NetworkFilterList {
     }
 }
 
-fn insert_dup<K, V>(map: &mut HashMap<K, Vec<V>>, k: K, v: V)
+fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
 where
     K: std::cmp::Ord + std::hash::Hash,
 {
     map.entry(k).or_insert_with(Vec::new).push(v)
 }
 
-fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V>(map: &HashMap<K, Vec<V>>) -> usize {
+fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(map: &HashMap<K, Vec<V>, H>) -> usize {
     let mut size = 0 as usize;
     for (_, val) in map.iter() {
         size += val.len();
@@ -744,7 +750,7 @@ mod blocker_tests {
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
-    fn test_requests_filters(filters: &[String], requests: &Vec<(Request, bool)>) {
+    fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
         let (network_filters, _) = parse_filters(filters, true, true, true); 
 
         let blocker_options: BlockerOptions = BlockerOptions {
@@ -756,7 +762,7 @@ mod blocker_tests {
 
         let blocker = Blocker::new(network_filters, &blocker_options);
 
-        requests.into_iter().for_each(|(req, expected_result)| {
+        requests.iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if *expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);

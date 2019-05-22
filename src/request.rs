@@ -2,7 +2,6 @@ use crate::url_parser::{get_host_domain, UrlParser};
 use crate::utils;
 
 use idna;
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, PartialEq, Debug)]
@@ -45,34 +44,33 @@ impl From<url::ParseError> for RequestError {
     }
 }
 
-lazy_static! {
-    static ref CPT_TO_TYPE: HashMap<&'static str, RequestType> = {
-        let mut map = HashMap::new();
-        map.insert("beacon", RequestType::Ping);
-        map.insert("csp_report", RequestType::Csp);
-        map.insert("document", RequestType::Document);
-        map.insert("font", RequestType::Font);
-        map.insert("image", RequestType::Image);
-        map.insert("imageset", RequestType::Image);
-        map.insert("main_frame", RequestType::Document);
-        map.insert("media", RequestType::Media);
-        map.insert("object", RequestType::Object);
-        map.insert("object_subrequest", RequestType::Object);
-        map.insert("other", RequestType::Other);
-        map.insert("ping", RequestType::Ping);
-        map.insert("script", RequestType::Script);
-        map.insert("speculative", RequestType::Other);
-        map.insert("stylesheet", RequestType::Stylesheet);
-        map.insert("sub_frame", RequestType::Subdocument);
-        map.insert("web_manifest", RequestType::Other);
-        map.insert("websocket", RequestType::Websocket);
-        map.insert("xbl", RequestType::Other);
-        map.insert("xhr", RequestType::Xmlhttprequest);
-        map.insert("xml_dtd", RequestType::Other);
-        map.insert("xmlhttprequest", RequestType::Xmlhttprequest);
-        map.insert("xslt", RequestType::Other);
-        map
-    };
+fn cpt_match_type(cpt: &str) -> RequestType {
+    match cpt {
+        "beacon" => RequestType::Ping,
+        "csp_report" => RequestType::Csp,
+        "document" => RequestType::Document,
+        "font" => RequestType::Font,
+        "image" => RequestType::Image,
+        "imageset" => RequestType::Image,
+        "main_frame" => RequestType::Document,
+        "media" => RequestType::Media,
+        "object" => RequestType::Object,
+        "object_subrequest" => RequestType::Object,
+        "other" => RequestType::Other,
+        "ping" => RequestType::Ping,
+        "script" => RequestType::Script,
+        "speculative" => RequestType::Other,
+        "stylesheet" => RequestType::Stylesheet,
+        "sub_frame" => RequestType::Subdocument,
+        "web_manifest" => RequestType::Other,
+        "websocket" => RequestType::Websocket,
+        "xbl" => RequestType::Other,
+        "xhr" => RequestType::Xmlhttprequest,
+        "xml_dtd" => RequestType::Other,
+        "xmlhttprequest" => RequestType::Xmlhttprequest,
+        "xslt" => RequestType::Other,
+        _ => RequestType::Other
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -86,19 +84,34 @@ pub struct Request {
     pub is_third_party: Option<bool>,
     pub url: String,
     pub hostname: String,
-    #[cfg(feature = "full-domain-matching")]
-    pub source_hostname: String,
-    #[cfg(feature = "full-domain-matching")]
-    pub source_domain: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
+    tokens: Vec<utils::Hash>,
     fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
 }
 
 impl<'a> Request {
+    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
+        &self.tokens
+    }
+
+    pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
+        {
+            let signature_cache = self.fuzzy_signature.read().unwrap();
+            if signature_cache.is_some() {
+                return signature_cache.as_ref().unwrap().clone();
+            }
+        }
+        {
+            let mut signature_cache = self.fuzzy_signature.write().unwrap();
+            let signature = utils::create_fuzzy_signature(&self.url);
+            *signature_cache = Some(signature);
+        }
+        self.get_fuzzy_signature()
+    }
+
     pub fn new(
         raw_type: &str,
         url: &str,
@@ -139,53 +152,50 @@ impl<'a> Request {
         let is_http: bool;
         let is_https: bool;
         let is_supported: bool;
-        let mut request_type: RequestType = CPT_TO_TYPE
-            .get(&raw_type)
-            .map(|v| v.to_owned())
-            .unwrap_or(RequestType::Other);
+        let request_type: RequestType;
 
         if schema.is_empty() {
             // no ':' was found
             is_https = true;
             is_http = false;
             is_supported = true;
+            request_type = cpt_match_type(raw_type);
         } else {
             is_http = schema == "http";
-            is_https = schema == "https";
+            is_https = !is_http && schema == "https";
 
             let is_websocket = !is_http && !is_https && (schema == "ws" || schema == "wss");
             is_supported = is_http || is_https || is_websocket;
             if is_websocket {
                 request_type = RequestType::Websocket;
+            } else {
+                request_type = cpt_match_type(raw_type);
             }
         }
 
         let source_hostname_hashes = if !source_hostname.is_empty() {
-            // println!("Processing URL {}", url);
-            let mut hashes = Vec::with_capacity(2);
+            let mut hashes = Vec::with_capacity(4);
             hashes.push(utils::fast_hash(&source_hostname));
             for (i, c) in
                 source_hostname[..source_hostname.len() - source_domain.len()].char_indices()
             {
                 if c == '.' {
-                    // println!("Hashing hostname part {} of {}", &source_hostname[i+1..], url);
                     hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
                 }
             }
-            hashes.shrink_to_fit();
             Some(hashes)
         } else {
             None
         };
+        
+        let mut tokens = utils::tokenize(url);
+        // Add zero token as a fallback to wildcard rule bucket
+        tokens.push(0);
 
         Request {
             request_type,
-            url: String::from(url),
-            hostname: String::from(hostname),
-            #[cfg(feature = "full-domain-matching")]
-            source_hostname: String::from(source_hostname),
-            #[cfg(feature = "full-domain-matching")]
-            source_domain: String::from(source_domain),
+            url: url.to_owned(),
+            hostname: hostname.to_owned(),
             source_hostname_hashes,
             is_first_party: first_party,
             is_third_party: third_party,
@@ -193,56 +203,9 @@ impl<'a> Request {
             is_https,
             is_supported,
             bug: None,
-            tokens: Arc::new(RwLock::new(None)),
+            tokens: tokens,
             fuzzy_signature: Arc::new(RwLock::new(None)),
         }
-    }
-
-    pub fn get_tokens(&self) -> Vec<utils::Hash> {
-        // Create a new scope to contain the lifetime of the
-        // dynamic borrow
-        {
-            let tokens_cache = self.tokens.read().unwrap();
-            if tokens_cache.is_some() {
-                return tokens_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut tokens_cache = self.tokens.write().unwrap();
-            let mut tokens: Vec<utils::Hash> = vec![];
-
-            if let Some(hashes) = self.source_hostname_hashes.as_ref() {
-                for h in hashes {
-                    tokens.push(*h)
-                }
-            }
-
-            let mut url_tokens = utils::tokenize(&self.url);
-            tokens.append(&mut url_tokens);
-
-            *tokens_cache = Some(tokens);
-        }
-        // Recursive call to return the just-cached value.
-        // Note that if we had not let the previous borrow
-        // of the cache fall out of scope then the subsequent
-        // recursive borrow would cause a dynamic thread panic.
-        // This is the major hazard of using `RefCell`.
-        self.get_tokens()
-    }
-
-    pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
-        {
-            let signature_cache = self.fuzzy_signature.read().unwrap();
-            if signature_cache.is_some() {
-                return signature_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut signature_cache = self.fuzzy_signature.write().unwrap();
-            let signature = utils::create_fuzzy_signature(&self.url);
-            *signature_cache = Some(signature);
-        }
-        self.get_fuzzy_signature()
     }
 
     pub fn from_urls(
@@ -250,38 +213,38 @@ impl<'a> Request {
         source_url: &str,
         request_type: &str,
     ) -> Result<Request, RequestError> {
-        let url_norm = url.to_ascii_lowercase();
-        let source_url_norm = source_url.to_ascii_lowercase();
+        if let Some(parsed_url) = Request::parse_url(&url) {
+            if let Some(parsed_source) = Request::parse_url(&source_url) {
+                let source_domain = parsed_source.domain();
 
-        let maybe_parsed_url = Request::get_url_host(&url_norm);
-        if maybe_parsed_url.is_none() {
-            return Err(RequestError::HostnameParseError);
-        }
-        let parsed_url = maybe_parsed_url.unwrap();
+                let third_party = if source_domain.is_empty() {
+                    None
+                } else {
+                    Some(source_domain != parsed_url.domain())
+                };
 
-        let maybe_parsed_source = Request::get_url_host(&source_url_norm);
-
-        if maybe_parsed_source.is_none() {
-            Ok(Request::new(
-                request_type,
-                &parsed_url.url,
-                parsed_url.schema(),
-                parsed_url.hostname(),
-                &parsed_url.domain,
-                "",
-                "",
-            ))
+                Ok(Request::from_detailed_parameters(
+                    request_type,
+                    &parsed_url.url,
+                    parsed_url.schema(),
+                    parsed_url.hostname(),
+                    parsed_source.hostname(),
+                    source_domain,
+                    third_party,
+                ))
+            } else {
+                Ok(Request::from_detailed_parameters(
+                    request_type,
+                    &parsed_url.url,
+                    parsed_url.schema(),
+                    parsed_url.hostname(),
+                    "",
+                    "",
+                    None,
+                ))
+            }
         } else {
-            let parsed_source = maybe_parsed_source.unwrap();
-            Ok(Request::new(
-                request_type,
-                &parsed_url.url,
-                parsed_url.schema(),
-                parsed_url.hostname(),
-                &parsed_url.domain,
-                parsed_source.hostname(),
-                &parsed_source.domain,
-            ))
+            return Err(RequestError::HostnameParseError);
         }
     }
 
@@ -294,13 +257,15 @@ impl<'a> Request {
     ) -> Request {
         let url_norm = url.to_ascii_lowercase();
 
-        let source_domain = get_host_domain(&source_hostname);
+        let (source_domain_start, source_domain_end) = get_host_domain(&source_hostname);
+        let source_domain = &source_hostname[source_domain_start..source_domain_end];
 
         let splitter = url_norm.find(':').unwrap_or(0);
-        let protocol: &str = &url[..splitter];
+        let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {
-            let domain = get_host_domain(&hostname);
+            let (domain_start, domain_end) = get_host_domain(&hostname);
+            let domain = &hostname[domain_start..domain_end];
             if source_domain.is_empty() {
                 None
             } else {
@@ -313,7 +278,7 @@ impl<'a> Request {
         Request::from_detailed_parameters(
             request_type,
             &url_norm,
-            &protocol,
+            &schema,
             &hostname,
             &source_hostname,
             &source_domain,
@@ -433,8 +398,10 @@ mod tests {
         assert_eq!(assumed_https.is_supported, true);
     }
 
-    fn t(tokens: &[&str]) -> Vec<utils::Hash> {
-        tokens.into_iter().map(|t| utils::fast_hash(&t)).collect()
+    fn tokenize(tokens: &[&str], extra_tokens: &[utils::Hash]) -> Vec<utils::Hash> {
+        let mut tokens: Vec<_> = tokens.into_iter().map(|t| utils::fast_hash(&t)).collect();
+        tokens.extend(extra_tokens);
+        tokens
     }
 
     #[test]
@@ -448,7 +415,7 @@ mod tests {
             "example.com",
             "example.com",
         );
-        let mut tokens = t(&vec!["ad", "https", "com", "example"]);
+        let mut tokens = tokenize(&["ad", "https", "com", "example"], &[]);
         tokens.sort_unstable();
         assert_eq!(
             simple_example.get_fuzzy_signature().as_slice(),
@@ -468,16 +435,22 @@ mod tests {
             "example.com",
         );
         assert_eq!(
-            simple_example.get_tokens().as_slice(),
-            t(&vec![
+            simple_example.source_hostname_hashes.as_ref().unwrap().as_slice(),
+            tokenize(&[
                 "subdomain.example.com",
                 "example.com",
+            ], &[])
+            .as_slice()
+        );
+        assert_eq!(
+            simple_example.get_tokens().as_slice(),
+            tokenize(&[
                 "https",
                 "subdomain",
                 "example",
                 "com",
                 "ad"
-            ])
+            ], &[0])
             .as_slice()
         )
     }
