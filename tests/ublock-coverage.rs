@@ -3,7 +3,7 @@ extern crate adblock;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
 use adblock::request::Request;
-use adblock::url_parser::{get_host_domain, UrlParser};
+use adblock::url_parser::UrlParser;
 use adblock::utils::rules_from_lists;
 
 use serde::{Deserialize};
@@ -126,10 +126,10 @@ fn check_matching_hostnames() {
     let engine = get_blocker_engine();
 
     for req in requests {
-        let url_host = Request::get_url_host(&req.url).unwrap();
-        let source_host = Request::get_url_host(&req.sourceUrl).unwrap();
-        let domain = get_host_domain(&url_host.hostname());
-        let source_domain = get_host_domain(&source_host.hostname());
+        let url_host = Request::parse_url(&req.url).unwrap();
+        let source_host = Request::parse_url(&req.sourceUrl).unwrap();
+        let domain = url_host.domain();
+        let source_domain = source_host.domain();
         let third_party = if source_domain.is_empty() {
             None
         } else {

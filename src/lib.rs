@@ -15,9 +15,6 @@ extern crate flate2;
 extern crate regex;
 extern crate idna;      // utf domain handling
 
-#[cfg(not(target_arch = "wasm32"))]
-extern crate rayon;     // parallelism
-
 #[cfg(test)]
 extern crate csv;       // csv handling library used for processing test data
 
