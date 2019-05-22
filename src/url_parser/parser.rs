@@ -319,12 +319,9 @@ impl Parser {
         debug_assert!(self.serialization.is_empty());
         while let Some(c) = input.next() {
             match c {
-                'a'...'z' | 'A'...'Z' => {
-                    self.serialization.push(c.to_ascii_lowercase())
-                }
-                '0'...'9' | '+' | '-' | '.' => {
-                    self.serialization.push(c)
-                }
+                'a'...'z' => self.serialization.push(c),
+                'A'...'Z' => self.serialization.push(c.to_ascii_lowercase()),
+                '0'...'9' | '+' | '-' | '.' => self.serialization.push(c),
                 ':' => return Ok(input),
                 _ => {
                     self.serialization.clear();
@@ -378,8 +375,7 @@ impl Parser {
             s.make_ascii_lowercase();
             &*s
         });
-
-
+        
         Ok(Hostname {
             serialization: self.serialization,
             scheme_end,

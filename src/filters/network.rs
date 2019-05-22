@@ -9,6 +9,7 @@ use crate::utils;
 use crate::utils::Hash;
 use std::cell::RefCell;
 use std::rc::Rc;
+use twoway;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -239,7 +240,7 @@ impl NetworkFilter {
         // |     |
         // |     optionsIndex
         // filterIndexStart
-        let maybe_options_index: Option<usize> = line.rfind('$');
+        let maybe_options_index: Option<usize> = twoway::rfind_str(&line, "$");
 
         if let Some(options_index) = maybe_options_index {
             // Parse options and set flags
@@ -437,7 +438,7 @@ impl NetworkFilter {
                 }
             } else {
                 // Look for next /
-                let slash_index = &line[filter_index_start..].find('/');
+                let slash_index = twoway::find_str(&line[filter_index_start..], "/");
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
@@ -970,7 +971,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     } else if filter_hostname_len == hostname_len {
         // If they have the same len(), they should be equal
         filter_hostname == hostname
-    } else if let Some(match_index) = hostname.find(filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
+    } else if let Some(match_index) = twoway::find_str(hostname, filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
         if match_index == 0 {
             // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
             //
@@ -998,7 +999,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
 
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = url.find(&hostname).unwrap_or_else(|| url.len());
+    let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len());
     &url[start + hostname.len()..]
 }
 
@@ -1035,10 +1036,10 @@ fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.find(f).is_some(),
+        FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.find(f).is_some() {
+                if twoway::find_str(&request.url, f).is_some() {
                     return true;
                 }
             }
