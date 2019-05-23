@@ -90,11 +90,16 @@ pub struct Request {
     pub bug: Option<u32>,
     tokens: Vec<utils::Hash>,
     fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
+    hostname_end: usize
 }
 
 impl<'a> Request {
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {
         &self.tokens
+    }
+
+    pub fn url_after_hostname(&self) -> &str {
+        &self.url[self.hostname_end..]
     }
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
@@ -127,6 +132,8 @@ impl<'a> Request {
             Some(source_domain != domain)
         };
 
+        let hostname_end = twoway::find_str(url, hostname).unwrap_or_else(|| url.len()) + hostname.len();
+
         Self::from_detailed_parameters(
             raw_type,
             url,
@@ -135,6 +142,7 @@ impl<'a> Request {
             source_hostname,
             source_domain,
             third_party,
+            hostname_end
         )
     }
 
@@ -146,6 +154,7 @@ impl<'a> Request {
         source_hostname: &str,
         source_domain: &str,
         third_party: Option<bool>,
+        hostname_end: usize
     ) -> Request {
         let first_party = third_party.map(|p| !p);
 
@@ -205,6 +214,7 @@ impl<'a> Request {
             bug: None,
             tokens: tokens,
             fuzzy_signature: Arc::new(RwLock::new(None)),
+            hostname_end
         }
     }
 
@@ -231,6 +241,7 @@ impl<'a> Request {
                     parsed_source.hostname(),
                     source_domain,
                     third_party,
+                    parsed_url.hostname_pos.1
                 ))
             } else {
                 Ok(Request::from_detailed_parameters(
@@ -241,6 +252,7 @@ impl<'a> Request {
                     "",
                     "",
                     None,
+                    parsed_url.hostname_pos.1
                 ))
             }
         } else {
@@ -282,7 +294,8 @@ impl<'a> Request {
             &hostname,
             &source_hostname,
             &source_domain,
-            third_party
+            third_party,
+            splitter + 2 + hostname.len()
         )
     }
 

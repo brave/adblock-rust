@@ -6,7 +6,7 @@ use addr::DomainName;
 pub struct RequestUrl {
     pub url: String,
     schema_end: usize,
-    hostname_pos: (usize, usize),
+    pub hostname_pos: (usize, usize),
     domain: (usize, usize),
 }
 
