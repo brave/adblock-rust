@@ -9,6 +9,7 @@ use adblock;
 use adblock::utils::rules_from_lists;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
+use adblock::url_parser::UrlParser;
 use adblock::engine::Engine;
 
 #[allow(non_snake_case)]
@@ -63,6 +64,23 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
     .iter()
     .for_each(|parsed| {
       let check =  blocker.check(&parsed);
+      if check.matched {
+        matches += 1;
+      } else {
+        passes += 1;
+      }
+    });
+  println!("Got {} matches, {} passes", matches, passes);  
+  (matches, passes)
+}
+
+fn bench_rule_matching_browserlike(blocker: &Engine, requests: &Vec<(String, String, String, String, Option<bool>)>) -> (u32, u32) {
+  let mut matches = 0;
+  let mut passes = 0;
+  requests
+    .iter()
+    .for_each(|(url, hostname, source_hostname, request_type, third_party)| {
+      let check = blocker.check_network_urls_with_hostnames(&url, &hostname, &source_hostname, &request_type, *third_party);
       if check.matched {
         matches += 1;
       } else {
@@ -284,13 +302,73 @@ fn deserialization(c: &mut Criterion) {
     );
 }
 
+fn rule_match_browserlike_elep(c: &mut Criterion) {
+  
+  let rules = rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
+    String::from("data/easylist.to/easylist/easyprivacy.txt"),
+  ]);
+  let requests = load_requests();
+  let requests_len = requests.len() as u32;
+
+  let requests_parsed: Vec<(String, String, String, String, Option<bool>)> = requests.iter().map(|r| {
+        let url_norm = r.url.to_ascii_lowercase();
+        let source_url_norm = r.frameUrl.to_ascii_lowercase();
+
+        let maybe_parsed_url = Request::parse_url(&url_norm);
+        if maybe_parsed_url.is_none() {
+            return Err("bad url");
+        }
+        let parsed_url = maybe_parsed_url.unwrap();
+
+        let maybe_parsed_source = Request::parse_url(&source_url_norm);
+
+        if maybe_parsed_source.is_none() {
+            Ok((
+                parsed_url.url.to_owned(),
+                parsed_url.hostname().to_owned(),
+                "".to_owned(),
+                r.cpt.clone(),
+                None
+            ))
+        } else {
+            let parsed_source = maybe_parsed_source.unwrap();
+            Ok((
+                parsed_url.url.to_owned(),
+                parsed_url.hostname().to_owned(),
+                parsed_source.hostname().to_owned(),
+                r.cpt.clone(),
+                Some(parsed_source.domain() != parsed_url.domain())
+            ))
+        }
+    })
+    .filter_map(Result::ok)
+    .collect();
+
+  c.bench(
+        "rule-match-browserlike",
+        Benchmark::new(
+            "el+ep",
+            move |b| {
+              let blocker = get_blocker(&rules);
+              let engine = Engine {
+                blocker
+              };
+              b.iter(|| bench_rule_matching_browserlike(&engine, &requests_parsed))
+            },
+        ).throughput(Throughput::Elements(requests_len))
+        .sample_size(10)
+    );
+}
+
 criterion_group!(
   benches,
+  rule_match_elep,
   rule_match_only_el,
   rule_match_slimlist_comparable,
   rule_match,
-  rule_match_elep,
   rule_match_slim,
+  rule_match_browserlike_elep,
   serialization,
   deserialization
 );

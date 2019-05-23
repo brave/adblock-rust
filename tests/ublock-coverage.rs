@@ -10,6 +10,8 @@ use serde::{Deserialize};
 use std::fs::File;
 use std::io::BufReader;
 
+use std::collections::HashMap;
+
 use csv;
 
 #[allow(non_snake_case)]
@@ -97,23 +99,39 @@ fn check_matching() {
     let mut mismatch_expected_match = 0;
     let mut mismatch_expected_exception = 0;
     let mut mismatch_expected_pass = 0;
+    let mut false_negative_rules: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut false_positive_rules: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut false_negative_exceptions: HashMap<String, (String, String, String)> = HashMap::new();
     for req in requests {
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
+            req.filter.as_ref().map(|f| {
+                false_negative_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+            });
             println!("Expected match, uBo matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, req.filter);
         } else if req.blocked == 2 && checked.exception.is_none() {
             mismatch_expected_exception += 1;
+            checked.filter.as_ref().map(|f| {
+                false_negative_exceptions.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+            });
             println!("Expected exception to match for {} at {}, type {}, got rule match {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         } else if req.blocked == 0 && checked.matched != false {
             mismatch_expected_pass += 1;
+            checked.filter.as_ref().map(|f| {
+                false_positive_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+            });
             println!("Expected pass, matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         }        
     }
 
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
-    assert!(ratio < 0.05); 
+    assert!(ratio < 0.01);
+    assert!(false_positive_rules.len() < 3, "False positive rules higher than expected: {:?}", false_positive_rules);
+    assert!(false_negative_rules.len() < 3, "False negative rules higher than expected: {:?}", false_negative_rules);
+    assert!(false_negative_exceptions.len() < 3, "False negative exceptions higher than expected: {:?}", false_negative_exceptions);
+
 }
 
 #[test]
