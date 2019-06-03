@@ -80,3 +80,67 @@ impl Engine {
         self.blocker.tags_disable(tags);
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn tags_enable_adds_tags() {
+        let filters = vec![
+            String::from("adv$tag=stuff"),
+            String::from("somelongpath/test$tag=stuff"),
+            String::from("||brianbondy.com/$tag=brian"),
+            String::from("||brave.com$tag=brian"),
+        ];
+        let url_results = vec![
+            ("http://example.com/advert.html", true),
+            ("http://example.com/somelongpath/test/2.html", true),
+            ("https://brianbondy.com/about", true),
+            ("https://brave.com/about", true),
+        ];
+
+        let mut engine = Engine::from_rules(&filters);
+        engine.tags_enable(&["stuff"]);
+        engine.tags_enable(&["brian"]);
+
+        url_results.into_iter().for_each(|(url, expected_result)| {
+            let matched_rule = engine.check_network_urls(&url, "", "");
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+            }
+        });
+    }
+
+    #[test]
+    fn tags_disable_works() {
+        let filters = vec![
+            String::from("adv$tag=stuff"),
+            String::from("somelongpath/test$tag=stuff"),
+            String::from("||brianbondy.com/$tag=brian"),
+            String::from("||brave.com$tag=brian"),
+        ];
+        let url_results = vec![
+            ("http://example.com/advert.html", false),
+            ("http://example.com/somelongpath/test/2.html", false),
+            ("https://brianbondy.com/about", true),
+            ("https://brave.com/about", true),
+        ];
+        
+        let mut engine = Engine::from_rules(&filters);
+        engine.tags_enable(&["brian", "stuff"]);
+        engine.tags_disable(&["stuff"]);
+
+        url_results.into_iter().for_each(|(url, expected_result)| {
+            let matched_rule = engine.check_network_urls(&url, "", "");
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+            }
+        });
+    }
+}

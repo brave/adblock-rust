@@ -850,11 +850,6 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), false),
         ];
 
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .map(|(request, expected_result)| (request, expected_result))
-            .collect();
-        
         let (network_filters, _) = parse_filters(&filters, true, true, true); 
 
         let blocker_options: BlockerOptions = BlockerOptions {
@@ -869,7 +864,47 @@ mod blocker_tests {
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
-        request_expectations.into_iter().for_each(|(req, expected_result)| {
+        url_results.into_iter().for_each(|(req, expected_result)| {
+            let matched_rule = blocker.check(&req);
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", req.url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
+            }
+        });
+    }
+
+    #[test]
+    fn tags_enable_adds_tags() {
+        let filters = vec![
+            String::from("adv$tag=stuff"),
+            String::from("somelongpath/test$tag=stuff"),
+            String::from("||brianbondy.com/$tag=brian"),
+            String::from("||brave.com$tag=brian"),
+        ];
+        let url_results = vec![
+            (Request::from_url("http://example.com/advert.html").unwrap(), true),
+            (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), true),
+            (Request::from_url("https://brianbondy.com/about").unwrap(), true),
+            (Request::from_url("https://brave.com/about").unwrap(), true),
+        ];
+
+        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            debug: false,
+            enable_optimizations: false,    // optimizations will reduce number of rules
+            load_cosmetic_filters: false,   
+            load_network_filters: true
+        };
+
+        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        blocker.tags_enable(&["stuff"]);
+        blocker.tags_enable(&["brian"]);
+        assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
+        assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
+
+        url_results.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
@@ -893,11 +928,6 @@ mod blocker_tests {
             (Request::from_url("https://brianbondy.com/about").unwrap(), true),
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
-
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .map(|(request, expected_result)| (request, expected_result))
-            .collect();
         
         let (network_filters, _) = parse_filters(&filters, true, true, true); 
 
@@ -916,7 +946,7 @@ mod blocker_tests {
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
-        request_expectations.into_iter().for_each(|(req, expected_result)| {
+        url_results.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
