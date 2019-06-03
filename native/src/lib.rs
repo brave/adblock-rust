@@ -84,6 +84,18 @@ declare_types! {
 
             Ok(JsNull::new().upcast())
         }
+
+        method enableTag(mut cx) {
+            let tag: String = cx.argument::<JsString>(0)?.value();
+
+            let mut this = cx.this();
+            let guard = cx.lock();
+            let _result = {
+                let mut engine = this.borrow_mut(&guard);
+                engine.tags_enable(&[&tag])
+            };
+            Ok(JsNull::new().upcast())
+        }
     }
 }
 
