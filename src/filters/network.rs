@@ -647,7 +647,7 @@ impl NetworkFilter {
             FilterPart::Simple(f) => {
                 if !self.is_complete_regex() {
                     let skip_last_token =
-                        self.is_plain() && !self.is_right_anchor() && !self.is_fuzzy();
+                        (self.is_plain() || self.is_regex()) && !self.is_right_anchor() && !self.is_fuzzy();
                     let skip_first_token = self.is_right_anchor();
 
                     let mut filter_tokens =
