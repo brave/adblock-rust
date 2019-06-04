@@ -65,7 +65,21 @@ fn get_blocker_engine() -> Engine {
 }
 
 #[test]
-fn check_specifics() {
+fn check_specific_rules() {
+    {
+        // exceptions have not effect if important filter matches
+        let engine = Engine::from_rules_debug(&[
+            String::from("||www.facebook.com/*/plugin"),
+        ]);
+
+        let checked = engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
+
+        assert_eq!(checked.matched, true);
+    }
+}
+
+#[test]
+fn check_specifics_default() {
     let engine = get_blocker_engine();
     {
         let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
