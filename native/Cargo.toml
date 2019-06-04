@@ -1,6 +1,6 @@
 [package]
 name = "adblock-rs"
-version = "0.1.9"
+version = "0.1.11"
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
 license = "MPL-2.0"
 build = "build.rs"
@@ -20,5 +20,5 @@ adblock = { path = "../" }
 neon = "0.2.0"
 
 [patch.crates-io]
-neon = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12#5d877ac0' }
-neon-runtime = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12#5d877ac0' }
+neon = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12' }
+neon-runtime = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12' }

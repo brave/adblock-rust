@@ -9,6 +9,7 @@ use crate::utils;
 use crate::utils::Hash;
 use std::cell::RefCell;
 use std::rc::Rc;
+use twoway;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -60,6 +61,7 @@ bitflags! {
         const IS_EXCEPTION = 1 << 22;
         const IS_CSP = 1 << 23;
         const IS_COMPLETE_REGEX = 1 << 24;
+        const IS_HOSTNAME_REGEX = 1 << 28;
 
         // "Other" network request types
         const UNMATCHED = 1 << 25;
@@ -239,7 +241,7 @@ impl NetworkFilter {
         // |     |
         // |     optionsIndex
         // filterIndexStart
-        let maybe_options_index: Option<usize> = line.rfind('$');
+        let maybe_options_index: Option<usize> = twoway::rfind_str(&line, "$");
 
         if let Some(options_index) = maybe_options_index {
             // Parse options and set flags
@@ -415,6 +417,11 @@ impl NetworkFilter {
                     // This means there must be at least an occurrence of `*` or `^`
                     // somewhere.
 
+                    // If the first separator is a wildcard, included in in hostname
+                    if first_separator_start < line.len() && line[first_separator_start..first_separator_start+1].starts_with("*") {
+                        mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
+                    }
+
                     hostname = Some(String::from(&line[filter_index_start..first_separator_start]));
                     filter_index_start = first_separator_start;
 
@@ -437,7 +444,7 @@ impl NetworkFilter {
                 }
             } else {
                 // Look for next /
-                let slash_index = &line[filter_index_start..].find('/');
+                let slash_index = twoway::find_str(&line[filter_index_start..], "/");
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
@@ -955,7 +962,7 @@ fn check_is_regex(filter: &str) -> bool {
  * authors rely and different assumption. We can have prefix of suffix matches
  * of anchor.
  */
-fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
+fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filter_hostname: bool) -> bool {
     let filter_hostname_len = filter_hostname.len();
     // Corner-case, if `filterHostname` is empty, then it's a match
     if filter_hostname_len == 0 {
@@ -970,14 +977,14 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     } else if filter_hostname_len == hostname_len {
         // If they have the same len(), they should be equal
         filter_hostname == hostname
-    } else if let Some(match_index) = hostname.find(filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
+    } else if let Some(match_index) = twoway::find_str(hostname, filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
         if match_index == 0 {
             // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
             //
             // Examples (filter_hostname, hostname):
             //   * (foo, foo.com)
             //   * (sub.foo, sub.foo.com)
-            filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with(".")
+            wildcard_filter_hostname || filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with(".")
         } else if match_index == hostname_len - filter_hostname_len {
             // `filter_hostname` is a suffix of `hostname`.
             //
@@ -987,10 +994,11 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
             filter_hostname.starts_with(".") || hostname[match_index - 1..].starts_with(".")
         } else {
             // `filter_hostname` is infix of `hostname` and needs match full labels
-            (filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with("."))
+            (wildcard_filter_hostname || filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with("."))
                 && (filter_hostname.starts_with(".") || hostname[match_index - 1..].starts_with("."))
         }
-    } else {
+    }
+    else {
         // No match
         false
     }
@@ -998,7 +1006,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
 
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = url.find(&hostname).unwrap_or_else(|| url.len());
+    let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len());
     &url[start + hostname.len()..]
 }
 
@@ -1035,10 +1043,10 @@ fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.find(f).is_some(),
+        FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.find(f).is_some() {
+                if twoway::find_str(&request.url, f).is_some() {
                     return true;
                 }
             }
@@ -1121,7 +1129,7 @@ fn check_pattern_hostname_anchor_regex_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 check_pattern_regex_filter_at(
                     filter,
                     request,
@@ -1143,7 +1151,7 @@ fn check_pattern_hostname_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // In this specific case it means that the specified hostname should match
                     // at the end of the hostname of the request. This allows to prevent false
@@ -1175,7 +1183,7 @@ fn check_pattern_hostname_left_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1184,8 +1192,9 @@ fn check_pattern_hostname_left_right_anchor_filter(
                     // url following the hostname.
                     FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname) == f,
                     FilterPart::AnyOf(filters) => {
+                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if get_url_after_hostname(&request.url, hostname) == f {
+                            if url_after_hostname == f {
                                 return true;
                             }
                         }
@@ -1209,7 +1218,7 @@ fn check_pattern_hostname_left_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1220,8 +1229,9 @@ fn check_pattern_hostname_left_anchor_filter(
                         get_url_after_hostname(&request.url, hostname).starts_with(f)
                     }
                     FilterPart::AnyOf(filters) => {
+                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if get_url_after_hostname(&request.url, hostname).starts_with(f) {
+                            if url_after_hostname.starts_with(f) {
                                 return true;
                             }
                         }
@@ -1244,18 +1254,18 @@ fn check_pattern_hostname_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
+                    // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
                     FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname)
                         .find(f)
                         .is_some(),
                     FilterPart::AnyOf(filters) => {
+                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if get_url_after_hostname(&request.url, hostname)
-                                .find(f)
-                                .is_some()
+                            if url_after_hostname.find(f).is_some()
                             {
                                 return true;
                             }
@@ -1279,7 +1289,7 @@ fn check_pattern_hostname_anchor_fuzzy_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 check_pattern_fuzzy_filter(filter, request)
             } else {
                 false
@@ -2447,83 +2457,83 @@ mod match_tests {
     #[test]
     fn is_anchored_by_hostname_works() {
         // matches empty hostname
-        assert_eq!(is_anchored_by_hostname("", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("", "foo.com", false), true);
 
         // does not match when filter hostname is longer than hostname
-        assert_eq!(is_anchored_by_hostname("bar.foo.com", "foo.com"), false);
-        assert_eq!(is_anchored_by_hostname("b", ""), false);
-        assert_eq!(is_anchored_by_hostname("foo.com", "foo.co"), false);
+        assert_eq!(is_anchored_by_hostname("bar.foo.com", "foo.com", false), false);
+        assert_eq!(is_anchored_by_hostname("b", "", false), false);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.co", false), false);
 
         // does not match if there is not match
-        assert_eq!(is_anchored_by_hostname("bar", "foo.com"), false);
+        assert_eq!(is_anchored_by_hostname("bar", "foo.com", false), false);
 
         // ## prefix match
         // matches exact match
-        assert_eq!(is_anchored_by_hostname("", ""), true);
-        assert_eq!(is_anchored_by_hostname("f", "f"), true);
-        assert_eq!(is_anchored_by_hostname("foo", "foo"), true);
-        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".com", ".com"), true);
-        assert_eq!(is_anchored_by_hostname("com.", "com."), true);
+        assert_eq!(is_anchored_by_hostname("", "", false), true);
+        assert_eq!(is_anchored_by_hostname("f", "f", false), true);
+        assert_eq!(is_anchored_by_hostname("foo", "foo", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".com", ".com", false), true);
+        assert_eq!(is_anchored_by_hostname("com.", "com.", false), true);
 
         // matches partial
         // Single label
-        assert_eq!(is_anchored_by_hostname("foo", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname("foo.", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".foo", ".foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".foo.", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo", ".foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo.", ".foo.com", false), true);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com."), true);
-        assert_eq!(is_anchored_by_hostname("foo.com.", "foo.com."), true);
-        assert_eq!(is_anchored_by_hostname(".foo.com.", ".foo.com."), true);
-        assert_eq!(is_anchored_by_hostname(".foo.com", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.com.", "foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo.com.", ".foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo.com", ".foo.com", false), true);
 
-        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.bar.com"), true);
-        assert_eq!(is_anchored_by_hostname("foo.bar.", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.bar.com", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.bar.", "foo.bar.com", false), true);
 
         // does not match partial prefix
         // Single label
-        assert_eq!(is_anchored_by_hostname("foo", "foobar.com"), false);
-        assert_eq!(is_anchored_by_hostname("fo", "foo.com"), false);
-        assert_eq!(is_anchored_by_hostname(".foo", "foobar.com"), false);
+        assert_eq!(is_anchored_by_hostname("foo", "foobar.com", false), false);
+        assert_eq!(is_anchored_by_hostname("fo", "foo.com", false), false);
+        assert_eq!(is_anchored_by_hostname(".foo", "foobar.com", false), false);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.barbaz.com"), false);
+        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.barbaz.com", false), false);
         assert_eq!(
-            is_anchored_by_hostname(".foo.bar", ".foo.barbaz.com"),
+            is_anchored_by_hostname(".foo.bar", ".foo.barbaz.com", false),
             false
         );
 
         // ## suffix match
         // matches partial
         // Single label
-        assert_eq!(is_anchored_by_hostname("com", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".com", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".com.", "foo.com."), true);
-        assert_eq!(is_anchored_by_hostname("com.", "foo.com."), true);
+        assert_eq!(is_anchored_by_hostname("com", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".com", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".com.", "foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname("com.", "foo.com.", false), true);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.com.", ".foo.com."), true);
-        assert_eq!(is_anchored_by_hostname("foo.com", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.com.", ".foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", ".foo.com", false), true);
 
         // does not match partial
         // Single label
-        assert_eq!(is_anchored_by_hostname("om", "foo.com"), false);
-        assert_eq!(is_anchored_by_hostname("com", "foocom"), false);
+        assert_eq!(is_anchored_by_hostname("om", "foo.com", false), false);
+        assert_eq!(is_anchored_by_hostname("com", "foocom", false), false);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.bar.com", "baz.bar.com"), false);
-        assert_eq!(is_anchored_by_hostname("fo.bar.com", "foo.bar.com"), false);
-        assert_eq!(is_anchored_by_hostname(".fo.bar.com", "foo.bar.com"), false);
-        assert_eq!(is_anchored_by_hostname("bar.com", "foobar.com"), false);
-        assert_eq!(is_anchored_by_hostname(".bar.com", "foobar.com"), false);
+        assert_eq!(is_anchored_by_hostname("foo.bar.com", "baz.bar.com", false), false);
+        assert_eq!(is_anchored_by_hostname("fo.bar.com", "foo.bar.com", false), false);
+        assert_eq!(is_anchored_by_hostname(".fo.bar.com", "foo.bar.com", false), false);
+        assert_eq!(is_anchored_by_hostname("bar.com", "foobar.com", false), false);
+        assert_eq!(is_anchored_by_hostname(".bar.com", "foobar.com", false), false);
 
         // ## infix match
         // matches partial
-        assert_eq!(is_anchored_by_hostname("bar", "foo.bar.com"), true);
-        assert_eq!(is_anchored_by_hostname("bar.", "foo.bar.com"), true);
-        assert_eq!(is_anchored_by_hostname(".bar.", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname("bar", "foo.bar.com", false), true);
+        assert_eq!(is_anchored_by_hostname("bar.", "foo.bar.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".bar.", "foo.bar.com", false), true);
     }
 
     fn filter_match_url(filter: &str, url: &str, matching: bool) {
@@ -2681,6 +2691,7 @@ mod match_tests {
         filter_match_url("||foo*^bar", "https://foo.com/bar", true);
         filter_match_url("||foo*/bar", "https://foo.com/bar", true);
         filter_match_url("||foo*com/bar", "https://foo.com/bar", true);
+        filter_match_url("||foo2*com/bar", "https://foo2.com/bar", true);
         filter_match_url("||foo*com*/bar", "https://foo.com/bar", true);
         filter_match_url("||foo*com*^bar", "https://foo.com/bar", true);
         filter_match_url("||*foo*com*^bar", "https://foo.com/bar", true);
@@ -2695,7 +2706,11 @@ mod match_tests {
     }
 
     #[test]
-    #[ignore]
+    fn check_pattern_hostname_anchor_regex_filter_works_realisitic() {
+        filter_match_url("||vimeo.com^*?type=", "https://vimeo.com/ablincoln/fatal_attraction?type=pageview&target=%2F193641463", true);
+    }
+
+    #[test]
     fn check_pattern_hostname_left_right_anchor_regex_filter_works() {
         filter_match_url("||geo*.hltv.org^", "https://geo2.hltv.org/rekl13.php", true);
         filter_match_url(
