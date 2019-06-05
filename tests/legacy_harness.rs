@@ -308,6 +308,7 @@ mod legacy_check_match {
         engine.with_tags(tags);
             
         let mut engine_deserialized = Engine::from_rules(&vec![]);          // second empty
+        engine_deserialized.with_tags(tags);
         {
             let engine_serialized = engine.serialize().unwrap();
             engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy

@@ -38,7 +38,10 @@ pub struct Blocker {
     redirects: NetworkFilterList,
     filters_tagged: NetworkFilterList,
     filters: NetworkFilterList,
-
+    
+    // Do not serialize enabled tags - when deserializing, tags of the existing
+    // instance (the one we are recreating lists into) are maintained
+    #[serde(skip_serializing, skip_deserializing)]
     tags_enabled: HashSet<String>,
     tagged_filters_all: Vec<NetworkFilter>,
 
@@ -224,6 +227,10 @@ impl Blocker {
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
         self
+    }
+
+    pub fn tags_enabled(&self) -> Vec<String> {
+        self.tags_enabled.iter().cloned().collect()
     }
 }
 

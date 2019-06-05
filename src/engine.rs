@@ -47,6 +47,7 @@ impl Engine {
     }
 
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), BlockerError> {
+        let current_tags = self.blocker.tags_enabled();
         let gz = GzDecoder::new(serialized);
         let blocker = bincode::deserialize_from(gz)
             .or_else(|e| {
@@ -54,6 +55,7 @@ impl Engine {
                 Err(BlockerError::DeserializationError)
             })?;
         self.blocker = blocker;
+        self.blocker.with_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
         Ok(())
     }
 
@@ -155,8 +157,8 @@ mod tests {
         let url_results = vec![
             ("http://example.com/advert.html", true),
             ("http://example.com/somelongpath/test/2.html", true),
-            ("https://brianbondy.com/about", true),
-            ("https://brave.com/about", true),
+            ("https://brianbondy.com/about", false),
+            ("https://brave.com/about", false),
         ];
 
         let mut engine = Engine::from_rules(&filters);
@@ -164,6 +166,7 @@ mod tests {
         engine.tags_enable(&["brian"]);
         let serialized = engine.serialize().unwrap();
         let mut deserialized_engine = Engine::from_rules(&[]);
+        deserialized_engine.tags_enable(&["stuff"]);
         deserialized_engine.deserialize(&serialized).unwrap();
 
         url_results.into_iter().for_each(|(url, expected_result)| {
