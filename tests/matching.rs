@@ -3,6 +3,7 @@ extern crate adblock;
 use adblock::request::Request;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
+use adblock::engine::Engine;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -29,9 +30,29 @@ fn load_requests() -> Vec<TestRuleRequest> {
     reqs
 }
 
+fn build_resources_from_filters(filters: &[String]) -> String {
+    let resources: Vec<_> = filters.iter()
+        .map(|r| NetworkFilter::parse(&r, true))
+        .filter_map(Result::ok)
+        .filter(|f| f.is_redirect())
+        .map(|f| {
+            let redirect = f.redirect.unwrap();
+            let rtype = if redirect.ends_with(".gif") {
+                "image/gif;base64"
+            } else {
+                "application/javascript"
+            };
+
+            format!("{} {}\n{}", redirect, rtype, redirect)
+        })
+        .collect();
+
+    resources.join("\n\n")
+}
+
 
 #[test]
-fn check_matching() {
+fn check_filter_matching() {
     let requests = load_requests();
 
     let mut requests_checked = 0;
@@ -57,4 +78,40 @@ fn check_matching() {
     assert_eq!(requests_checked, 9381); // A catch for regressions
 }
 
+#[test]
+fn check_engine_matching() {
+    let requests = load_requests();
 
+    assert!(requests.len() > 0, "List of parsed request info is empty");
+
+    for req in requests {
+        if req.url == "http://" || req.url == "https://" {
+            continue;
+        }
+        for filter in req.filters {
+            let mut engine = Engine::from_rules_debug(&[filter.clone()]);
+            let resources = build_resources_from_filters(&[filter.clone()]);
+            engine.with_resources(&resources);
+
+            let nework_filter_res = NetworkFilter::parse(&filter, true);
+            assert!(nework_filter_res.is_ok(), "Could not parse filter {}", filter);
+            let network_filter = nework_filter_res.unwrap();
+
+            let result = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+
+            if network_filter.is_exception() {
+                assert!(!result.matched, "Expected {} to NOT match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+                // assert!(result.exception.is_some(), "Expected exception {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+            } else {
+                assert!(result.matched, "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+            }
+            
+            if network_filter.is_redirect() {
+                assert!(result.redirect.is_some(), "Expected {} to trigger redirect rule {}", req.url, filter);
+                let redirect = result.redirect.as_ref().unwrap();
+                // each redirect url is base64 encoded
+                assert!(redirect.contains("base64"));
+            }
+        }
+    }
+}

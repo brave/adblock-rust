@@ -14,6 +14,7 @@ extern crate bincode;   // binary serialization/deserialization
 extern crate flate2;
 extern crate regex;
 extern crate idna;      // utf domain handling
+extern crate base64;
 
 #[cfg(test)]
 extern crate csv;       // csv handling library used for processing test data
@@ -28,3 +29,4 @@ pub mod optimizer;
 pub mod url_parser;
 pub mod engine;
 pub mod filter_lists;
+pub mod resources;

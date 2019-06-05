@@ -8,6 +8,8 @@ use crate::filters::network::{NetworkFilter, NetworkMatchable};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
+use crate::resources::{Resources};
+use base64;
 
 pub struct BlockerOptions {
     pub debug: bool,
@@ -16,6 +18,7 @@ pub struct BlockerOptions {
     pub load_network_filters: bool,
 }
 
+#[derive(Debug)]
 pub struct BlockerResult {
     pub matched: bool,
     pub explicit_cancel: bool,
@@ -49,6 +52,8 @@ pub struct Blocker {
     enable_optimizations: bool,
     load_cosmetic_filters: bool,
     load_network_filters: bool,
+
+    resources: Option<Resources>
 }
 
 impl Blocker {
@@ -95,11 +100,28 @@ impl Blocker {
             }
         });
 
-        // If there is a match
+        // only match redirects if we have them set up
         let redirect: Option<String> = filter.as_ref().and_then(|f| {
-            if f.is_redirect() {
-                // TODO: build up redirect URL from matching resource
-                unimplemented!()
+            // If there is a match
+            if let Some(blocker_redirects) = self.resources.as_ref() {
+                // Filter redirect option is set
+                if let Some(redirect) = f.redirect.as_ref() {
+                    // And we have a matching redirect resource
+                    if let Some(resource) = blocker_redirects.get_resource(redirect) {
+                        let mut data_url: String;
+                        if resource.content_type.contains(';') {
+                            data_url = format!("data:{},{}", resource.content_type, resource.data);
+                        } else {
+                            data_url = format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data));
+                        }
+                        Some(data_url.trim().to_owned())
+                    } else {
+                        // TOOD: handle error - throw?
+                        None
+                    }
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -195,6 +217,8 @@ impl Blocker {
             enable_optimizations: options.enable_optimizations,
             load_cosmetic_filters: options.load_cosmetic_filters,
             load_network_filters: options.load_network_filters,
+
+            resources: None
         }
     }
 
@@ -231,6 +255,12 @@ impl Blocker {
 
     pub fn tags_enabled(&self) -> Vec<String> {
         self.tags_enabled.iter().cloned().collect()
+    }
+    
+    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Blocker {
+        let resources = Resources::parse(resources);
+        self.resources = Some(resources);
+        self
     }
 }
 

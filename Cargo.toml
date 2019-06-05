@@ -33,6 +33,7 @@ bincode = "1.1"
 flate2 = "1"
 seahash = "3"
 twoway = "0.2"
+base64 = "0.10"
 
 # [target.'cfg(any(unix, windows))'.dependencies]
 # rayon = "1.0"

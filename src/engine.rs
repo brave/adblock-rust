@@ -60,8 +60,20 @@ impl Engine {
     }
 
     pub fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str) -> BlockerResult {
-        let request = Request::from_urls(&url, &source_url, &request_type).unwrap();
-        self.blocker.check(&request)
+        Request::from_urls(&url, &source_url, &request_type)
+        .map(|request| {
+            self.blocker.check(&request)
+        })
+        .unwrap_or_else(|_e| {
+            BlockerResult {
+                matched: false,
+                explicit_cancel: false,
+                redirect: None,
+                exception: None,
+                filter: None,
+            }
+        })
+        
     }
 
     pub fn check_network_urls_with_hostnames(&self, url: &str, hostname: &str, source_hostname: &str, request_type: &str, third_party_request: Option<bool>) -> BlockerResult {
@@ -80,6 +92,11 @@ impl Engine {
 
     pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> () {
         self.blocker.tags_disable(tags);
+    }
+
+    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Engine {
+        self.blocker.with_resources(resources);
+        self
     }
 }
 
