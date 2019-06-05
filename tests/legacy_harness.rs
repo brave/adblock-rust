@@ -159,7 +159,7 @@ mod legacy_test_filters {
     fn check_hostname_anchor() {
         test_filter(
             "||example.com/banner.gif",
-            NetworkFilterMask::DEFAULT_OPTIONS 
+            NetworkFilterMask::DEFAULT_OPTIONS
             | NetworkFilterMask::IS_LEFT_ANCHOR                 // filter part of the rule is left-anchored (to hostname)
             | NetworkFilterMask::IS_HOSTNAME_ANCHOR,            // FTHostAnchored, FONoFilterOption
             Some("/banner.gif"),
@@ -174,6 +174,26 @@ mod legacy_test_filters {
                 "http://example.com.au/banner.gif",
                 "http://example.com/banner2.gif",
             ],
+        );
+    }
+
+    #[test]
+    fn check_hostname_left_anchor_with_wildcard() {
+        test_filter(
+            "||fls-*.amazon.*%",
+            NetworkFilterMask::DEFAULT_OPTIONS
+            | NetworkFilterMask::IS_LEFT_ANCHOR
+            | NetworkFilterMask::IS_HOSTNAME_ANCHOR
+            | NetworkFilterMask::IS_HOSTNAME_REGEX,
+            Some("/1/action-impressions/1/OE/aws-mktg/action/awsm_v2_:perf_windowLoad@v=1815:u=ms/awsm_v2_:perf_loadEventEnd@v=1805:u=ms/awsm_v2_:perf_domComplete@v=1791:u=ms?dataset=LIVE%"),
+            &[
+                "https://fls-na.amazon.com/1/action-impressions/1/OE/aws-mktg/action/awsm_v2_:perf_windowLoad@v=1815:u=ms/awsm_v2_:perf_loadEventEnd@v=1805:u=ms/awsm_v2_:perf_domComplete@v=1791:u=ms?dataset=LIVE%3"
+            ],
+            &[
+                "https://fls-na.bart.com/1/action-impressions/1/OE/aws-mktg/action/awsm_v2_:perf_windowLoad@v=1815:u=ms/awsm_v2_:perf_loadEventEnd@v=1805:u=ms/awsm_v2_:perf_domComplete@v=1791:u=ms?dataset=LIVE%3",
+                "https://fls.amazon.com/1/action-impressions/1/OE/aws-mktg/action/awsm_v2_:perf_windowLoad@v=1815:u=ms/awsm_v2_:perf_loadEventEnd@v=1805:u=ms/awsm_v2_:perf_domComplete@v=1791:u=ms?dataset=LIVE%3",
+                "https://fls-na.amazon.com/1/"
+            ]
         );
     }
 
@@ -246,7 +266,7 @@ mod legacy_test_filters {
     fn check_hostname_exact_match() {
         test_filter(
             "||static.tumblr.com/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg",
-            NetworkFilterMask::DEFAULT_OPTIONS 
+            NetworkFilterMask::DEFAULT_OPTIONS
             | NetworkFilterMask::IS_LEFT_ANCHOR         // filter part left-anchored to hostname
             | NetworkFilterMask::IS_HOSTNAME_ANCHOR,    // FTHostAnchored, FONoFilterOption
             Some(&"/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg".to_lowercase()),        // by default rules are case-insensitive, everything gets lowercased
@@ -306,7 +326,7 @@ mod legacy_check_match {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
         let mut engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
         engine.with_tags(tags);
-            
+
         let mut engine_deserialized = Engine::from_rules(&vec![]);          // second empty
         {
             let engine_serialized = engine.serialize().unwrap();
@@ -368,7 +388,7 @@ mod legacy_check_match {
             "http://example.com/advert.html",
             "http://examples.com/advice.html",
             "http://examples.com/#!foo",
-        ], 
+        ],
         &[]);
 
         {
@@ -386,7 +406,7 @@ mod legacy_check_match {
         assert_eq!(engine.check_network_urls("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").matched, false);
         assert_eq!(engine_deserialized.check_network_urls("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").matched, false);
         }
-        
+
         check_match(&["^promotion^"],
             &["http://yahoo.co.jp/promotion/imgs"], &[], &[]);
 
@@ -400,7 +420,7 @@ mod legacy_check_match {
             "http://yahoo.co.jp/adsx/imgs",
             "http://yahoo.co.jp/adsshmads/imgs",
             "ads://ads.co.ads/aads",
-        ], 
+        ],
         &[]);
     }
 
@@ -428,7 +448,7 @@ mod legacy_check_match {
             "https://brave.com/about"
             ], &[], &["stuff", "brian"]
         );
-  
+
         // A tag which doesn't match shouldn't match
         check_match(&["adv$tag=stuff",
             "somelongpath/test$tag=stuff",
@@ -441,7 +461,7 @@ mod legacy_check_match {
             &["filtertag1", "filtertag2"]
         );
     }
-    
+
 }
 
 mod legacy_check_options {
@@ -591,7 +611,7 @@ mod legacy_check_options {
         check_option_rule(&["||s1.wp.com^$subdocument,third-party"], &[
             ("http://s1.wp.com/_static", "http://windsorstar.com", "", false),
         ]);
-        
+
         // Third party flags work correctly
         check_option_rule(&["/scripts/ad."], &[
             ("http://a.fsdn.com/sd/js/scripts/ad.js?release_20160112", "http://slashdot.org", "script", true),
@@ -639,7 +659,7 @@ mod legacy_misc_tests {
 
         let f = NetworkFilter::parse("||googlesyndication.com$third-party", false);
         let f2 = NetworkFilter::parse("||googleayndication.com$third-party", false);
-        
+
         // TODO: implement methods to check for rule presence
         // CHECK(client.hostAnchoredHashSet->Exists(f));
         // CHECK(client2.hostAnchoredHashSet->Exists(f));
@@ -648,7 +668,7 @@ mod legacy_misc_tests {
 
         let f3 = NetworkFilter::parse("@@||googlesyndication.ca", false);
         let f4 = NetworkFilter::parse("googlesyndication.ca", false);
-        
+
         // TODO: implement methods to check for rule presence
         // CHECK(client.hostAnchoredExceptionHashSet->Exists(f3));
         // CHECK(client2.hostAnchoredExceptionHashSet->Exists(f3));
