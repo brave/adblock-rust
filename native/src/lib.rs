@@ -109,6 +109,18 @@ declare_types! {
             };
             Ok(JsNull::new().upcast())
         }
+
+        method updateResources(mut cx) {
+            let resources: String = cx.argument::<JsString>(0)?.value();
+
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                engine.with_resources(&resources);
+            }
+            Ok(JsNull::new().upcast())
+        }
     }
 }
 

@@ -51,7 +51,7 @@ impl Engine {
         let gz = GzDecoder::new(serialized);
         let blocker = bincode::deserialize_from(gz)
             .or_else(|e| {
-                println!("Error deserializing: {:?}", e);
+                eprintln!("Error deserializing: {:?}", e);
                 Err(BlockerError::DeserializationError)
             })?;
         self.blocker = blocker;
@@ -65,6 +65,7 @@ impl Engine {
             self.blocker.check(&request)
         })
         .unwrap_or_else(|_e| {
+            eprintln!("Error parsing request, returning no match");
             BlockerResult {
                 matched: false,
                 explicit_cancel: false,

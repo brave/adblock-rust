@@ -117,6 +117,9 @@ impl Blocker {
                         Some(data_url.trim().to_owned())
                     } else {
                         // TOOD: handle error - throw?
+                        if self.debug {
+                            eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
+                        }
                         None
                     }
                 } else {
