@@ -43,14 +43,18 @@ Note the Node.js module has overheads inherent to boundary crossing between JS a
 const AdBlockClient = require('adblock-rs');
 let rules = fs.readFileSync('./data/easylist.to/easylist/easylist.txt', { encoding: 'utf-8' }).split('\n');
 
-const client = new AdBlockClient.Engine(rules);
+// create client with debug = true
+const client = new AdBlockClient.Engine(rules, true);
 
 const serializedArrayBuffer = client.serialize(); // Serialize the engine to an ArrayBuffer
 
 console.log(`Engine size: ${(serializedArrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
 
 console.log("Matching:", client.check("http://example.com/-advertisement-icon.", "http://example.com/helloworld", "image"))
-console.log("Matching:", client.check("https://github.githubassets.com/assets/frameworks-64831a3d.js", "https://github.com/AndriusA", "script"))
+// Match with full debuging info
+console.log("Matching:", client.check("http://example.com/-advertisement-icon.", "http://example.com/helloworld", "image", true))
+// No, but still with debugging info
+console.log("Matching:", client.check("https://github.githubassets.com/assets/frameworks-64831a3d.js", "https://github.com/AndriusA", "script", true))
 ```
 
 

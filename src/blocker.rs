@@ -18,7 +18,7 @@ pub struct BlockerOptions {
     pub load_network_filters: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
     pub explicit_cancel: bool,
