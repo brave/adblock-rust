@@ -43,6 +43,14 @@ declare_types! {
             let source_url: String = cx.argument::<JsString>(1)?.value();
             let request_type: String = cx.argument::<JsString>(2)?.value();
 
+            let debug = match cx.argument_opt(3) {
+                Some(arg) => {
+                    // Throw if the argument exist and it cannot be downcasted to a boolean
+                    arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value()
+                }
+                None => false,
+            };
+
             let this = cx.this();
 
             let result = {
@@ -50,7 +58,12 @@ declare_types! {
                 let engine = this.borrow(&guard);
                 engine.check_network_urls(&url, &source_url, &request_type)
             };
-            Ok(cx.boolean(result.matched).upcast())
+            if debug {
+                let js_value = neon_serde::to_value(&mut cx, &result)?;
+                Ok(js_value)
+            } else {
+                Ok(cx.boolean(result.matched).upcast())
+            }
         }
 
         method serialize(mut cx) {
