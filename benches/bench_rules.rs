@@ -3,7 +3,7 @@ extern crate criterion;
 use criterion::*;
 
 use adblock;
-use adblock::utils::{read_rules, rules_from_lists};
+use adblock::utils::{read_file_lines, rules_from_lists};
 use adblock::blocker::{Blocker, BlockerOptions};
 
 
@@ -15,7 +15,7 @@ fn default_lists() -> Vec<String> {
 
 fn default_rules_lists() -> Vec<Vec<String>> {
   vec![
-    read_rules("data/easylist.to/easylist/easylist.txt"),
+    read_file_lines("data/easylist.to/easylist/easylist.txt"),
   ]
 }
 
