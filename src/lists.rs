@@ -42,7 +42,7 @@ pub fn parse_filters(
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
         .map(|line| {
             let filter = line.trim();
-            if !filter.is_empty() {
+            if !filter.is_empty() && !filter.starts_with("!") {
                 let filter_type = detect_filter_type(filter);
                 if filter_type == FilterType::Network && load_network_filters {
                     let network_filter = NetworkFilter::parse(filter, debug);
@@ -51,11 +51,15 @@ pub fn parse_filters(
                     // }
                     network_filter
                         .map(Either::Left)
-                        .or_else(|_| Err(FilterError::ParseError))
+                        .or_else(|e| {
+                            eprintln!("Filter parse error {:?} for {}", e, filter);
+                            Err(FilterError::ParseError)
+                        })
                 } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
                     // TODO: unimplemented, just return rule as a string
                     Ok(Either::Right(String::from(filter)))
                 } else {
+                    eprintln!("Unsupported filter: {}", filter);
                     Err(FilterError::NotSupported)
                 }
             } else {

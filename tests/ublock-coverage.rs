@@ -102,6 +102,32 @@ fn check_specifics_default() {
 }
 
 #[test]
+fn check_specifics_jp() {
+    let rules = rules_from_lists(&vec![
+        String::from("data/k2jp/abp-japanese-filters/abp_jp.txt"),
+        String::from("data/k2jp/abp-japanese-filters/abpjf.txt")
+    ]);
+
+    let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
+
+    let blocker_options = BlockerOptions {
+        debug: true,
+        enable_optimizations: false,
+        load_cosmetic_filters: false,
+        load_network_filters: true
+    };
+
+    let engine = Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    };
+
+    {
+        let checked = engine.check_network_urls("https://f.image.geki.jp/data/image/etc/1037_1028_g.png", "web.gekisaka.jp", "image");
+        assert_eq!(checked.matched, true);
+    }
+}
+
+#[test]
 fn check_basic_works_after_deserialization() {
     let engine = get_blocker_engine();
     let serialized = engine.serialize().unwrap();
