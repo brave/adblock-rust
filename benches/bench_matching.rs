@@ -302,16 +302,12 @@ fn deserialization(c: &mut Criterion) {
     );
 }
 
-fn rule_match_browserlike_elep(c: &mut Criterion) {
-  
-  let rules = rules_from_lists(&vec![
-    String::from("data/easylist.to/easylist/easylist.txt"),
-    String::from("data/easylist.to/easylist/easyprivacy.txt"),
-  ]);
+fn rule_match_browserlike_comparable(c: &mut Criterion) {
   let requests = load_requests();
   let requests_len = requests.len() as u32;
 
-  let requests_parsed: Vec<(String, String, String, String, Option<bool>)> = requests.iter().map(|r| {
+  fn requests_parsed(requests: &[TestRequest]) -> Vec<(String, String, String, String, Option<bool>)> {
+    requests.iter().map(|r| {
         let url_norm = r.url.to_ascii_lowercase();
         let source_url_norm = r.frameUrl.to_ascii_lowercase();
 
@@ -343,20 +339,47 @@ fn rule_match_browserlike_elep(c: &mut Criterion) {
         }
     })
     .filter_map(Result::ok)
-    .collect();
+    .collect::<Vec<_>>()
+  }
+
+  let elep_req = requests_parsed(&requests);
+  let el_req = elep_req.clone();
+  let slim = elep_req.clone();
 
   c.bench(
         "rule-match-browserlike",
-        Benchmark::new(
-            "el+ep",
-            move |b| {
-              let blocker = get_blocker(&rules);
-              let engine = Engine {
-                blocker
-              };
-              b.iter(|| bench_rule_matching_browserlike(&engine, &requests_parsed))
-            },
-        ).throughput(Throughput::Elements(requests_len))
+        Benchmark::new("el+ep", move |b| {
+          let rules = rules_from_lists(&vec![
+            "data/easylist.to/easylist/easylist.txt".to_owned(),
+            "data/easylist.to/easylist/easyprivacy.txt".to_owned()
+          ]);
+          let blocker = get_blocker(&rules);
+          let engine = Engine {
+            blocker
+          };
+          b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
+        },)
+        .with_function("el", move |b| {
+          let rules = rules_from_lists(&vec![
+            "data/easylist.to/easylist/easylist.txt".to_owned(),
+          ]);
+          let blocker = get_blocker(&rules);
+          let engine = Engine {
+            blocker
+          };
+          b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
+        },)
+        .with_function("slimlist", move |b| {
+          let rules = rules_from_lists(&vec![
+            "data/slim-list.txt".to_owned()
+          ]);
+          let blocker = get_blocker(&rules);
+          let engine = Engine {
+            blocker
+          };
+          b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
+        },)
+        .throughput(Throughput::Elements(requests_len))
         .sample_size(10)
     );
 }
@@ -368,7 +391,7 @@ criterion_group!(
   rule_match_slimlist_comparable,
   rule_match,
   rule_match_slim,
-  rule_match_browserlike_elep,
+  rule_match_browserlike_comparable,
   serialization,
   deserialization
 );
