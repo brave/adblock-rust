@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -28,8 +28,19 @@ pub struct BlockerResult {
 #[derive(Debug, PartialEq)]
 pub enum BlockerError {
     SerializationError,
-    DeserializationError
+    DeserializationError,
+    OptimizedFilterExistence,
+    BadFilterAddUnsupported,
+    FilterExists,
+    BlockerFilterError(FilterError),
 }
+
+impl From<FilterError> for BlockerError {
+    fn from(error: FilterError) -> BlockerError {
+        BlockerError::BlockerFilterError(error)
+    }
+}
+
 
 #[derive(Serialize, Deserialize)]
 pub struct Blocker {
@@ -199,6 +210,51 @@ impl Blocker {
         }
     }
 
+    pub fn filter_exists(&self, filter: &NetworkFilter) -> Result<bool, BlockerError> {
+        if filter.is_csp() {
+            self.csp.filter_exists(filter)
+        } else if filter.is_exception() {
+            self.exceptions.filter_exists(filter)
+        } else if filter.is_important() {
+            self.importants.filter_exists(filter)
+        } else if filter.is_redirect() {
+            self.redirects.filter_exists(filter)
+        } else if filter.tag.is_some() {
+            Ok(self.tagged_filters_all.iter().any(|f| f.id == filter.id))
+        } else {
+            self.filters.filter_exists(filter)
+        }
+    }
+
+    pub fn filter_add<'a>(&'a mut self, filter: NetworkFilter) -> Result<&'a mut Blocker, BlockerError> {
+        if filter.is_badfilter() {
+            return Err(BlockerError::BadFilterAddUnsupported)
+        } else if self.filter_exists(&filter) == Ok(true) {
+            Err(BlockerError::FilterExists)
+        } else {
+            if filter.is_csp() {
+                self.csp.filter_add(filter);
+                Ok(self)
+            } else if filter.is_exception() {
+                self.exceptions.filter_add(filter);
+                Ok(self)
+            } else if filter.is_important() {
+                self.importants.filter_add(filter);
+                Ok(self)
+            } else if filter.is_redirect() {
+                self.redirects.filter_add(filter);
+                Ok(self)
+            } else if filter.tag.is_some() {
+                self.tagged_filters_all.push(filter);
+                let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
+                Ok(self.tags_with_set(tags_enabled))
+            } else {
+                self.filters.filter_add(filter);
+                Ok(self)
+            }
+        }
+    }
+
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
         let tag_set: HashSet<String> = HashSet::from_iter(tags.into_iter().map(|&t| String::from(t)));
         self.tags_with_set(tag_set)
@@ -238,6 +294,7 @@ impl Blocker {
 #[derive(Serialize, Deserialize)]
 struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
+    optimized: bool
 }
 
 impl NetworkFilterList {
@@ -305,11 +362,72 @@ impl NetworkFilterList {
             // won't mutate anymore, shrink to fit items
             optimized_map.shrink_to_fit();
 
-            NetworkFilterList { filter_map: optimized_map }
+            NetworkFilterList {
+                filter_map: optimized_map,
+                optimized: enable_optimizations
+            }
         } else {
             filter_map.shrink_to_fit();
-            NetworkFilterList { filter_map }
+            NetworkFilterList { 
+                filter_map,
+                optimized: enable_optimizations
+            }
         }
+    }
+
+    pub fn filter_add<'a>(&'a mut self, filter: NetworkFilter) -> &'a mut NetworkFilterList {
+        let filter_tokens = filter.get_tokens();
+        let total_rules = vec_hashmap_len(&self.filter_map);
+        let filter_pointer = Arc::new(filter);
+
+        println!("Inserting filter {:?} tokenized to {:?}", filter_pointer, filter_tokens);
+
+        for tokens in filter_tokens {
+            let mut best_token: Hash = 0;
+            let mut min_count = total_rules + 1;
+            for token in tokens {
+                match self.filter_map.get(&token) {
+                    None => {
+                        min_count = 0;
+                        best_token = token
+                    }
+                    Some(filters) if filters.len() < min_count => {
+                        min_count = filters.len();
+                        best_token = token
+                    }
+                    _ => {}
+                }
+            }
+
+            println!("Inserting filter to token bucket {:?}", best_token);
+
+            insert_dup(&mut self.filter_map, best_token, Arc::clone(&filter_pointer));
+        }
+
+        self
+    }
+
+    pub fn filter_exists(&self, filter: &NetworkFilter) -> Result<bool, BlockerError> {
+        if self.optimized {
+            return Err(BlockerError::OptimizedFilterExistence)
+        }
+        let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
+
+        if tokens.is_empty() {
+            tokens.push(0)
+        }
+
+        for token in tokens {
+            if let Some(filters) = self.filter_map.get(&token) {
+                for saved_filter in filters {
+                    if saved_filter.id == filter.id {
+                        return Ok(true)
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
@@ -751,8 +869,7 @@ mod tests {
 #[cfg(test)]
 mod blocker_tests {
 
-    use crate::blocker::{Blocker, BlockerOptions};
-    use crate::blocker::vec_hashmap_len;
+    use super::*;
     use crate::lists::parse_filters;
     use crate::request::Request;
     use std::collections::HashSet;
@@ -954,6 +1071,96 @@ mod blocker_tests {
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
+        url_results.into_iter().for_each(|(req, expected_result)| {
+            let matched_rule = blocker.check(&req);
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", req.url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
+            }
+        });
+    }
+
+    #[test]
+    fn filter_add_badfilter_error() {
+        let blocker_options: BlockerOptions = BlockerOptions {
+            debug: false,
+            enable_optimizations: false,
+            load_cosmetic_filters: false,   
+            load_network_filters: true
+        };
+
+        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+
+        let filter = NetworkFilter::parse("adv$badfilter", true).unwrap();
+        let added = blocker.filter_add(filter);
+        assert!(added.is_err());
+        assert_eq!(added.err().unwrap(), BlockerError::BadFilterAddUnsupported);
+    }
+
+    #[test]
+    fn filter_add_twice_handling_error() {
+        {
+            // Not allow filter to be added twice hwn the engine is not optimised
+            let blocker_options: BlockerOptions = BlockerOptions {
+                debug: false,
+                enable_optimizations: false,
+                load_cosmetic_filters: false,   
+                load_network_filters: true
+            };
+
+            let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+
+            let filter = NetworkFilter::parse("adv", true).unwrap();
+            let blocker = blocker.filter_add(filter.clone()).unwrap();
+            assert_eq!(blocker.filter_exists(&filter), Ok(true), "Expected filter to be inserted");
+            let added = blocker.filter_add(filter);
+            assert!(added.is_err(), "Expected repeated insertion to fail");
+            assert_eq!(added.err().unwrap(), BlockerError::FilterExists, "Expected specific error on repeated insertion fail");
+        }
+        {
+            // Allow filter to be added twice when the engine is optimised
+            let blocker_options: BlockerOptions = BlockerOptions {
+                debug: false,
+                enable_optimizations: true,
+                load_cosmetic_filters: false,   
+                load_network_filters: true
+            };
+
+            let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+
+            let filter = NetworkFilter::parse("adv", true).unwrap();
+            blocker.filter_add(filter.clone()).unwrap();
+            let added = blocker.filter_add(filter);
+            assert!(added.is_ok());
+        }
+    }
+
+    #[test]
+    fn filter_add_tagged() {
+        // Allow filter to be added twice when the engine is optimised
+        let blocker_options: BlockerOptions = BlockerOptions {
+            debug: false,
+            enable_optimizations: true,
+            load_cosmetic_filters: false,   
+            load_network_filters: true
+        };
+
+        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+        blocker.tags_enable(&["brian"]);
+
+        blocker.filter_add(NetworkFilter::parse("adv$tag=stuff", true).unwrap()).unwrap();
+        blocker.filter_add(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
+        blocker.filter_add(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
+        blocker.filter_add(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
+        
+        let url_results = vec![
+            (Request::from_url("http://example.com/advert.html").unwrap(), false),
+            (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), false),
+            (Request::from_url("https://brianbondy.com/about").unwrap(), true),
+            (Request::from_url("https://brave.com/about").unwrap(), true),
+        ];
+        
         url_results.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
