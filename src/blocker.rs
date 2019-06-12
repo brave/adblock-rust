@@ -294,7 +294,7 @@ impl Blocker {
 #[derive(Serialize, Deserialize)]
 struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
-    optimized: bool
+    optimized: Option<bool>
 }
 
 impl NetworkFilterList {
@@ -364,13 +364,13 @@ impl NetworkFilterList {
 
             NetworkFilterList {
                 filter_map: optimized_map,
-                optimized: enable_optimizations
+                optimized: Some(enable_optimizations)
             }
         } else {
             filter_map.shrink_to_fit();
             NetworkFilterList { 
                 filter_map,
-                optimized: enable_optimizations
+                optimized: Some(enable_optimizations)
             }
         }
     }
@@ -379,8 +379,6 @@ impl NetworkFilterList {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
-
-        println!("Inserting filter {:?} tokenized to {:?}", filter_pointer, filter_tokens);
 
         for tokens in filter_tokens {
             let mut best_token: Hash = 0;
@@ -399,8 +397,6 @@ impl NetworkFilterList {
                 }
             }
 
-            println!("Inserting filter to token bucket {:?}", best_token);
-
             insert_dup(&mut self.filter_map, best_token, Arc::clone(&filter_pointer));
         }
 
@@ -408,7 +404,7 @@ impl NetworkFilterList {
     }
 
     pub fn filter_exists(&self, filter: &NetworkFilter) -> Result<bool, BlockerError> {
-        if self.optimized {
+        if self.optimized == Some(true) {
             return Err(BlockerError::OptimizedFilterExistence)
         }
         let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
