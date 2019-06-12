@@ -1,5 +1,7 @@
 # Ad Block engine in Rust
 
+[![Build Status](https://travis-ci.org/brave/adblock-rust.svg?branch=master)](https://travis-ci.org/brave/adblock-rust)
+
 Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching.
 
 It uses a tokenisation approach for qucikly reducing the potentially matching rule search space against a URL.
@@ -19,8 +21,7 @@ extern crate adblock;
 
 use adblock::engine::Engine;
 
-#[test]
-fn check_simple_use() {
+fn main() {
     let rules = vec![
         String::from("-advertisement-icon."),
         String::from("-advertisement-management/"),
@@ -28,9 +29,10 @@ fn check_simple_use() {
         String::from("-advertisement/script."),
     ];
 
-    let blocker = Engine::from_rules(&rules);
+    let blocker = Engine::from_rules_debug(&rules);
     let blocker_result = blocker.check_network_urls("http://example.com/-advertisement-icon.", "http://example.com/helloworld", "image");
-    assert!(blocker_result.matched);
+
+    println!("Blocker result: {:?}", blocker_result);
 }
 
 ```

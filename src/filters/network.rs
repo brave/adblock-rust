@@ -131,23 +131,23 @@ impl fmt::Display for NetworkFilterMask {
 impl From<&request::RequestType> for NetworkFilterMask {
     fn from(request_type: &request::RequestType) -> NetworkFilterMask {
         match request_type {
-            request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
-            request::RequestType::Image => NetworkFilterMask::FROM_IMAGE,
-            request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
-            request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
-            request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
-            request::RequestType::Ping => NetworkFilterMask::FROM_PING,
             request::RequestType::Beacon => NetworkFilterMask::FROM_PING,
-            request::RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
-            request::RequestType::Font => NetworkFilterMask::FROM_FONT,
-            request::RequestType::Media => NetworkFilterMask::FROM_MEDIA,
-            request::RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
+            request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
+            request::RequestType::Document => NetworkFilterMask::UNMATCHED,
             request::RequestType::Dtd => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Fetch => NetworkFilterMask::FROM_OTHER,
+            request::RequestType::Font => NetworkFilterMask::FROM_FONT,
+            request::RequestType::Image => NetworkFilterMask::FROM_IMAGE,
+            request::RequestType::Media => NetworkFilterMask::FROM_MEDIA,
+            request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
+            request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
+            request::RequestType::Ping => NetworkFilterMask::FROM_PING,
+            request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
+            request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
+            request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
+            request::RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
             request::RequestType::Xlst => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Document => NetworkFilterMask::UNMATCHED,
-            request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
+            request::RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
         }
     }
 }
