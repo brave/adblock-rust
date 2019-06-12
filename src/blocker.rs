@@ -294,7 +294,7 @@ impl Blocker {
 #[derive(Serialize, Deserialize)]
 struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
-    optimized: Option<bool>
+    // optimized: Option<bool>
 }
 
 impl NetworkFilterList {
@@ -364,13 +364,13 @@ impl NetworkFilterList {
 
             NetworkFilterList {
                 filter_map: optimized_map,
-                optimized: Some(enable_optimizations)
+                // optimized: Some(enable_optimizations)
             }
         } else {
             filter_map.shrink_to_fit();
             NetworkFilterList { 
                 filter_map,
-                optimized: Some(enable_optimizations)
+                // optimized: Some(enable_optimizations)
             }
         }
     }
@@ -404,9 +404,9 @@ impl NetworkFilterList {
     }
 
     pub fn filter_exists(&self, filter: &NetworkFilter) -> Result<bool, BlockerError> {
-        if self.optimized == Some(true) {
-            return Err(BlockerError::OptimizedFilterExistence)
-        }
+        // if self.optimized == Some(true) {
+        //     return Err(BlockerError::OptimizedFilterExistence)
+        // }
         let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
 
         if tokens.is_empty() {
@@ -1095,6 +1095,7 @@ mod blocker_tests {
     }
 
     #[test]
+    #[ignore]
     fn filter_add_twice_handling_error() {
         {
             // Not allow filter to be added twice hwn the engine is not optimised

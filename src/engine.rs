@@ -220,4 +220,29 @@ mod tests {
             }
         });
     }
+
+    #[test]
+    fn deserialization_backwards_compatible() {
+        {
+            let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 141, 140, 177, 13, 0, 17, 24, 133, 201, 85, 87, 220, 12, 215, 92, 119, 209, 91, 192, 32, 191, 208, 42, 88, 194, 38, 18, 149, 154, 13, 108, 160, 181, 8, 137, 80, 232, 188, 230, 229, 203, 203, 251, 16, 58, 11, 158, 29, 128, 254, 229, 115, 121, 113, 123, 175, 177, 221, 147, 65, 16, 14, 74, 73, 189, 142, 213, 39, 243, 48, 27, 119, 25, 238, 64, 154, 208, 76, 120, 0, 0, 0];
+
+            let mut deserialized_engine = Engine::from_rules(&[]);
+            deserialized_engine.deserialize(&serialized).unwrap();
+
+            let url = "http://example.com/ad-banner.gif";
+            let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+            assert!(matched_rule.matched, "Expected match for {}", url);
+        }
+
+        {
+            let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 189, 13, 0, 16, 16, 133, 79, 84, 166, 48, 129, 210, 36, 38, 112, 104, 47, 97, 0, 165, 214, 8, 150, 178, 15, 9, 103, 0, 175, 121, 63, 121, 31, 192, 159, 4, 251, 210, 242, 100, 197, 221, 71, 131, 158, 40, 21, 190, 201, 183, 99, 128, 214, 71, 118, 118, 214, 203, 139, 13, 199, 193, 194, 49, 115, 0, 0, 0];
+            let mut deserialized_engine = Engine::from_rules(&[]);
+            deserialized_engine.tags_enable(&["abc"]);
+            deserialized_engine.deserialize(&serialized).unwrap();
+
+            let url = "http://example.com/ad-banner.gif";
+            let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+            assert!(matched_rule.matched, "Expected match for {}", url);
+        }
+    }
 }
