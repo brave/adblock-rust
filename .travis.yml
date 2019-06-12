@@ -1,0 +1,12 @@
+language: rust
+os:
+  - linux
+  - osx
+  - windows
+rust:
+  - stable
+  - nightly
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
