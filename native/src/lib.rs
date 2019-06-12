@@ -109,6 +109,41 @@ declare_types! {
             };
             Ok(JsNull::new().upcast())
         }
+
+        method tagExists(mut cx) {
+            let tag: String = cx.argument::<JsString>(0)?.value();
+
+            let this = cx.this();
+            let result = {
+                let guard = cx.lock();
+                let mut engine = this.borrow(&guard);
+                engine.tag_exists(&tag)
+            };
+            Ok(cx.boolean(result).upcast())
+        }
+
+        method clearTags(mut cx) {
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                // enabling an empty list of tags disables all tags
+                engine.tags_enable(&[]);
+            }
+            Ok(JsNull::new().upcast())
+        }
+
+        method addFilter(mut cx) {
+            let filter: String = cx.argument::<JsString>(0)?.value();
+
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                engine.filter_add(&filter);
+            }
+            Ok(JsNull::new().upcast())
+        }
     }
 }
 

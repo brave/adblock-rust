@@ -2,6 +2,7 @@
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::lists::parse_filters;
 use crate::request::Request;
+use crate::filters::network::NetworkFilter;
 use bincode;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
@@ -13,19 +14,19 @@ pub struct Engine {
 
 impl Engine {
     pub fn from_rules(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, false)
+        Self::from_rules_parametrised(&network_filters, false, true)
     }
 
     pub fn from_rules_debug(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, true)
+        Self::from_rules_parametrised(&network_filters, true, true)
     }
 
-    fn from_rules_parametrised(network_filters: &[String], debug: bool) -> Engine {
+    pub fn from_rules_parametrised(network_filters: &[String], debug: bool, optimize: bool) -> Engine {
         let (parsed_network_filters, _) = parse_filters(&network_filters, true, false, debug);
 
         let blocker_options = BlockerOptions {
             debug,
-            enable_optimizations: true,
+            enable_optimizations: optimize,
             load_cosmetic_filters: false,
             load_network_filters: true
         };
@@ -69,6 +70,43 @@ impl Engine {
         self.blocker.check(&request)
     }
 
+    pub fn filter_exists(&self, filter: &str) -> bool {
+        let filter_parsed = NetworkFilter::parse(filter, true);
+        match filter_parsed
+        .map_err(|e| BlockerError::from(e))
+        .and_then(|f| self.blocker.filter_exists(&f)) {
+            Ok(exists) => exists,
+            Err(e) => {
+                match e {
+                    BlockerError::BlockerFilterError(e) => eprintln!("Encountered filter error {:?} when checking for filter existence", e),
+                    BlockerError::OptimizedFilterExistence => eprintln!("Checking for filter existence in optimized engine will not return expected results"),
+                    e => eprintln!("Encountered unexpected error {:?} when checking for filter existence", e),
+                }
+                
+                false
+            }
+        }
+    }
+
+    pub fn filter_add<'a>(&'a mut self, filter: &str) -> &'a mut Engine {
+        let filter_parsed = NetworkFilter::parse(filter, true);
+        match filter_parsed
+        .map_err(|e| BlockerError::from(e))
+        .and_then(|f| self.blocker.filter_add(f)) {
+            Ok(_b) => self,
+            Err(e) => {
+                match e {
+                    BlockerError::BlockerFilterError(e) => eprintln!("Encountered filter error {:?} when adding", e),
+                    BlockerError::BadFilterAddUnsupported => eprintln!("Adding filters with `badfilter` option dynamically is not supported"),
+                    BlockerError::FilterExists => eprintln!("Filter already exists"),
+                    e => eprintln!("Encountered unexpected error {:?} when checking for filter existence", e),
+                }
+                
+                self
+            }
+        }
+    }
+
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Engine {
         self.blocker.with_tags(tags);
         self
@@ -80,6 +118,10 @@ impl Engine {
 
     pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> () {
         self.blocker.tags_disable(tags);
+    }
+
+    pub fn tag_exists(&self, tag: &str) -> bool {
+        self.blocker.tags_enabled().contains(&tag.to_owned())
     }
 }
 
