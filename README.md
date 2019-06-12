@@ -1,5 +1,7 @@
 # Ad Block engine in Rust
 
+[![Build Status](https://travis-ci.org/brave/adblock-rust.svg?branch=master)](https://travis-ci.org/brave/adblock-rust)
+
 Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching.
 
 It uses a tokenisation approach for qucikly reducing the potentially matching rule search space against a URL.
