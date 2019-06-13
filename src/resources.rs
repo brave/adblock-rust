@@ -13,6 +13,14 @@ pub struct Resources {
     pub resources: HashMap<String, Resource>
 }
 
+impl Default for Resources {
+    fn default() -> Resources {
+        Resources {
+            resources: HashMap::new()
+        }
+    }
+}
+
 impl Resources {
     pub fn parse(data: &str) -> Resources {
         let chunks = data.split("\n\n");

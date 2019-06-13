@@ -626,37 +626,26 @@ mod legacy_misc_tests {
     }
 
     #[test]
-    #[ignore] // Not Implemented
     fn serialization_tests() {
-        let engine = Engine::from_rules_debug(&[
+        let engine = Engine::from_rules_parametrised(&[
             String::from("||googlesyndication.com$third-party"),
             String::from("@@||googlesyndication.ca"),
             String::from("a$explicitcancel")
-        ]);
+        ], true, false);    // enable debugging and disable optimizations
 
         let serialized = engine.serialize().unwrap();
-        let mut engine2 = Engine::from_rules_debug(&[]);
+        let mut engine2 = Engine::from_rules_parametrised(&[], true, false);
         engine2.deserialize(&serialized).unwrap();
 
-        let f = NetworkFilter::parse("||googlesyndication.com$third-party", false);
-        let f2 = NetworkFilter::parse("||googleayndication.com$third-party", false);
-        
-        // TODO: implement methods to check for rule presence
-        // CHECK(client.hostAnchoredHashSet->Exists(f));
-        // CHECK(client2.hostAnchoredHashSet->Exists(f));
-        // CHECK(!client.hostAnchoredHashSet->Exists(f2));
-        // CHECK(!client2.hostAnchoredHashSet->Exists(f2));
+        assert!(engine.filter_exists("||googlesyndication.com$third-party"));
+        assert!(engine2.filter_exists("||googlesyndication.com$third-party"));
+        assert!(!engine.filter_exists("||googleayndication.com$third-party"));
+        assert!(!engine2.filter_exists("||googleayndication.com$third-party"));
 
-        let f3 = NetworkFilter::parse("@@||googlesyndication.ca", false);
-        let f4 = NetworkFilter::parse("googlesyndication.ca", false);
-        
-        // TODO: implement methods to check for rule presence
-        // CHECK(client.hostAnchoredExceptionHashSet->Exists(f3));
-        // CHECK(client2.hostAnchoredExceptionHashSet->Exists(f3));
-        // CHECK(!client.hostAnchoredExceptionHashSet->Exists(f4));
-        // CHECK(!client2.hostAnchoredExceptionHashSet->Exists(f4));
-        // CHECK(client.noFingerprintFilters[0].filterOption & FOExplicitCancel);
-        // CHECK(client2.noFingerprintFilters[0].filterOption & FOExplicitCancel);
+        assert!(engine.filter_exists("@@||googlesyndication.ca"));
+        assert!(engine2.filter_exists("@@||googlesyndication.ca"));
+        assert!(!engine.filter_exists("googlesyndication.ca"));
+        assert!(!engine2.filter_exists("googlesyndication.ca"));
     }
 
     #[test]
