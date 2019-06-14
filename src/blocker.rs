@@ -27,6 +27,18 @@ pub struct BlockerResult {
     pub filter: Option<String>,
 }
 
+impl Default for BlockerResult {
+    fn default() -> BlockerResult {
+        BlockerResult {
+            matched: false,
+            explicit_cancel: false,
+            redirect: None,
+            exception: None,
+            filter: None
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum BlockerError {
     SerializationError,
@@ -58,6 +70,9 @@ pub struct Blocker {
     tags_enabled: HashSet<String>,
     tagged_filters_all: Vec<NetworkFilter>,
 
+    #[serde(skip_serializing, skip_deserializing)]
+    hot_filters: NetworkFilterList,
+
     debug: bool,
     enable_optimizations: bool,
     load_cosmetic_filters: bool,
@@ -74,13 +89,7 @@ impl Blocker {
      */
     pub fn check(&self, request: &Request) -> BlockerResult {
         if !self.load_network_filters || !request.is_supported {
-            return BlockerResult {
-                matched: false,
-                explicit_cancel: false,
-                redirect: None,
-                exception: None,
-                filter: None,
-            };
+            return BlockerResult::default();
         }
 
         // Check the filters in the following order:
@@ -88,17 +97,34 @@ impl Blocker {
         // 2. redirection ($redirect=resource)
         // 3. normal filters
         // 4. exceptions
+        #[cfg(feature = "metrics")]
+        print!("importants\t");
+
         let filter = self
             .importants
+            // .filters
             .check(request)
-            .or_else(|| self.filters_tagged.check(request))
-            .or_else(|| self.redirects.check(request))
-            .or_else(|| self.filters.check(request));
+            .or_else(|| {
+                #[cfg(feature = "metrics")]
+                print!("tagged\t");
+                self.filters_tagged.check(request)
+            })
+            .or_else(|| {
+                #[cfg(feature = "metrics")]
+                print!("redirects\t");
+                self.redirects.check(request)
+            })
+            .or_else(|| {
+                #[cfg(feature = "metrics")]
+                print!("filters\t"); 
+                self.filters.check(request)
+            });
 
         let exception = filter.as_ref().and_then(|f| {
             // Set `bug` of request
-            // TODO - avoid mutability
             if !f.is_important() {
+                #[cfg(feature = "metrics")]
+                print!("exceptions\t");
                 if f.has_bug() {
                     let mut request_bug = request.clone();
                     request_bug.bug = f.bug;
@@ -110,6 +136,9 @@ impl Blocker {
                 None
             }
         });
+        
+        #[cfg(feature = "metrics")]
+        println!("");
 
         // only match redirects if we have them set up
         let redirect: Option<String> = filter.as_ref().and_then(|f| {
@@ -221,6 +250,7 @@ impl Blocker {
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
+            hot_filters: NetworkFilterList::default(),
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
@@ -326,7 +356,7 @@ impl Blocker {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
     // optimized: Option<bool>
@@ -462,27 +492,66 @@ impl NetworkFilterList {
     }
 
     pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
+        #[cfg(feature = "metrics")]
+        let mut filters_checked = 0;
+        #[cfg(feature = "metrics")]
+        let mut filter_buckets = 0;
+
+        #[cfg(not(feature = "metrics"))]
+        {
+            if self.filter_map.is_empty() {
+                return None;
+            }
+        }
+
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
+                    #[cfg(feature = "metrics")]
+                    {
+                        filter_buckets += 1;
+                    }
+
                     for filter in filter_bucket {
+                        #[cfg(feature = "metrics")]
+                        {
+                            filters_checked += 1;
+                        }
                         if filter.matches(request) {
+                            #[cfg(feature = "metrics")]
+                            print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             return Some(filter);
                         }
                     }
                 }
             }
         }
+
+        #[cfg(feature = "metrics")]
+        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
         
         for token in request.get_tokens() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
+                #[cfg(feature = "metrics")]
+                {
+                    filter_buckets += 1;
+                }
                 for filter in filter_bucket {
+                    #[cfg(feature = "metrics")]
+                    {
+                        filters_checked += 1;
+                    }
                     if filter.matches(request) {
+                        #[cfg(feature = "metrics")]
+                        print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         return Some(filter);
                     }
                 }
             }
         }
+
+        #[cfg(feature = "metrics")]
+        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
 
         None
     }

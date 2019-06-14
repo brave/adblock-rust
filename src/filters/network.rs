@@ -1004,7 +1004,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
     }
 }
 
-
+#[inline]
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
     let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len());
     &url[start + hostname.len()..]
@@ -1015,6 +1015,7 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 // ---------------------------------------------------------------------------
 
 // pattern$fuzzy
+#[inline]
 fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     filter
         .fuzzy_signature
@@ -1040,6 +1041,7 @@ fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request
 }
 
 // pattern
+#[inline]
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
@@ -1056,6 +1058,7 @@ fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::
 }
 
 // pattern|
+#[inline]
 fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
@@ -1072,6 +1075,7 @@ fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::
 }
 
 // |pattern
+#[inline]
 fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
@@ -1088,6 +1092,7 @@ fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::R
 }
 
 // |pattern|
+#[inline]
 fn check_pattern_left_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1107,6 +1112,7 @@ fn check_pattern_left_right_anchor_filter(
 }
 
 // pattern*^
+#[inline]
 fn check_pattern_regex_filter_at(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1121,6 +1127,7 @@ fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request
 }
 
 // ||pattern*^
+#[inline]
 fn check_pattern_hostname_anchor_regex_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1143,6 +1150,7 @@ fn check_pattern_hostname_anchor_regex_filter(
 }
 
 // ||pattern|
+#[inline]
 fn check_pattern_hostname_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1171,6 +1179,7 @@ fn check_pattern_hostname_right_anchor_filter(
 }
 
 // |||pattern|
+#[inline]
 fn check_pattern_hostname_left_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1210,6 +1219,7 @@ fn check_pattern_hostname_left_right_anchor_filter(
 
 // ||pattern + left-anchor => This means that a plain pattern needs to appear
 // exactly after the hostname, with nothing in between.
+#[inline]
 fn check_pattern_hostname_left_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1246,6 +1256,7 @@ fn check_pattern_hostname_left_anchor_filter(
 }
 
 // ||pattern
+#[inline]
 fn check_pattern_hostname_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1281,6 +1292,7 @@ fn check_pattern_hostname_anchor_filter(
 }
 
 // ||pattern$fuzzy
+#[inline]
 fn check_pattern_hostname_anchor_fuzzy_filter(
     filter: &NetworkFilter,
     request: &request::Request,
@@ -1332,6 +1344,7 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
     }
 }
 
+#[inline]
 pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> bool {
     match NetworkFilterMask::from(cpt) {
         NetworkFilterMask::UNMATCHED => filter.cpt_any(),
