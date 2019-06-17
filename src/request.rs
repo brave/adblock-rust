@@ -88,14 +88,16 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: Vec<utils::Hash>,
     fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
     hostname_end: usize
 }
 
 impl<'a> Request {
-    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
-        &self.tokens
+    pub fn get_tokens(&self, mut token_buffer: &mut Vec<utils::Hash>) {
+        token_buffer.clear();
+        utils::tokenize_pooled(&self.url, &mut token_buffer);
+        // Add zero token as a fallback to wildcard rule bucket
+        token_buffer.push(0);
     }
 
     pub fn url_after_hostname(&self) -> &str {
@@ -196,10 +198,6 @@ impl<'a> Request {
         } else {
             None
         };
-        
-        let mut tokens = utils::tokenize(url);
-        // Add zero token as a fallback to wildcard rule bucket
-        tokens.push(0);
 
         Request {
             request_type,
@@ -212,7 +210,6 @@ impl<'a> Request {
             is_https,
             is_supported,
             bug: None,
-            tokens: tokens,
             fuzzy_signature: Arc::new(RwLock::new(None)),
             hostname_end
         }
@@ -455,8 +452,10 @@ mod tests {
             ], &[])
             .as_slice()
         );
+        let mut tokens = Vec::new();
+        simple_example.get_tokens(&mut tokens);
         assert_eq!(
-            simple_example.get_tokens().as_slice(),
+            tokens.as_slice(),
             tokenize(&[
                 "https",
                 "subdomain",

@@ -7,7 +7,7 @@ use seahash::hash;
 pub type Hash = u64;
 static HASH_MAX: Hash = std::u64::MAX;
 
-
+#[inline]
 pub fn fast_hash(input: &str) -> Hash {
     hash(input.as_bytes()) as Hash
 }
@@ -31,19 +31,16 @@ fn fast_tokenizer_no_regex(
     is_allowed_code: &Fn(char) -> bool,
     skip_first_token: bool,
     skip_last_token: bool,
-) -> Vec<Hash> {
-    
-    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
-
+    tokens_buffer: &mut Vec<Hash>
+) {
     // let mut tokens_buffer_index = 0;
     let mut inside: bool = false;
     let mut start = 0;
     let mut preceding_ch: Option<char> = None; // Used to check if a '*' is not just before a token
-    let chars = pattern.char_indices();
 
-    for (i, c) in chars {
+    for (i, c) in pattern.char_indices() {
         if tokens_buffer.len() >= TOKENS_MAX {
-            break;
+            return;
         }
         if is_allowed_code(c) {
             if !inside {
@@ -53,10 +50,10 @@ fn fast_tokenizer_no_regex(
         } else if inside {
             inside = false;
             // Should not be followed by '*'
-            if (!skip_first_token || start != 0)
+            if (start != 0 || !skip_first_token)
                 && i - start > 1
                 && c != '*'
-                && (preceding_ch != Some('*'))
+                && preceding_ch != Some('*')
             {
                 let hash = fast_hash(&pattern[start..i]);
                 tokens_buffer.push(hash);
@@ -77,12 +74,14 @@ fn fast_tokenizer_no_regex(
         let hash = fast_hash(&pattern[start..]);
         tokens_buffer.push(hash);
     }
-    
-    tokens_buffer
 }
 
-fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash> {
-    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+fn fast_tokenizer(
+    pattern: &str,
+    is_allowed_code: &Fn(char) -> bool,
+    skip_first_token: bool,
+    skip_last_token: bool,
+    tokens_buffer: &mut Vec<Hash>) {
 
     let mut inside: bool = false;
     let mut start = 0;
@@ -99,32 +98,34 @@ fn fast_tokenizer(pattern: &str, is_allowed_code: &Fn(char) -> bool) -> Vec<Hash
             }
         } else if inside {
             inside = false;
-            let hash = fast_hash(&pattern[start..i]);
-            tokens_buffer.push(hash);
+            if !skip_first_token || start != 0 {
+                let hash = fast_hash(&pattern[start..i]);
+                tokens_buffer.push(hash);
+            }
         }
     }
 
-    if inside {
+    if !skip_last_token && inside {
         let hash = fast_hash(&pattern[start..]);
         tokens_buffer.push(hash);
     }
+}
 
+pub fn tokenize_pooled(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
+    fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
+}
+
+pub fn tokenize(pattern: &str) -> Vec<Hash> {
+    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+    fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, &mut tokens_buffer);
     tokens_buffer
 }
 
 
-pub fn tokenize(pattern: &str) -> Vec<Hash> {
-    fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false)
-}
-
-
 pub fn tokenize_filter(pattern: &str, skip_first_token: bool, skip_last_token: bool) -> Vec<Hash> {
-    fast_tokenizer_no_regex(pattern, &is_allowed_filter, skip_first_token, skip_last_token)
-}
-
-
-pub fn tokenize_hostnames(pattern: &str) -> Vec<Hash> {
-    fast_tokenizer(&pattern, &is_allowed_hostname)
+    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+    fast_tokenizer_no_regex(pattern, &is_allowed_filter, skip_first_token, skip_last_token, &mut tokens_buffer);
+    tokens_buffer
 }
 
 fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
@@ -134,17 +135,17 @@ fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
 
 
 pub fn create_fuzzy_signature(pattern: &str) -> Vec<Hash> {
-    let mut tokens = fast_tokenizer(pattern, &is_allowed_filter);
+    let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+    fast_tokenizer(pattern, &is_allowed_filter, false, false, &mut tokens);
     compact_tokens(&mut tokens);
     tokens
 }
 
 
 pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
-    let mut tokens = vec![];
+    let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
     for p in patterns {
-        let mut ptokens = fast_tokenizer(p, &is_allowed_filter);
-        tokens.append(&mut ptokens);
+        fast_tokenizer(p, &is_allowed_filter, false, false, &mut tokens);
     }
     
     compact_tokens(&mut tokens);
@@ -261,39 +262,6 @@ mod tests {
         assert_eq!(
             tokenize_filter("foo////bar baz", false, true).as_slice(),
             t(&vec!["foo", "bar"]).as_slice()
-        );
-    }
-
-    #[test]
-    fn tokenize_host_works() {
-        assert_eq!(
-            tokenize_hostnames("").as_slice(),
-            t(&vec![]).as_slice()
-        );
-        assert_eq!(
-            tokenize_hostnames("foo").as_slice(),
-            t(&vec!["foo"]).as_slice()
-        );
-        assert_eq!(
-            tokenize_hostnames("foo/bar").as_slice(),
-            t(&vec!["foo", "bar"]).as_slice()
-        );
-        assert_eq!(
-            tokenize_hostnames("foo-barbaz/bar").as_slice(),
-            t(&vec!["foo-barbaz", "bar"]).as_slice()
-        );
-        assert_eq!(
-            tokenize_hostnames("foo_barbaz/ba%r").as_slice(),
-            t(&vec!["foo_barbaz", "ba%r"]).as_slice()
-        );
-
-        assert_eq!(
-            tokenize_hostnames("foo_barbaz/ba%r*").as_slice(),
-            t(&vec!["foo_barbaz", "ba%r"]).as_slice()
-        );
-        assert_eq!(
-            tokenize_hostnames("foo_barbaz///ba%r*").as_slice(),
-            t(&vec!["foo_barbaz", "ba%r"]).as_slice()
         );
     }
 

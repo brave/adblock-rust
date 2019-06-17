@@ -10,7 +10,7 @@ use flate2::read::GzDecoder;
 use flate2::Compression;
 
 pub struct Engine {
-    pub blocker: Blocker
+    pub blocker: Blocker,
 }
 
 impl Engine {
@@ -33,7 +33,7 @@ impl Engine {
         };
 
         Engine {
-            blocker: Blocker::new(parsed_network_filters, &blocker_options)
+            blocker: Blocker::new(parsed_network_filters, &blocker_options),
         }
     }
 

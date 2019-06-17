@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Deserializer};
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use object_pool::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
@@ -10,6 +11,7 @@ use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
 use crate::resources::{Resources, Resource};
 use base64;
+use crate::utils;
 
 pub struct BlockerOptions {
     pub debug: bool,
@@ -55,6 +57,14 @@ impl From<FilterError> for BlockerError {
     }
 }
 
+
+fn hash_pool<'de, D>(_deserializer: D) -> Result<Pool<Vec<utils::Hash>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)))
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Blocker {
     csp: NetworkFilterList,
@@ -80,6 +90,8 @@ pub struct Blocker {
 
     #[serde(default)]
     resources: Resources
+    #[serde(skip_serializing, deserialize_with = "hash_pool")]
+    pool: Pool<Vec<utils::Hash>>,
 }
 
 impl Blocker {
@@ -100,24 +112,27 @@ impl Blocker {
         #[cfg(feature = "metrics")]
         print!("importants\t");
 
+        let mut request_tokens = self.pool.pull().unwrap();
+        request.get_tokens(&mut request_tokens);
+
         let filter = self
             .importants
             // .filters
-            .check(request)
+            .check(request, &request_tokens)
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("tagged\t");
-                self.filters_tagged.check(request)
+                self.filters_tagged.check(request, &request_tokens)
             })
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("redirects\t");
-                self.redirects.check(request)
+                self.redirects.check(request, &request_tokens)
             })
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("filters\t"); 
-                self.filters.check(request)
+                self.filters.check(request, &request_tokens)
             });
 
         let exception = filter.as_ref().and_then(|f| {
@@ -128,9 +143,9 @@ impl Blocker {
                 if f.has_bug() {
                     let mut request_bug = request.clone();
                     request_bug.bug = f.bug;
-                    self.exceptions.check(&request_bug)
+                    self.exceptions.check(&request_bug, &request_tokens)
                 } else {
-                    self.exceptions.check(request)
+                    self.exceptions.check(request, &request_tokens)
                 }
             } else {
                 None
@@ -258,6 +273,7 @@ impl Blocker {
             load_network_filters: options.load_network_filters,
 
             resources: Resources::default()
+            pool: Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)),
         }
     }
 
@@ -491,7 +507,7 @@ impl NetworkFilterList {
         Ok(false)
     }
 
-    pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
+    pub fn check(&self, request: &Request, request_tokens: &Vec<Hash>) -> Option<&NetworkFilter> {
         #[cfg(feature = "metrics")]
         let mut filters_checked = 0;
         #[cfg(feature = "metrics")]
@@ -530,7 +546,7 @@ impl NetworkFilterList {
         #[cfg(feature = "metrics")]
         print!("false\t{}\t{}\t", filter_buckets, filters_checked);
         
-        for token in request.get_tokens() {
+        for token in request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 #[cfg(feature = "metrics")]
                 {
@@ -783,7 +799,9 @@ mod tests {
         let filter_list = NetworkFilterList::new(network_filters, false);
 
         requests.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = filter_list.check(&req);
+            let mut tokens = Vec::new();
+            req.get_tokens(&mut tokens);
+            let matched_rule = filter_list.check(&req, &tokens);
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {

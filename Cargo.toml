@@ -35,6 +35,8 @@ seahash = "3"
 twoway = "0.2"
 base64 = "0.10"
 rmp-serde = "0.13.7"
+object-pool = "0.3"
+hashbrown = { version = "0.3", features = ["serde"], default-features = false }
 
 # [target.'cfg(any(unix, windows))'.dependencies]
 # rayon = "1.0"

@@ -10,7 +10,7 @@ use adblock::url_parser::UrlParser;
 use adblock::request::Request;
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct TestRequest {
     frameUrl: String,
     url: String,
@@ -18,13 +18,11 @@ struct TestRequest {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    let requests_str = adblock::utils::read_file_lines("data/requests.json");
-    let reqs: Vec<TestRequest> = requests_str
+    adblock::utils::read_rules("data/requests.json")
         .into_iter()
         .map(|r| serde_json::from_str(&r))
         .filter_map(Result::ok)
-        .collect();
-    reqs
+        .collect::<Vec<_>>()
 }
 
 fn request_parsing_throughput(c: &mut Criterion) {
