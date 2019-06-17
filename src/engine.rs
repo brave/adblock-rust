@@ -240,27 +240,40 @@ mod tests {
     }
 
     #[test]
-    fn deserialization_backwards_compatible() {
-        {
-            let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 141, 140, 177, 13, 0, 17, 24, 133, 201, 85, 87, 220, 12, 215, 92, 119, 209, 91, 192, 32, 191, 208, 42, 88, 194, 38, 18, 149, 154, 13, 108, 160, 181, 8, 137, 80, 232, 188, 230, 229, 203, 203, 251, 16, 58, 11, 158, 29, 128, 254, 229, 115, 121, 113, 123, 175, 177, 221, 147, 65, 16, 14, 74, 73, 189, 142, 213, 39, 243, 48, 27, 119, 25, 238, 64, 154, 208, 76, 120, 0, 0, 0];
+    fn deserialization_backwards_compatible_plain() {
+        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 141, 140, 177, 13, 0, 17, 24, 133, 201, 85, 87, 220, 12, 215, 92, 119, 209, 91, 192, 32, 191, 208, 42, 88, 194, 38, 18, 149, 154, 13, 108, 160, 181, 8, 137, 80, 232, 188, 230, 229, 203, 203, 251, 16, 58, 11, 158, 29, 128, 254, 229, 115, 121, 113, 123, 175, 177, 221, 147, 65, 16, 14, 74, 73, 189, 142, 213, 39, 243, 48, 27, 119, 25, 238, 64, 154, 208, 76, 120, 0, 0, 0];
 
-            let mut deserialized_engine = Engine::from_rules(&[]);
-            deserialized_engine.deserialize(&serialized).unwrap();
+        let mut deserialized_engine = Engine::from_rules(&[]);
+        deserialized_engine.deserialize(&serialized).unwrap();
 
-            let url = "http://example.com/ad-banner.gif";
-            let matched_rule = deserialized_engine.check_network_urls(url, "", "");
-            assert!(matched_rule.matched, "Expected match for {}", url);
-        }
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+    }
 
-        {
-            let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 189, 13, 0, 16, 16, 133, 79, 84, 166, 48, 129, 210, 36, 38, 112, 104, 47, 97, 0, 165, 214, 8, 150, 178, 15, 9, 103, 0, 175, 121, 63, 121, 31, 192, 159, 4, 251, 210, 242, 100, 197, 221, 71, 131, 158, 40, 21, 190, 201, 183, 99, 128, 214, 71, 118, 118, 214, 203, 139, 13, 199, 193, 194, 49, 115, 0, 0, 0];
-            let mut deserialized_engine = Engine::from_rules(&[]);
-            deserialized_engine.tags_enable(&["abc"]);
-            deserialized_engine.deserialize(&serialized).unwrap();
+    #[test]
+    fn deserialization_backwards_compatible_tags() {
+        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 189, 13, 0, 16, 16, 133, 79, 84, 166, 48, 129, 210, 36, 38, 112, 104, 47, 97, 0, 165, 214, 8, 150, 178, 15, 9, 103, 0, 175, 121, 63, 121, 31, 192, 159, 4, 251, 210, 242, 100, 197, 221, 71, 131, 158, 40, 21, 190, 201, 183, 99, 128, 214, 71, 118, 118, 214, 203, 139, 13, 199, 193, 194, 49, 115, 0, 0, 0];
+        let mut deserialized_engine = Engine::from_rules(&[]);
+        deserialized_engine.tags_enable(&["abc"]);
+        deserialized_engine.deserialize(&serialized).unwrap();
 
-            let url = "http://example.com/ad-banner.gif";
-            let matched_rule = deserialized_engine.check_network_urls(url, "", "");
-            assert!(matched_rule.matched, "Expected match for {}", url);
-        }
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+    }
+
+    #[test]
+    #[ignore]
+    fn deserialization_backwards_compatible_resources() {
+        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 125, 140, 61, 14, 64, 64, 16, 133, 119, 73, 252, 93, 66, 163, 19, 209, 137, 99, 184, 194, 250, 41, 136, 44, 177, 91, 104, 156, 71, 73, 173, 81, 232, 220, 192, 105, 88, 155, 217, 100, 11, 241, 154, 121, 223, 204, 123, 131, 208, 183, 48, 204, 149, 164, 225, 21, 204, 167, 226, 219, 55, 229, 205, 5, 38, 101, 148, 19, 74, 171, 65, 84, 44, 216, 209, 174, 235, 27, 38, 109, 156, 37, 251, 118, 76, 11, 250, 17, 70, 216, 0, 235, 104, 31, 120, 53, 114, 15, 248, 245, 113, 223, 146, 154, 170, 146, 173, 37, 11, 198, 28, 61, 40, 88, 197, 30, 158, 88, 74, 130, 223, 0, 0, 0];
+
+        let mut deserialized_engine = Engine::from_rules(&[]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected match for {}", url);
     }
 }
