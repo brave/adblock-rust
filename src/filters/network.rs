@@ -25,6 +25,7 @@ pub enum FilterError {
     EmptyRedirection,
     UnrecognisedOption,
     NoRegex,
+    FullRegexUnsupported,
     RegexParsingError(regex::Error),
     PunycodeError,
 }
@@ -398,8 +399,15 @@ impl NetworkFilter {
         if line[filter_index_start..filter_index_end].starts_with('/')
             && line[filter_index_start..filter_index_end].ends_with('/')
         {
-            // return Err(FilterError::NoRegex);
-            mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+            #[cfg(feature = "full-regex-handling")]
+            {
+                mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+            }
+
+            #[cfg(not(feature = "full-regex-handling"))]
+            {
+                return Err(FilterError::FullRegexUnsupported);
+            }
         }
 
         if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {

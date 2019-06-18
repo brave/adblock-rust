@@ -66,6 +66,7 @@ name = "bench_rules"
 harness = false
 
 [features]
-
+default = ["full-regex-handling"]
 full-domain-matching = [] # feature has no explicit dependencies
 metrics = []
+full-regex-handling = []
