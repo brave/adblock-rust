@@ -8,7 +8,7 @@ use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
-use crate::resources::{Resources};
+use crate::resources::{Resources, Resource};
 use base64;
 
 pub struct BlockerOptions {
@@ -311,10 +311,18 @@ impl Blocker {
         self.tags_enabled.iter().cloned().collect()
     }
     
-    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Blocker {
-        let resources = Resources::parse(resources);
+    pub fn with_resources<'a>(&'a mut self, resources: Resources) -> &'a mut Blocker {
         self.resources = resources;
         self
+    }
+
+    pub fn resource_add<'a>(&'a mut self, key: String, resource: Resource) -> &'a mut Blocker {
+        self.resources.add_resource(key, resource);
+        self
+    }
+
+    pub fn resource_get(&self, key: &str) -> Option<&Resource> {
+        self.resources.get_resource(key)
     }
 }
 

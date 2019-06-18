@@ -3,6 +3,7 @@ use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::lists::parse_filters;
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
+use crate::resources::{Resources, Resource};
 use rmps;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
@@ -134,14 +135,28 @@ impl Engine {
     pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> () {
         self.blocker.tags_disable(tags);
     }
-
-    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Engine {
-        self.blocker.with_resources(resources);
-        self
-    }
     
     pub fn tag_exists(&self, tag: &str) -> bool {
         self.blocker.tags_enabled().contains(&tag.to_owned())
+    }
+
+    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Engine {
+        let resources = Resources::parse(resources);
+        self.blocker.with_resources(resources);
+        self
+    }
+
+    pub fn resource_add<'a>(&'a mut self, key: &str, content_type: &str, data: &str) -> &'a mut Engine {
+        let resource = Resource {
+            content_type: content_type.to_owned(),
+            data: data.to_owned()
+        };
+        self.blocker.resource_add(key.to_owned(), resource);
+        self
+    }
+
+    pub fn resource_get(&self, key: &str) -> Option<Resource> {
+        self.blocker.resource_get(key).cloned()
     }
 }
 
@@ -337,5 +352,38 @@ noopcss text/css
         
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
+    }
+
+    #[test]
+    fn redirect_resource_insertion_works() {
+        let mut engine = Engine::from_rules(&[
+            "ad-banner$redirect=nooptext".to_owned()
+        ]);
+
+        engine.resource_add("nooptext", "text/plain", "");
+
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
+    }
+
+    #[test]
+    fn redirect_resource_lookup_works() {
+        let script = r#"
+(function() {
+	;
+})();
+
+        "#;
+
+        let mut engine = Engine::from_rules(&[]);
+
+        engine.resource_add("noopjs", "application/javascript", script);
+        let inserted_resource = engine.resource_get("noopjs");
+        assert!(inserted_resource.is_some());
+        let resource = inserted_resource.unwrap();
+        assert_eq!(resource.content_type, "application/javascript");
+        assert_eq!(&resource.data, script);
     }
 }

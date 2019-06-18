@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Resource {
     pub content_type: String,
     pub data: String
@@ -82,6 +82,10 @@ impl Resources {
 
     pub fn get_resource(&self, name: &str) -> Option<&Resource> {
         self.resources.get(name)
+    }
+
+    pub fn add_resource(&mut self, name: String, resource: Resource) {
+        &self.resources.insert(name, resource);
     }
 }
 
