@@ -43,7 +43,6 @@ impl From<FilterError> for BlockerError {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct Blocker {
     csp: NetworkFilterList,
@@ -64,7 +63,7 @@ pub struct Blocker {
     load_cosmetic_filters: bool,
     load_network_filters: bool,
 
-    #[serde(skip_deserializing)]
+    #[serde(default)]
     resources: Resources
 }
 

@@ -10,7 +10,7 @@ extern crate bitflags;
 #[macro_use]
 extern crate matches; // #[cfg(test)]
 
-extern crate bincode;   // binary serialization/deserialization
+extern crate rmp_serde as rmps;   // binary serialization/deserialization
 extern crate flate2;
 extern crate regex;
 extern crate idna;      // utf domain handling
