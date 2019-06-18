@@ -8,6 +8,8 @@ use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
+use crate::resources::{Resources, Resource};
+use base64;
 
 pub struct BlockerOptions {
     pub debug: bool,
@@ -16,7 +18,7 @@ pub struct BlockerOptions {
     pub load_network_filters: bool,
 }
 
-#[derive(Serialize,Debug)]
+#[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
     pub explicit_cancel: bool,
@@ -41,7 +43,6 @@ impl From<FilterError> for BlockerError {
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 pub struct Blocker {
     csp: NetworkFilterList,
@@ -61,6 +62,9 @@ pub struct Blocker {
     enable_optimizations: bool,
     load_cosmetic_filters: bool,
     load_network_filters: bool,
+
+    #[serde(default)]
+    resources: Resources
 }
 
 impl Blocker {
@@ -107,11 +111,26 @@ impl Blocker {
             }
         });
 
-        // If there is a match
+        // only match redirects if we have them set up
         let redirect: Option<String> = filter.as_ref().and_then(|f| {
-            if f.is_redirect() {
-                // TODO: build up redirect URL from matching resource
-                unimplemented!()
+            // Filter redirect option is set
+            if let Some(redirect) = f.redirect.as_ref() {
+                // And we have a matching redirect resource
+                if let Some(resource) = self.resources.get_resource(redirect) {
+                    let mut data_url: String;
+                    if resource.content_type.contains(';') {
+                        data_url = format!("data:{},{}", resource.content_type, resource.data);
+                    } else {
+                        data_url = format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data));
+                    }
+                    Some(data_url.trim().to_owned())
+                } else {
+                    // TOOD: handle error - throw?
+                    if self.debug {
+                        eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
+                    }
+                    None
+                }
             } else {
                 None
             }
@@ -207,6 +226,8 @@ impl Blocker {
             enable_optimizations: options.enable_optimizations,
             load_cosmetic_filters: options.load_cosmetic_filters,
             load_network_filters: options.load_network_filters,
+
+            resources: Resources::default()
         }
     }
 
@@ -288,6 +309,20 @@ impl Blocker {
 
     pub fn tags_enabled(&self) -> Vec<String> {
         self.tags_enabled.iter().cloned().collect()
+    }
+    
+    pub fn with_resources<'a>(&'a mut self, resources: Resources) -> &'a mut Blocker {
+        self.resources = resources;
+        self
+    }
+
+    pub fn resource_add<'a>(&'a mut self, key: String, resource: Resource) -> &'a mut Blocker {
+        self.resources.add_resource(key, resource);
+        self
+    }
+
+    pub fn resource_get(&self, key: &str) -> Option<&Resource> {
+        self.resources.get_resource(key)
     }
 }
 

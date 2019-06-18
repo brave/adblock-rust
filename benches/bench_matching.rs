@@ -21,7 +21,7 @@ struct TestRequest {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    let requests_str = adblock::utils::read_rules("data/requests.json");
+    let requests_str = adblock::utils::read_file_lines("data/requests.json");
     let reqs: Vec<TestRequest> = requests_str.into_iter().map(|r| serde_json::from_str(&r)).filter_map(Result::ok).collect();
     reqs
 }

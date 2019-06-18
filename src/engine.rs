@@ -3,7 +3,8 @@ use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::lists::parse_filters;
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
-use bincode;
+use crate::resources::{Resources, Resource};
+use rmps;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use flate2::Compression;
@@ -38,10 +39,12 @@ impl Engine {
 
     pub fn serialize(&self) -> Result<Vec<u8>, BlockerError> {
         let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+        rmps::encode::write(&mut gz, &self.blocker)
+            .or_else(|e| {
+                eprintln!("Error serializing: {:?}", e);
+                Err(BlockerError::SerializationError)
+            })?;
 
-        bincode::serialize_into(&mut gz, &self.blocker)
-            .or_else(|_| Err(BlockerError::SerializationError))?;
-        
         let compressed = gz.finish()
             .or_else(|_| Err(BlockerError::SerializationError))?;
         Ok(compressed)
@@ -50,9 +53,9 @@ impl Engine {
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), BlockerError> {
         let current_tags = self.blocker.tags_enabled();
         let gz = GzDecoder::new(serialized);
-        let blocker = bincode::deserialize_from(gz)
+        let blocker = rmps::decode::from_read(gz)
             .or_else(|e| {
-                println!("Error deserializing: {:?}", e);
+                eprintln!("Error deserializing: {:?}", e);
                 Err(BlockerError::DeserializationError)
             })?;
         self.blocker = blocker;
@@ -61,8 +64,21 @@ impl Engine {
     }
 
     pub fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str) -> BlockerResult {
-        let request = Request::from_urls(&url, &source_url, &request_type).unwrap();
-        self.blocker.check(&request)
+        Request::from_urls(&url, &source_url, &request_type)
+        .map(|request| {
+            self.blocker.check(&request)
+        })
+        .unwrap_or_else(|_e| {
+            eprintln!("Error parsing request, returning no match");
+            BlockerResult {
+                matched: false,
+                explicit_cancel: false,
+                redirect: None,
+                exception: None,
+                filter: None,
+            }
+        })
+        
     }
 
     pub fn check_network_urls_with_hostnames(&self, url: &str, hostname: &str, source_hostname: &str, request_type: &str, third_party_request: Option<bool>) -> BlockerResult {
@@ -119,9 +135,28 @@ impl Engine {
     pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> () {
         self.blocker.tags_disable(tags);
     }
-
+    
     pub fn tag_exists(&self, tag: &str) -> bool {
         self.blocker.tags_enabled().contains(&tag.to_owned())
+    }
+
+    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Engine {
+        let resources = Resources::parse(resources);
+        self.blocker.with_resources(resources);
+        self
+    }
+
+    pub fn resource_add<'a>(&'a mut self, key: &str, content_type: &str, data: &str) -> &'a mut Engine {
+        let resource = Resource {
+            content_type: content_type.to_owned(),
+            data: data.to_owned()
+        };
+        self.blocker.resource_add(key.to_owned(), resource);
+        self
+    }
+
+    pub fn resource_get(&self, key: &str) -> Option<Resource> {
+        self.blocker.resource_get(key).cloned()
     }
 }
 
@@ -222,27 +257,133 @@ mod tests {
     }
 
     #[test]
-    fn deserialization_backwards_compatible() {
-        {
-            let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 141, 140, 177, 13, 0, 17, 24, 133, 201, 85, 87, 220, 12, 215, 92, 119, 209, 91, 192, 32, 191, 208, 42, 88, 194, 38, 18, 149, 154, 13, 108, 160, 181, 8, 137, 80, 232, 188, 230, 229, 203, 203, 251, 16, 58, 11, 158, 29, 128, 254, 229, 115, 121, 113, 123, 175, 177, 221, 147, 65, 16, 14, 74, 73, 189, 142, 213, 39, 243, 48, 27, 119, 25, 238, 64, 154, 208, 76, 120, 0, 0, 0];
+    fn deserialization_backwards_compatible_plain() {
+        // deserialization_generate_simple();
+        // assert!(false);
+        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 1, 68, 0, 187, 255, 155, 145, 128, 145, 128,
+            145, 128, 145, 128, 145, 128, 145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 158, 145, 206, 0, 3,
+            31, 255, 146, 1, 145, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 192, 192,
+            207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 192, 144, 194, 195, 194, 195, 207, 77, 26, 78, 68, 0,
+            0, 0];
 
-            let mut deserialized_engine = Engine::from_rules(&[]);
-            deserialized_engine.deserialize(&serialized).unwrap();
+        let mut deserialized_engine = Engine::from_rules(&[]);
+        deserialized_engine.deserialize(&serialized).unwrap();
 
-            let url = "http://example.com/ad-banner.gif";
-            let matched_rule = deserialized_engine.check_network_urls(url, "", "");
-            assert!(matched_rule.matched, "Expected match for {}", url);
-        }
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+    }
 
-        {
-            let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 189, 13, 0, 16, 16, 133, 79, 84, 166, 48, 129, 210, 36, 38, 112, 104, 47, 97, 0, 165, 214, 8, 150, 178, 15, 9, 103, 0, 175, 121, 63, 121, 31, 192, 159, 4, 251, 210, 242, 100, 197, 221, 71, 131, 158, 40, 21, 190, 201, 183, 99, 128, 214, 71, 118, 118, 214, 203, 139, 13, 199, 193, 194, 49, 115, 0, 0, 0];
-            let mut deserialized_engine = Engine::from_rules(&[]);
-            deserialized_engine.tags_enable(&["abc"]);
-            deserialized_engine.deserialize(&serialized).unwrap();
+    #[test]
+    fn deserialization_backwards_compatible_tags() {
+        // deserialization_generate_tags();
+        // assert!(false);
+        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 49, 14, 64, 48, 24, 70, 137, 131, 88,
+            108, 98, 148, 184, 135, 19, 252, 197, 218, 132, 3, 8, 139, 85, 126, 171, 132, 193, 32, 54, 71, 104, 218, 205,
+            160, 139, 197, 105, 218, 166, 233, 5, 250, 125, 219, 203, 123, 43, 14, 238, 163, 124, 206, 228, 79, 11, 184,
+            113, 195, 55, 136, 98, 181, 132, 120, 65, 157, 17, 160, 180, 233, 152, 221, 1, 164, 98, 178, 255, 242, 178,
+            221, 231, 201, 0, 19, 122, 216, 92, 112, 161, 1, 58, 213, 199, 143, 114, 0, 0, 0];
+        let mut deserialized_engine = Engine::from_rules(&[]);
+        
+        deserialized_engine.tags_enable(&[]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(!matched_rule.matched, "Expected NO match for {}", url);
 
-            let url = "http://example.com/ad-banner.gif";
-            let matched_rule = deserialized_engine.check_network_urls(url, "", "");
-            assert!(matched_rule.matched, "Expected match for {}", url);
-        }
+        deserialized_engine.tags_enable(&["abc"]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+    }
+
+    #[test]
+    fn deserialization_backwards_compatible_resources() {
+        // deserialization_generate_resources();
+        // assert!(false);
+        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 61, 139, 189, 10, 64, 80, 28, 197, 201, 46,
+            229, 1, 44, 54, 201, 234, 117, 174, 143, 65, 233, 18, 6, 35, 118, 229, 127, 103, 201, 230, 99, 146, 39,
+            184, 177, 25, 152, 61, 13, 238, 29, 156, 83, 167, 211, 175, 115, 90, 40, 184, 203, 235, 24, 244, 219, 176,
+            209, 2, 29, 156, 130, 164, 61, 68, 132, 9, 121, 166, 131, 48, 246, 19, 74, 71, 28, 69, 113, 230, 231, 25,
+            101, 186, 42, 121, 86, 73, 189, 42, 95, 103, 255, 102, 219, 183, 29, 170, 127, 68, 102, 150, 86, 28, 162,
+            0, 247, 3, 163, 110, 154, 146, 145, 195, 175, 245, 47, 101, 250, 113, 201, 119, 0, 0, 0];
+
+        let mut deserialized_engine = Engine::from_rules(&[]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
+    }
+
+    fn deserialization_generate_simple() {
+        let engine = Engine::from_rules(&[
+            "ad-banner".to_owned()
+        ]);
+        let serialized = engine.serialize().unwrap();
+        println!("Engine serialized: {:?}", serialized);
+    }
+
+    fn deserialization_generate_tags() {
+        let mut engine = Engine::from_rules(&[
+            "ad-banner$tag=abc".to_owned()
+        ]);
+        engine.with_tags(&["abc"]);
+        let serialized = engine.serialize().unwrap();
+        println!("Engine serialized: {:?}", serialized);
+    }
+
+    fn deserialization_generate_resources() {
+        let mut engine = Engine::from_rules(&[
+            "ad-banner$redirect=nooptext".to_owned()
+        ]);
+        let resources_str = r###"
+nooptext text/plain
+
+
+noopcss text/css
+
+
+"###;
+        engine.with_resources(&resources_str);
+        
+        let serialized = engine.serialize().unwrap();
+        println!("Engine serialized: {:?}", serialized);
+    }
+
+    #[test]
+    fn redirect_resource_insertion_works() {
+        let mut engine = Engine::from_rules(&[
+            "ad-banner$redirect=nooptext".to_owned()
+        ]);
+
+        engine.resource_add("nooptext", "text/plain", "");
+
+        let url = "http://example.com/ad-banner.gif";
+        let matched_rule = engine.check_network_urls(url, "", "");
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
+    }
+
+    #[test]
+    fn redirect_resource_lookup_works() {
+        let script = r#"
+(function() {
+	;
+})();
+
+        "#;
+
+        let mut engine = Engine::from_rules(&[]);
+
+        engine.resource_add("noopjs", "application/javascript", script);
+        let inserted_resource = engine.resource_get("noopjs");
+        assert!(inserted_resource.is_some());
+        let resource = inserted_resource.unwrap();
+        assert_eq!(resource.content_type, "application/javascript");
+        assert_eq!(&resource.data, script);
     }
 }

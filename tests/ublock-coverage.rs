@@ -76,6 +76,20 @@ fn check_specific_rules() {
 
         assert_eq!(checked.matched, true);
     }
+
+    {
+        // exceptions have not effect if important filter matches
+        let mut engine = Engine::from_rules_debug(&[
+            String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
+        ]);
+        let resources_lines = adblock::utils::read_file_lines("data/uBlockOrigin/resources.txt");
+        let resources_str = resources_lines.join("\n");
+        engine.with_resources(&resources_str);
+
+        let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
+        assert_eq!(checked.matched, true);
+        assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewoJOwp9KSgpOw==".to_owned()));
+    }
 }
 
 #[test]

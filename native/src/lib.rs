@@ -110,13 +110,25 @@ declare_types! {
             Ok(JsNull::new().upcast())
         }
 
+        method updateResources(mut cx) {
+            let resources: String = cx.argument::<JsString>(0)?.value();
+
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                engine.with_resources(&resources);
+            }
+            Ok(JsNull::new().upcast())
+
+        }
         method tagExists(mut cx) {
             let tag: String = cx.argument::<JsString>(0)?.value();
 
             let this = cx.this();
             let result = {
                 let guard = cx.lock();
-                let mut engine = this.borrow(&guard);
+                let engine = this.borrow(&guard);
                 engine.tag_exists(&tag)
             };
             Ok(cx.boolean(result).upcast())
@@ -143,6 +155,33 @@ declare_types! {
                 engine.filter_add(&filter);
             }
             Ok(JsNull::new().upcast())
+        }
+
+        method addResource(mut cx) {
+            let name: String = cx.argument::<JsString>(0)?.value();
+            let content_type: String = cx.argument::<JsString>(1)?.value();
+            let data: String = cx.argument::<JsString>(2)?.value();
+
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                engine.resource_add(&name, &content_type, &data);
+            }
+            Ok(JsNull::new().upcast())
+        }
+
+        method getResource(mut cx) {
+            let name: String = cx.argument::<JsString>(0)?.value();
+            
+            let this = cx.this();
+            let result = {
+                let guard = cx.lock();
+                let engine = this.borrow(&guard);
+                engine.resource_get(&name)
+            };
+            let js_value = neon_serde::to_value(&mut cx, &result)?;
+            Ok(js_value)
         }
     }
 }

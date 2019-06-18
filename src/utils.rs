@@ -177,7 +177,7 @@ pub fn has_unicode(pattern: &str) -> bool {
 
 const EXPECTED_RULES: usize = 75000;
 #[cfg(not(target_arch = "wasm32"))]
-pub fn read_rules(filename: &str) -> Vec<String> {
+pub fn read_file_lines(filename: &str) -> Vec<String> {
     let f = File::open(filename).unwrap_or_else(|_| panic!("File {} not found", filename));
     let reader = BufReader::new(f);
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
@@ -192,7 +192,7 @@ pub fn read_rules(filename: &str) -> Vec<String> {
 pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for filename in lists {
-        let mut list_rules = read_rules(filename);
+        let mut list_rules = read_file_lines(filename);
         rules.append(&mut list_rules);
     }
     rules.shrink_to_fit();
