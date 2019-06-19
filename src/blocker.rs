@@ -57,12 +57,16 @@ impl From<FilterError> for BlockerError {
     }
 }
 
+struct TokenPool {
+    pub pool: Pool<Vec<utils::Hash>>
+}
 
-fn hash_pool<'de, D>(_deserializer: D) -> Result<Pool<Vec<utils::Hash>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)))
+impl Default for TokenPool {
+    fn default() -> TokenPool {
+        TokenPool {
+            pool: Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE))
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,9 +93,9 @@ pub struct Blocker {
     load_network_filters: bool,
 
     #[serde(default)]
-    resources: Resources
-    #[serde(skip_serializing, deserialize_with = "hash_pool")]
-    pool: Pool<Vec<utils::Hash>>,
+    resources: Resources,
+    #[serde(skip_serializing, skip_deserializing)]
+    pool: TokenPool,
 }
 
 impl Blocker {
@@ -112,7 +116,7 @@ impl Blocker {
         #[cfg(feature = "metrics")]
         print!("importants\t");
 
-        let mut request_tokens = self.pool.pull().unwrap();
+        let mut request_tokens = self.pool.pool.pull().unwrap();
         request.get_tokens(&mut request_tokens);
 
         let filter = self
@@ -272,8 +276,8 @@ impl Blocker {
             load_cosmetic_filters: options.load_cosmetic_filters,
             load_network_filters: options.load_network_filters,
 
-            resources: Resources::default()
-            pool: Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)),
+            resources: Resources::default(),
+            pool: TokenPool::default(),
         }
     }
 
