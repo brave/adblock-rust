@@ -12,12 +12,12 @@ pub fn fast_hash(input: &str) -> Hash {
     hash(input.as_bytes()) as Hash
 }
 
-
+#[inline]
 fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
-
+#[inline]
 fn is_allowed_hostname(ch: char) -> bool {
     is_allowed_filter(ch) || ch == '_' /* '_' */ || ch == '-' /* '-' */
 }
@@ -45,7 +45,7 @@ fn fast_tokenizer_no_regex(
         if is_allowed_code(c) {
             if !inside {
                 inside = true;
-                start = i
+                start = i;
             }
         } else if inside {
             inside = false;
@@ -57,11 +57,10 @@ fn fast_tokenizer_no_regex(
             {
                 let hash = fast_hash(&pattern[start..i]);
                 tokens_buffer.push(hash);
-                
             }
-            preceding_ch = Some(c)
+            preceding_ch = Some(c);
         } else {
-            preceding_ch = Some(c)
+            preceding_ch = Some(c);
         }
         
     }
@@ -152,28 +151,8 @@ pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
     tokens
 }
 
-pub fn bin_search<T: Ord>(arr: &[T], elt: &T) -> Option<usize> {
-    arr.binary_search(elt).ok()
-}
-
 pub fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
-}
-
-pub fn bin_lookup_optional<T: Ord>(arr: &[T], elt: Option<T>) -> bool {
-    elt.map(|i| {
-        arr.binary_search(&i).is_ok()
-    }).unwrap_or(false)
-}
-
-pub fn has_unicode(pattern: &str) -> bool {
-    let chars = pattern.chars();
-    for c in chars {
-        if !c.is_ascii() {
-            return true
-        }
-    }
-    false
 }
 
 const EXPECTED_RULES: usize = 75000;
@@ -329,44 +308,4 @@ mod tests {
         assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 5), false);
     }
 
-    #[test]
-    fn bin_search_works() {
-        // empty array
-        assert_eq!(bin_search(&Vec::new(), &42), None);
-        // array of length 1
-        assert_eq!(bin_search(&vec![1], &42), None);
-        assert_eq!(bin_search(&vec![42], &42), Some(0));
-        // array of length 2
-        assert_eq!(bin_search(&vec![0, 1], &42), None);
-        assert_eq!(bin_search(&vec![1, 42], &42), Some(1));
-        assert_eq!(bin_search(&vec![42, 45], &42), Some(0));
-        assert_ne!(bin_search(&vec![42, 42], &42), None);
-
-        // bigger arrays
-        let data : Vec<Hash> = (1..=1000).map(|x| x*x).collect();
-        assert_eq!(bin_search(&data, &42), None);
-        assert_eq!(bin_search(&data, &1), Some(0));
-        assert_eq!(bin_search(&data, &4), Some(1));
-        assert_eq!(bin_search(&data, &(1000*1000)), Some(1000-1));
-    }
-
-    #[test]
-    fn has_unicode_works() {
-        let ascii: String = (b'!'..=b'~') // Start as u8
-        .map(|c| c as char)
-        .collect();
-
-        assert_eq!(has_unicode(&ascii), false);
-        assert_eq!(has_unicode("｡◕ ∀ ◕｡)"), true);
-        assert_eq!(has_unicode("｀ｨ(´∀｀∩"), true);
-        assert_eq!(has_unicode("__ﾛ(,_,*)"), true);
-        assert_eq!(has_unicode("・(￣∀￣)・:*:"), true);
-        assert_eq!(has_unicode("ﾟ･✿ヾ╲(｡◕‿◕｡)╱✿･ﾟ"), true);
-        assert_eq!(has_unicode(",。・:*:・゜’( ☻ ω ☻ )。・:*:・゜’"), true);
-        assert_eq!(has_unicode("(╯°□°）╯︵ ┻━┻)"), true);
-        assert_eq!(has_unicode("(ﾉಥ益ಥ）ﾉ ┻━┻"), true);
-        assert_eq!(has_unicode("┬─┬ノ( º _ ºノ)"), true);
-        assert_eq!(has_unicode("( ͡° ͜ʖ ͡°)"), true);
-        assert_eq!(has_unicode("¯_(ツ)_/¯"), true);
-    }
 }

@@ -122,7 +122,7 @@ fn rule_match(c: &mut Criterion) {
           b.iter(|| bench_rule_matching(&engine, &slim_req))
         },)
         .throughput(Throughput::Elements(requests_len))
-        .sample_size(10)
+        .sample_size(20)
     );
 }
 
@@ -354,7 +354,7 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
           b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
         },)
         .throughput(Throughput::Elements(requests_len))
-        .sample_size(10)
+        .sample_size(20)
     );
 }
 

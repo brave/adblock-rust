@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize, Deserializer};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use object_pool::Pool;
