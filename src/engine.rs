@@ -89,7 +89,7 @@ impl Engine {
     pub fn filter_exists(&self, filter: &str) -> bool {
         let filter_parsed = NetworkFilter::parse(filter, true);
         match filter_parsed
-        .map_err(|e| BlockerError::from(e))
+        .map_err(BlockerError::from)
         .and_then(|f| self.blocker.filter_exists(&f)) {
             Ok(exists) => exists,
             Err(e) => {
@@ -107,7 +107,7 @@ impl Engine {
     pub fn filter_add<'a>(&'a mut self, filter: &str) -> &'a mut Engine {
         let filter_parsed = NetworkFilter::parse(filter, true);
         match filter_parsed
-        .map_err(|e| BlockerError::from(e))
+        .map_err(BlockerError::from)
         .and_then(|f| self.blocker.filter_add(f)) {
             Ok(_b) => self,
             Err(e) => {
@@ -128,11 +128,11 @@ impl Engine {
         self
     }
 
-    pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) -> () {
+    pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) {
         self.blocker.tags_enable(tags);
     }
 
-    pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> () {
+    pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) {
         self.blocker.tags_disable(tags);
     }
     

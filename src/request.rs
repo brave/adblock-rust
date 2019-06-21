@@ -148,6 +148,7 @@ impl<'a> Request {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn from_detailed_parameters(
         raw_type: &str,
         url: &str,

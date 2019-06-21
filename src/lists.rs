@@ -37,7 +37,7 @@ pub fn parse_filters(
     debug: bool,
 ) -> (Vec<NetworkFilter>, Vec<String>) {
 
-    let list_iter = list.into_iter();
+    let list_iter = list.iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
         .map(|line| {

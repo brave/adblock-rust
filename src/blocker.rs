@@ -157,7 +157,7 @@ impl Blocker {
         });
         
         #[cfg(feature = "metrics")]
-        println!("");
+        println!();
 
         // only match redirects if we have them set up
         let redirect: Option<String> = filter.as_ref().and_then(|f| {
@@ -165,12 +165,11 @@ impl Blocker {
             if let Some(redirect) = f.redirect.as_ref() {
                 // And we have a matching redirect resource
                 if let Some(resource) = self.resources.get_resource(redirect) {
-                    let mut data_url: String;
-                    if resource.content_type.contains(';') {
-                        data_url = format!("data:{},{}", resource.content_type, resource.data);
+                    let data_url = if resource.content_type.contains(';') {
+                        format!("data:{},{}", resource.content_type, resource.data)
                     } else {
-                        data_url = format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data));
-                    }
+                        format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
+                    };
                     Some(data_url.trim().to_owned())
                 } else {
                     // TOOD: handle error - throw?
@@ -297,42 +296,40 @@ impl Blocker {
         }
     }
 
-    pub fn filter_add<'a>(&'a mut self, filter: NetworkFilter) -> Result<&'a mut Blocker, BlockerError> {
+    pub fn filter_add(&mut self, filter: NetworkFilter) -> Result<&mut Blocker, BlockerError> {
         if filter.is_badfilter() {
-            return Err(BlockerError::BadFilterAddUnsupported)
+            Err(BlockerError::BadFilterAddUnsupported)
         } else if self.filter_exists(&filter) == Ok(true) {
             Err(BlockerError::FilterExists)
+        } else if filter.is_csp() {
+            self.csp.filter_add(filter);
+            Ok(self)
+        } else if filter.is_exception() {
+            self.exceptions.filter_add(filter);
+            Ok(self)
+        } else if filter.is_important() {
+            self.importants.filter_add(filter);
+            Ok(self)
+        } else if filter.is_redirect() {
+            self.redirects.filter_add(filter);
+            Ok(self)
+        } else if filter.tag.is_some() {
+            self.tagged_filters_all.push(filter);
+            let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
+            Ok(self.tags_with_set(tags_enabled))
         } else {
-            if filter.is_csp() {
-                self.csp.filter_add(filter);
-                Ok(self)
-            } else if filter.is_exception() {
-                self.exceptions.filter_add(filter);
-                Ok(self)
-            } else if filter.is_important() {
-                self.importants.filter_add(filter);
-                Ok(self)
-            } else if filter.is_redirect() {
-                self.redirects.filter_add(filter);
-                Ok(self)
-            } else if filter.tag.is_some() {
-                self.tagged_filters_all.push(filter);
-                let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
-                Ok(self.tags_with_set(tags_enabled))
-            } else {
-                self.filters.filter_add(filter);
-                Ok(self)
-            }
+            self.filters.filter_add(filter);
+            Ok(self)
         }
     }
 
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
-        let tag_set: HashSet<String> = HashSet::from_iter(tags.into_iter().map(|&t| String::from(t)));
+        let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)));
         self.tags_with_set(tag_set)
     }
 
     pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
-        let tag_set: HashSet<String> = HashSet::from_iter(tags.into_iter().map(|&t| String::from(t)))
+        let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)))
             .union(&self.tags_enabled)
             .cloned()
             .collect();
@@ -341,7 +338,7 @@ impl Blocker {
 
     pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
         let tag_set: HashSet<String> = self.tags_enabled
-            .difference(&HashSet::from_iter(tags.into_iter().map(|&t| String::from(t))))
+            .difference(&HashSet::from_iter(tags.iter().map(|&t| String::from(t))))
             .cloned()
             .collect();
         self.tags_with_set(tag_set)
@@ -351,7 +348,7 @@ impl Blocker {
         self.tags_enabled = tags_enabled;
         let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
-            .map(|n| n.clone())
+            .cloned()
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
         self
@@ -361,12 +358,12 @@ impl Blocker {
         self.tags_enabled.iter().cloned().collect()
     }
     
-    pub fn with_resources<'a>(&'a mut self, resources: Resources) -> &'a mut Blocker {
+    pub fn with_resources(&mut self, resources: Resources) -> &mut Blocker {
         self.resources = resources;
         self
     }
 
-    pub fn resource_add<'a>(&'a mut self, key: String, resource: Resource) -> &'a mut Blocker {
+    pub fn resource_add(&mut self, key: String, resource: Resource) -> &mut Blocker {
         self.resources.add_resource(key, resource);
         self
     }
@@ -460,7 +457,7 @@ impl NetworkFilterList {
         }
     }
 
-    pub fn filter_add<'a>(&'a mut self, filter: NetworkFilter) -> &'a mut NetworkFilterList {
+    pub fn filter_add(&mut self, filter: NetworkFilter) -> &mut NetworkFilterList {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
@@ -511,7 +508,7 @@ impl NetworkFilterList {
         Ok(false)
     }
 
-    pub fn check(&self, request: &Request, request_tokens: &Vec<Hash>) -> Option<&NetworkFilter> {
+    pub fn check(&self, request: &Request, request_tokens: &[Hash]) -> Option<&NetworkFilter> {
         #[cfg(feature = "metrics")]
         let mut filters_checked = 0;
         #[cfg(feature = "metrics")]
