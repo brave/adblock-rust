@@ -1,6 +1,6 @@
 {
   "name": "adblock-rs",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Very fast, Rust-based, native implementation of ad-blocker engine for Node",
   "main": "lib/index.js",
   "author": "Andrius Aucinas <aaucinas@brave.com>",

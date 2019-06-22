@@ -47,7 +47,7 @@ impl Resources {
                 first_new_line_pos = first_new_line.unwrap();
             }
             let (first_line, body) = resource.split_at(first_new_line_pos);
-            let mut first_line_items = first_line.split_ascii_whitespace();
+            let mut first_line_items = first_line.split_whitespace();
             let (name, rtype) = (
                 first_line_items.next(),
                 first_line_items.next()
