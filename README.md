@@ -4,7 +4,7 @@
 
 Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching.
 
-It uses a tokenisation approach for qucikly reducing the potentially matching rule search space against a URL.
+It uses a tokenisation approach for quickly reducing the potentially matching rule search space against a URL.
 
 The algorithm is inspired by, and closely follows the algorithm of [uBlock Origin](https://github.com/gorhill/uBlock) and [Cliqz](https://github.com/cliqz-oss/adblocker).
 
