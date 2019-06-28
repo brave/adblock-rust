@@ -1,0 +1,218 @@
+||ntv.io^$third-party
+@@||adm.fwmrm.net^*/AdManager.js$domain=msnbc.com|sky.com|cnbc.com
+||novately.com^$third-party
+||webspectator.com^$third-party
+! Twitch main video
+||cloudfront.net/esf.js$domain=twitch.tv
+! LA Times forced-whitelisting modal fix
+||tribdss.com/meter/assets$script,domain=www.latimes.com
+! LA Times and Chicago Tribune native ads fixes
+||aggrego.org^$script,image,domain=latimes.com|chicagotribune.com
+||jadserve.postrelease.com^$script,image,domain=latimes.com|chicagotribune.com
+||troncdata.com^$script,image,domain=latimes.com
+||polarmobile.com^$script,image,domain=latimes.com|chicagotribune.com
+||ntv.io^$script,image,domain=latimes.com|chicagotribune.com
+! Expressen.se and aftonbladet.set ad blocking evasion fix
+||biowebb-data.s3.amazonaws.com^$script,image,domain=expressen.se|aftonbladet.se
+||richmetrics.com^$script,image,domain=expressen.se|aftonbladet.se
+||adtomafusion.net^$script,image,domain=expressen.se|aftonbladet.se
+||ld1.lpbeta.com^$script,image,domain=expressen.se|aftonbladet.se
+||csp.screen9.com^$script,image,domain=expressen.se|aftonbladet.se
+||glimr.io^$script,image,domain=expressen.se|aftonbladet.se
+||aka-cdn-ns.adtech.de^$script,image,domain=aftonbladet.se|expressen.se
+! Hearst anti-ad blocking fix
+||aps.hearstnp.com^$script,image
+! Sailthru native ad aggregator fix
+||ak.sail-horizon.com^$script,image
+! gRPC client ad tracking data fix boston.com sfgate.com
+||g.3gl.net^$domain=sfgate.com|boston.com
+! 123movies.is video player display banner overlay fix
+||123clouds.ru/*/custombanner.js^$script,domain=123movies.is
+! vendors serving video ads and tracking via proxied requests
+||track.atom-data.io^$third-party
+||vidazoo.com/aggregate^$third-party
+||vidazoo.com/proxy^$third-party
+||mediabong.net^$third-party
+||imprvdosrv.com^$third-party
+! yt embed exceptions
+@@||youtube.com/yts/jsbin^$domain=thegatewaypundit.com|godlikeproductions.com|techcrunch.com
+! fb widget audience, ad and marketing tracking
+||connect.facebook.net/*/fbevents.js$third-party
+||facebook.com/tr^$image,third-party
+! theatlantic.com anti-blocker filters
+||theatlantic.blueconic.net$domain=theatlantic.com
+||theatlantic.com/please-support-us^
+! murdoog submission tracking
+||murdoog.com^$third-party
+! Admiral anti-ad blocking fix
+||functionalclam.com^$third-party
+||ctnet2.in$third-party
+! adops.com unusable without this
+@@||adops.com^$~third-party
+@@||www.scrumpoker.online^$~third-party
+! fixes for several requests bypassing default blocklists
+||bounceexchange.com^$third-party
+||npttech.com/advertising.js$important,script
+||aolcdn.com/*/adsWrapper.js$script
+||keywee.co$third-party
+||summerhamster.com^
+||zergnet.com^$script,third-party
+! intermediary domains used for malware payload delivery
+||centerbluray.info^
+||newcyclevaults.com^
+! block scripts that profile user behavior using password managers
+||audienceinsights.net^$third-party
+||behavioralengine.com^$third-party
+@@||api.huobi.pro^$domain=www.huobi.pro
+! fixes calls bypassing shields on salon.com
+||salon.com/jobs.js
+||carambo.la^$third-party
+! key logger
+||turner.com/*/keypress.js$domain=cnn.com
+! fixes ad blocking bypass
+||zdbb.net^$third-party
+||adiode.com^$third-party
+! content blocking
+||seattletimes.com/wp-content/plugins/st-user-messaging^$script
+||theatlantic.com/packages/adsjs^$script
+! tracking
+||optimizely.com^$third-party
+! crypto ad network
+||ctnetload.com^$third-party
+! Internal reddit API that breaks reddit for many users
+@@||gateway.reddit.com^
+! https://github.com/brave/adblock-lists/issues/39
+@@||alb.reddit.com^
+! DDG 1P analytics and optimization
+@@||improving.duckduckgo.com^$~third-party
+! Disable PDFJS which we include by default's telemetry
+||pdfjs.robwu.nl
+! Allow 1P piwik since it's no different than server logs
+@@https://analytics.*/piwik.$~third-party
+! Fix for Suicide Prevention Lifeline Chat (brave/brave-browser#3492)
+@@||geoplugin.net/javascript.gp$script,xmlhttprequest,domain=suicidepreventionlifeline.org
+! Block additional trackers
+||sp1.nypost.com$third-party
+||sp.nasdaq.com$third-party
+||assets.lesechos.com/common/js/xtcore.js$third-party
+||y8.com/js/sdkloader/outstream.js$third-party
+! Note that options will be added to exclude these filters soon. They
+! are added both as a blocking rule and as an exception rule so that
+! an exception is hit and will override what's in tracking protection protection.
+! Facebook logins and embeds
+||connect.facebook.com/*/sdk.js$script,tag=fb-embeds
+@@||connect.facebook.com/*/sdk.js$script,tag=fb-embeds
+||connect.facebook.net/*/sdk.js$script,tag=fb-embeds
+@@||connect.facebook.net/*/sdk.js$script,tag=fb-embeds
+||facebook.com/connect/$tag=fb-embeds
+@@||facebook.com/connect/$tag=fb-embeds
+||www.facebook.com/connect$tag=fb-embeds
+@@||www.facebook.com/connect$tag=fb-embeds
+||staticxx.facebook.com/connect/$tag=fb-embeds
+@@||staticxx.facebook.com/connect/$tag=fb-embeds
+||graph.facebook.com/$tag=fb-embeds
+@@||graph.facebook.com/$tag=fb-embeds
+||staticxx.facebook.com/$tag=fb-embeds
+@@||staticxx.facebook.com/$tag=fb-embeds
+||xx.fbcdn.net/$tag=fb-embeds
+@@||xx.fbcdn.net/$tag=fb-embeds
+||www.facebook.com/*/plugin$tag=fb-embeds
+@@||www.facebook.com/*/plugin$tag=fb-embeds
+||www.facebook.com/plugins/$tag=fb-embeds
+@@||www.facebook.com/plugins/$tag=fb-embeds
+||www.facebook.com/rsrc.php$tag=fb-embeds
+@@||www.facebook.com/rsrc.php$tag=fb-embeds
+||www.facebook.com/ajax/bz$tag=fb-embeds
+@@||www.facebook.com/ajax/bz$tag=fb-embeds
+! Twitter embeds
+||platform.twitter.com/$tag=twitter-embeds
+@@||platform.twitter.com/$tag=twitter-embeds
+||syndication.twitter.com/$tag=twitter-embeds
+@@||syndication.twitter.com/$tag=twitter-embeds
+||pbs.twimg.com/$tag=twitter-embeds
+@@||pbs.twimg.com/$tag=twitter-embeds
+||cdn.syndication.twimg.com/$tag=twitter-embeds
+@@||cdn.syndication.twimg.com/$tag=twitter-embeds
+||twitter.com/i/videos/tweet/$tag=twitter-embeds
+@@||twitter.com/i/videos/tweet/$tag=twitter-embeds
+||abs.twimg.com/web-video-player/$tag=twitter-embeds
+@@||abs.twimg.com/web-video-player/$tag=twitter-embeds
+||api.twitter.com/1.1/$tag=twitter-embeds
+@@||api.twitter.com/1.1/$tag=twitter-embeds
+||video.twimg.com/$tag=twitter-embeds
+@@||video.twimg.com/$tag=twitter-embeds
+! Fix sign in icon on https://app.mysms.com/#login
+||developers.google.com/identity/$image,domain=mysms.com
+@@||developers.google.com/identity/$image,domain=mysms.com
+! Fix page rendering due to issues with scorecardresaerch.com https://github.com/brave/brave-browser/issues/1580
+||scorecardresearch.com^$domain=dailymotion.com
+! vresp.com (https://community.brave.com/t/cant-see-captcha-on-form/67187)
+||captcha.vresp.com^$domain=lawfirmkpi.com
+@@||captcha.vresp.com^$domain=lawfirmkpi.com
+! https://community.brave.com/t/ad-not-bloked-properly/63628
+||readthedocs.org/api/v2/sustainability/$script,domain=pyexcel.org
+! Embedded video on engadget.com
+||delivery.vidible.tv/jsonp/$script,domain=engadget.com
+@@||delivery.vidible.tv/jsonp/$script,domain=engadget.com
+! LinkedIn in embed
+||platform.linkedin.com/$tag=linked-in-embeds
+@@||platform.linkedin.com/$tag=linked-in-embeds
+||www.linkedin.com/pages-extensions/FollowCompany$tag=linked-in-embeds
+@@||www.linkedin.com/pages-extensions/FollowCompany$tag=linked-in-embeds
+||static.licdn.com/sc/p$tag=linked-in-embeds
+@@||static.licdn.com/sc/p$tag=linked-in-embeds
+! Fix addthis.com issues on rhmodern.com  https://github.com/brave/brave-browser/issues/3653
+@@||s7.addthis.com^$script,domain=rhmodern.com
+! Fix https://github.com/brave/brave-browser/issues/4507 (mirrors uBO fix, rewritten so that brave/ad-block supports)
+||washingtonpost.com/pb/api/*/adblocker-feature$xmlhttprequest,first-party
+! Fix blankpage issue https://github.com/brave/brave-browser/issues/4049
+||dianomi.com/cgi-bin/smartads.pl$xmlhttprequest,domain=inc.com
+! Adblock-Tracking: jpost.com
+@@||bitsngo.net/widget-scripts/extra_content/ads.js$script,domain=jpost.com
+! Anti-adblock: stream2watch.ws
+@@||stream2watch.ws/js/advertisement.js$script
+! Fix facebook logins on messenger.com https://github.com/brave/brave-browser/issues/4173
+@@||facebook.com/login/$domain=messenger.com
+@@||connect.facebook.net^$domain=messenger.com
+! Anti-adblock: wallpapersite.com (https://www.reddit.com/r/brave_browser/comments/bx784t/websites_detecting_adblocker_even_when_shield/)
+@@||wallpapersite.com/scripts/ads.js$script
+! Anti-adblock: wallpapershome.com
+@@||wallpapershome.com/scripts/ads.js$script
+! Anti-adblock: haaretz.com
+@@||haaretz.com/htz/js/advertisement.js
+! Anti-adblock: mediaite.com
+@@||mediaite.com/adbait/adsbygoogle.js
+! Anti-adblock: dreamdth.com
+@@||dreamdth.com/js/wutime_adblock/ads.js$script
+! Anti-adblock: notebookcheck.net / notebookcheck.com
+@@||notebook-check.com/ads.min.js$script,domain=notebookcheck.net|notebookcheck.com
+@@||static.h-bid.com/prebid/$script,domain=notebookcheck.net|notebookcheck.com
+@@||static.h-bid.com/notebookcheck.net/$script,domain=notebookcheck.net|notebookcheck.com
+! spiegel.de (https://github.com/brave/brave-browser/issues/4201)
+||imagesrv.adition.com/banners/$image,domain=spiegel.de
+||googletagservices.com/tag/js/gpt.js$script,domain=spiegel.de
+||doubleclick.net/ddm/$image,domain=spiegel.de
+@@||doubleclick.net/ddm/$image,domain=spiegel.de
+@@||googletagservices.com/tag/js/gpt.js$script,domain=spiegel.de
+@@||mxcdn.net/bb-mx/$script,domain=spiegel.de
+@@||imagesrv.adition.com/banners/$image,domain=spiegel.de
+! Fix foxnews video playback
+||imasdk.googleapis.com/js/sdkloader/ima3.js$script,domain=foxbusiness.com|foxnews.com
+@@||imasdk.googleapis.com/js/sdkloader/ima3.js$script,domain=foxbusiness.com|foxnews.com
+@@||fncstatic.com/static/isa/app/lib/VisitorAPI.js$script,domain=foxbusiness.com|foxnews.com
+! Adblock-Tracking: foxnews.com / foxbusiness.com
+@@||fncstatic.com/static/v/all/js/ads.js$script,domain=foxbusiness.com|foxnews.com
+! redditcommentsearch.com (https://community.brave.com/t/redditcommentsearch-doesnt-work-with-shields-on/66496)
+||pay.reddit.com/user/$script,domain=redditcommentsearch.com
+@@||pay.reddit.com/user/$script,domain=redditcommentsearch.com
+! ebay.co.uk + ebay.com and other ebay regions (https://github.com/brave/brave-browser/issues/5019)
+||ebay.com/experience/listing_auto_complete/$xmlhttprequest
+@@||ebay.com/experience/listing_auto_complete/$xmlhttprequest
+! thehindu.com (https://github.com/brave/brave-browser/issues/4808)
+@@||thgim.com/static/js/ads.min.js$script,domain=thehindu.com
+! Anti-adblock: washingtonpost.com
+||pubads.g.doubleclick.net^$xmlhttprequest,domain=washingtonpost.com
+@@||pubads.g.doubleclick.net^$xmlhttprequest,domain=washingtonpost.com
+! Allow ads on DDG: brave-browser/issues#4533
+@@||duckduckgo.com/m.js
+@@||duckduckgo.com/share/spice/amazon/
