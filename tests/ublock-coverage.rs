@@ -46,8 +46,33 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 
 fn get_blocker_engine() -> Engine {
   let rules = rules_from_lists(&vec![
+    String::from("data/regression-testing/easylist.txt"),
+    String::from("data/regression-testing/easyprivacy.txt"),
+  ]);
+
+  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
+
+  let blocker_options = BlockerOptions {
+    debug: true,
+    enable_optimizations: false,
+    load_cosmetic_filters: false,
+    load_network_filters: true
+  };
+  
+    Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    }
+}
+
+fn get_blocker_engine_default() -> Engine {
+  let rules = rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
-    String::from("data/easylist.to/easylist/easyprivacy.txt")
+    String::from("data/easylist.to/easylist/easyprivacy.txt"),
+    String::from("data/uBlockOrigin/unbreak.txt"),
+    String::from("data/uBlockOrigin/filters.txt"),
+    String::from("data/brave/brave-unbreak.txt"),
+    String::from("data/brave/coin-miners.txt"),
+    // String::from("data/test/abpjf.txt"),
   ]);
 
   let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
@@ -94,7 +119,7 @@ fn check_specific_rules() {
 
 #[test]
 fn check_specifics_default() {
-    let mut engine = get_blocker_engine();
+    let mut engine = get_blocker_engine_default();
     {
         let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
@@ -105,6 +130,25 @@ fn check_specifics_default() {
             "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "main_frame");
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+    }
+    {
+        engine.filter_add("@@||www.googleadservices.*/aclk?$first-party");
+        let checked = engine.check_network_urls("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
+            "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
+            "main_frame");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+    }
+    {
+        let checked = engine.check_network_urls("https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
+            "https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
+            "main_frame");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+    }
+    {
+        let checked = engine.check_network_urls("https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
+                "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
+                "main_frame");
+            assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
 }
 
@@ -122,7 +166,7 @@ fn check_basic_works_after_deserialization() {
 }
 
 #[test]
-fn check_matching() {
+fn check_matching_equivalent() {
     let requests = load_requests();
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
