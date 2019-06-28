@@ -36,10 +36,10 @@ impl Resources {
             if resource.is_empty() {
                 continue;
             }
-            let first_new_line = resource.find("\n");
+            let first_new_line = resource.find('\n');
             let first_new_line_pos;
             // No new line, but appears to encode mime type and teh content is not base64, so can be empty
-            if first_new_line.is_none() && resource.contains(" ") && resource.contains("/") && !resource.contains(";base64") {
+            if first_new_line.is_none() && resource.contains(' ') && resource.contains('/') && !resource.contains(";base64") {
                 first_new_line_pos = resource.len();
             } else if first_new_line.is_none() {
                 continue;
@@ -59,7 +59,7 @@ impl Resources {
             let name = name.unwrap().to_owned();
             let body = body.trim().to_owned();
             
-            let ttr = type_to_resource.entry(rtype).or_insert(HashMap::new());
+            let ttr = type_to_resource.entry(rtype).or_insert_with(HashMap::new);
             ttr.insert(name, body);
         }
 
@@ -85,7 +85,7 @@ impl Resources {
     }
 
     pub fn add_resource(&mut self, name: String, resource: Resource) {
-        &self.resources.insert(name, resource);
+        self.resources.insert(name, resource);
     }
 }
 

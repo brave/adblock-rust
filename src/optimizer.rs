@@ -13,12 +13,14 @@ trait Optimization {
  * Fusion a set of `filters` by applying optimizations sequentially.
  */
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
-    let simple_pattern_group = SimplePatternGroup {};
-    let union_domain_group = UnionDomainGroup {};
     let mut optimized: Vec<NetworkFilter> = Vec::new();
-    let (mut fused, unfused) = apply_optimisation(&union_domain_group, filters);
-    optimized.append(&mut fused);
-    let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, unfused);
+
+    // let union_domain_group = UnionDomainGroup {};
+    // let (mut fused, unfused) = apply_optimisation(&union_domain_group, filters);
+    // optimized.append(&mut fused);
+    
+    let simple_pattern_group = SimplePatternGroup {};
+    let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
     optimized.append(&mut fused);
     
     // Append whatever is still left unfused
@@ -98,7 +100,8 @@ impl Optimization for SimplePatternGroup {
         }
 
         // let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
-        filter.mask.set(NetworkFilterMask::IS_REGEX, true);
+        let is_regex = true;
+        filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
         let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
         filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 

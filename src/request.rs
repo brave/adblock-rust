@@ -48,26 +48,22 @@ fn cpt_match_type(cpt: &str) -> RequestType {
     match cpt {
         "beacon" => RequestType::Ping,
         "csp_report" => RequestType::Csp,
-        "document" => RequestType::Document,
+        "document" | "main_frame" => RequestType::Document,
         "font" => RequestType::Font,
-        "image" => RequestType::Image,
-        "imageset" => RequestType::Image,
-        "main_frame" => RequestType::Document,
+        "image" | "imageset" => RequestType::Image,
         "media" => RequestType::Media,
-        "object" => RequestType::Object,
-        "object_subrequest" => RequestType::Object,
-        "other" => RequestType::Other,
+        "object" | "object_subrequest" => RequestType::Object,
         "ping" => RequestType::Ping,
         "script" => RequestType::Script,
-        "speculative" => RequestType::Other,
         "stylesheet" => RequestType::Stylesheet,
-        "sub_frame" => RequestType::Subdocument,
-        "web_manifest" => RequestType::Other,
+        "sub_frame" | "subdocument" => RequestType::Subdocument,
         "websocket" => RequestType::Websocket,
+        "xhr" | "xmlhttprequest" => RequestType::Xmlhttprequest,
+        "other" => RequestType::Other,
+        "speculative" => RequestType::Other,
+        "web_manifest" => RequestType::Other,
         "xbl" => RequestType::Other,
-        "xhr" => RequestType::Xmlhttprequest,
         "xml_dtd" => RequestType::Other,
-        "xmlhttprequest" => RequestType::Xmlhttprequest,
         "xslt" => RequestType::Other,
         _ => RequestType::Other
     }
@@ -88,14 +84,16 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    tokens: Vec<utils::Hash>,
     fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
     hostname_end: usize
 }
 
 impl<'a> Request {
-    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
-        &self.tokens
+    pub fn get_tokens(&self, mut token_buffer: &mut Vec<utils::Hash>) {
+        token_buffer.clear();
+        utils::tokenize_pooled(&self.url, &mut token_buffer);
+        // Add zero token as a fallback to wildcard rule bucket
+        token_buffer.push(0);
     }
 
     pub fn url_after_hostname(&self) -> &str {
@@ -146,6 +144,7 @@ impl<'a> Request {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn from_detailed_parameters(
         raw_type: &str,
         url: &str,
@@ -196,10 +195,6 @@ impl<'a> Request {
         } else {
             None
         };
-        
-        let mut tokens = utils::tokenize(url);
-        // Add zero token as a fallback to wildcard rule bucket
-        tokens.push(0);
 
         Request {
             request_type,
@@ -212,7 +207,6 @@ impl<'a> Request {
             is_https,
             is_supported,
             bug: None,
-            tokens: tokens,
             fuzzy_signature: Arc::new(RwLock::new(None)),
             hostname_end
         }
@@ -455,8 +449,10 @@ mod tests {
             ], &[])
             .as_slice()
         );
+        let mut tokens = Vec::new();
+        simple_example.get_tokens(&mut tokens);
         assert_eq!(
-            simple_example.get_tokens().as_slice(),
+            tokens.as_slice(),
             tokenize(&[
                 "https",
                 "subdomain",

@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use object_pool::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
@@ -10,6 +11,7 @@ use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
 use crate::resources::{Resources, Resource};
 use base64;
+use crate::utils;
 
 pub struct BlockerOptions {
     pub debug: bool,
@@ -25,6 +27,18 @@ pub struct BlockerResult {
     pub redirect: Option<String>,
     pub exception: Option<String>,
     pub filter: Option<String>,
+}
+
+impl Default for BlockerResult {
+    fn default() -> BlockerResult {
+        BlockerResult {
+            matched: false,
+            explicit_cancel: false,
+            redirect: None,
+            exception: None,
+            filter: None
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -43,6 +57,18 @@ impl From<FilterError> for BlockerError {
     }
 }
 
+struct TokenPool {
+    pub pool: Pool<Vec<utils::Hash>>
+}
+
+impl Default for TokenPool {
+    fn default() -> TokenPool {
+        TokenPool {
+            pool: Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE))
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Blocker {
     csp: NetworkFilterList,
@@ -58,13 +84,18 @@ pub struct Blocker {
     tags_enabled: HashSet<String>,
     tagged_filters_all: Vec<NetworkFilter>,
 
+    #[serde(skip_serializing, skip_deserializing)]
+    hot_filters: NetworkFilterList,
+
     debug: bool,
     enable_optimizations: bool,
     load_cosmetic_filters: bool,
     load_network_filters: bool,
 
     #[serde(default)]
-    resources: Resources
+    resources: Resources,
+    #[serde(skip_serializing, skip_deserializing)]
+    pool: TokenPool,
 }
 
 impl Blocker {
@@ -74,13 +105,7 @@ impl Blocker {
      */
     pub fn check(&self, request: &Request) -> BlockerResult {
         if !self.load_network_filters || !request.is_supported {
-            return BlockerResult {
-                matched: false,
-                explicit_cancel: false,
-                redirect: None,
-                exception: None,
-                filter: None,
-            };
+            return BlockerResult::default();
         }
 
         // Check the filters in the following order:
@@ -88,28 +113,51 @@ impl Blocker {
         // 2. redirection ($redirect=resource)
         // 3. normal filters
         // 4. exceptions
+        #[cfg(feature = "metrics")]
+        print!("importants\t");
+
+        let mut request_tokens = self.pool.pool.pull().unwrap();
+        request.get_tokens(&mut request_tokens);
+
         let filter = self
             .importants
-            .check(request)
-            .or_else(|| self.filters_tagged.check(request))
-            .or_else(|| self.redirects.check(request))
-            .or_else(|| self.filters.check(request));
+            // .filters
+            .check(request, &request_tokens)
+            .or_else(|| {
+                #[cfg(feature = "metrics")]
+                print!("tagged\t");
+                self.filters_tagged.check(request, &request_tokens)
+            })
+            .or_else(|| {
+                #[cfg(feature = "metrics")]
+                print!("redirects\t");
+                self.redirects.check(request, &request_tokens)
+            })
+            .or_else(|| {
+                #[cfg(feature = "metrics")]
+                print!("filters\t"); 
+                self.filters.check(request, &request_tokens)
+            });
 
         let exception = filter.as_ref().and_then(|f| {
             // Set `bug` of request
-            // TODO - avoid mutability
             if !f.is_important() {
+                #[cfg(feature = "metrics")]
+                print!("exceptions\t");
                 if f.has_bug() {
                     let mut request_bug = request.clone();
                     request_bug.bug = f.bug;
-                    self.exceptions.check(&request_bug)
+                    self.exceptions.check(&request_bug, &request_tokens)
                 } else {
-                    self.exceptions.check(request)
+                    self.exceptions.check(request, &request_tokens)
                 }
             } else {
                 None
             }
         });
+        
+        #[cfg(feature = "metrics")]
+        println!();
 
         // only match redirects if we have them set up
         let redirect: Option<String> = filter.as_ref().and_then(|f| {
@@ -117,12 +165,11 @@ impl Blocker {
             if let Some(redirect) = f.redirect.as_ref() {
                 // And we have a matching redirect resource
                 if let Some(resource) = self.resources.get_resource(redirect) {
-                    let mut data_url: String;
-                    if resource.content_type.contains(';') {
-                        data_url = format!("data:{},{}", resource.content_type, resource.data);
+                    let data_url = if resource.content_type.contains(';') {
+                        format!("data:{},{}", resource.content_type, resource.data)
                     } else {
-                        data_url = format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data));
-                    }
+                        format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
+                    };
                     Some(data_url.trim().to_owned())
                 } else {
                     // TOOD: handle error - throw?
@@ -221,13 +268,15 @@ impl Blocker {
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
+            hot_filters: NetworkFilterList::default(),
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
             load_cosmetic_filters: options.load_cosmetic_filters,
             load_network_filters: options.load_network_filters,
 
-            resources: Resources::default()
+            resources: Resources::default(),
+            pool: TokenPool::default(),
         }
     }
 
@@ -247,42 +296,40 @@ impl Blocker {
         }
     }
 
-    pub fn filter_add<'a>(&'a mut self, filter: NetworkFilter) -> Result<&'a mut Blocker, BlockerError> {
+    pub fn filter_add(&mut self, filter: NetworkFilter) -> Result<&mut Blocker, BlockerError> {
         if filter.is_badfilter() {
-            return Err(BlockerError::BadFilterAddUnsupported)
+            Err(BlockerError::BadFilterAddUnsupported)
         } else if self.filter_exists(&filter) == Ok(true) {
             Err(BlockerError::FilterExists)
+        } else if filter.is_csp() {
+            self.csp.filter_add(filter);
+            Ok(self)
+        } else if filter.is_exception() {
+            self.exceptions.filter_add(filter);
+            Ok(self)
+        } else if filter.is_important() {
+            self.importants.filter_add(filter);
+            Ok(self)
+        } else if filter.is_redirect() {
+            self.redirects.filter_add(filter);
+            Ok(self)
+        } else if filter.tag.is_some() {
+            self.tagged_filters_all.push(filter);
+            let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
+            Ok(self.tags_with_set(tags_enabled))
         } else {
-            if filter.is_csp() {
-                self.csp.filter_add(filter);
-                Ok(self)
-            } else if filter.is_exception() {
-                self.exceptions.filter_add(filter);
-                Ok(self)
-            } else if filter.is_important() {
-                self.importants.filter_add(filter);
-                Ok(self)
-            } else if filter.is_redirect() {
-                self.redirects.filter_add(filter);
-                Ok(self)
-            } else if filter.tag.is_some() {
-                self.tagged_filters_all.push(filter);
-                let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
-                Ok(self.tags_with_set(tags_enabled))
-            } else {
-                self.filters.filter_add(filter);
-                Ok(self)
-            }
+            self.filters.filter_add(filter);
+            Ok(self)
         }
     }
 
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
-        let tag_set: HashSet<String> = HashSet::from_iter(tags.into_iter().map(|&t| String::from(t)));
+        let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)));
         self.tags_with_set(tag_set)
     }
 
     pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
-        let tag_set: HashSet<String> = HashSet::from_iter(tags.into_iter().map(|&t| String::from(t)))
+        let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)))
             .union(&self.tags_enabled)
             .cloned()
             .collect();
@@ -291,7 +338,7 @@ impl Blocker {
 
     pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
         let tag_set: HashSet<String> = self.tags_enabled
-            .difference(&HashSet::from_iter(tags.into_iter().map(|&t| String::from(t))))
+            .difference(&HashSet::from_iter(tags.iter().map(|&t| String::from(t))))
             .cloned()
             .collect();
         self.tags_with_set(tag_set)
@@ -301,7 +348,7 @@ impl Blocker {
         self.tags_enabled = tags_enabled;
         let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
-            .map(|n| n.clone())
+            .cloned()
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
         self
@@ -311,12 +358,12 @@ impl Blocker {
         self.tags_enabled.iter().cloned().collect()
     }
     
-    pub fn with_resources<'a>(&'a mut self, resources: Resources) -> &'a mut Blocker {
+    pub fn with_resources(&mut self, resources: Resources) -> &mut Blocker {
         self.resources = resources;
         self
     }
 
-    pub fn resource_add<'a>(&'a mut self, key: String, resource: Resource) -> &'a mut Blocker {
+    pub fn resource_add(&mut self, key: String, resource: Resource) -> &mut Blocker {
         self.resources.add_resource(key, resource);
         self
     }
@@ -326,7 +373,7 @@ impl Blocker {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
     // optimized: Option<bool>
@@ -410,7 +457,7 @@ impl NetworkFilterList {
         }
     }
 
-    pub fn filter_add<'a>(&'a mut self, filter: NetworkFilter) -> &'a mut NetworkFilterList {
+    pub fn filter_add(&mut self, filter: NetworkFilter) -> &mut NetworkFilterList {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
@@ -461,28 +508,67 @@ impl NetworkFilterList {
         Ok(false)
     }
 
-    pub fn check(&self, request: &Request) -> Option<&NetworkFilter> {
+    pub fn check(&self, request: &Request, request_tokens: &[Hash]) -> Option<&NetworkFilter> {
+        #[cfg(feature = "metrics")]
+        let mut filters_checked = 0;
+        #[cfg(feature = "metrics")]
+        let mut filter_buckets = 0;
+
+        #[cfg(not(feature = "metrics"))]
+        {
+            if self.filter_map.is_empty() {
+                return None;
+            }
+        }
+
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
+                    #[cfg(feature = "metrics")]
+                    {
+                        filter_buckets += 1;
+                    }
+
                     for filter in filter_bucket {
+                        #[cfg(feature = "metrics")]
+                        {
+                            filters_checked += 1;
+                        }
                         if filter.matches(request) {
+                            #[cfg(feature = "metrics")]
+                            print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             return Some(filter);
                         }
                     }
                 }
             }
         }
+
+        #[cfg(feature = "metrics")]
+        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
         
-        for token in request.get_tokens() {
+        for token in request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
+                #[cfg(feature = "metrics")]
+                {
+                    filter_buckets += 1;
+                }
                 for filter in filter_bucket {
+                    #[cfg(feature = "metrics")]
+                    {
+                        filters_checked += 1;
+                    }
                     if filter.matches(request) {
+                        #[cfg(feature = "metrics")]
+                        print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         return Some(filter);
                     }
                 }
             }
         }
+
+        #[cfg(feature = "metrics")]
+        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
 
         None
     }
@@ -714,7 +800,9 @@ mod tests {
         let filter_list = NetworkFilterList::new(network_filters, false);
 
         requests.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = filter_list.check(&req);
+            let mut tokens = Vec::new();
+            req.get_tokens(&mut tokens);
+            let matched_rule = filter_list.check(&req, &tokens);
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {
@@ -1227,7 +1315,7 @@ mod legacy_rule_parsing_tests {
     // difference from original counts caused by not handling document/subdocument options and possibly miscounting on the blocker side.
     // Printing all non-cosmetic, non-html, non-comment/-empty rules and ones with no unsupported options yields 29142 items
     // This engine also handles 3 rules that old one does not
-    const EASY_LIST: ListCounts = ListCounts { filters: 24062+3, cosmetic_filters: 31163, exceptions: 5080-23 };
+    const EASY_LIST: ListCounts = ListCounts { filters: 24062+3, cosmetic_filters: 31163, exceptions: 5080 };
     // easyPrivacy = { 11817, 0, 0, 1020 };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
     const EASY_PRIVACY: ListCounts = ListCounts { filters: 11889, cosmetic_filters: 0, exceptions: 1021 };
