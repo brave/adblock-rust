@@ -53,6 +53,9 @@ bitflags! {
         const EXPLICIT_CANCEL = 1 << 26;
         const BAD_FILTER = 1 << 27;
 
+        // full document rules tend to be handled differently
+        const FROM_DOCUMENT = 1 << 29;
+
         // Kind of pattern
         const IS_REGEX = 1 << 18;
         const IS_LEFT_ANCHOR = 1 << 19;
@@ -133,7 +136,7 @@ impl From<&request::RequestType> for NetworkFilterMask {
         match request_type {
             request::RequestType::Beacon => NetworkFilterMask::FROM_PING,
             request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
-            request::RequestType::Document => NetworkFilterMask::UNMATCHED,
+            request::RequestType::Document => NetworkFilterMask::FROM_DOCUMENT,
             request::RequestType::Dtd => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Fetch => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Font => NetworkFilterMask::FROM_FONT,
@@ -348,6 +351,7 @@ impl NetworkFilter {
                             "script" => option_mask.set(NetworkFilterMask::FROM_SCRIPT, true),
                             "css" | "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
                             "frame" | "subdocument" => option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true),
+                            "main_frame" | "document" => option_mask.set(NetworkFilterMask::FROM_DOCUMENT, true),
                             "xhr" | "xmlhttprequest" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
                             "websocket" => option_mask.set(NetworkFilterMask::FROM_WEBSOCKET, true),
                             "font" => option_mask.set(NetworkFilterMask::FROM_FONT, true),
@@ -1334,7 +1338,7 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
 
 pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> bool {
     match NetworkFilterMask::from(cpt) {
-        NetworkFilterMask::UNMATCHED => filter.cpt_any(),
+        NetworkFilterMask::FROM_DOCUMENT => filter.get_cpt_mask().contains(NetworkFilterMask::FROM_DOCUMENT) || filter.is_exception(),
         mask => filter.mask.contains(mask),
     }
 }
@@ -2992,6 +2996,38 @@ mod match_tests {
             let url = "https://example.com/ad.js";
             let source = "http://auth.wi-fi.ru";
             let request = request::Request::from_urls(url, source, "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+    }
+
+    #[test]
+    fn check_url_path_regex_matches() {
+        {
+            let filter = "@@||www.google.com/aclk?*&adurl=$document,~third-party";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let request = request::Request::from_urls(url, source, "document").unwrap();
+            assert_eq!(request.is_third_party, Some(false));
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+        {
+            let filter = "@@||www.google.*/aclk?$first-party";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let request = request::Request::from_urls(url, source, "main_frame").unwrap();
+            assert_eq!(request.is_third_party, Some(false));
             assert!(
                 network_filter.matches(&request) == true,
                 "Expected match for {} on {}",
