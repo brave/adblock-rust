@@ -94,10 +94,17 @@ fn check_specific_rules() {
 
 #[test]
 fn check_specifics_default() {
-    let engine = get_blocker_engine();
+    let mut engine = get_blocker_engine();
     {
         let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
+    }
+    {
+        engine.filter_add("@@||www.google.*/aclk?$first-party");
+        let checked = engine.check_network_urls("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
+            "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
+            "main_frame");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
 }
 

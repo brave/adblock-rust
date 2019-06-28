@@ -1949,7 +1949,7 @@
   {
     "filters": ["||popads.net^$third-party", "||popads.net^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.popads.net"
   },
   {
@@ -2010,7 +2010,7 @@
   {
     "filters": ["||xnxx.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.xnxx.com"
   },
   {
@@ -2177,7 +2177,7 @@
   {
     "filters": ["||exosrv.com^$third-party", "||exosrv.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.exosrv.com"
   },
   {
@@ -2490,7 +2490,7 @@
     "check": true,
     "filters": ["/showad."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "script",
     "url": "http://ads.pubmatic.com/AdServer/js/showad.js"
   },
   {
@@ -2510,7 +2510,7 @@
   {
     "filters": ["||zog.link^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://in6.zog.link"
   },
   {
@@ -2567,7 +2567,7 @@
   {
     "filters": ["||tubecorporate.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://st.tubecorporate.com"
   },
   {
@@ -2598,46 +2598,46 @@
     "check": true,
     "filters": ["||turn.com^$third-party", "||ad.turn.com^", "||turn.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ad.turn.com"
   },
   {
     "check": true,
     "filters": ["||de17a.com^", "||de17a.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://d5p.de17a.com"
   },
   {
     "filters": ["||mathtag.com^", "||mathtag.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://sync.mathtag.com"
   },
   {
     "check": true,
     "filters": [".adsby.", "||bidtheatre.com^$third-party", "||adsby.bidtheatre.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://match.adsby.bidtheatre.com"
   },
   {
     "check": true,
     "filters": ["||basebanner.com^$third-party", "||basebanner.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://match.basebanner.com"
   },
   {
     "filters": ["||sitescout.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://pixel-sync.sitescout.com"
   },
   {
     "filters": ["||upravel.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://sync.upravel.com"
   },
   {
@@ -2662,7 +2662,7 @@
   {
     "filters": ["||onaudience.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://pixel.onaudience.com"
   },
   {
@@ -2680,7 +2680,7 @@
   {
     "filters": ["||erne.co/tags?"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://grey.erne.co/tags?"
   },
   {
@@ -2832,7 +2832,7 @@
   {
     "filters": ["?bannerid="],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ads.nicovideo.jp/bannertext?bannerid=81392&zoneid=1209&"
   },
   {
@@ -3030,7 +3030,7 @@
   {
     "filters": ["||apvdr.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://apvdr.com"
   },
   {
@@ -3205,38 +3205,38 @@
   {
     "filters": ["||skimresources.com^", "||skimresources.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://x.skimresources.com"
   },
   {
     "filters": ["||netmng.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://pubmatic2waycm-atl.netmng.com"
   },
   {
     "filters": ["||widespace.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://sync.widespace.com"
   },
   {
     "filters": ["||adhigh.net^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://px.adhigh.net"
   },
   {
     "check": true,
     "filters": ["||tapad.com^$third-party", "||tapad.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://pixel.tapad.com"
   },
   {
     "filters": ["||gwallet.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://rp.gwallet.com"
   },
   {
@@ -3328,14 +3328,14 @@
     "check": true,
     "filters": ["/pagead/html/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://googleads.g.doubleclick.net/pagead/html/"
   },
   {
     "check": true,
     "filters": ["/pagead/ads?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://googleads.g.doubleclick.net/pagead/ads?"
   },
   {
@@ -3359,7 +3359,7 @@
   {
     "filters": ["||affinity.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://backfills3.ph.affinity.com"
   },
   {
@@ -3413,7 +3413,7 @@
   {
     "filters": ["||edigitalsurvey.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://edigitalsurvey.com"
   },
   {
@@ -3543,7 +3543,7 @@
   {
     "filters": ["||exdynsrv.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.exdynsrv.com"
   },
   {
@@ -3737,7 +3737,7 @@
   {
     "filters": ["||in.zog.link^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://in.zog.link"
   },
   {
@@ -3876,7 +3876,7 @@
   {
     "filters": ["||da-ads.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.da-ads.com"
   },
   {
@@ -3939,7 +3939,7 @@
   {
     "filters": ["/ad_spot."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://spnet2-1.i-mobile.co.jp/ad_spot.aspx"
   },
   {
@@ -4017,7 +4017,7 @@
   {
     "filters": ["||creativecdn.com/tags?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://asia.creativecdn.com/tags?"
   },
   {
@@ -4029,7 +4029,7 @@
   {
     "filters": ["||tm.uol.com.br^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://tm.uol.com.br"
   },
   {
@@ -4146,7 +4146,7 @@
     "check": true,
     "filters": ["||brealtime.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://cookie.brealtime.com"
   },
   {
@@ -4171,7 +4171,7 @@
   {
     "filters": ["||googlesyndication.com/sadbundle/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://tpc.googlesyndication.com/sadbundle/"
   },
   {
@@ -4380,7 +4380,7 @@
     "check": true,
     "filters": ["||ad.zanox.com^", "||zanox.com^", "||zanox.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.zanox.com"
   },
   {
@@ -4398,14 +4398,14 @@
   {
     "filters": ["://banner.$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://banner.congstar.de"
   },
   {
     "check": true,
     "filters": ["||zanox.com/ppv/$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.zanox.com/ppv/"
   },
   {
@@ -4645,7 +4645,7 @@
   {
     "filters": ["||googletagmanager.com/ns.html?$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.googletagmanager.com/ns.html?"
   },
   {
@@ -4663,7 +4663,7 @@
   {
     "filters": ["||traffichunt.com^$third-party", "||traffichunt.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ads.traffichunt.com"
   },
   {
@@ -4813,7 +4813,7 @@
     "check": true,
     "filters": ["/ads2.", "||ads2.contentabc.com^", ".com/ads?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ads2.contentabc.com/ads?"
   },
   {
@@ -5149,7 +5149,7 @@
     "check": true,
     "filters": ["||traffichaus.com^$third-party", "/adserve/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://syndication.traffichaus.com/adserve/"
   },
   {
@@ -5190,7 +5190,7 @@
     "check": true,
     "filters": ["||adstatic.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://vip.adstatic.com"
   },
   {
@@ -5214,7 +5214,7 @@
   {
     "filters": ["||rotumal.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.rotumal.com"
   },
   {
@@ -5311,7 +5311,7 @@
       "://adv.$domain=~adv.cincsys.com|~adv.co.it|~adv.derfunke.at|~adv.ee|~adv.gg|~adv.michaelgat.com|~adv.msk.ru|~adv.ru|~adv.vg|~adv.works|~advids.co|~erti.se|~escreverdireito.com|~farapp.com|~forex-tv-online.com|~r7.com|~typeform.com|~welaika.com"
     ],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adv.office-partner.de"
   },
   {
@@ -5430,13 +5430,13 @@
   {
     "filters": ["||doublepimpssl.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.doublepimpssl.com"
   },
   {
     "filters": ["||nextoptim.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.nextoptim.com"
   },
   {
@@ -5584,7 +5584,7 @@
   {
     "filters": ["/afr.php?", "/delivery/afr."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://a.spankbang.com/www/delivery/afr.php?"
   },
   {
@@ -5664,7 +5664,7 @@
   {
     "filters": ["||shared.65twenty.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://shared.65twenty.com"
   },
   {
@@ -6431,7 +6431,7 @@
     "check": true,
     "filters": ["||partner.googleadservices.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://partner.googleadservices.com"
   },
   {
@@ -7126,7 +7126,7 @@
   {
     "filters": ["||disqusads.com^$third-party", "||disqusads.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://disqusads.com"
   },
   {
@@ -7211,7 +7211,7 @@
   {
     "filters": ["||boudja.com^$third-party", "||boudja.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://boudja.com"
   },
   {
@@ -7398,7 +7398,7 @@
   {
     "filters": ["/300x250."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://d.kapanlaginetwork.com/banner/custom/backfill-kln/300x250.php"
   },
   {
@@ -7563,7 +7563,7 @@
   {
     "filters": ["/adbet-"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://rutrk.org/iframe/adbet-top-2.html"
   },
   {
@@ -7582,7 +7582,7 @@
     "check": true,
     "filters": ["||primevideo.com^*/ref="],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.primevideo.com/auth-redirect/ref=atv_nb_sign_in"
   },
   {
@@ -7693,7 +7693,7 @@
   {
     "filters": ["/pstats."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://a.rfihub.com/pstats.html"
   },
   {
@@ -7711,7 +7711,7 @@
   {
     "filters": ["/reklama/*"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://sportvia.ru/reklama/"
   },
   {
@@ -7723,7 +7723,7 @@
   {
     "filters": ["||uuidksinc.net^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://uuidksinc.net"
   },
   {
@@ -7905,7 +7905,7 @@
   {
     "filters": ["/showads^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.setn.com/Ads/ShowAds"
   },
   {
@@ -8205,7 +8205,7 @@
   {
     "filters": ["||metric.gstatic.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://p4-faaav4qvtwweo-3egofrhggfakx52c-if-v6exp3-v4.metric.gstatic.com"
   },
   {
@@ -8291,7 +8291,7 @@
   {
     "filters": ["/directadvert-"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://rutrk.org/iframe/directadvert-240x120-1.html"
   },
   {
@@ -8315,7 +8315,7 @@
   {
     "filters": ["||tamgrt.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.tamgrt.com"
   },
   {
@@ -8576,7 +8576,7 @@
   {
     "filters": ["||crptentry.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.crptentry.com"
   },
   {
@@ -8870,7 +8870,7 @@
   {
     "filters": ["/ads_frame."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.pixiv.net/ads_frame.php"
   },
   {
@@ -9135,7 +9135,7 @@
   {
     "filters": ["?ads=$domain=~booking.loganair.co.uk"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://comic.pixiv.net/works/5197?ads=tf_hot_work_index&first_story_only=true"
   },
   {
@@ -9261,7 +9261,7 @@
   {
     "filters": ["||popcash.net^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.popcash.net"
   },
   {
@@ -9541,7 +9541,7 @@
   {
     "filters": ["||beampulse.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://as-2313968.cdn.beampulse.com"
   },
   {
@@ -9587,13 +9587,13 @@
   {
     "filters": ["||loopme.me^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://csync.loopme.me"
   },
   {
     "filters": ["||stackadapt.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://sync.srv.stackadapt.com"
   },
   {
@@ -9605,7 +9605,7 @@
   {
     "filters": ["||facebook.com/audiencenetwork/$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.facebook.com/audiencenetwork/"
   },
   {
@@ -9794,7 +9794,7 @@
   {
     "filters": ["||kameleoon.eu^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://9omvin7vhk.kameleoon.eu"
   },
   {
@@ -10280,13 +10280,13 @@
   {
     "filters": ["||spotscenered.info^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.spotscenered.info"
   },
   {
     "filters": ["||clrstm.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://tag.clrstm.com"
   },
   {
@@ -10393,7 +10393,7 @@
   {
     "filters": ["/ad.html?", "/html/ad."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://img.scupio.com/html/ad.html?"
   },
   {
@@ -10411,7 +10411,7 @@
   {
     "filters": ["||constintptr.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.constintptr.com"
   },
   {
@@ -10460,7 +10460,7 @@
   {
     "filters": ["||spanids.dictionary.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://spanids.dictionary.com"
   },
   {
@@ -10472,7 +10472,7 @@
   {
     "filters": ["||spanids.thesaurus.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://spanids.thesaurus.com"
   },
   {
@@ -10640,7 +10640,7 @@
   {
     "filters": ["||o12zs3u2n.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.o12zs3u2n.com"
   },
   {
@@ -10744,7 +10744,7 @@
   {
     "filters": ["||zeotap.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://spl.zeotap.com"
   },
   {
@@ -11424,7 +11424,7 @@
   {
     "filters": ["/adshow."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adserver.juicyads.com/adshow.php"
   },
   {
@@ -11454,7 +11454,7 @@
   {
     "filters": ["||atas.io^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://spot-01.atas.io"
   },
   {
@@ -11532,13 +11532,13 @@
   {
     "filters": ["||optmd.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://cdn.optmd.com"
   },
   {
     "filters": ["||eqads.com^$third-party", "||eqads.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://um2.eqads.com"
   },
   {
@@ -11760,7 +11760,7 @@
   {
     "filters": ["||elasticad.net^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://cdn.elasticad.net"
   },
   {
@@ -11944,7 +11944,7 @@
   {
     "filters": ["_300x250."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://static.idgdmg.com.cn/html/priming/zol_back_300x250.html"
   },
   {
@@ -12030,7 +12030,7 @@
   {
     "filters": ["/track.p?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.ashleymadison.com/app/public/track.p?"
   },
   {
@@ -12438,7 +12438,7 @@
   {
     "filters": ["/static/ads/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://cdn.egy.best/static/ads/"
   },
   {
@@ -12591,7 +12591,7 @@
   {
     "filters": [".org/adv/"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://boards.4chan.org/adv/"
   },
   {
@@ -12639,7 +12639,7 @@
   {
     "filters": ["/afs/ads/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.google.com/afs/ads/"
   },
   {
@@ -12690,7 +12690,7 @@
   {
     "filters": ["||nxtck.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://optout.nxtck.com"
   },
   {
@@ -12724,7 +12724,7 @@
   {
     "filters": ["||strossle.it^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://proxy.strossle.it"
   },
   {
@@ -12921,7 +12921,7 @@
   {
     "filters": ["||adalliance.io^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://optout.adalliance.io"
   },
   {
@@ -13094,7 +13094,7 @@
       "||mediaplex.com^*/universal.html"
     ],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://secure.img-cdn.mediaplex.com/0/2399/universal.html"
   },
   {
@@ -13125,7 +13125,7 @@
   {
     "filters": ["||doublepimp.com^$third-party", "||doublepimp.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.doublepimp.com"
   },
   {
@@ -13200,7 +13200,7 @@
   {
     "filters": ["/bnrsrv."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://a.farlex.com/_/bnrsrv.ashx"
   },
   {
@@ -13248,7 +13248,7 @@
   {
     "filters": ["||merlin.abc.go.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://merlin.abc.go.com"
   },
   {
@@ -13274,7 +13274,7 @@
   {
     "filters": ["||go.com/disneyid/responder?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://abcnews.go.com/disneyid/responder?"
   },
   {
@@ -13555,7 +13555,7 @@
   {
     "filters": ["/getbanner.php?", ".php?zone_id="],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ads.livetvcdn.net//getbanner.php?zone_id=91&rnd=618003853"
   },
   {
@@ -13592,7 +13592,7 @@
   {
     "filters": ["||webmd.com/pixel/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://img.webmd.com/pixel/"
   },
   {
@@ -13641,7 +13641,7 @@
   {
     "filters": ["/advt.$domain=~advt.ch"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://advt.manoramaonline.com"
   },
   {
@@ -13703,13 +13703,13 @@
   {
     "filters": ["/track/impression?"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://imp.control.kochava.com/track/impression?"
   },
   {
     "filters": ["/imp?slot="],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adn.inven.co.kr/imp?slot=1653&type=if&ibt=ns1459"
   },
   {
@@ -13775,7 +13775,7 @@
   {
     "filters": ["||adtng.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://a.adtng.com"
   },
   {
@@ -13787,14 +13787,14 @@
   {
     "filters": ["/adx-exchange."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adx-exchange.toast.com"
   },
   {
     "check": true,
     "filters": ["/ads/click_"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ls.webmd.com/RealMedia/ads/click_lx.ads"
   },
   {
@@ -13912,7 +13912,7 @@
   {
     "filters": ["/beacon.html?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://js.fout.jp/beacon.html?"
   },
   {
@@ -13984,7 +13984,7 @@
   {
     "filters": ["||delivery.porn.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://delivery.porn.com"
   },
   {
@@ -14204,7 +14204,7 @@
   {
     "filters": ["||awin1.com^", "||awin1.com^$third-party", "||awin1.com/cshow.php$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.awin1.com/cshow.php"
   },
   {
@@ -14223,7 +14223,7 @@
     "check": true,
     "filters": ["||quantcast.com^$third-party", "||quantcast.com^", "||widget.quantcast.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://widget.quantcast.com"
   },
   {
@@ -14295,7 +14295,7 @@
   {
     "filters": ["||thewhizmarketing.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.thewhizmarketing.com"
   },
   {
@@ -14319,7 +14319,7 @@
   {
     "filters": ["||widgethost.barnebys.com^$third-party", "||barnebys.com/widgets/$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://widgethost.barnebys.com/widgets/"
   },
   {
@@ -14385,7 +14385,7 @@
   {
     "filters": ["||mrelko.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://mrelko.com"
   },
   {
@@ -14685,7 +14685,7 @@
   {
     "filters": ["||zukxd6fkxqn.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.zukxd6fkxqn.com"
   },
   {
@@ -14867,7 +14867,7 @@
   {
     "filters": ["||addroplet.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.addroplet.com"
   },
   {
@@ -14879,7 +14879,7 @@
   {
     "filters": ["/ads/bottom/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.cam4.com/ads/bottom/"
   },
   {
@@ -14989,7 +14989,7 @@
     "check": true,
     "filters": ["||ad4mat.de^$third-party", "||ad4mat.de^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.ad4mat.de"
   },
   {
@@ -15022,13 +15022,13 @@
   {
     "filters": ["||revrtb.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://xml.revrtb.com"
   },
   {
     "filters": ["/ads/profile/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.cam4.com/ads/profile/"
   },
   {
@@ -15064,7 +15064,7 @@
   {
     "filters": ["/aff/ads_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://creative.mlsat02.de/telekom/aff/ads_media.php"
   },
   {
@@ -15083,7 +15083,7 @@
     "check": true,
     "filters": ["/ads/banner_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.ad4mat.de/ads/banner_data.php"
   },
   {
@@ -15180,7 +15180,7 @@
   {
     "filters": ["/analytics.html?"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://assets.tumblr.com/analytics.html?"
   },
   {
@@ -15563,7 +15563,7 @@
   {
     "filters": ["||cdnondemand.org^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.cdnondemand.org"
   },
   {
@@ -15844,7 +15844,7 @@
   {
     "filters": ["||ncaudienceexchange.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.ncaudienceexchange.com"
   },
   {
@@ -15978,7 +15978,7 @@
   {
     "filters": ["||adk2x.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://speednetwork14.adk2x.com"
   },
   {
@@ -16039,7 +16039,7 @@
   {
     "filters": ["||reundcwkqvctq.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.reundcwkqvctq.com"
   },
   {
@@ -16160,7 +16160,7 @@
   {
     "filters": ["||box.com/gen204?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://app.box.com/gen204?"
   },
   {
@@ -16226,7 +16226,7 @@
   {
     "filters": ["||eroterest.net^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.eroterest.net"
   },
   {
@@ -16280,7 +16280,7 @@
   {
     "filters": ["-text-ads."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.icicibank.com/chatbot-text-ads.html"
   },
   {
@@ -16396,7 +16396,7 @@
   {
     "filters": ["||metric*.rediff.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://metric.rediff.com"
   },
   {
@@ -16596,7 +16596,7 @@
   {
     "filters": ["||ato.mx^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://s.ato.mx"
   },
   {
@@ -16614,7 +16614,7 @@
   {
     "filters": ["/metrika/watch_"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://mc.yandex.ru/metrika/watch_match.html"
   },
   {
@@ -16638,7 +16638,7 @@
   {
     "filters": ["_ad.php?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://apis.pchome.com.tw/PFB_AD.php?"
   },
   {
@@ -16776,7 +16776,7 @@
   {
     "filters": ["||newstarads.com^$third-party", "||newstarads.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.newstarads.com"
   },
   {
@@ -16824,7 +16824,7 @@
   {
     "filters": ["||velocitycdn.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.velocitycdn.com"
   },
   {
@@ -17095,13 +17095,13 @@
   {
     "filters": ["||pxc.otto.de^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://pxc.otto.de"
   },
   {
     "filters": ["/iframe.php?spotID="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://hd100546b.com/iframe.php?spotID=182&w=300&h=250"
   },
   {
@@ -17140,7 +17140,7 @@
   {
     "filters": ["||urdupoint.com^*/banners/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://m.urdupoint.com/includes/banners/"
   },
   {
@@ -17206,7 +17206,7 @@
   {
     "filters": ["||cadreon.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://unity.cadreon.com"
   },
   {
@@ -17344,7 +17344,7 @@
   {
     "filters": ["||actiflex.org^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://actiflex.org"
   },
   {
@@ -17417,7 +17417,7 @@
     "check": true,
     "filters": ["/728x90_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://pastebin.com/adserver/728x90_custom_safe.php"
   },
   {
@@ -17483,7 +17483,7 @@
   {
     "filters": ["||onfocus.io^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://iq.onfocus.io"
   },
   {
@@ -17585,7 +17585,7 @@
   {
     "filters": ["||ozon.ru^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.ozon.ru"
   },
   {
@@ -17827,7 +17827,7 @@
   {
     "filters": ["/postview.gif?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://portal.o2online.de/nws/img/postview.gif?"
   },
   {
@@ -17869,7 +17869,7 @@
   {
     "filters": ["||imagetwist.com/?op="],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://imagetwist.com/?op=registration"
   },
   {
@@ -18044,13 +18044,13 @@
   {
     "filters": ["/cedexis/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://productimages.hepsiburada.net/cedexis/"
   },
   {
     "filters": ["_adunit."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://m.sporx.com/_banner/fill_adunit.php"
   },
   {
@@ -18265,7 +18265,7 @@
   {
     "filters": ["||l.ooyala.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://l.ooyala.com"
   },
   {
@@ -18388,7 +18388,7 @@
   {
     "filters": ["||sessions.exchange^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://get.sessions.exchange"
   },
   {
@@ -18424,13 +18424,13 @@
   {
     "filters": ["||bitmedianetwork.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.bitmedianetwork.com"
   },
   {
     "filters": ["||flirt4free.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.flirt4free.com"
   },
   {
@@ -18448,7 +18448,7 @@
   {
     "filters": ["||neobux.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.neobux.com"
   },
   {
@@ -18503,7 +18503,7 @@
     "check": true,
     "filters": ["728x90.htm|"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.cnbeta.com/assets/adx728x90.htm"
   },
   {
@@ -18516,7 +18516,7 @@
     "check": true,
     "filters": ["/adlogger_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://static.googles.com/adserver/adlogger_tracker.php"
   },
   {
@@ -18534,7 +18534,7 @@
   {
     "filters": ["||click.aliexpress.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://s.click.aliexpress.com"
   },
   {
@@ -18558,7 +18558,7 @@
   {
     "filters": ["||teefpagayhb.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.teefpagayhb.com"
   },
   {
@@ -18638,7 +18638,7 @@
   {
     "filters": ["/cross-domain-cookie?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.ancestry.com/lp/cross-domain-cookie?"
   },
   {
@@ -18722,7 +18722,7 @@
   {
     "filters": ["||caltat.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://cdn3.caltat.com"
   },
   {
@@ -18951,7 +18951,7 @@
   {
     "filters": ["/afr?auid="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://uk-ads.openx.net/w/1.0/afr?auid=392783&cb=INSERT_RANDOM_NUMBER_HERE"
   },
   {
@@ -19187,7 +19187,7 @@
   {
     "filters": ["||porn300.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.porn300.com"
   },
   {
@@ -19511,7 +19511,7 @@
   {
     "filters": ["||dreamsearch.or.kr^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.dreamsearch.or.kr"
   },
   {
@@ -19523,7 +19523,7 @@
   {
     "filters": ["||cad.donga.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://cad.donga.com"
   },
   {
@@ -19535,7 +19535,7 @@
   {
     "filters": ["||o333o.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://a.o333o.com"
   },
   {
@@ -19640,7 +19640,7 @@
   {
     "filters": ["_ads.html"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://1gr.cz/prilohy/reklama/idn-wsq_ads.html"
   },
   {
@@ -19682,7 +19682,7 @@
   {
     "filters": ["/ads7."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ads7.hsoub.com"
   },
   {
@@ -19753,7 +19753,7 @@
   {
     "filters": ["/ads3."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ads3.hsoub.com"
   },
   {
@@ -19765,7 +19765,7 @@
   {
     "filters": ["||zoyxbjmmlsrc.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.zoyxbjmmlsrc.com"
   },
   {
@@ -19891,19 +19891,19 @@
   {
     "filters": ["||go2affise.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.go2affise.com"
   },
   {
     "filters": ["||ednplus.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adex.ednplus.com"
   },
   {
     "filters": ["||ad4989.co.kr^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adgrp1.ad4989.co.kr"
   },
   {
@@ -19966,13 +19966,13 @@
   {
     "filters": ["||ad.about.co.kr^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ad.about.co.kr"
   },
   {
     "filters": ["||png2imag.club^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.png2imag.club"
   },
   {
@@ -20176,7 +20176,7 @@
   {
     "filters": ["?affiliate=$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.bet365.com/dl/~offer?affiliate=365_773866"
   },
   {
@@ -20240,7 +20240,7 @@
     "check": true,
     "filters": ["||adultfriendfinder.com/go/$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adultfriendfinder.com/go/"
   },
   {
@@ -20264,7 +20264,7 @@
   {
     "filters": ["/adv.asp"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://spdmg-backend2.i-mobile.co.jp/adv.aspx"
   },
   {
@@ -20277,7 +20277,7 @@
     "check": true,
     "filters": ["/ads6.$domain=~ads6.adesignstudio.eu", "/ads6."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ads6.hsoub.com"
   },
   {
@@ -20342,7 +20342,7 @@
   {
     "filters": ["||prpops.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.prpops.com"
   },
   {
@@ -20549,7 +20549,7 @@
   {
     "filters": ["/adcheck."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adcheck.about.co.kr"
   },
   {
@@ -20640,7 +20640,7 @@
   {
     "filters": [".org/ad.", "/ad.php?", "&adstype="],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://share.dmhy.org/ad.php?id=dmhy&adsType=950x80"
   },
   {
@@ -20658,7 +20658,7 @@
   {
     "filters": ["||salecycle.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://s.salecycle.com"
   },
   {
@@ -20759,7 +20759,7 @@
   {
     "filters": ["&bannerid="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.bsmartad.net/adframe.php?zoneid=10957&bannerid=123&ref=OWFuaW1lLnRv"
   },
   {
@@ -20843,7 +20843,7 @@
   {
     "filters": ["||runtnc.net^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.runtnc.net"
   },
   {
@@ -21040,13 +21040,13 @@
   {
     "filters": ["||aaxdetect.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://aaxdetect.com"
   },
   {
     "filters": ["||belboon.de^$third-party", "/adtracking/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www1.belboon.de/adtracking/"
   },
   {
@@ -21076,7 +21076,7 @@
   {
     "filters": ["||zeusclicks.com^", "/view/banner/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ads2.zeusclicks.com/servlet/view/banner/"
   },
   {
@@ -21088,7 +21088,7 @@
   {
     "filters": ["||sexad.net^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://as.sexad.net"
   },
   {
@@ -21148,7 +21148,7 @@
   {
     "filters": ["||celeritascdn.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.celeritascdn.com"
   },
   {
@@ -21207,7 +21207,7 @@
   {
     "filters": ["||audiencemanager.de^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.audiencemanager.de"
   },
   {
@@ -21237,13 +21237,13 @@
   {
     "filters": ["||adc-srv.net/retargeting.php"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://r.adc-srv.net/retargeting.php"
   },
   {
     "filters": ["||ad-srv.net^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.ad-srv.net"
   },
   {
@@ -21255,7 +21255,7 @@
   {
     "filters": ["||hibids10.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.hibids10.com"
   },
   {
@@ -21291,13 +21291,13 @@
   {
     "filters": ["||heavy-r.com/a/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.heavy-r.com/a/"
   },
   {
     "filters": ["||atdmt.com/iaction/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://view.atdmt.com/iaction/"
   },
   {
@@ -22042,7 +22042,7 @@
   {
     "filters": ["||popmyads.com^$third-party", "||popmyads.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.popmyads.com"
   },
   {
@@ -22475,7 +22475,7 @@
   {
     "filters": ["||fsdvydpldxrbu.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.fsdvydpldxrbu.com"
   },
   {
@@ -22669,7 +22669,7 @@
   {
     "filters": ["/footer_ads_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.nuvid.com/footer_ads_tiz.php"
   },
   {
@@ -22781,7 +22781,7 @@
   {
     "filters": ["/services/ads/*"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://clinic.niniban.com/Services/Ads/"
   },
   {
@@ -22805,7 +22805,7 @@
   {
     "filters": ["/myads/*"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.ilbe.com/myads/"
   },
   {
@@ -22817,7 +22817,7 @@
   {
     "filters": ["||fbcdn2.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.fbcdn2.com"
   },
   {
@@ -22841,7 +22841,7 @@
   {
     "filters": ["||trafficsan.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://eki.trafficsan.com"
   },
   {
@@ -22915,7 +22915,7 @@
   {
     "filters": ["||squid.gazeta.pl/bdtrck/"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://squid.gazeta.pl/bdtrck/"
   },
   {
@@ -22969,7 +22969,7 @@
   {
     "filters": ["||watchmygf.to^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.watchmygf.to"
   },
   {
@@ -23092,7 +23092,7 @@
   {
     "filters": ["||d169bbxks24g2u.cloudfront.net^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://d169bbxks24g2u.cloudfront.net"
   },
   {
@@ -23110,7 +23110,7 @@
   {
     "filters": ["/analytic/count."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.aksam.com.tr/analytic/count.asp"
   },
   {
@@ -23231,7 +23231,7 @@
   {
     "filters": ["||eoredi.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.eoredi.com"
   },
   {
@@ -23327,7 +23327,7 @@
   {
     "filters": ["||geni.us^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://geni.us"
   },
   {
@@ -23435,7 +23435,7 @@
   {
     "filters": ["||trafforsrv.com^", "||trafforsrv.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://trafforsrv.com"
   },
   {
@@ -23661,7 +23661,7 @@
   {
     "filters": ["||turbotraff.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://turbotraff.com"
   },
   {
@@ -23740,7 +23740,7 @@
   {
     "filters": ["/tags?session_id="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://fpt.microsoft.com/tags?session_id=618fef82-b5a9-40b4-b297-b63d07fadd22"
   },
   {
@@ -23800,13 +23800,13 @@
   {
     "filters": ["||pdn-1.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://xml.pdn-1.com"
   },
   {
     "filters": ["||popmonetizer.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://xml.popmonetizer.com"
   },
   {
@@ -23818,7 +23818,7 @@
   {
     "filters": ["||adrunnr.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adrunnr.com"
   },
   {
@@ -23842,7 +23842,7 @@
   {
     "filters": ["||thefappeningblog.com/icloud9.html"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://thefappeningblog.com/icloud9.html"
   },
   {
@@ -23934,13 +23934,13 @@
   {
     "filters": ["728x90.html|"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://mangarock.com/iframe/adtrue_728x90.html"
   },
   {
     "filters": ["||adsrv.eacdn.com^$third-party", "||adsrv.eacdn.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://wlstoiximan.adsrv.eacdn.com"
   },
   {
@@ -23952,7 +23952,7 @@
   {
     "filters": ["||adf.ly^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.adf.ly"
   },
   {
@@ -24696,7 +24696,7 @@
   {
     "filters": ["||hyphenatedion.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.hyphenatedion.com"
   },
   {
@@ -24951,7 +24951,7 @@
   {
     "filters": ["/tracking_partenaire."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.lacentrale.fr/tracking_partenaire.php"
   },
   {
@@ -25521,7 +25521,7 @@
   {
     "filters": [".me/ads/", "/ads/300."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://castlive.me/ads/300.html"
   },
   {
@@ -25899,7 +25899,7 @@
   {
     "filters": ["/ads/load."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://castlive.me/ads/load.html"
   },
   {
@@ -25917,13 +25917,13 @@
   {
     "filters": ["/feedads."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://livesport4u.com/feedads.html"
   },
   {
     "filters": ["/adright."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://vipcast.pw/adright.php"
   },
   {
@@ -25935,7 +25935,7 @@
   {
     "filters": ["||witalfieldt.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://witalfieldt.com"
   },
   {
@@ -25947,19 +25947,19 @@
   {
     "filters": ["||adright.co^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://xml.adright.co"
   },
   {
     "filters": ["||becanium.com^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://becanium.com"
   },
   {
     "filters": ["||traktrafficflow.com^$third-party", "||traktrafficflow.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.traktrafficflow.com"
   },
   {
@@ -25979,7 +25979,7 @@
   {
     "filters": ["||alimama.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.alimama.com"
   },
   {
@@ -26051,7 +26051,7 @@
   {
     "filters": ["/ads1."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.soccerjumbotv1.me/ads1.htm"
   },
   {
@@ -26119,7 +26119,7 @@
   {
     "filters": ["||mellowads.com^$third-party", "||mellowads.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.mellowads.com"
   },
   {
@@ -26131,7 +26131,7 @@
   {
     "filters": ["/mellowads."],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://mellowads.com"
   },
   {
@@ -26144,7 +26144,7 @@
     "check": true,
     "filters": ["/ads.htm"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://notify.medicalnewstoday.com/ads.html"
   },
   {
@@ -26239,7 +26239,7 @@
   {
     "filters": ["||tremorhub.com/pubsync?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://qds0l.publishers.tremorhub.com/pubsync?"
   },
   {
@@ -26780,7 +26780,7 @@
   {
     "filters": ["||n2s.co.kr^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://deliverys.n2s.co.kr"
   },
   {
@@ -26876,7 +26876,7 @@
   {
     "filters": ["/iframetracker."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://tracker.azet.sk/livemonitor/iframeTracker.html"
   },
   {
@@ -27100,7 +27100,7 @@
   {
     "filters": ["||increaserev.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://increaserev.com"
   },
   {
@@ -27224,13 +27224,13 @@
   {
     "filters": ["||asqbwneriyvur.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.asqbwneriyvur.com"
   },
   {
     "filters": ["||2hanwriten.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.2hanwriten.com"
   },
   {
@@ -27242,7 +27242,7 @@
   {
     "filters": ["/adsframe."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://m.haberturk.com/adscbg/adsFrame.html"
   },
   {
@@ -27325,7 +27325,7 @@
   {
     "filters": [".html?ad="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://m.4tube.com/ad_detail.html?ad=mobile-videolist-top"
   },
   {
@@ -27415,7 +27415,7 @@
   {
     "filters": ["||tracking.i-vengo.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://tracking.i-vengo.com"
   },
   {
@@ -27445,7 +27445,7 @@
   {
     "filters": ["||reople.co.kr^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ad.reople.co.kr"
   },
   {
@@ -27475,7 +27475,7 @@
   {
     "filters": ["||usemax.de^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.usemax.de"
   },
   {
@@ -27665,7 +27665,7 @@
   {
     "filters": ["/adview_"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://ads1.issuepoll.co.kr/adview_old.php"
   },
   {
@@ -27773,7 +27773,7 @@
   {
     "filters": [".com/ads_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://wall.alphacoders.com/ads_after_adsense_top_center.html"
   },
   {
@@ -27847,7 +27847,7 @@
   {
     "filters": [".to/ads/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://advert.uloz.to/ads/"
   },
   {
@@ -27902,7 +27902,7 @@
   {
     "filters": ["||online-metrix.net^", "||online-metrix.net^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://h.online-metrix.net"
   },
   {
@@ -28010,7 +28010,7 @@
   {
     "filters": ["||ulogin.ru/stats.html"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ulogin.ru/stats.html"
   },
   {
@@ -28072,19 +28072,19 @@
   {
     "filters": ["/acbeacon2."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://cdn.tanx.com/t/acookie/acbeacon2.html"
   },
   {
     "filters": ["||qsoetgedlgyhyz.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.qsoetgedlgyhyz.com"
   },
   {
     "filters": ["||moneymakercdn.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.moneymakercdn.com"
   },
   {
@@ -28102,13 +28102,13 @@
   {
     "filters": ["||shareasale.com^", "||shareasale.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.shareasale.com"
   },
   {
     "filters": ["||tracking.pacharge.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://tracking.pacharge.com"
   },
   {
@@ -28120,7 +28120,7 @@
   {
     "filters": ["||eazyleads.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://cdn.eazyleads.com"
   },
   {
@@ -28139,7 +28139,7 @@
   {
     "filters": ["/footer_ad."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://fans.91p20.space/fans/footer_ad.html"
   },
   {
@@ -28151,7 +28151,7 @@
   {
     "filters": ["||medleyads.com^$third-party", "||medleyads.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://medleyads.com"
   },
   {
@@ -28163,7 +28163,7 @@
   {
     "filters": ["||srvtrck.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.srvtrck.com"
   },
   {
@@ -28219,7 +28219,7 @@
   {
     "filters": [".org/ad-"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://subscriptions.sciencemag.org/ad-passback"
   },
   {
@@ -28293,7 +28293,7 @@
   {
     "filters": ["/vptrack_"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.medscape.com/public/vptrack_iframe.html"
   },
   {
@@ -28376,7 +28376,7 @@
   {
     "filters": ["||mejortorrent.*/bannner"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.mejortorrent.org/bannner_header.php"
   },
   {
@@ -28462,7 +28462,7 @@
   {
     "filters": ["||preferredain.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.preferredain.com"
   },
   {
@@ -28476,7 +28476,7 @@
   {
     "filters": ["||pornglee.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://i.pornglee.com"
   },
   {
@@ -28502,7 +28502,7 @@
   {
     "filters": ["||kinoprofi.org^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.kinoprofi.org"
   },
   {
@@ -28528,7 +28528,7 @@
   {
     "filters": ["||erate.co.il^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://rep.erate.co.il"
   },
   {
@@ -28636,7 +28636,7 @@
   {
     "filters": ["||xozilla.com/agent.php?spot="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.xozilla.com/agent.php?spot=25880"
   },
   {
@@ -28726,7 +28726,7 @@
   {
     "filters": ["/advertising_"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.higherperspectives.com/st/Advertising_Commitment"
   },
   {
@@ -29070,7 +29070,7 @@
   {
     "filters": ["||bluetoad.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://bluetoad.com"
   },
   {
@@ -29152,7 +29152,7 @@
   {
     "filters": ["/eroadvertising.", "||eroadvertising.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://eroadvertising.com"
   },
   {
@@ -29453,7 +29453,7 @@
   {
     "filters": ["||alipromo.com^$third-party", "||alipromo.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://alipromo.com"
   },
   {
@@ -29509,7 +29509,7 @@
   {
     "filters": ["||hitcpm.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.hitcpm.com"
   },
   {
@@ -29551,7 +29551,7 @@
   {
     "filters": ["||mmaaxx.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.mmaaxx.com"
   },
   {
@@ -29608,7 +29608,7 @@
   {
     "filters": ["||rotabanner.kulichki.net^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://rotabanner.kulichki.net"
   },
   {
@@ -29634,7 +29634,7 @@
   {
     "filters": ["||bam-x.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://api.bam-x.com"
   },
   {
@@ -30326,7 +30326,7 @@
   {
     "filters": ["/adframe728homebh."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://biblemenus.com/adframe728homebh.htm"
   },
   {
@@ -30464,7 +30464,7 @@
   {
     "filters": ["@@||oauth.vk.com/authorize?"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://oauth.vk.com/authorize?"
   },
   {
@@ -30506,7 +30506,7 @@
   {
     "filters": ["||realssp.co.kr^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://nw.realssp.co.kr"
   },
   {
@@ -30530,13 +30530,13 @@
   {
     "filters": ["/728-90-"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://streamcomplet.me/cadre/728-90-b.html"
   },
   {
     "filters": ["/160-600."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://streamcomplet.me/cadre/160-600.html"
   },
   {
@@ -30611,7 +30611,7 @@
   {
     "filters": [".au/ads/"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://m.coolrom.com.au/ads/"
   },
   {
@@ -30623,7 +30623,7 @@
   {
     "filters": ["||gamescarousel.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://gamescarousel.com"
   },
   {
@@ -30840,7 +30840,7 @@
   {
     "filters": ["||smallseotools.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.smallseotools.com"
   },
   {
@@ -30912,7 +30912,7 @@
   {
     "filters": ["||beacon.aimtell.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://beacon.aimtell.com"
   },
   {
@@ -31144,7 +31144,7 @@
   {
     "filters": ["||tweowhvrim.review^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.tweowhvrim.review"
   },
   {
@@ -31212,7 +31212,7 @@
   {
     "filters": ["/record.do?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://stlog.d.dmkt-sp.jp/logrecord/record.do?"
   },
   {
@@ -31678,7 +31678,7 @@
   {
     "filters": ["||pcash.imlive.com^$third-party", "||pcash.imlive.com^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://pcash.imlive.com"
   },
   {
@@ -31806,7 +31806,7 @@
   {
     "filters": ["||instraffic.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://instraffic.com"
   },
   {
@@ -32029,7 +32029,7 @@
   {
     "filters": ["/misc/ads/*", "/ads/marketing/*"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://m.delfi.lv/misc/ads/marketing/"
   },
   {
@@ -32157,7 +32157,7 @@
   {
     "filters": ["||mydirtyhobby.com^$third-party,domain=~my-dirty-hobby.com|~mydirtyhobby.de"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.mydirtyhobby.com"
   },
   {
@@ -32484,7 +32484,7 @@
   {
     "filters": ["||rekovers.ru^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://rekovers.ru"
   },
   {
@@ -32556,7 +32556,7 @@
   {
     "filters": ["||liveadexchanger.com^$third-party", "||liveadexchanger.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.liveadexchanger.com"
   },
   {
@@ -32746,7 +32746,7 @@
     "check": true,
     "filters": ["/ads?zone_id="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ads.trafficjunky.net/ads?zone_id=1758771&site_id=117481&format=HTML"
   },
   {
@@ -32984,7 +32984,7 @@
   {
     "filters": ["||va.tawk.to/log"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://va.tawk.to/log-performance"
   },
   {
@@ -33126,7 +33126,7 @@
   {
     "filters": ["_300.htm"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.sheypoor.com/static/ra/nofollow200_300.html"
   },
   {
@@ -33162,7 +33162,7 @@
   {
     "filters": ["||ads.fairfax.com.au^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ads.fairfax.com.au"
   },
   {
@@ -33192,7 +33192,7 @@
   {
     "filters": ["/admedia/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://srv.imonomy.com/UserMatching/admedia/"
   },
   {
@@ -33247,7 +33247,7 @@
   {
     "filters": ["/SSOCore/update?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://acw.scopus.com/SSOCore/update?"
   },
   {
@@ -33470,7 +33470,7 @@
   {
     "filters": ["/xstat.aspx?"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://engine.webgozar.ir/counter/xstat.aspx?"
   },
   {
@@ -33571,7 +33571,7 @@
   {
     "filters": ["/analytics/visit/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://helper-stats.wondershare.com/analytics/visit/"
   },
   {
@@ -33595,7 +33595,7 @@
   {
     "filters": ["||iwanttodeliver.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.iwanttodeliver.com"
   },
   {
@@ -33641,14 +33641,14 @@
   {
     "filters": ["||vectorstock.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.vectorstock.com"
   },
   {
     "check": true,
     "filters": ["||clickbank.com^$third-party", "||clickbank.com^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.clickbank.com"
   },
   {
@@ -33798,7 +33798,7 @@
   {
     "filters": ["/extadv/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://static.zarabotki.ru/extadv/"
   },
   {
@@ -34025,7 +34025,7 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
@@ -34092,7 +34092,7 @@
   {
     "filters": ["/pixel/cv?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adservices.brandcdn.com/pixel/cv?"
   },
   {
@@ -34101,13 +34101,13 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
     "filters": ["||clickmon.co.kr^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://tab2.clickmon.co.kr"
   },
   {
@@ -34149,7 +34149,7 @@
   {
     "filters": ["/html.ng/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://p8u.hinet.net/html.ng/"
   },
   {
@@ -34170,7 +34170,7 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
@@ -34186,7 +34186,7 @@
       "/ad_left_"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/ad_left_200_google_clickmon.html"
   },
   {
@@ -34198,7 +34198,7 @@
   {
     "filters": ["||coinpot.co^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.coinpot.co"
   },
   {
@@ -34261,7 +34261,7 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
@@ -34327,7 +34327,7 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
@@ -34347,7 +34347,7 @@
   {
     "filters": ["||streamplay.to^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.streamplay.to"
   },
   {
@@ -34412,7 +34412,7 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
@@ -34451,7 +34451,7 @@
       ".com/ad/$first-party,domain=~blogs.technet.microsoft.com|~channel4.com|~cspace.com|~linkedin.com|~mediaplex.com|~online.wsj.com"
     ],
     "sourceUrl": "http://www.gasengi.com",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.gasengi.com/ad/"
   },
   {
@@ -34481,7 +34481,7 @@
   {
     "filters": ["||a-ads.com^$third-party", "||a-ads.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.a-ads.com"
   },
   {
@@ -34529,7 +34529,7 @@
   {
     "filters": [".org/ads/", "/336x280."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adclubonline.org/ads/336x280.asp"
   },
   {
@@ -34559,13 +34559,13 @@
   {
     "filters": ["120x600.html|"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://passback.free.fr/pub/dl_120x600.html"
   },
   {
     "filters": ["||nharaeklya.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.nharaeklya.com"
   },
   {
@@ -34631,7 +34631,7 @@
   {
     "filters": ["||laim.tv^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.laim.tv"
   },
   {
@@ -34691,7 +34691,7 @@
   {
     "filters": ["||xroonucyaoqljf.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.xroonucyaoqljf.com"
   },
   {
@@ -34817,7 +34817,7 @@
   {
     "filters": ["||istripper.com^$third-party,domain=~istripper.eu"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://clicks.istripper.com"
   },
   {
@@ -34940,7 +34940,7 @@
   {
     "filters": ["||theonecdn.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.theonecdn.com"
   },
   {
@@ -34994,7 +34994,7 @@
   {
     "filters": ["||coinmedia.co^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://coinmedia.co"
   },
   {
@@ -35143,7 +35143,7 @@
   {
     "filters": ["||truehits.net^", "||truehits.net^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://webrank.truehits.net"
   },
   {
@@ -35442,7 +35442,7 @@
   {
     "filters": ["||valshara.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.valshara.com"
   },
   {
@@ -35560,7 +35560,7 @@
   {
     "filters": ["||cameraprive.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.cameraprive.com"
   },
   {
@@ -35584,7 +35584,7 @@
   {
     "filters": ["/pixel_iframe."],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://secure.imvu.com/pixel_iframe.php"
   },
   {
@@ -35702,7 +35702,7 @@
   {
     "filters": ["/bannerframe.*?"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ero-video.net/advert/bannerFrame.html?"
   },
   {
@@ -35780,13 +35780,13 @@
   {
     "filters": ["_300x250-"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://banners.adfox.ru/170301/adfox/657447/default_300x250-1.html"
   },
   {
     "filters": ["||rakuten.co.jp/gw.js"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://grp15.ias.rakuten.co.jp/gw.js"
   },
   {
@@ -35935,13 +35935,13 @@
   {
     "filters": ["||soccervista.com/bonus.html"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.soccervista.com/bonus.html"
   },
   {
     "filters": ["||ads.betfair.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ads.betfair.com"
   },
   {
@@ -36188,7 +36188,7 @@
     "check": true,
     "filters": ["/adclick/*"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://a.centrum.cz/cent/adclick/"
   },
   {
@@ -36215,7 +36215,7 @@
   {
     "filters": ["||sat24.com/bannerdetails.aspx?"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.sat24.com/bannerdetails.aspx?"
   },
   {
@@ -36355,7 +36355,7 @@
   {
     "filters": ["||thewhizproducts.com^$third-party"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.thewhizproducts.com"
   },
   {
@@ -36546,7 +36546,7 @@
   {
     "filters": ["/en/ads/*"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ikman.lk/en/ads/"
   },
   {
@@ -36588,7 +36588,7 @@
   {
     "filters": ["||vs3.com/_special/banners/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://secure.vs3.com/_special/banners/"
   },
   {
@@ -36649,7 +36649,7 @@
   {
     "filters": ["/ad/html/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ad.tagtoo.co/static/ad/html/"
   },
   {
@@ -36711,7 +36711,7 @@
   {
     "filters": ["||skeettools.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://v2.skeettools.com"
   },
   {
@@ -36765,19 +36765,19 @@
   {
     "filters": ["||afgr3.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.afgr3.com"
   },
   {
     "filters": ["||ysm.yahoo.com^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://partnerads.ysm.yahoo.com"
   },
   {
     "filters": ["/adguard.$domain=~adguard.com|~adguard.mobi|~adguard.oneskyapp.com|~greinr.com"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://adguard.com"
   },
   {
@@ -36813,7 +36813,7 @@
   {
     "filters": ["||srx.com.sg^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.srx.com.sg"
   },
   {
@@ -36873,7 +36873,7 @@
   {
     "filters": ["/adtext_"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://cdn.new-star.co.kr/data/adnew/1908/4665/adtext_1908_4665.html"
   },
   {
@@ -37549,7 +37549,7 @@
   {
     "filters": ["||nativeleads.net^$third-party"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://system.nativeleads.net"
   },
   {
@@ -37999,7 +37999,7 @@
   {
     "filters": ["||promotools.biz^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://ban.promotools.biz"
   },
   {
@@ -38083,7 +38083,7 @@
   {
     "filters": ["/728x90/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://static.emsservice.de/werbemittel/Citroen/2018-06-28_16-43-34/728x90/"
   },
   {
@@ -38211,7 +38211,7 @@
   {
     "filters": ["||trkme.net^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://a.trkme.net"
   },
   {
@@ -38762,7 +38762,7 @@
   {
     "filters": ["||urlcash.net^$third-party", "||urlcash.net^"],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.urlcash.net"
   },
   {
@@ -38937,14 +38937,14 @@
     "check": true,
     "filters": ["||mediaplex.com/ad/fm/$third-party", "/adfarm.$first-party,domain=~mediaplex.com"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adfarm.mediaplex.com/ad/fm/"
   },
   {
     "check": true,
     "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adfarm.mediaplex.com"
   },
   {
@@ -39083,7 +39083,7 @@
     "check": true,
     "filters": ["/160x600/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://s0.2mdn.net/6306117/1539069237292/160x600/"
   },
   {
@@ -39669,7 +39669,7 @@
     "check": true,
     "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://adfarm.mediaplex.com"
   },
   {
@@ -39681,7 +39681,7 @@
   {
     "filters": [".pl/ads/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.dobreprogramy.pl/ads/"
   },
   {
@@ -40197,7 +40197,7 @@
   {
     "filters": ["||acxiom-online.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://p-eu.acxiom-online.com"
   },
   {
@@ -40383,7 +40383,7 @@
   {
     "filters": ["||intensedebate.com/empty.php"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.intensedebate.com/empty.php"
   },
   {
@@ -40555,7 +40555,7 @@
   {
     "filters": ["||afgr4.com^", "||afgr4.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.afgr4.com"
   },
   {
@@ -40659,7 +40659,7 @@
   {
     "filters": ["/ads/dfp."],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.dorkly.com/jument/ads/dfp.html"
   },
   {
@@ -40692,7 +40692,7 @@
   {
     "filters": ["&adunit="],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://leasticoulddo.com/safe-frames?mode=RTK&adunit=I4T7&id=v5eS"
   },
   {
@@ -40906,7 +40906,7 @@
   {
     "filters": ["||xing.com/collect/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://box.xing.com/collect/"
   },
   {
@@ -40918,7 +40918,7 @@
   {
     "filters": ["||urtracker.q-sis.de^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://urtracker.q-sis.de"
   },
   {
@@ -40930,7 +40930,7 @@
   {
     "filters": ["||inpref.com^$third-party"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://wwwdecathlonpl.inpref.com"
   },
   {
@@ -41028,7 +41028,7 @@
       "/advertising-$domain=~abramarketing.com|~advertising-direct.com|~advertising-factory.de|~microsoft.com|~outbrain.com|~yellowimages.com"
     ],
     "sourceUrl": "about:blank",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.thinkwithgoogle.com/advertising-channels"
   },
   {
@@ -43131,7 +43131,7 @@
   {
     "filters": ["/ad_images/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://pic.najdi.si/ad_images/"
   },
   {
@@ -43254,7 +43254,7 @@
   {
     "filters": ["||chaturbate.com/affiliates/"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://chaturbate.com/affiliates/"
   },
   {
@@ -43266,7 +43266,7 @@
   {
     "filters": ["/iFramedAdTemplate/*"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://www.cbr.com/iFramedAdTemplate/"
   },
   {
@@ -48090,7 +48090,7 @@
   {
     "filters": ["||servedby.o2.co.uk^"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://servedby.o2.co.uk"
   },
   {
@@ -48150,7 +48150,7 @@
   {
     "filters": ["||webads.nl^$third-party", "||webads.nl^"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://images.webads.nl"
   },
   {
@@ -48162,7 +48162,7 @@
   {
     "filters": ["468x60.html|"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://news1.mmnews.de/mmads-468x60.html"
   },
   {
@@ -48249,7 +48249,7 @@
   {
     "filters": ["/abmw.asp"],
     "sourceUrl": "http://",
-    "type": "document",
+    "type": "subdocument",
     "url": "http://www.meteo.gr/absolutebmxe/abmw.asp"
   },
   {
@@ -48331,7 +48331,7 @@
   {
     "filters": ["_advert/"],
     "sourceUrl": "https://",
-    "type": "document",
+    "type": "subdocument",
     "url": "https://export.tvnet.lv/export_advert/"
   },
   {
