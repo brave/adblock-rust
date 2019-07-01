@@ -1,7 +1,7 @@
 
 [package]
 name = "adblock"
-version = "0.1.23"
+version = "0.1.24"
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
 edition = "2018"
 
@@ -35,8 +35,8 @@ seahash = "3"
 twoway = "0.2"
 base64 = "0.10"
 rmp-serde = "0.13.7"
-object-pool = "0.3"
 hashbrown = { version = "0.3", features = ["serde"], default-features = false }
+lifeguard = "0.6"
 
 # [target.'cfg(any(unix, windows))'.dependencies]
 # rayon = "1.0"

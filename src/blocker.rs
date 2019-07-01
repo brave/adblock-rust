@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::iter::FromIterator;
-use object_pool::Pool;
+use lifeguard::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
@@ -64,7 +64,10 @@ struct TokenPool {
 impl Default for TokenPool {
     fn default() -> TokenPool {
         TokenPool {
-            pool: Pool::new(1, || Vec::with_capacity(utils::TOKENS_BUFFER_SIZE))
+            pool: lifeguard::pool()
+                .with(lifeguard::StartingSize(1))
+                .with(lifeguard::Supplier(|| Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)))
+                .build()
         }
     }
 }
@@ -116,7 +119,7 @@ impl Blocker {
         #[cfg(feature = "metrics")]
         print!("importants\t");
 
-        let mut request_tokens = self.pool.pool.pull().unwrap();
+        let mut request_tokens = self.pool.pool.new();
         request.get_tokens(&mut request_tokens);
 
         let filter = self

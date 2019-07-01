@@ -122,7 +122,7 @@ fn rule_match(c: &mut Criterion) {
           b.iter(|| bench_rule_matching(&engine, &slim_req))
         },)
         .throughput(Throughput::Elements(requests_len))
-        .sample_size(20)
+        .sample_size(10)
     );
 }
 
