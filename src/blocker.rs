@@ -3,6 +3,8 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::iter::FromIterator;
+
+#[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
@@ -57,10 +59,12 @@ impl From<FilterError> for BlockerError {
     }
 }
 
+#[cfg(feature = "object-pooling")]
 struct TokenPool {
     pub pool: Pool<Vec<utils::Hash>>
 }
 
+#[cfg(feature = "object-pooling")]
 impl Default for TokenPool {
     fn default() -> TokenPool {
         TokenPool {
@@ -97,6 +101,7 @@ pub struct Blocker {
 
     #[serde(default)]
     resources: Resources,
+    #[cfg(feature = "object-pooling")]
     #[serde(skip_serializing, skip_deserializing)]
     pool: TokenPool,
 }
@@ -119,7 +124,15 @@ impl Blocker {
         #[cfg(feature = "metrics")]
         print!("importants\t");
 
-        let mut request_tokens = self.pool.pool.new();
+        let mut request_tokens;
+        #[cfg(feature = "object-pooling")]
+        {
+            request_tokens = self.pool.pool.new();
+        }
+        #[cfg(not(feature = "object-pooling"))]
+        {
+            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
+        }
         request.get_tokens(&mut request_tokens);
 
         let filter = self
@@ -279,6 +292,7 @@ impl Blocker {
             load_network_filters: options.load_network_filters,
 
             resources: Resources::default(),
+            #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
         }
     }
