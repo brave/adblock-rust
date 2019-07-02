@@ -1,4 +1,5 @@
 use crate::filters::network::NetworkFilter;
+use crate::filters::cosmetic::CosmeticFilter;
 use itertools::Either;
 use serde::{Serialize, Deserialize};
 
@@ -35,7 +36,7 @@ pub fn parse_filters(
     load_network_filters: bool,
     load_cosmetic_filters: bool,
     debug: bool,
-) -> (Vec<NetworkFilter>, Vec<String>) {
+) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
 
     let list_iter = list.iter();
 
@@ -53,8 +54,10 @@ pub fn parse_filters(
                         .map(Either::Left)
                         .or_else(|_| Err(FilterError::ParseError))
                 } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
-                    // TODO: unimplemented, just return rule as a string
-                    Ok(Either::Right(String::from(filter)))
+                    let cosmetic_filter = CosmeticFilter::parse(filter, debug);
+                    cosmetic_filter
+                        .map(Either::Right)
+                        .or_else(|_| Err(FilterError::ParseError))
                 } else {
                     Err(FilterError::NotSupported)
                 }
