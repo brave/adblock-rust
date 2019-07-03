@@ -14,7 +14,7 @@ use twoway;
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
 #[derive(Debug, PartialEq)]
-pub enum FilterError {
+pub enum NetworkFilterError {
     FilterParseError,
     NegatedBadFilter,
     NegatedImportant,
@@ -207,7 +207,7 @@ pub struct NetworkFilter {
 
 impl NetworkFilter {
     #[allow(clippy::cognitive_complexity)]
-    pub fn parse(line: &str, debug: bool) -> Result<NetworkFilter, FilterError> {
+    pub fn parse(line: &str, debug: bool) -> Result<NetworkFilter, NetworkFilterError> {
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
             | NetworkFilterMask::FIRST_PARTY
@@ -300,12 +300,12 @@ impl NetworkFilter {
                         }
                     }
                     ("badfilter", false) => mask.set(NetworkFilterMask::BAD_FILTER, true),
-                    ("badfilter", true) => return Err(FilterError::NegatedBadFilter),
+                    ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
                     // Note: `negation` should always be `false` here.
-                    ("important", true) => return Err(FilterError::NegatedImportant),
+                    ("important", true) => return Err(NetworkFilterError::NegatedImportant),
                     ("important", false) => mask.set(NetworkFilterMask::IS_IMPORTANT, true),
                     // Note: `negation` should always be `false` here.
-                    ("match-case", true) => return Err(FilterError::NegatedOptionMatchCase),
+                    ("match-case", true) => return Err(NetworkFilterError::NegatedOptionMatchCase),
                     ("match-case", false) => mask.set(NetworkFilterMask::MATCH_CASE, true),
                     // ~third-party means we should clear the flag
                     ("third-party", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
@@ -322,18 +322,18 @@ impl NetworkFilter {
                     ("collapse", _) => {}
                     ("bug", _) => bug = value.parse::<u32>().ok(),
                     ("tag", false) => tag = Some(String::from(value)),
-                    ("tag", true) => return Err(FilterError::NegatedTag),
+                    ("tag", true) => return Err(NetworkFilterError::NegatedTag),
                     // Negation of redirection doesn't make sense
-                    ("redirect", true) => return Err(FilterError::NegatedRedirection),
+                    ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
                     ("redirect", false) => {
                         // Ignore this filter if no redirection resource is specified
                         if value.is_empty() {
-                            return Err(FilterError::EmptyRedirection);
+                            return Err(NetworkFilterError::EmptyRedirection);
                         }
 
                         redirect = Some(String::from(value));
                     }
-                    ("explicitcancel", true) => return Err(FilterError::NegatedExplicitCancel),
+                    ("explicitcancel", true) => return Err(NetworkFilterError::NegatedExplicitCancel),
                     ("explicitcancel", false) => mask.set(NetworkFilterMask::EXPLICIT_CANCEL, true),
                     ("csp", _) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
@@ -357,7 +357,7 @@ impl NetworkFilter {
                             "xhr" | "xmlhttprequest" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
                             "websocket" => option_mask.set(NetworkFilterMask::FROM_WEBSOCKET, true),
                             "font" => option_mask.set(NetworkFilterMask::FROM_FONT, true),
-                            _ => return Err(FilterError::UnrecognisedOption),
+                            _ => return Err(NetworkFilterError::UnrecognisedOption),
                         }
 
                         // We got a valid cpt option, update mask
@@ -411,7 +411,7 @@ impl NetworkFilter {
 
             #[cfg(not(feature = "full-regex-handling"))]
             {
-                return Err(FilterError::FullRegexUnsupported);
+                return Err(NetworkFilterError::FullRegexUnsupported);
             }
         }
 
@@ -546,7 +546,7 @@ impl NetworkFilter {
             } else {
                 match idna::domain_to_ascii(&lowercase) {
                     Ok(x) => hostname.push_str(&x),
-                    Err(_) => return Err(FilterError::PunycodeError),
+                    Err(_) => return Err(NetworkFilterError::PunycodeError),
                 }
             }
             Ok(hostname)
@@ -1957,7 +1957,7 @@ mod parse_tests {
         {
             // parses ~important
             let filter = NetworkFilter::parse("||foo.com$~important", true);
-            assert_eq!(filter.err(), Some(FilterError::NegatedImportant));
+            assert_eq!(filter.err(), Some(NetworkFilterError::NegatedImportant));
         }
         {
             // defaults to false
@@ -2074,17 +2074,17 @@ mod parse_tests {
         {
             // ~redirect is not a valid option
             let filter = NetworkFilter::parse("||foo.com$~redirect", true);
-            assert_eq!(filter.err(), Some(FilterError::NegatedRedirection));
+            assert_eq!(filter.err(), Some(NetworkFilterError::NegatedRedirection));
         }
         // parses redirect without a value
         {
             // Not valid
             let filter = NetworkFilter::parse("||foo.com$redirect", true);
-            assert_eq!(filter.err(), Some(FilterError::EmptyRedirection));
+            assert_eq!(filter.err(), Some(NetworkFilterError::EmptyRedirection));
         }
         {
             let filter = NetworkFilter::parse("||foo.com$redirect=", true);
-            assert_eq!(filter.err(), Some(FilterError::EmptyRedirection))
+            assert_eq!(filter.err(), Some(NetworkFilterError::EmptyRedirection))
         }
         // defaults to false
         {
@@ -2113,7 +2113,7 @@ mod parse_tests {
         {
             // ~match-case is not supported
             let filter = NetworkFilter::parse("||foo.com$~match-case", true);
-            assert_eq!(filter.err(), Some(FilterError::NegatedOptionMatchCase));
+            assert_eq!(filter.err(), Some(NetworkFilterError::NegatedOptionMatchCase));
         }
 
         // defaults to false
