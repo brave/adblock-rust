@@ -2,7 +2,14 @@
 //! script injection.
 use serde::{Deserialize, Serialize};
 use crate::utils::Hash;
-use crate::filters::network::FilterError;
+
+#[derive(Debug, PartialEq)]
+pub enum CosmeticFilterError {
+    PunycodeError,
+    InvalidStyleSpecifier,
+    UnsupportedSyntax,
+    MissingSharp,
+}
 
 bitflags! {
     /// Boolean flags for cosmetic filter rules.
@@ -36,7 +43,7 @@ pub struct CosmeticFilter {
 impl CosmeticFilter {
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
     /// will be reported in the resulting `CosmeticFilter` struct as well.
-    pub fn parse(line: &str, debug: bool) -> Result<CosmeticFilter, FilterError> {
+    pub fn parse(line: &str, debug: bool) -> Result<CosmeticFilter, CosmeticFilterError> {
         let mut mask = CosmeticFilterMask::NONE;
         if let Some(sharp_index) = line.find('#') {
             let after_sharp_index = sharp_index + 1;
@@ -66,7 +73,7 @@ impl CosmeticFilter {
                         };
                         match idna::uts46::to_ascii(&part, decode_flags) {
                             Ok(x) => hostname.push_str(&x),
-                            Err(_) => return Err(FilterError::PunycodeError),
+                            Err(_) => return Err(CosmeticFilterError::PunycodeError),
                         }
                     }
                     let negation = hostname.starts_with('~');
@@ -148,7 +155,7 @@ impl CosmeticFilter {
                             selector = &line[suffix_start_index..colon_index];
                             style = Some(line[index_after_colon + 6..].to_string());
                         } else {
-                            return Err(FilterError::FilterParseError);
+                            return Err(CosmeticFilterError::InvalidStyleSpecifier);
                         }
                     } else if line[index_after_colon..].starts_with("-abp-")
                     || line[index_after_colon..].starts_with("contains")
@@ -162,7 +169,7 @@ impl CosmeticFilter {
                     || line[index_after_colon..].starts_with("subject")
                     || line[index_after_colon..].starts_with("xpath")
                     {
-                        return Err(FilterError::FilterParseError);
+                        return Err(CosmeticFilterError::UnsupportedSyntax);
                     }
                 }
             }
@@ -198,7 +205,7 @@ impl CosmeticFilter {
                 style,
             })
         } else {
-            Err(FilterError::FilterParseError)
+            Err(CosmeticFilterError::MissingSharp)
         }
     }
 }
@@ -310,51 +317,53 @@ mod parse_tests {
         }
     }
 
+    /// Asserts that `rule` parses into a `CosmeticFilter` equivalent to the summary provided by
+    /// `expected`.
+    fn check_parse_result(rule: &str, expected: CosmeticFilterBreakdown) {
+        let filter: CosmeticFilterBreakdown = (&CosmeticFilter::parse(rule, false).unwrap()).into();
+        assert_eq!(expected, filter);
+    }
+
     #[test]
     fn simple_selectors() {
-        {
-            let filter = CosmeticFilter::parse("##div.popup", false).unwrap();
-            let defaults = CosmeticFilterBreakdown {
+        check_parse_result(
+            "##div.popup",
+            CosmeticFilterBreakdown {
                 selector: "div.popup".to_string(),
                 ..Default::default()
-            };
-            assert_eq!(defaults, (&filter).into());
-        }
-        {
-            let filter = CosmeticFilter::parse("###selector", false).unwrap();
-            let defaults = CosmeticFilterBreakdown {
+            }
+        );
+        check_parse_result(
+            "###selector",
+            CosmeticFilterBreakdown {
                 selector: "#selector".to_string(),
                 is_id_selector: true,
                 ..Default::default()
-            };
-            assert_eq!(defaults, (&filter).into());
-        }
-        {
-            let filter = CosmeticFilter::parse("##.selector", false).unwrap();
-            let defaults = CosmeticFilterBreakdown {
+            }
+        );
+        check_parse_result(
+            "##.selector",
+            CosmeticFilterBreakdown {
                 selector: ".selector".to_string(),
                 is_class_selector: true,
                 ..Default::default()
-            };
-            assert_eq!(defaults, (&filter).into());
-        }
-        {
-            let filter = CosmeticFilter::parse("##a[href=\"foo.com\"]", false).unwrap();
-            let defaults = CosmeticFilterBreakdown {
+            }
+        );
+        check_parse_result(
+            "##a[href=\"foo.com\"]",
+            CosmeticFilterBreakdown {
                 selector: "a[href=\"foo.com\"]".to_string(),
                 is_href_selector: true,
                 ..Default::default()
-            };
-            assert_eq!(defaults, (&filter).into());
-        }
-        {
-            let filter = CosmeticFilter::parse("##[href=\"foo.com\"]", false).unwrap();
-            let defaults = CosmeticFilterBreakdown {
+            }
+        );
+        check_parse_result(
+            "##[href=\"foo.com\"]",
+            CosmeticFilterBreakdown {
                 selector: "[href=\"foo.com\"]".to_string(),
                 is_href_selector: true,
                 ..Default::default()
-            };
-            assert_eq!(defaults, (&filter).into());
-        }
+            }
+        );
     }
 }

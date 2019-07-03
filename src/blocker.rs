@@ -7,7 +7,7 @@ use std::iter::FromIterator;
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
+use crate::filters::network::{NetworkFilter, NetworkMatchable, NetworkFilterError};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -53,11 +53,11 @@ pub enum BlockerError {
     OptimizedFilterExistence,
     BadFilterAddUnsupported,
     FilterExists,
-    BlockerFilterError(FilterError),
+    BlockerFilterError(NetworkFilterError),
 }
 
-impl From<FilterError> for BlockerError {
-    fn from(error: FilterError) -> BlockerError {
+impl From<NetworkFilterError> for BlockerError {
+    fn from(error: NetworkFilterError) -> BlockerError {
         BlockerError::BlockerFilterError(error)
     }
 }
