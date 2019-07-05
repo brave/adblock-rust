@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use crate::utils::Hash;
 
+use css_validation::{is_valid_css_selector, is_valid_css_style};
+
 #[derive(Debug, PartialEq)]
 pub enum CosmeticFilterError {
     PunycodeError,
@@ -257,14 +259,112 @@ impl CosmeticFilter {
     }
 }
 
-fn is_valid_css_selector(_selector: &str) -> bool {
-    // TODO
-    true
-}
+mod css_validation {
+    //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
+    use cssparser::ParserInput;
+    use cssparser::Parser;
+    use selectors::parser::Selector;
 
-fn is_valid_css_style(_style: &str) -> bool {
-    // TODO
-    true
+    use std::fmt::{Display, Formatter, Error};
+    use core::fmt::{Write, Result as FmtResult};
+
+    pub fn is_valid_css_selector(selector: &str) -> bool {
+        let mut pi = ParserInput::new(selector);
+        let mut parser = Parser::new(&mut pi);
+        let r = Selector::parse(&SelectorParseImpl, &mut parser);
+        r.is_ok()
+    }
+
+    pub fn is_valid_css_style(style: &str) -> bool {
+        if style.contains('\\') {
+            return false;
+        }
+        if style.contains("url(") {
+            return false;
+        }
+        true
+    }
+
+    struct SelectorParseImpl;
+
+    impl<'i> selectors::parser::Parser<'i> for SelectorParseImpl {
+        type Impl = SelectorImpl;
+        type Error = selectors::parser::SelectorParseErrorKind<'i>;
+    }
+
+    /// The `selectors` library requires an object that implements `SelectorImpl` to store data
+    /// about a parsed selector. For performance, the actual content of parsed selectors is
+    /// discarded as much as possible - it only matters whether the returned `Result` is `Ok` or
+    /// `Err`.
+    #[derive(Debug, Clone)]
+    struct SelectorImpl;
+
+    impl selectors::parser::SelectorImpl for SelectorImpl {
+        type ExtraMatchingData = ();
+        type AttrValue = DummyValue;
+        type Identifier = DummyValue;
+        type ClassName = DummyValue;
+        type LocalName = String;
+        type NamespaceUrl = String;
+        type NamespacePrefix = DummyValue;
+        type BorrowedNamespaceUrl = String;
+        type BorrowedLocalName = String;
+        type NonTSPseudoClass = NonTSPseudoClass;
+        type PseudoElement = PseudoElement;
+    }
+
+    /// For performance, individual fields of parsed selectors is discarded. Instead, they are
+    /// parsed into a `DummyValue` with no fields.
+    #[derive(Debug, Clone, PartialEq, Eq, Default)]
+    struct DummyValue;
+
+    impl Display for DummyValue {
+        fn fmt(&self, _: &mut Formatter) -> Result<(), Error> { Ok(()) }
+    }
+
+    impl<'a> From<&'a str> for DummyValue {
+        fn from(_: &'a str) -> Self { DummyValue }
+    }
+
+    /// Dummy struct for non-tree-structural pseudo-classes.
+    #[derive(Clone, PartialEq, Eq)]
+    struct NonTSPseudoClass;
+
+    impl selectors::parser::NonTSPseudoClass for NonTSPseudoClass {
+        type Impl = SelectorImpl;
+        fn is_active_or_hover(&self) -> bool { false }
+    }
+
+    impl cssparser::ToCss for NonTSPseudoClass {
+        fn to_css<W: Write>(&self, _: &mut W) -> FmtResult { Ok(()) }
+    }
+
+    /// Dummy struct for pseudo-elements.
+    #[derive(Clone, PartialEq, Eq)]
+    struct PseudoElement;
+
+    impl selectors::parser::PseudoElement for PseudoElement {
+        type Impl = SelectorImpl;
+
+        fn supports_pseudo_class(&self, _pseudo_class: &NonTSPseudoClass) -> bool { true }
+
+        fn valid_after_slotted(&self) -> bool { true }
+    }
+
+    impl cssparser::ToCss for PseudoElement {
+        fn to_css<W: Write>(&self, _dest: &mut W) -> FmtResult { Ok(()) }
+    }
+
+    #[test]
+    fn bad_selector_inputs() {
+        assert!(!is_valid_css_selector(r#"rm -rf ./*"#));
+        assert!(!is_valid_css_selector(r#"javascript:alert("hacked")"#));
+        assert!(!is_valid_css_selector(r#"This is not a CSS selector."#));
+        assert!(!is_valid_css_selector(r#"./malware.sh"#));
+        assert!(!is_valid_css_selector(r#"https://safesite.ru"#));
+        assert!(!is_valid_css_selector(r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#));
+        assert!(!is_valid_css_selector(r#"#!/usr/bin/sh"#));
+    }
 }
 
 /// A selector is a simple selector if it is an id or class selector, optionally followed by a
