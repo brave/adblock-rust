@@ -36,6 +36,8 @@ base64 = "0.10"
 rmp-serde = "0.13.7"    # rmp-serde 0.14.0 breaks deserialization by changing how enums are deserialized
 hashbrown = { version = "0.6", features = ["serde"] }
 lifeguard = { version = "0.6", optional = true }
+cssparser = "0.25"
+selectors = "0.21"
 
 [dev-dependencies]
 criterion = "0.2"
