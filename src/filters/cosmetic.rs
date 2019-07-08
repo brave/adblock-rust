@@ -1,7 +1,7 @@
 //! Tools for blocking at a page-content level, including CSS selector-based filtering and content
 //! script injection.
 use serde::{Deserialize, Serialize};
-use crate::utils::Hash;
+use crate::utils::{ Hash };
 
 use css_validation::{is_valid_css_selector, is_valid_css_style};
 
@@ -257,6 +257,73 @@ impl CosmeticFilter {
             Err(CosmeticFilterError::MissingSharp)
         }
     }
+
+    /// Any cosmetic filter rule that specifies (possibly negated) hostnames or entities has a
+    /// hostname constraint.
+    pub fn has_hostname_constraint(&self) -> bool {
+        self.hostnames.is_some() ||
+            self.entities.is_some() ||
+            self.not_entities.is_some() ||
+            self.not_hostnames.is_some()
+    }
+}
+
+/// Returns a slice of `hostname` up to and including the segment that overlaps with the first
+/// segment of `domain`. This has the effect of stripping ".com", ".co.uk", etc.
+fn get_hostname_without_public_suffix<'a>(hostname: &'a str, domain: &str) -> Option<&'a str> {
+    let mut hostname_without_public_suffix = None;
+
+    let index_of_dot = domain.find('.');
+
+    if let Some(index_of_dot) = index_of_dot {
+        let public_suffix = &domain[index_of_dot + 1..];
+        hostname_without_public_suffix = Some(&hostname[0..hostname.len() - public_suffix.len() - 1]);
+    }
+
+    hostname_without_public_suffix
+}
+
+/// Given a hostname and the indices of an end position and the start of the domain, returns a
+/// `Vec` of hashes of all subdomains the hostname falls under, ordered from least to most
+/// specific.
+///
+/// Check the `label_hashing` tests for examples.
+fn get_hashes_from_labels(hostname: &str, end: usize, start_of_domain: usize) -> Vec<Hash> {
+    let mut hashes = vec![];
+    if end == 0 {
+        return hashes;
+    }
+    let mut dot_ptr = start_of_domain;
+
+    while let Some(dot_index) = hostname[..dot_ptr].rfind('.') {
+        dot_ptr = dot_index;
+        hashes.push(crate::utils::fast_hash(&hostname[dot_ptr + 1..end]));
+    }
+
+    hashes.push(crate::utils::fast_hash(&hostname[..end]));
+
+    hashes
+}
+
+/// Returns a `Vec` of the hashes of all segments of `hostname` that may match an
+/// entity-constrained rule.
+pub fn get_entity_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
+    let hostname_without_public_suffix = get_hostname_without_public_suffix(hostname, domain);
+    if let Some(hostname_without_public_suffix) = hostname_without_public_suffix {
+        get_hashes_from_labels(
+            hostname_without_public_suffix,
+            hostname_without_public_suffix.len(),
+            hostname_without_public_suffix.len(),
+        )
+    } else {
+        vec![]
+    }
+}
+
+/// Returns a `Vec` of the hashes of all segments of `hostname` that may match a
+/// hostname-constrained rule.
+pub fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
+    get_hashes_from_labels(hostname, hostname.len(), hostname.len() - domain.len())
 }
 
 mod css_validation {
@@ -999,5 +1066,223 @@ mod parse_tests {
         assert!(CosmeticFilter::parse(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#, false).is_err());
         assert!(CosmeticFilter::parse(r#"readcomiconline.to##^script:has-text(this[atob)"#, false).is_err());
         assert!(CosmeticFilter::parse("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)", false).is_err());
+    }
+}
+
+#[cfg(test)]
+mod util_tests {
+    use super::*;
+    use crate::utils::fast_hash;
+
+    #[test]
+    fn label_hashing() {
+        assert_eq!(get_hashes_from_labels("foo.bar.baz", 11, 11), vec![fast_hash("baz"), fast_hash("bar.baz"), fast_hash("foo.bar.baz")]);
+        assert_eq!(get_hashes_from_labels("foo.bar.baz.com", 15, 8), vec![fast_hash("baz.com"), fast_hash("bar.baz.com"), fast_hash("foo.bar.baz.com")]);
+        assert_eq!(get_hashes_from_labels("foo.bar.baz.com", 11, 11), vec![fast_hash("baz"), fast_hash("bar.baz"), fast_hash("foo.bar.baz")]);
+        assert_eq!(get_hashes_from_labels("foo.bar.baz.com", 11, 8), vec![fast_hash("baz"), fast_hash("bar.baz"), fast_hash("foo.bar.baz")]);
+    }
+
+    #[test]
+    fn without_public_suffix() {
+        assert_eq!(get_hostname_without_public_suffix("", ""), None);
+        assert_eq!(get_hostname_without_public_suffix("com", ""), None);
+        assert_eq!(get_hostname_without_public_suffix("com", "com"), None);
+        assert_eq!(get_hostname_without_public_suffix("foo.com", "foo.com"), Some("foo"));
+        assert_eq!(get_hostname_without_public_suffix("foo.bar.com", "bar.com"), Some("foo.bar"));
+    }
+}
+
+#[cfg(test)]
+mod matching_tests {
+    use super::*;
+    use crate::utils::bin_lookup;
+
+    trait MatchByStr {
+        fn matches(&self, request_entities: &[Hash], request_hostnames: &[Hash]) -> bool;
+        fn matches_str(&self, hostname: &str, domain: &str) -> bool;
+    }
+
+    impl MatchByStr for CosmeticFilter {
+        /// `hostname` and `domain` should be specified as, e.g. "subdomain.domain.com" and
+        /// "domain.com", respectively, to . This function will panic if the specified `domain` is
+        /// shorter than the specified `hostname`.
+        fn matches_str(&self, hostname: &str, domain: &str) -> bool {
+            let request_entities = get_entity_hashes_from_labels(hostname, domain);
+
+            let request_hostnames = get_hostname_hashes_from_labels(hostname, domain);
+
+            self.matches(&request_entities[..], &request_hostnames[..])
+        }
+
+        /// Check whether this rule applies to content from the hostname and domain corresponding to
+        /// the provided hash lists.
+        ///
+        /// See the `matches_str` test function for an example of how to convert hostnames and
+        /// domains into the appropriate hash lists.
+        fn matches(&self, request_entities: &[Hash], request_hostnames: &[Hash]) -> bool {
+            let has_hostname_constraint = self.has_hostname_constraint();
+            if !has_hostname_constraint {
+                return true;
+            }
+            if request_entities.is_empty() && request_hostnames.is_empty() && has_hostname_constraint {
+                return false;
+            }
+
+            if let Some(ref filter_not_hostnames) = self.not_hostnames {
+                if request_hostnames.iter().any(|hash| bin_lookup(filter_not_hostnames, *hash)) {
+                    return false;
+                }
+            }
+
+            if let Some(ref filter_not_entities) = self.not_entities {
+                if request_entities.iter().any(|hash| bin_lookup(filter_not_entities, *hash)) {
+                    return false;
+                }
+            }
+
+            if self.hostnames.is_some() || self.entities.is_some() {
+                if let Some(ref filter_hostnames) = self.hostnames {
+                    if request_hostnames.iter().any(|hash| bin_lookup(filter_hostnames, *hash)) {
+                        return true;
+                    }
+                }
+
+                if let Some(ref filter_entities) = self.entities {
+                    if request_entities.iter().any(|hash| bin_lookup(filter_entities, *hash)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            true
+        }
+    }
+
+    #[test]
+    fn generic_filter() {
+        let rule = CosmeticFilter::parse("##.selector", false).unwrap();
+        assert!(rule.matches_str("foo.com", "foo.com"));
+    }
+
+    #[test]
+    fn single_domain() {
+        let rule = CosmeticFilter::parse("foo.com##.selector", false).unwrap();
+        assert!(rule.matches_str("foo.com", "foo.com"));
+        assert!(!rule.matches_str("bar.com", "bar.com"));
+    }
+
+    #[test]
+    fn multiple_domains() {
+        let rule = CosmeticFilter::parse("foo.com,test.com##.selector", false).unwrap();
+        assert!(rule.matches_str("foo.com", "foo.com"));
+        assert!(rule.matches_str("test.com", "test.com"));
+        assert!(!rule.matches_str("bar.com", "bar.com"));
+    }
+
+    #[test]
+    fn subdomain() {
+        let rule = CosmeticFilter::parse("foo.com,test.com##.selector", false).unwrap();
+        assert!(rule.matches_str("sub.foo.com", "foo.com"));
+        assert!(rule.matches_str("sub.test.com", "test.com"));
+
+        let rule = CosmeticFilter::parse("foo.com,sub.test.com##.selector", false).unwrap();
+        assert!(rule.matches_str("sub.test.com", "test.com"));
+        assert!(!rule.matches_str("test.com", "test.com"));
+        assert!(!rule.matches_str("com", "com"));
+    }
+
+    #[test]
+    fn entity() {
+        let rule = CosmeticFilter::parse("foo.com,sub.test.*##.selector", false).unwrap();
+        assert!(rule.matches_str("foo.com", "foo.com"));
+        assert!(rule.matches_str("bar.foo.com", "foo.com"));
+        assert!(rule.matches_str("sub.test.com", "test.com"));
+        assert!(rule.matches_str("sub.test.fr", "test.fr"));
+        assert!(!rule.matches_str("sub.test.evil.biz", "evil.biz"));
+
+        let rule = CosmeticFilter::parse("foo.*##.selector", false).unwrap();
+        assert!(rule.matches_str("foo.co.uk", "foo.co.uk"));
+        assert!(rule.matches_str("bar.foo.co.uk", "foo.co.uk"));
+        assert!(rule.matches_str("baz.bar.foo.co.uk", "foo.co.uk"));
+        assert!(!rule.matches_str("foo.evil.biz", "evil.biz"));
+    }
+
+    #[test]
+    fn nonmatching() {
+        let rule = CosmeticFilter::parse("foo.*##.selector", false).unwrap();
+        assert!(!rule.matches_str("foo.bar.com", "bar.com"));
+        assert!(!rule.matches_str("bar-foo.com", "bar-foo.com"));
+    }
+
+    #[test]
+    fn entity_negations() {
+        let rule = CosmeticFilter::parse("~foo.*##.selector", false).unwrap();
+        assert!(!rule.matches_str("foo.com", "foo.com"));
+        assert!(rule.matches_str("foo.evil.biz", "evil.biz"));
+
+        let rule = CosmeticFilter::parse("~foo.*,~bar.*##.selector", false).unwrap();
+        assert!(rule.matches_str("baz.com", "baz.com"));
+        assert!(!rule.matches_str("foo.com", "foo.com"));
+        assert!(!rule.matches_str("sub.foo.com", "foo.com"));
+        assert!(!rule.matches_str("bar.com", "bar.com"));
+        assert!(!rule.matches_str("sub.bar.com", "bar.com"));
+    }
+
+    #[test]
+    fn hostname_negations() {
+        let rule = CosmeticFilter::parse("~foo.com##.selector", false).unwrap();
+        assert!(!rule.matches_str("foo.com", "foo.com"));
+        assert!(!rule.matches_str("bar.foo.com", "foo.com"));
+        assert!(rule.matches_str("foo.com.bar", "com.bar"));
+        assert!(rule.matches_str("foo.co.uk", "foo.co.uk"));
+
+        let rule = CosmeticFilter::parse("~foo.com,~foo.de,~bar.com##.selector", false).unwrap();
+        assert!(!rule.matches_str("foo.com", "foo.com"));
+        assert!(!rule.matches_str("sub.foo.com", "foo.com"));
+        assert!(!rule.matches_str("foo.de", "foo.de"));
+        assert!(!rule.matches_str("sub.foo.de", "foo.de"));
+        assert!(!rule.matches_str("bar.com", "bar.com"));
+        assert!(!rule.matches_str("sub.bar.com", "bar.com"));
+        assert!(rule.matches_str("bar.de", "bar.de"));
+        assert!(rule.matches_str("sub.bar.de", "bar.de"));
+    }
+
+    #[test]
+    fn entity_with_suffix_exception() {
+        let rule = CosmeticFilter::parse("foo.*,~foo.com##.selector", false).unwrap();
+        assert!(!rule.matches_str("foo.com", "foo.com"));
+        assert!(!rule.matches_str("sub.foo.com", "foo.com"));
+        assert!(rule.matches_str("foo.de", "foo.de"));
+        assert!(rule.matches_str("sub.foo.de", "foo.de"));
+    }
+
+    #[test]
+    fn entity_with_subdomain_exception() {
+        let rule = CosmeticFilter::parse("foo.*,~sub.foo.*##.selector", false).unwrap();
+        assert!(rule.matches_str("foo.com", "foo.com"));
+        assert!(rule.matches_str("foo.de", "foo.de"));
+        assert!(!rule.matches_str("sub.foo.com", "foo.com"));
+        assert!(!rule.matches_str("bar.com", "bar.com"));
+        assert!(rule.matches_str("sub2.foo.com", "foo.com"));
+    }
+
+    #[test]
+    fn no_domain_provided() {
+        let rule = CosmeticFilter::parse("foo.*##.selector", false).unwrap();
+        assert!(!rule.matches_str("foo.com", ""));
+    }
+
+    #[test]
+    fn no_hostname_provided() {
+        let rule = CosmeticFilter::parse("domain.com##.selector", false).unwrap();
+        assert!(!rule.matches_str("", ""));
+        let rule = CosmeticFilter::parse("domain.*##.selector", false).unwrap();
+        assert!(!rule.matches_str("", ""));
+        let rule = CosmeticFilter::parse("~domain.*##.selector", false).unwrap();
+        assert!(!rule.matches_str("", ""));
+        let rule = CosmeticFilter::parse("~domain.com##.selector", false).unwrap();
+        assert!(!rule.matches_str("", ""));
     }
 }
