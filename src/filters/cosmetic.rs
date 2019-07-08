@@ -41,6 +41,127 @@ pub struct CosmeticFilter {
 }
 
 impl CosmeticFilter {
+    /// Parses the contents of a cosmetic filter rule up to the `##` or `#@#` separator.
+    ///
+    /// On success, returns `Vec`s of hashes of all of the following comma separated items that
+    /// were populated in the rule:
+    ///
+    ///    - `entities`: entity.*
+    ///
+    ///    - `not_entities`: ~entity.*
+    ///
+    ///    - `hostnames`: hostname
+    ///
+    ///    - `not_hostnames`: ~hostname
+    ///
+    /// This should only be called if `sharp_index` is greater than 0, in which case all four are
+    /// guaranteed to be `None`.
+    #[inline]
+    fn parse_before_sharp(
+        line: &str,
+        sharp_index: usize,
+        mask: &mut CosmeticFilterMask
+    ) -> Result<(Option<Vec<Hash>>, Option<Vec<Hash>>, Option<Vec<Hash>>, Option<Vec<Hash>>), CosmeticFilterError> {
+        let mut entities_vec = vec![];
+        let mut not_entities_vec = vec![];
+        let mut hostnames_vec = vec![];
+        let mut not_hostnames_vec = vec![];
+
+        let parts = line[0..sharp_index].split(',');
+        for part in parts {
+            let mut hostname = String::new();
+            if part.is_ascii() {
+                hostname.push_str(&part);
+            } else {
+                *mask |= CosmeticFilterMask::IS_UNICODE;
+                match idna::domain_to_ascii(&part) {
+                    Ok(x) => hostname.push_str(&x),
+                    Err(_) => return Err(CosmeticFilterError::PunycodeError),
+                }
+            }
+            let negation = hostname.starts_with('~');
+            let entity = hostname.ends_with(".*");
+            let start = if negation {
+                1
+            } else {
+                0
+            };
+            let end = if entity {
+                hostname.len() - 2
+            } else {
+                hostname.len()
+            };
+            let hash = crate::utils::fast_hash(&hostname[start..end]);
+            match (negation, entity) {
+                (true, true) => not_entities_vec.push(hash),
+                (true, false) => not_hostnames_vec.push(hash),
+                (false, true) => entities_vec.push(hash),
+                (false, false) => hostnames_vec.push(hash),
+            }
+        };
+
+        /// Sorts `vec` and wraps it in `Some` if it's not empty, or returns `None` if it is.
+        #[inline]
+        fn sorted_or_none<T: std::cmp::Ord>(mut vec: Vec<T>) -> Option<Vec<T>> {
+            if!vec.is_empty() {
+                vec.sort();
+                Some(vec)
+            } else {
+                None
+            }
+        }
+
+        let entities = sorted_or_none(entities_vec);
+        let hostnames = sorted_or_none(hostnames_vec);
+        let not_entities = sorted_or_none(not_entities_vec);
+        let not_hostnames = sorted_or_none(not_hostnames_vec);
+
+        Ok((entities, not_entities, hostnames, not_hostnames))
+    }
+
+    /// Parses the contents of a cosmetic filter rule following the `##` or `#@#` separator.
+    ///
+    /// On success, updates the contents of `selector` and `style` according to the rule.
+    ///
+    /// This should only be called if the rule part after the separator has been confirmed not to
+    /// be a script injection rule using `+js()`.
+    #[inline]
+    fn parse_after_sharp_nonscript<'a>(
+        line: &'a str,
+        suffix_start_index: usize,
+        selector: &mut &'a str,
+        style: &mut Option<String>
+    ) -> Result<(), CosmeticFilterError> {
+        let mut index_after_colon = suffix_start_index;
+        while let Some(colon_index) = line[index_after_colon..].find(':') {
+            let colon_index = colon_index + index_after_colon;
+            index_after_colon = colon_index + 1;
+            let content_after_colon = &line[index_after_colon..];
+            if content_after_colon.starts_with("style") {
+                if content_after_colon.chars().nth(5) == Some('(') && content_after_colon.chars().nth(content_after_colon.len() - 1) == Some(')') {
+                    *selector = &line[suffix_start_index..colon_index];
+                    *style = Some(content_after_colon[6..content_after_colon.len()-1].to_string());
+                } else {
+                    return Err(CosmeticFilterError::InvalidStyleSpecifier);
+                }
+            } else if content_after_colon.starts_with("-abp-")
+            || content_after_colon.starts_with("contains")
+            || content_after_colon.starts_with("has")
+            || content_after_colon.starts_with("if")
+            || content_after_colon.starts_with("if-not")
+            || content_after_colon.starts_with("matches-css")
+            || content_after_colon.starts_with("matches-css-after")
+            || content_after_colon.starts_with("matches-css-before")
+            || content_after_colon.starts_with("properties")
+            || content_after_colon.starts_with("subject")
+            || content_after_colon.starts_with("xpath")
+            {
+                return Err(CosmeticFilterError::UnsupportedSyntax);
+            }
+        }
+        Ok(())
+    }
+
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
     /// will be reported in the resulting `CosmeticFilter` struct as well.
     pub fn parse(line: &str, debug: bool) -> Result<CosmeticFilter, CosmeticFilterError> {
@@ -48,130 +169,35 @@ impl CosmeticFilter {
         if let Some(sharp_index) = line.find('#') {
             let after_sharp_index = sharp_index + 1;
             let mut suffix_start_index = after_sharp_index + 1;
+
             if line[after_sharp_index..].starts_with("@") {
                 mask |= CosmeticFilterMask::UNHIDE;
                 suffix_start_index += 1;
             }
 
+            // 1 - sharp_index
+            // 2 - after_sharp_index
+            // 3 - suffix_start_index
+            //
+            // hostnames##selector
+            //          123
+            //
+            // hostnames#@#selector
+            //          12 3
+
             let (entities, not_entities, hostnames, not_hostnames) = if sharp_index > 0 {
-                let mut entities_vec = vec![];
-                let mut not_entities_vec = vec![];
-                let mut hostnames_vec = vec![];
-                let mut not_hostnames_vec = vec![];
-
-                let parts = line[0..sharp_index].split(',');
-                for part in parts {
-                    let mut hostname = String::new();
-                    if part.is_ascii() {
-                        hostname.push_str(&part);
-                    } else {
-                        mask |= CosmeticFilterMask::IS_UNICODE;
-                        let decode_flags = idna::uts46::Flags {
-                            use_std3_ascii_rules: true,
-                            transitional_processing: true,
-                            verify_dns_length: true,
-                        };
-                        match idna::uts46::to_ascii(&part, decode_flags) {
-                            Ok(x) => hostname.push_str(&x),
-                            Err(_) => return Err(CosmeticFilterError::PunycodeError),
-                        }
-                    }
-                    let negation = hostname.starts_with('~');
-                    let entity = hostname.ends_with(".*");
-                    let start = if negation {
-                        1
-                    } else {
-                        0
-                    };
-                    let end = if entity {
-                        hostname.len() - 2
-                    } else {
-                        hostname.len()
-                    };
-                    let hash = crate::utils::fast_hash(&hostname[start..end]);
-                    match (negation, entity) {
-                        (true, true) => not_entities_vec.push(hash),
-                        (true, false) => not_hostnames_vec.push(hash),
-                        (false, true) => entities_vec.push(hash),
-                        (false, false) => hostnames_vec.push(hash),
-                    }
-                };
-
-                let entities = if !entities_vec.is_empty() {
-                    entities_vec.sort();
-                    Some(entities_vec)
-                } else {
-                    None
-                };
-
-                let hostnames = if !hostnames_vec.is_empty() {
-                    hostnames_vec.sort();
-                    Some(hostnames_vec)
-                } else {
-                    None
-                };
-
-                let not_entities = if !not_entities_vec.is_empty() {
-                    not_entities_vec.sort();
-                    Some(not_entities_vec)
-                } else {
-                    None
-                };
-
-                let not_hostnames = if !not_hostnames_vec.is_empty() {
-                    not_hostnames_vec.sort();
-                    Some(not_hostnames_vec)
-                } else {
-                    None
-                };
-
-                (entities, not_entities, hostnames, not_hostnames)
+                CosmeticFilter::parse_before_sharp(line, sharp_index, &mut mask)?
             } else {
                 (None, None, None, None)
             };
 
             let mut selector = &line[suffix_start_index..];
             let mut style = None;
-            if line.len() - suffix_start_index > 7 && line[suffix_start_index..].starts_with("script:") {
-                let script_method_index = suffix_start_index + 7;
-                let mut script_selector_index_start = script_method_index;
-                let script_selector_index_end = line.len() - 1;
-
-                if line[script_method_index..].starts_with("inject(") {
-                    mask |= CosmeticFilterMask::SCRIPT_INJECT;
-                    script_selector_index_start += 7;
-                }
-
-                selector = &line[script_selector_index_start..script_selector_index_end];
-            } else if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") {
+            if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") {
                 mask |= CosmeticFilterMask::SCRIPT_INJECT;
                 selector = &line[suffix_start_index + 4..line.len() - 1];
             } else {
-                let mut index_after_colon = suffix_start_index;
-                while let Some(colon_index) = line[index_after_colon..].find(':') {
-                    index_after_colon += colon_index + 1;
-                    if line[index_after_colon..].starts_with("style") {
-                        if line.chars().nth(index_after_colon + 5) == Some('(') && line.chars().nth(line.len() - 1) == Some(')') {
-                            selector = &line[suffix_start_index..colon_index];
-                            style = Some(line[index_after_colon + 6..].to_string());
-                        } else {
-                            return Err(CosmeticFilterError::InvalidStyleSpecifier);
-                        }
-                    } else if line[index_after_colon..].starts_with("-abp-")
-                    || line[index_after_colon..].starts_with("contains")
-                    || line[index_after_colon..].starts_with("has")
-                    || line[index_after_colon..].starts_with("if")
-                    || line[index_after_colon..].starts_with("if-not")
-                    || line[index_after_colon..].starts_with("matches-css")
-                    || line[index_after_colon..].starts_with("matches-css-after")
-                    || line[index_after_colon..].starts_with("matches-css-before")
-                    || line[index_after_colon..].starts_with("properties")
-                    || line[index_after_colon..].starts_with("subject")
-                    || line[index_after_colon..].starts_with("xpath")
-                    {
-                        return Err(CosmeticFilterError::UnsupportedSyntax);
-                    }
-                }
+                CosmeticFilter::parse_after_sharp_nonscript(line, suffix_start_index, &mut selector, &mut style)?;
             }
 
             if !selector.is_ascii() {
