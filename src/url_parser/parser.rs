@@ -29,7 +29,6 @@ pub struct Hostname {
 }
 
 impl Hostname {
-    #[inline]
     pub fn parse(input: &str) -> Result<Hostname, ParseError> {
         Parser {
             serialization: String::with_capacity(input.len()),
@@ -93,7 +92,6 @@ impl Hostname {
     /// # }
     /// # run().unwrap();
     /// ```
-    #[inline]
     pub fn host_str(&self) -> Option<&str> {
         if self.has_host() {
             Some(self.slice(self.host_start..self.host_end))
@@ -102,14 +100,12 @@ impl Hostname {
         }
     }
 
-    #[inline]
-    pub fn url_str(&self) -> String {
-        self.serialization.clone()
+    pub fn url_str(&self) -> &str {
+        &self.serialization
     }
 
     // Private helper methods:
 
-    #[inline]
     fn slice<R>(&self, range: R) -> &str where R: RangeArg {
         range.slice_of(&self.serialization)
     }
@@ -120,21 +116,18 @@ trait RangeArg {
 }
 
 impl RangeArg for Range<usize> {
-    #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
         &s[self.start .. self.end ]
     }
 }
 
 impl RangeArg for RangeFrom<usize> {
-    #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
         &s[self.start ..]
     }
 }
 
 impl RangeArg for RangeTo<usize> {
-    #[inline]
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
         &s[.. self.end]
     }
@@ -225,17 +218,14 @@ impl<'i> Input<'i> {
         Input { chars: input.chars() }
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.clone().next().is_none()
     }
 
-    #[inline]
     fn starts_with<P: Pattern>(&self, p: P) -> bool {
         p.split_prefix(&mut self.clone())
     }
 
-    #[inline]
     pub fn split_prefix<P: Pattern>(&self, p: P) -> Option<Self> {
         let mut remaining = self.clone();
         if p.split_prefix(&mut remaining) {
@@ -245,7 +235,6 @@ impl<'i> Input<'i> {
         }
     }
 
-    #[inline]
     fn count_matching<F: Fn(char) -> bool>(&self, f: F) -> (u32, Self) {
         let mut count = 0;
         let mut remaining = self.clone();
@@ -260,7 +249,6 @@ impl<'i> Input<'i> {
         }
     }
 
-    #[inline]
     fn next_utf8(&mut self) -> Option<(char, &'i str)> {
         loop {
             let utf8 = self.chars.as_str();
@@ -302,7 +290,7 @@ impl<F: FnMut(char) -> bool> Pattern for F {
 impl<'i> Iterator for Input<'i> {
     type Item = char;
     fn next(&mut self) -> Option<char> {
-        self.chars.by_ref().find(|&c| !matches!(c, '\t' | '\n' | '\r'))
+        self.chars.next() //by_ref().find(|&c| !matches!(c, '\t' | '\n' | '\r'))
     }
 }
 
@@ -331,9 +319,9 @@ impl Parser {
         debug_assert!(self.serialization.is_empty());
         while let Some(c) = input.next() {
             match c {
-                'a'...'z' | 'A'...'Z' | '0'...'9' | '+' | '-' | '.' => {
-                    self.serialization.push(c.to_ascii_lowercase())
-                }
+                'a'...'z' => self.serialization.push(c),
+                'A'...'Z' => self.serialization.push(c.to_ascii_lowercase()),
+                '0'...'9' | '+' | '-' | '.' => self.serialization.push(c),
                 ':' => return Ok(input),
                 _ => {
                     self.serialization.clear();
@@ -381,11 +369,13 @@ impl Parser {
         let username_end = path_start;
         let host_start = path_start;
         let host_end = path_start;
-        let remaining = input.clone();
-        for c in remaining {
-            self.serialization.push(c);
-        }
-
+        self.serialization.push_str(&input.chars.as_str());
+        let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
+        ser_remaining.map(|s| {
+            s.make_ascii_lowercase();
+            &*s
+        });
+        
         Ok(Hostname {
             serialization: self.serialization,
             scheme_end,
@@ -397,18 +387,18 @@ impl Parser {
 
     fn after_double_slash(mut self, input: Input, scheme_type: SchemeType, scheme_end: usize)
                           -> ParseResult<Hostname> {
-        self.serialization.push('/');
-        self.serialization.push('/');
+        self.serialization.push_str("//");
         // authority state
         let (username_end, remaining) = self.parse_userinfo(input, scheme_type)?;
         // host state
         let host_start = self.serialization.len();
-        // println!("Parse host {}", remaining.chars.as_str());
         let (host_end, remaining) = self.parse_host(remaining, scheme_type)?;
-        for c in remaining {
-            self.serialization.push(c);
-        }
-        // println!("Return hostname {} from {} to {}", self.serialization, host_start, host_end);
+        self.serialization.push_str(&remaining.chars.as_str());
+        let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
+        ser_remaining.map(|s| {
+            s.make_ascii_lowercase();
+            &*s
+        });
         Ok(Hostname {
             serialization: self.serialization,
             scheme_end,

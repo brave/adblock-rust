@@ -3,12 +3,14 @@ extern crate adblock;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
 use adblock::request::Request;
-use adblock::url_parser::{get_host_domain, UrlParser};
+use adblock::url_parser::UrlParser;
 use adblock::utils::rules_from_lists;
 
 use serde::{Deserialize};
 use std::fs::File;
 use std::io::BufReader;
+
+use std::collections::HashMap;
 
 use csv;
 
@@ -44,8 +46,33 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 
 fn get_blocker_engine() -> Engine {
   let rules = rules_from_lists(&vec![
+    String::from("data/regression-testing/easylist.txt"),
+    String::from("data/regression-testing/easyprivacy.txt"),
+  ]);
+
+  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
+
+  let blocker_options = BlockerOptions {
+    debug: true,
+    enable_optimizations: false,
+    load_cosmetic_filters: false,
+    load_network_filters: true
+  };
+  
+    Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    }
+}
+
+fn get_blocker_engine_default() -> Engine {
+  let rules = rules_from_lists(&vec![
     String::from("data/easylist.to/easylist/easylist.txt"),
-    String::from("data/easylist.to/easylist/easyprivacy.txt")
+    String::from("data/easylist.to/easylist/easyprivacy.txt"),
+    String::from("data/uBlockOrigin/unbreak.txt"),
+    String::from("data/uBlockOrigin/filters.txt"),
+    String::from("data/brave/brave-unbreak.txt"),
+    String::from("data/brave/coin-miners.txt"),
+    // String::from("data/test/abpjf.txt"),
   ]);
 
   let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
@@ -63,11 +90,65 @@ fn get_blocker_engine() -> Engine {
 }
 
 #[test]
-fn check_specifics() {
-    let engine = get_blocker_engine();
+fn check_specific_rules() {
+    {
+        // exceptions have not effect if important filter matches
+        let engine = Engine::from_rules_debug(&[
+            String::from("||www.facebook.com/*/plugin"),
+        ]);
+
+        let checked = engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
+
+        assert_eq!(checked.matched, true);
+    }
+
+    {
+        // exceptions have not effect if important filter matches
+        let mut engine = Engine::from_rules_debug(&[
+            String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
+        ]);
+        let resources_lines = adblock::utils::read_file_lines("data/uBlockOrigin/resources.txt");
+        let resources_str = resources_lines.join("\n");
+        engine.with_resources(&resources_str);
+
+        let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
+        assert_eq!(checked.matched, true);
+        assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewoJOwp9KSgpOw==".to_owned()));
+    }
+}
+
+#[test]
+fn check_specifics_default() {
+    let mut engine = get_blocker_engine_default();
     {
         let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
+    }
+    {
+        engine.filter_add("@@||www.google.*/aclk?$first-party");
+        let checked = engine.check_network_urls("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
+            "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
+            "main_frame");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+    }
+    {
+        engine.filter_add("@@||www.googleadservices.*/aclk?$first-party");
+        let checked = engine.check_network_urls("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
+            "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
+            "main_frame");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+    }
+    {
+        let checked = engine.check_network_urls("https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
+            "https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
+            "main_frame");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+    }
+    {
+        let checked = engine.check_network_urls("https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
+                "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
+                "main_frame");
+            assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
 }
 
@@ -85,7 +166,7 @@ fn check_basic_works_after_deserialization() {
 }
 
 #[test]
-fn check_matching() {
+fn check_matching_equivalent() {
     let requests = load_requests();
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
@@ -97,23 +178,39 @@ fn check_matching() {
     let mut mismatch_expected_match = 0;
     let mut mismatch_expected_exception = 0;
     let mut mismatch_expected_pass = 0;
+    let mut false_negative_rules: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut false_positive_rules: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut false_negative_exceptions: HashMap<String, (String, String, String)> = HashMap::new();
     for req in requests {
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
+            req.filter.as_ref().map(|f| {
+                false_negative_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+            });
             println!("Expected match, uBo matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, req.filter);
         } else if req.blocked == 2 && checked.exception.is_none() {
             mismatch_expected_exception += 1;
+            checked.filter.as_ref().map(|f| {
+                false_negative_exceptions.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+            });
             println!("Expected exception to match for {} at {}, type {}, got rule match {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         } else if req.blocked == 0 && checked.matched != false {
             mismatch_expected_pass += 1;
+            checked.filter.as_ref().map(|f| {
+                false_positive_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+            });
             println!("Expected pass, matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         }        
     }
 
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
-    assert!(ratio < 0.05); 
+    assert!(ratio < 0.01);
+    assert!(false_positive_rules.len() < 3, "False positive rules higher than expected: {:?}", false_positive_rules);
+    assert!(false_negative_rules.len() < 3, "False negative rules higher than expected: {:?}", false_negative_rules);
+    assert!(false_negative_exceptions.len() < 3, "False negative exceptions higher than expected: {:?}", false_negative_exceptions);
+
 }
 
 #[test]
@@ -126,10 +223,10 @@ fn check_matching_hostnames() {
     let engine = get_blocker_engine();
 
     for req in requests {
-        let url_host = Request::get_url_host(&req.url).unwrap();
-        let source_host = Request::get_url_host(&req.sourceUrl).unwrap();
-        let domain = get_host_domain(&url_host.hostname());
-        let source_domain = get_host_domain(&source_host.hostname());
+        let url_host = Request::parse_url(&req.url).unwrap();
+        let source_host = Request::parse_url(&req.sourceUrl).unwrap();
+        let domain = url_host.domain();
+        let source_domain = source_host.domain();
         let third_party = if source_domain.is_empty() {
             None
         } else {

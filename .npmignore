@@ -1,0 +1,10 @@
+data/
+target/
+adblock-rust-wasm/
+native/target/
+.git/
+.DS_Store
+.travis.yml
+*.code-workspace
+*.diff
+*.tgz

@@ -10,13 +10,11 @@ extern crate bitflags;
 #[macro_use]
 extern crate matches; // #[cfg(test)]
 
-extern crate bincode;   // binary serialization/deserialization
+extern crate rmp_serde as rmps;   // binary serialization/deserialization
 extern crate flate2;
 extern crate regex;
 extern crate idna;      // utf domain handling
-
-#[cfg(not(target_arch = "wasm32"))]
-extern crate rayon;     // parallelism
+extern crate base64;
 
 #[cfg(test)]
 extern crate csv;       // csv handling library used for processing test data
@@ -31,3 +29,4 @@ pub mod optimizer;
 pub mod url_parser;
 pub mod engine;
 pub mod filter_lists;
+pub mod resources;

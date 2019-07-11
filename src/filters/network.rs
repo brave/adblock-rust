@@ -7,7 +7,9 @@ use std::fmt;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use std::sync::{Arc, RwLock};
+use std::cell::RefCell;
+use std::rc::Rc;
+use twoway;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -23,6 +25,7 @@ pub enum FilterError {
     EmptyRedirection,
     UnrecognisedOption,
     NoRegex,
+    FullRegexUnsupported,
     RegexParsingError(regex::Error),
     PunycodeError,
 }
@@ -51,6 +54,9 @@ bitflags! {
         const EXPLICIT_CANCEL = 1 << 26;
         const BAD_FILTER = 1 << 27;
 
+        // full document rules tend to be handled differently
+        const FROM_DOCUMENT = 1 << 29;
+
         // Kind of pattern
         const IS_REGEX = 1 << 18;
         const IS_LEFT_ANCHOR = 1 << 19;
@@ -59,6 +65,7 @@ bitflags! {
         const IS_EXCEPTION = 1 << 22;
         const IS_CSP = 1 << 23;
         const IS_COMPLETE_REGEX = 1 << 24;
+        const IS_HOSTNAME_REGEX = 1 << 28;
 
         // "Other" network request types
         const UNMATCHED = 1 << 25;
@@ -128,23 +135,23 @@ impl fmt::Display for NetworkFilterMask {
 impl From<&request::RequestType> for NetworkFilterMask {
     fn from(request_type: &request::RequestType) -> NetworkFilterMask {
         match request_type {
-            request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
-            request::RequestType::Image => NetworkFilterMask::FROM_IMAGE,
-            request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
-            request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
-            request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
-            request::RequestType::Ping => NetworkFilterMask::FROM_PING,
             request::RequestType::Beacon => NetworkFilterMask::FROM_PING,
-            request::RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
-            request::RequestType::Font => NetworkFilterMask::FROM_FONT,
-            request::RequestType::Media => NetworkFilterMask::FROM_MEDIA,
-            request::RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
+            request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
+            request::RequestType::Document => NetworkFilterMask::FROM_DOCUMENT,
             request::RequestType::Dtd => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Fetch => NetworkFilterMask::FROM_OTHER,
+            request::RequestType::Font => NetworkFilterMask::FROM_FONT,
+            request::RequestType::Image => NetworkFilterMask::FROM_IMAGE,
+            request::RequestType::Media => NetworkFilterMask::FROM_MEDIA,
+            request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
+            request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
+            request::RequestType::Ping => NetworkFilterMask::FROM_PING,
+            request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
+            request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
+            request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
+            request::RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
             request::RequestType::Xlst => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Document => NetworkFilterMask::UNMATCHED,
-            request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
+            request::RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
         }
     }
 }
@@ -183,6 +190,10 @@ pub struct NetworkFilter {
     pub id: Hash,
     pub fuzzy_signature: Option<Vec<Hash>>,
 
+    // All domain option values (their hashes) OR'ed together to quickly dismiss mis-matches
+    pub opt_domains_union: Option<Hash>,
+    pub opt_not_domains_union: Option<Hash>,
+
     // Regex compild lazily, using "Interior Mutability"
     // Arc (Atomic Reference Counter) allows for cloned NetworkFilters
     // to point to the same RwLock and what is inside.
@@ -191,15 +202,11 @@ pub struct NetworkFilter {
     // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to Some<CompiledRegex>
     // to avoid expensive cloning of the Regex itself.
     #[serde(skip_serializing, skip_deserializing)]
-    regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>,
-
-    #[cfg(feature = "full-domain-matching")]
-    pub opt_domains_full: Option<Vec<String>>,
-    #[cfg(feature = "full-domain-matching")]
-    pub opt_not_domains_full: Option<Vec<String>>,
+    regex: Rc<RefCell<Option<Rc<CompiledRegex>>>>
 }
 
 impl NetworkFilter {
+    #[allow(clippy::cognitive_complexity)]
     pub fn parse(line: &str, debug: bool) -> Result<NetworkFilter, FilterError> {
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
@@ -216,11 +223,8 @@ impl NetworkFilter {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
-
-        #[cfg(feature = "full-domain-matching")]
-        let mut opt_domains_full: Option<Vec<String>> = None;
-        #[cfg(feature = "full-domain-matching")]
-        let mut opt_not_domains_full: Option<Vec<String>> = None;
+        let mut opt_domains_union: Option<Hash> = None;
+        let mut opt_not_domains_union: Option<Hash> = None;
 
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
@@ -242,11 +246,11 @@ impl NetworkFilter {
         // |     |
         // |     optionsIndex
         // filterIndexStart
-        let options_index: Option<usize> = line.rfind('$');
+        let maybe_options_index: Option<usize> = twoway::rfind_str(&line, "$");
 
-        if options_index.is_some() {
+        if let Some(options_index) = maybe_options_index {
             // Parse options and set flags
-            filter_index_end = options_index.unwrap();
+            filter_index_end = options_index;
 
             // Parse Options
             let raw_options = &line[filter_index_end + 1..];
@@ -284,35 +288,14 @@ impl NetworkFilter {
                             }
                         }
 
-                        #[cfg(feature = "full-domain-matching")]
-                        {
-                            let mut opt_domains_full_array: Vec<String> = vec![];
-                            let mut opt_not_domains_full_array: Vec<String> = vec![];
-                            let mut valuesiter = option_values.iter();
-                            for option_value in option_values {
-                                if option_value.starts_with('~') {
-                                    opt_not_domains_full_array
-                                        .push(String::from(&option_value[1..]));
-                                } else {
-                                    opt_domains_full_array.push(String::from(&option_value[0..]));
-                                }
-                            }
-                            if opt_domains_array.len() > 0 {
-                                opt_domains_full_array.sort();
-                                opt_domains_full = Some(opt_domains_full_array);
-                            }
-                            if opt_not_domains_array.len() > 0 {
-                                opt_not_domains_full_array.sort();
-                                opt_not_domains_full = Some(opt_not_domains_full_array);
-                            }
-                        }
-
                         if !opt_domains_array.is_empty() {
                             opt_domains_array.sort();
+                            opt_domains_union = Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort();
+                            opt_not_domains_union = Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
@@ -327,10 +310,14 @@ impl NetworkFilter {
                     // ~third-party means we should clear the flag
                     ("third-party", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     ("third-party", false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
+                    ("3p", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
+                    ("3p", false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
                     // ~first-party means we should clear the flag
                     ("first-party", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
                     // first-party means ~third-party
                     ("first-party", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
+                    ("1p", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
+                    ("1p", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     ("fuzzy", _) => mask.set(NetworkFilterMask::FUZZY_MATCH, true),
                     ("collapse", _) => {}
                     ("bug", _) => bug = value.parse::<u32>().ok(),
@@ -360,23 +347,14 @@ impl NetworkFilter {
                         match option {
                             "image" => option_mask.set(NetworkFilterMask::FROM_IMAGE, true),
                             "media" => option_mask.set(NetworkFilterMask::FROM_MEDIA, true),
-                            "object" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
-                            "object-subrequest" => {
-                                option_mask.set(NetworkFilterMask::FROM_OBJECT, true)
-                            }
+                            "object" | "object-subrequest" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
                             "other" => option_mask.set(NetworkFilterMask::FROM_OTHER, true),
-                            "ping" => option_mask.set(NetworkFilterMask::FROM_PING, true),
-                            "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
+                            "ping" | "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
                             "script" => option_mask.set(NetworkFilterMask::FROM_SCRIPT, true),
-                            "css" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
-                            "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
-                            "subdocument" => {
-                                option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true)
-                            }
-                            "xmlhttprequest" => {
-                                option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true)
-                            }
-                            "xhr" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
+                            "css" | "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
+                            "frame" | "subdocument" => option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true),
+                            "main_frame" | "document" => option_mask.set(NetworkFilterMask::FROM_DOCUMENT, true),
+                            "xhr" | "xmlhttprequest" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
                             "websocket" => option_mask.set(NetworkFilterMask::FROM_WEBSOCKET, true),
                             "font" => option_mask.set(NetworkFilterMask::FROM_FONT, true),
                             _ => return Err(FilterError::UnrecognisedOption),
@@ -426,7 +404,15 @@ impl NetworkFilter {
         if line[filter_index_start..filter_index_end].starts_with('/')
             && line[filter_index_start..filter_index_end].ends_with('/')
         {
-            mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+            #[cfg(feature = "full-regex-handling")]
+            {
+                mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+            }
+
+            #[cfg(not(feature = "full-regex-handling"))]
+            {
+                return Err(FilterError::FullRegexUnsupported);
+            }
         }
 
         if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
@@ -438,33 +424,40 @@ impl NetworkFilter {
                 lazy_static! {
                     static ref SEPARATOR: Regex = Regex::new("[/^*]").unwrap();
                 }
-                let first_separator = SEPARATOR.find(line).unwrap().start();
-                // NOTE: `first_separator` shall never be -1 here since `IS_REGEX` is true.
-                // This means there must be at least an occurrence of `*` or `^`
-                // somewhere.
+                if let Some(first_separator) = SEPARATOR.find(line) {
+                    let first_separator_start = first_separator.start();
+                    // NOTE: `first_separator` shall never be -1 here since `IS_REGEX` is true.
+                    // This means there must be at least an occurrence of `*` or `^`
+                    // somewhere.
 
-                hostname = Some(String::from(&line[filter_index_start..first_separator]));
-                filter_index_start = first_separator;
+                    // If the first separator is a wildcard, included in in hostname
+                    if first_separator_start < line.len() && line[first_separator_start..=first_separator_start].starts_with('*') {
+                        mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
+                    }
 
-                // If the only symbol remaining for the selector is '^' then ignore it
-                // but set the filter as right anchored since there should not be any
-                // other label on the right
-                if filter_index_end - filter_index_start == 1
-                    && line[filter_index_start..].starts_with('^')
-                {
-                    mask.set(NetworkFilterMask::IS_REGEX, false);
-                    filter_index_start = filter_index_end;
-                    mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
-                } else {
-                    mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
-                    mask.set(
-                        NetworkFilterMask::IS_REGEX,
-                        check_is_regex(&line[filter_index_start..filter_index_end]),
-                    );
+                    hostname = Some(String::from(&line[filter_index_start..first_separator_start]));
+                    filter_index_start = first_separator_start;
+
+                    // If the only symbol remaining for the selector is '^' then ignore it
+                    // but set the filter as right anchored since there should not be any
+                    // other label on the right
+                    if filter_index_end - filter_index_start == 1
+                        && line[filter_index_start..].starts_with('^')
+                    {
+                        mask.set(NetworkFilterMask::IS_REGEX, false);
+                        filter_index_start = filter_index_end;
+                        mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
+                    } else {
+                        mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
+                        mask.set(
+                            NetworkFilterMask::IS_REGEX,
+                            check_is_regex(&line[filter_index_start..filter_index_end]),
+                        );
+                    }
                 }
             } else {
                 // Look for next /
-                let slash_index = &line[filter_index_start..].find('/');
+                let slash_index = twoway::find_str(&line[filter_index_start..], "/");
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
@@ -573,10 +566,10 @@ impl NetworkFilter {
         Ok(NetworkFilter {
             bug,
             csp,
-            filter: if filter.is_none() {
-                FilterPart::Empty
+            filter: if let Some(simple_filter) = filter {
+                FilterPart::Simple(simple_filter)
             } else {
-                FilterPart::Simple(filter.unwrap())
+                FilterPart::Empty
             },
             hostname: hostname_decoded.map_or(Ok(None), |r| r.map(Some))?,
             mask,
@@ -591,11 +584,9 @@ impl NetworkFilter {
             redirect,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
-            regex: Arc::new(RwLock::new(None)),
-            #[cfg(feature = "full-domain-matching")]
-            opt_domains_full,
-            #[cfg(feature = "full-domain-matching")]
-            opt_not_domains_full,
+            opt_domains_union,
+            opt_not_domains_union,
+            regex: Rc::new(RefCell::new(None))
         })
     }
 
@@ -630,13 +621,6 @@ impl NetworkFilter {
         )
     }
 
-    pub fn set_regex(&self, regex: CompiledRegex) {
-        {
-            let mut cache = self.regex.write().unwrap();
-            *cache = Some(Arc::new(regex));
-        }
-    }
-
     pub fn get_fuzzy_signature(&mut self) -> &Vec<Hash> {
         if self.fuzzy_signature.is_none() {
             if !self.is_fuzzy() {
@@ -664,9 +648,11 @@ impl NetworkFilter {
             && self.opt_not_domains.is_none()
             && self.opt_domains.as_ref().map(|d| d.len()) == Some(1)
         {
-            let domains = self.opt_domains.as_ref().unwrap();
-            let domain = &domains[0];
-            tokens.push(*domain)
+            if let Some(domains) = self.opt_domains.as_ref() {
+                if let Some(domain) = domains.first() {
+                    tokens.push(*domain)
+                }
+            }
         }
 
         // Get tokens from filter
@@ -674,7 +660,7 @@ impl NetworkFilter {
             FilterPart::Simple(f) => {
                 if !self.is_complete_regex() {
                     let skip_last_token =
-                        self.is_plain() && !self.is_right_anchor() && !self.is_fuzzy();
+                        (self.is_plain() || self.is_regex()) && !self.is_right_anchor() && !self.is_fuzzy();
                     let skip_first_token = self.is_right_anchor();
 
                     let mut filter_tokens =
@@ -714,87 +700,87 @@ impl NetworkFilter {
         }
     }
 
-    #[inline]
+    
     fn get_cpt_mask(&self) -> NetworkFilterMask {
         self.mask & NetworkFilterMask::FROM_ANY
     }
-    #[inline]
+    
     pub fn is_fuzzy(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FUZZY_MATCH)
     }
-    #[inline]
+    
     pub fn is_exception(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
     }
-    #[inline]
+    
     pub fn is_hostname_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
     }
-    #[inline]
+    
     pub fn is_right_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
     }
-    #[inline]
+    
     pub fn is_left_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR)
     }
-    #[inline]
+    
     fn match_case(&self) -> bool {
         self.mask.contains(NetworkFilterMask::MATCH_CASE)
     }
-    #[inline]
+    
     pub fn is_important(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_IMPORTANT)
     }
-    #[inline]
+    
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
     }
-    #[inline]
+    
     pub fn is_explicit_cancel(&self) -> bool {
         self.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL)
     }
-    #[inline]
+    
     pub fn is_badfilter(&self) -> bool {
         self.mask.contains(NetworkFilterMask::BAD_FILTER)
     }
-    #[inline]
+    
     pub fn is_regex(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_REGEX)
     }
-    #[inline]
+    
     pub fn is_complete_regex(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
     }
-    #[inline]
+    
     fn is_plain(&self) -> bool {
         !self.is_regex()
     }
-    #[inline]
+    
     pub fn is_csp(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_CSP)
     }
-    #[inline]
+    
     pub fn has_bug(&self) -> bool {
         self.bug.is_some()
     }
-    #[inline]
+    
     fn cpt_any(&self) -> bool {
         self.get_cpt_mask().contains(NetworkFilterMask::FROM_ANY)
     }
-    #[inline]
+    
     fn third_party(&self) -> bool {
         self.mask.contains(NetworkFilterMask::THIRD_PARTY)
     }
-    #[inline]
+    
     fn first_party(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FIRST_PARTY)
     }
-    #[inline]
+    
     fn for_http(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FROM_HTTP)
     }
-    #[inline]
+    
     fn for_https(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FROM_HTTPS)
     }
@@ -802,29 +788,28 @@ impl NetworkFilter {
 
 pub trait NetworkMatchable {
     fn matches(&self, request: &request::Request) -> bool;
-    fn get_regex(&self) -> Arc<CompiledRegex>;
+    fn get_regex(&self) -> Rc<CompiledRegex>;
 }
 
 impl NetworkMatchable for NetworkFilter {
+    
     fn matches(&self, request: &request::Request) -> bool {
         check_options(&self, request) && check_pattern(&self, request)
     }
 
     // Lazily get the regex if the filter has one
-    fn get_regex(&self) -> Arc<CompiledRegex> {
+    fn get_regex(&self) -> Rc<CompiledRegex> {
         if !self.is_regex() && !self.is_complete_regex() {
-            return Arc::new(CompiledRegex::MatchAll);
+            return Rc::new(CompiledRegex::MatchAll);
         }
         // Create a new scope to contain the lifetime of the
         // dynamic borrow
         {
-            let cache = self.regex.read().unwrap();
+            let mut cache = self.regex.borrow_mut();
             if cache.is_some() {
                 return cache.as_ref().unwrap().clone(); // Only clones the Arc, not the entire regex
             }
-        }
-        {
-            let mut cache = self.regex.write().unwrap();
+        
             let regex = compile_regex(
                 &self.filter,
                 self.is_right_anchor(),
@@ -832,7 +817,7 @@ impl NetworkMatchable for NetworkFilter {
                 self.is_complete_regex(),
             );
 
-            *cache = Some(Arc::new(regex));
+            *cache = Some(Rc::new(regex));
         }
         // Recursive call to return the just-cached value.
         // Note that if we had not let the previous borrow
@@ -899,6 +884,7 @@ fn compute_filter_id(
  * filters containing at least a * or ^ symbol. Because Regexes are expansive,
  * we try to convert some patterns to plain filters.
  */
+#[allow(clippy::trivial_regex)]
 pub fn compile_regex(
     filter: &FilterPart,
     is_right_anchor: bool,
@@ -990,7 +976,7 @@ fn check_is_regex(filter: &str) -> bool {
  * authors rely and different assumption. We can have prefix of suffix matches
  * of anchor.
  */
-fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
+fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filter_hostname: bool) -> bool {
     let filter_hostname_len = filter_hostname.len();
     // Corner-case, if `filterHostname` is empty, then it's a match
     if filter_hostname_len == 0 {
@@ -998,52 +984,42 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str) -> bool {
     }
     let hostname_len = hostname.len();
 
-    // `filterHostname` cannot be longer than actual hostname
+    
     if filter_hostname_len > hostname_len {
-        return false;
+        // `filterHostname` cannot be longer than actual hostname
+        false
+    } else if filter_hostname_len == hostname_len {
+        // If they have the same len(), they should be equal
+        filter_hostname == hostname
+    } else if let Some(match_index) = twoway::find_str(hostname, filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
+        if match_index == 0 {
+            // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
+            //
+            // Examples (filter_hostname, hostname):
+            //   * (foo, foo.com)
+            //   * (sub.foo, sub.foo.com)
+            wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.')
+        } else if match_index == hostname_len - filter_hostname_len {
+            // `filter_hostname` is a suffix of `hostname`.
+            //
+            // Examples (filter_hostname, hostname):
+            //    * (foo.com, sub.foo.com)
+            //    * (com, foo.com)
+            filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
+        } else {
+            // `filter_hostname` is infix of `hostname` and needs match full labels
+            (wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
+                && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
+        }
     }
-
-    // If they have the same len(), they should be equal
-    if filter_hostname_len == hostname_len {
-        return filter_hostname == hostname;
+    else {
+        // No match
+        false
     }
-
-    // Check if `filter_hostname` appears anywhere in `hostname`
-    let hostname_found = hostname.find(filter_hostname);
-
-    // No match
-    if hostname_found.is_none() {
-        return false;
-    }
-
-    let match_index = hostname_found.unwrap();
-
-    // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
-    //
-    // Examples (filter_hostname, hostname):
-    //   * (foo, foo.com)
-    //   * (sub.foo, sub.foo.com)
-    if match_index == 0 {
-        return filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.');
-    }
-
-    // `filter_hostname` is a suffix of `hostname`.
-    //
-    // Examples (filter_hostname, hostname):
-    //    * (foo.com, sub.foo.com)
-    //    * (com, foo.com)
-    if hostname.len() == match_index + filter_hostname.len() {
-        return filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.');
-    }
-
-    // `filter_hostname` is infix of `hostname` and needs match full labels
-    (filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
-        && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
 }
 
-#[inline]
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = url.find(&hostname).unwrap_or_else(|| url.len());
+    let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len());
     &url[start + hostname.len()..]
 }
 
@@ -1080,10 +1056,10 @@ fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.find(f).is_some(),
+        FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.find(f).is_some() {
+                if twoway::find_str(&request.url, f).is_some() {
                     return true;
                 }
             }
@@ -1166,7 +1142,7 @@ fn check_pattern_hostname_anchor_regex_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 check_pattern_regex_filter_at(
                     filter,
                     request,
@@ -1188,7 +1164,7 @@ fn check_pattern_hostname_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // In this specific case it means that the specified hostname should match
                     // at the end of the hostname of the request. This allows to prevent false
@@ -1220,7 +1196,7 @@ fn check_pattern_hostname_left_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1229,8 +1205,9 @@ fn check_pattern_hostname_left_right_anchor_filter(
                     // url following the hostname.
                     FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname) == f,
                     FilterPart::AnyOf(filters) => {
+                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if get_url_after_hostname(&request.url, hostname) == f {
+                            if url_after_hostname == f {
                                 return true;
                             }
                         }
@@ -1254,7 +1231,7 @@ fn check_pattern_hostname_left_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1265,8 +1242,9 @@ fn check_pattern_hostname_left_anchor_filter(
                         get_url_after_hostname(&request.url, hostname).starts_with(f)
                     }
                     FilterPart::AnyOf(filters) => {
+                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if get_url_after_hostname(&request.url, hostname).starts_with(f) {
+                            if url_after_hostname.starts_with(f) {
                                 return true;
                             }
                         }
@@ -1289,18 +1267,18 @@ fn check_pattern_hostname_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
+                    // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
                     FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname)
                         .find(f)
                         .is_some(),
                     FilterPart::AnyOf(filters) => {
+                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if get_url_after_hostname(&request.url, hostname)
-                                .find(f)
-                                .is_some()
+                            if url_after_hostname.find(f).is_some()
                             {
                                 return true;
                             }
@@ -1324,7 +1302,7 @@ fn check_pattern_hostname_anchor_fuzzy_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname) {
+            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 check_pattern_fuzzy_filter(filter, request)
             } else {
                 false
@@ -1369,7 +1347,7 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
 
 pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> bool {
     match NetworkFilterMask::from(cpt) {
-        NetworkFilterMask::UNMATCHED => filter.cpt_any(),
+        NetworkFilterMask::FROM_DOCUMENT => filter.get_cpt_mask().contains(NetworkFilterMask::FROM_DOCUMENT) || filter.is_exception(),
         mask => filter.mask.contains(mask),
     }
 }
@@ -1396,82 +1374,38 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         return false;
     }
 
-    #[cfg(feature = "full-domain-matching")]
-    {
-        // Source URL must be among these domains to match
-        let found_domain: Option<&String> = if let Some(domains) = filter.opt_domains_full.as_ref() {
-            utils::bin_search(&domains, &request.source_hostname)
-                .or_else(|| utils::bin_search(&domains, &request.source_domain))
-                .and_then(|idx| domains.get(idx))
-        } else {
-            None
-        };
-
-        let found_not_domain: Option<&String> = if let Some(domains) = filter.opt_not_domains_full.as_ref() {
-            utils::bin_search(&domains, &request.source_hostname)
-                .or_else(|| utils::bin_search(&domains, &request.source_domain))
-                .and_then(|idx| domains.get(idx))
-        } else {
-            None
-        };
-
-        println!("Checking {:?} and ~{:?} for {} {}\nFound {:?} and ~{:?}",
-            filter.opt_domains_full,
-            filter.opt_not_domains_full,
-            request.source_hostname,
-            request.source_domain,
-            found_domain,
-            found_not_domain);
-
-        // If positive domain options are specified but do there's no match
-        if filter.opt_domains_full.is_some() && found_domain.is_none() {
-            false
-        }
-        // If positive domain options are not specified but negative domain option are and match
-        else if filter.opt_domains_full.is_none() && found_not_domain.is_some() {
-            false
-        }
-        // If both positive and negative options are found, check which is more specific
-        else if found_domain.is_some() && found_not_domain.is_some() {
-                let positive = found_domain.unwrap();
-                let negative = found_not_domain.unwrap();
-                // check which is more specific
-                if negative.len() >= positive.len() {
-                    false
-                } else {
-                    true
-                }
-            }
-        else {
-            true
-        }
-    }
-
-    #[cfg(not(feature = "full-domain-matching"))]
-    {
-        // Source URL must be among these domains to match
-        if filter.opt_domains.is_some() {
-            let included_domains = filter.opt_domains.as_ref().unwrap();
-            if request.source_hostname_hashes.is_some() {
-                let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
-                if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
+    
+    // Source URL must be among these domains to match
+    if let Some(included_domains) = filter.opt_domains.as_ref() {
+        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
+            // If the union of included domains is recorded
+            if let Some(included_domains_union) = filter.opt_domains_union {
+                // If there isn't any source hash that matches the union, there's no match at all
+                if source_hashes.iter().all(|h| h & included_domains_union != *h) {
                     return false
                 }
             }
-        }
-
-        if filter.opt_not_domains.is_some() {
-            let excluded_domains = filter.opt_not_domains.as_ref().unwrap();
-            if request.source_hostname_hashes.is_some() {
-                let source_hashes = request.source_hostname_hashes.as_ref().unwrap();
-                if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
-                    return false
-                }
+            if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
+                return false
             }
         }
-
-        true
     }
+
+    if let Some(excluded_domains) = filter.opt_not_domains.as_ref() {
+        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
+            // If the union of excluded domains is recorded
+            if let Some(excluded_domains_union) = filter.opt_not_domains_union {
+                // If there's any source hash that matches the union, check the actual values
+                if source_hashes.iter().any(|h| (h & excluded_domains_union == *h) && utils::bin_lookup(&excluded_domains, *h)) {
+                    return false
+                }
+            } else if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
+                return false
+            }
+        }
+    }
+
+    true   
 }
 
 #[cfg(test)]
@@ -2536,83 +2470,83 @@ mod match_tests {
     #[test]
     fn is_anchored_by_hostname_works() {
         // matches empty hostname
-        assert_eq!(is_anchored_by_hostname("", "foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("", "foo.com", false), true);
 
         // does not match when filter hostname is longer than hostname
-        assert_eq!(is_anchored_by_hostname("bar.foo.com", "foo.com"), false);
-        assert_eq!(is_anchored_by_hostname("b", ""), false);
-        assert_eq!(is_anchored_by_hostname("foo.com", "foo.co"), false);
+        assert_eq!(is_anchored_by_hostname("bar.foo.com", "foo.com", false), false);
+        assert_eq!(is_anchored_by_hostname("b", "", false), false);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.co", false), false);
 
         // does not match if there is not match
-        assert_eq!(is_anchored_by_hostname("bar", "foo.com"), false);
+        assert_eq!(is_anchored_by_hostname("bar", "foo.com", false), false);
 
         // ## prefix match
         // matches exact match
-        assert_eq!(is_anchored_by_hostname("", ""), true);
-        assert_eq!(is_anchored_by_hostname("f", "f"), true);
-        assert_eq!(is_anchored_by_hostname("foo", "foo"), true);
-        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".com", ".com"), true);
-        assert_eq!(is_anchored_by_hostname("com.", "com."), true);
+        assert_eq!(is_anchored_by_hostname("", "", false), true);
+        assert_eq!(is_anchored_by_hostname("f", "f", false), true);
+        assert_eq!(is_anchored_by_hostname("foo", "foo", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".com", ".com", false), true);
+        assert_eq!(is_anchored_by_hostname("com.", "com.", false), true);
 
         // matches partial
         // Single label
-        assert_eq!(is_anchored_by_hostname("foo", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname("foo.", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".foo", ".foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".foo.", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo", ".foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo.", ".foo.com", false), true);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com."), true);
-        assert_eq!(is_anchored_by_hostname("foo.com.", "foo.com."), true);
-        assert_eq!(is_anchored_by_hostname(".foo.com.", ".foo.com."), true);
-        assert_eq!(is_anchored_by_hostname(".foo.com", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", "foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.com.", "foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo.com.", ".foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname(".foo.com", ".foo.com", false), true);
 
-        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.bar.com"), true);
-        assert_eq!(is_anchored_by_hostname("foo.bar.", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.bar.com", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.bar.", "foo.bar.com", false), true);
 
         // does not match partial prefix
         // Single label
-        assert_eq!(is_anchored_by_hostname("foo", "foobar.com"), false);
-        assert_eq!(is_anchored_by_hostname("fo", "foo.com"), false);
-        assert_eq!(is_anchored_by_hostname(".foo", "foobar.com"), false);
+        assert_eq!(is_anchored_by_hostname("foo", "foobar.com", false), false);
+        assert_eq!(is_anchored_by_hostname("fo", "foo.com", false), false);
+        assert_eq!(is_anchored_by_hostname(".foo", "foobar.com", false), false);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.barbaz.com"), false);
+        assert_eq!(is_anchored_by_hostname("foo.bar", "foo.barbaz.com", false), false);
         assert_eq!(
-            is_anchored_by_hostname(".foo.bar", ".foo.barbaz.com"),
+            is_anchored_by_hostname(".foo.bar", ".foo.barbaz.com", false),
             false
         );
 
         // ## suffix match
         // matches partial
         // Single label
-        assert_eq!(is_anchored_by_hostname("com", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".com", "foo.com"), true);
-        assert_eq!(is_anchored_by_hostname(".com.", "foo.com."), true);
-        assert_eq!(is_anchored_by_hostname("com.", "foo.com."), true);
+        assert_eq!(is_anchored_by_hostname("com", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".com", "foo.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".com.", "foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname("com.", "foo.com.", false), true);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.com.", ".foo.com."), true);
-        assert_eq!(is_anchored_by_hostname("foo.com", ".foo.com"), true);
+        assert_eq!(is_anchored_by_hostname("foo.com.", ".foo.com.", false), true);
+        assert_eq!(is_anchored_by_hostname("foo.com", ".foo.com", false), true);
 
         // does not match partial
         // Single label
-        assert_eq!(is_anchored_by_hostname("om", "foo.com"), false);
-        assert_eq!(is_anchored_by_hostname("com", "foocom"), false);
+        assert_eq!(is_anchored_by_hostname("om", "foo.com", false), false);
+        assert_eq!(is_anchored_by_hostname("com", "foocom", false), false);
 
         // Multiple labels
-        assert_eq!(is_anchored_by_hostname("foo.bar.com", "baz.bar.com"), false);
-        assert_eq!(is_anchored_by_hostname("fo.bar.com", "foo.bar.com"), false);
-        assert_eq!(is_anchored_by_hostname(".fo.bar.com", "foo.bar.com"), false);
-        assert_eq!(is_anchored_by_hostname("bar.com", "foobar.com"), false);
-        assert_eq!(is_anchored_by_hostname(".bar.com", "foobar.com"), false);
+        assert_eq!(is_anchored_by_hostname("foo.bar.com", "baz.bar.com", false), false);
+        assert_eq!(is_anchored_by_hostname("fo.bar.com", "foo.bar.com", false), false);
+        assert_eq!(is_anchored_by_hostname(".fo.bar.com", "foo.bar.com", false), false);
+        assert_eq!(is_anchored_by_hostname("bar.com", "foobar.com", false), false);
+        assert_eq!(is_anchored_by_hostname(".bar.com", "foobar.com", false), false);
 
         // ## infix match
         // matches partial
-        assert_eq!(is_anchored_by_hostname("bar", "foo.bar.com"), true);
-        assert_eq!(is_anchored_by_hostname("bar.", "foo.bar.com"), true);
-        assert_eq!(is_anchored_by_hostname(".bar.", "foo.bar.com"), true);
+        assert_eq!(is_anchored_by_hostname("bar", "foo.bar.com", false), true);
+        assert_eq!(is_anchored_by_hostname("bar.", "foo.bar.com", false), true);
+        assert_eq!(is_anchored_by_hostname(".bar.", "foo.bar.com", false), true);
     }
 
     fn filter_match_url(filter: &str, url: &str, matching: bool) {
@@ -2770,6 +2704,7 @@ mod match_tests {
         filter_match_url("||foo*^bar", "https://foo.com/bar", true);
         filter_match_url("||foo*/bar", "https://foo.com/bar", true);
         filter_match_url("||foo*com/bar", "https://foo.com/bar", true);
+        filter_match_url("||foo2*com/bar", "https://foo2.com/bar", true);
         filter_match_url("||foo*com*/bar", "https://foo.com/bar", true);
         filter_match_url("||foo*com*^bar", "https://foo.com/bar", true);
         filter_match_url("||*foo*com*^bar", "https://foo.com/bar", true);
@@ -2784,7 +2719,11 @@ mod match_tests {
     }
 
     #[test]
-    #[ignore]
+    fn check_pattern_hostname_anchor_regex_filter_works_realisitic() {
+        filter_match_url("||vimeo.com^*?type=", "https://vimeo.com/ablincoln/fatal_attraction?type=pageview&target=%2F193641463", true);
+    }
+
+    #[test]
     fn check_pattern_hostname_left_right_anchor_regex_filter_works() {
         filter_match_url("||geo*.hltv.org^", "https://geo2.hltv.org/rekl13.php", true);
         filter_match_url(
@@ -3027,7 +2966,7 @@ mod match_tests {
         {
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
             let network_filter = NetworkFilter::parse(filter, true).unwrap();
-            let regex = Arc::try_unwrap(network_filter.get_regex()).unwrap();
+            let regex = Rc::try_unwrap(network_filter.get_regex()).unwrap();
             assert!(
                 matches!(regex, CompiledRegex::Compiled(_)),
                 "Generated incorrect regex: {:?}",
@@ -3066,6 +3005,38 @@ mod match_tests {
             let url = "https://example.com/ad.js";
             let source = "http://auth.wi-fi.ru";
             let request = request::Request::from_urls(url, source, "script").unwrap();
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+    }
+
+    #[test]
+    fn check_url_path_regex_matches() {
+        {
+            let filter = "@@||www.google.com/aclk?*&adurl=$document,~third-party";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let request = request::Request::from_urls(url, source, "document").unwrap();
+            assert_eq!(request.is_third_party, Some(false));
+            assert!(
+                network_filter.matches(&request) == true,
+                "Expected match for {} on {}",
+                filter,
+                url
+            );
+        }
+        {
+            let filter = "@@||www.google.*/aclk?$first-party";
+            let network_filter = NetworkFilter::parse(filter, true).unwrap();
+            let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
+            let request = request::Request::from_urls(url, source, "main_frame").unwrap();
+            assert_eq!(request.is_third_party, Some(false));
             assert!(
                 network_filter.matches(&request) == true,
                 "Expected match for {} on {}",

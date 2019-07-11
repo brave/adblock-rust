@@ -10,7 +10,7 @@ use adblock::url_parser::UrlParser;
 use adblock::request::Request;
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct TestRequest {
     frameUrl: String,
     url: String,
@@ -18,13 +18,11 @@ struct TestRequest {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    let requests_str = adblock::utils::read_rules("data/requests.json");
-    let reqs: Vec<TestRequest> = requests_str
+    adblock::utils::read_file_lines("data/requests.json")
         .into_iter()
         .map(|r| serde_json::from_str(&r))
         .filter_map(Result::ok)
-        .collect();
-    reqs
+        .collect::<Vec<_>>()
 }
 
 fn request_parsing_throughput(c: &mut Criterion) {
@@ -58,10 +56,10 @@ fn request_extract_hostname(c: &mut Criterion) {
             b.iter(|| {
                 let mut successful = 0;
                 requests.iter().for_each(|r| {
-                    if Request::get_url_host(&r.url).is_some() {
+                    if Request::parse_url(&r.url).is_some() {
                         successful += 1;
                     }
-                    if Request::get_url_host(&r.frameUrl).is_some() {
+                    if Request::parse_url(&r.frameUrl).is_some() {
                         successful += 1;
                     }
                 });
@@ -79,13 +77,13 @@ fn request_new_throughput(c: &mut Criterion) {
         let url_norm = r.url.to_ascii_lowercase();
         let source_url_norm = r.frameUrl.to_ascii_lowercase();
 
-        let maybe_parsed_url = Request::get_url_host(&url_norm);
+        let maybe_parsed_url = Request::parse_url(&url_norm);
         if maybe_parsed_url.is_none() {
             return Err("bad url");
         }
         let parsed_url = maybe_parsed_url.unwrap();
 
-        let maybe_parsed_source = Request::get_url_host(&source_url_norm);
+        let maybe_parsed_source = Request::parse_url(&source_url_norm);
 
         if maybe_parsed_source.is_none() {
             Ok((
@@ -93,7 +91,7 @@ fn request_new_throughput(c: &mut Criterion) {
                 parsed_url.url.clone(),
                 String::from(parsed_url.schema()),
                 String::from(parsed_url.hostname()),
-                String::from(parsed_url.domain),
+                String::from(parsed_url.domain()),
                 String::from(""),
                 String::from(""),
             ))
@@ -104,9 +102,9 @@ fn request_new_throughput(c: &mut Criterion) {
                 parsed_url.url.clone(),
                 String::from(parsed_url.schema()),
                 String::from(parsed_url.hostname()),
-                String::from(parsed_url.domain),
+                String::from(parsed_url.domain()),
                 String::from(parsed_source.hostname()),
-                parsed_source.domain.clone(),
+                parsed_source.domain().to_owned(),
             ))
         }
     })
@@ -134,8 +132,6 @@ criterion_group!(
     benches,
     request_new_throughput,
     request_extract_hostname,
-    request_parsing_throughput,
-    // host_throughput,
-    // domain_throughput
+    request_parsing_throughput
 );
 criterion_main!(benches);
