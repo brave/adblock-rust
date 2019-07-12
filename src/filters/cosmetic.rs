@@ -3,6 +3,9 @@
 use serde::{Deserialize, Serialize};
 use crate::utils::{ Hash };
 
+use regex::Regex;
+use lazy_static::lazy_static;
+
 use css_validation::{is_valid_css_selector, is_valid_css_style};
 
 #[derive(Debug, PartialEq)]
@@ -28,6 +31,7 @@ bitflags! {
         const IS_UNICODE = 1 << 2;
         const IS_CLASS_SELECTOR = 1 << 3;
         const IS_ID_SELECTOR = 1 << 4;
+        const IS_SIMPLE = 1 << 5;
 
         // Careful with checking for NONE - will always match
         const NONE = 0;
@@ -44,6 +48,7 @@ pub struct CosmeticFilter {
     pub not_hostnames: Option<Vec<Hash>>,
     pub raw_line: Option<String>,
     pub selector: String,
+    pub key: Option<String>,
     pub style: Option<String>,
 }
 
@@ -231,13 +236,27 @@ impl CosmeticFilter {
                 mask |= CosmeticFilterMask::IS_UNICODE;
             }
 
-            if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
-                if selector.starts_with('.') && is_simple_selector(selector) {
+            let key = if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
+                if selector.starts_with('.') {
+                    let key = key_from_selector(selector)?;
                     mask |= CosmeticFilterMask::IS_CLASS_SELECTOR;
-                } else if selector.starts_with('#') && is_simple_selector(selector) {
+                    if key == selector {
+                        mask |= CosmeticFilterMask::IS_SIMPLE;
+                    }
+                    Some(String::from(&key[1..]))
+                } else if selector.starts_with('#') {
+                    let key = key_from_selector(selector)?;
                     mask |= CosmeticFilterMask::IS_ID_SELECTOR;
+                    if key == selector {
+                        mask |= CosmeticFilterMask::IS_SIMPLE;
+                    }
+                    Some(String::from(&key[1..]))
+                } else {
+                    None
                 }
-            }
+            } else {
+                None
+            };
 
             Ok(CosmeticFilter {
                 entities,
@@ -251,6 +270,7 @@ impl CosmeticFilter {
                     None
                 },
                 selector: String::from(selector),
+                key,
                 style,
             })
         } else {
@@ -434,38 +454,62 @@ mod css_validation {
     }
 }
 
-/// A selector is a simple selector if it is an id or class selector, optionally followed by a
-/// square-bracketed attribute selector or another ` >`, ` +`, ` .`, or ` #` rule. In each of these
-/// cases, the rule would be indexed by the first class or id specified.
-///
-/// This should only be called after verifying that the first character of the selector is a `#` or
-/// a `.`.
-fn is_simple_selector(selector: &str) -> bool {
-    for (i, c) in selector.chars().enumerate().skip(1) {
-        if !(c == '-'
-            || c == '_'
-            || (c >= '0' && c <= '9')
-            || (c >= 'A' && c <= 'Z')
-            || (c >= 'a' && c <= 'z'))
-        {
-            if i < selector.len() - 1 {
-                // Unwrap is safe here because of the range check above
-                let next = selector.chars().nth(i + 1).unwrap();
-                if c == '['
-                    || (c == ' '
-                        && (next == '>'
-                            || next == '+'
-                            || next == '~'
-                            || next == '.'
-                            || next == '#'))
-                {
-                    return true;
-                }
-            }
-            return false;
+lazy_static! {
+    static ref RE_PLAIN_SELECTOR: Regex = Regex::new(r"^[#.][\w\\-]+").unwrap();
+    static ref RE_PLAIN_SELECTOR_ESCAPED: Regex = Regex::new(r"^[#.][\w\\-]+").unwrap();
+    static ref RE_ESCAPE_SEQUENCE: Regex = Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap();
+}
+
+/// Returns the first token of a CSS selector.
+fn key_from_selector(selector: &str) -> Result<&str, CosmeticFilterError> {
+    let mat = RE_PLAIN_SELECTOR.find(selector);
+    if let Some(location) = mat {
+        let key = &selector[location.start()..location.end()];
+        if key.find("\\").is_none() {
+            return Ok(key);
         }
+    } else {
+        return Err(CosmeticFilterError::InvalidCssSelector);
     }
-    true
+
+    //TODO support escaped CSS
+    return Err(CosmeticFilterError::InvalidCssSelector);
+}
+
+#[cfg(test)]
+mod key_from_selector_tests {
+    use super::key_from_selector;
+
+    #[test]
+    fn no_escapes() {
+        assert_eq!(key_from_selector(r#"#selector"#).unwrap(), "#selector");
+        assert_eq!(key_from_selector(r#"#ad-box[href="https://popads.net"]"#).unwrap(), "#ad-box");
+        assert_eq!(key_from_selector(r#".p"#).unwrap(), ".p");
+        assert_eq!(key_from_selector(r#".ad #ad.adblockblock"#).unwrap(), ".ad");
+        assert_eq!(key_from_selector(r#"#container.contained"#).unwrap(), "#container");
+    }
+
+    #[test]
+    fn escaped_characters() {
+        assert_eq!(key_from_selector(r"#Meebo\:AdElement\.Root").unwrap(), "#Meebo:AdElement.Root");
+        assert_eq!(key_from_selector(r"#\ Banner\ Ad\ -\ 590\ x\ 90").unwrap(), "# Banner Ad - 590 x 90");
+        assert_eq!(key_from_selector(r"#\ rek").unwrap(), "# rek");
+        assert_eq!(key_from_selector(r#"#\:rr .nH[role="main"] .mq:first-child"#).unwrap(), "#:rr");
+        assert_eq!(key_from_selector(r#"#adspot-300x600\,300x250-pos-1"#).unwrap(), "#adspot-300x600,300x250-pos-1");
+        assert_eq!(key_from_selector(r#"#adv_\'146\'"#).unwrap(), "#adv_\'146\'");
+        assert_eq!(key_from_selector(r#"#oas-mpu-left\<\/div\>"#).unwrap(), "#oas-mpu-left</div>");
+        assert_eq!(key_from_selector(r#".Trsp\(op\).Trsdu\(3s\)"#).unwrap(), ".Trsp(op)");
+    }
+
+    #[test]
+    fn escape_codes() {
+        assert_eq!(key_from_selector(r#"#\5f _mom_ad_12"#).unwrap(), "#__mom_ad_12");
+        assert_eq!(key_from_selector(r#"#\5f _nq__hh[style="display:block!important"]"#).unwrap(), "#__nq__hh");
+        assert_eq!(key_from_selector(r#"#\31 000-014-ros"#).unwrap(), "#1000-014-ros");
+        assert_eq!(key_from_selector(r#"#\33 00X250ad"#).unwrap(), "#300X250ad");
+        assert_eq!(key_from_selector(r#"#\5f _fixme"#).unwrap(), "#__fixme");
+        assert_eq!(key_from_selector(r#"#\37 28ad"#).unwrap(), "#728ad");
+    }
 }
 
 #[cfg(test)]
@@ -970,6 +1014,7 @@ mod parse_tests {
                 selector: r#".date:not(dt)"#.to_string(),
                 entities: sort_hash_domains(vec!["downloadsource"]),
                 style: Some("display: block !important;".into()),
+                is_class_selector: true,
                 ..Default::default()
             }
         );
@@ -993,6 +1038,7 @@ mod parse_tests {
                 selector: r#".advertising.medium-rectangle"#.to_string(),
                 hostnames: sort_hash_domains(vec!["allmusic.com"]),
                 style: Some("min-height: 1px !important;".into()),
+                is_class_selector: true,
                 ..Default::default()
             }
         );
@@ -1043,6 +1089,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: "#неделя".to_string(),
                 is_unicode: true,
+                is_id_selector: true,
                 ..Default::default()
             }
         );
@@ -1066,6 +1113,8 @@ mod parse_tests {
         assert!(CosmeticFilter::parse(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#, false).is_err());
         assert!(CosmeticFilter::parse(r#"readcomiconline.to##^script:has-text(this[atob)"#, false).is_err());
         assert!(CosmeticFilter::parse("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)", false).is_err());
+        assert!(CosmeticFilter::parse("##", false).is_err());
+        assert!(CosmeticFilter::parse("", false).is_err());
     }
 }
 
