@@ -176,6 +176,20 @@ impl Engine {
     pub fn resource_get(&self, key: &str) -> Option<RedirectResource> {
         self.blocker.resource_get(key).cloned()
     }
+
+    // Cosmetic filter functionality
+
+    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String]) -> Option<String> {
+        self.cosmetic_cache.class_id_stylesheet(classes, ids)
+    }
+
+    pub fn hostname_stylesheet(&self, hostname: &str, domain: &str) -> String {
+        self.cosmetic_cache.hostname_stylesheet(hostname, domain)
+    }
+
+    pub fn base_stylesheet(&self) -> String {
+        self.cosmetic_cache.base_stylesheet()
+    }
 }
 
 
