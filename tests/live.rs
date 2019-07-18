@@ -1,9 +1,7 @@
 extern crate adblock;
 extern crate reqwest;
 
-use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
-use adblock::filters::network::NetworkFilter;
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
 use serde::{Deserialize};
@@ -47,31 +45,19 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 }
 
 fn get_blocker_engine() -> Engine {
-  let network_filters: Vec<NetworkFilter> = adblock::filter_lists::default::default_lists()
+    let filters: Vec<String> = adblock::filter_lists::default::default_lists()
         .iter()
         .map(|list| {
-            let filters: Vec<String> = reqwest::get(&list.url).expect("Could not request rules")
+            reqwest::get(&list.url).expect("Could not request rules")
                 .text().expect("Could not get rules as text")
                 .lines()
                 .map(|s| s.to_owned())
-                .collect();
-
-            let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
-            network_filters
+                .collect::<Vec<_>>()
         })
         .flatten()
         .collect();
 
-  let blocker_options = BlockerOptions {
-    debug: true,
-    enable_optimizations: false,
-    load_cosmetic_filters: false,
-    load_network_filters: true
-  };
-  
-    let mut engine = Engine {
-        blocker: Blocker::new(network_filters, &blocker_options)
-    };
+    let mut engine = Engine::from_rules_parametrised(&filters, true, false, true, false);
 
     engine.with_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -97,19 +83,8 @@ fn get_blocker_engine_deserialized_ios() -> Engine {
         .lines()
         .map(|s| s.to_owned())
         .collect();
-
-    let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
     
-    let blocker_options = BlockerOptions {
-        debug: true,
-        enable_optimizations: false,
-        load_cosmetic_filters: false,
-        load_network_filters: true
-    };
-  
-    let engine = Engine {
-        blocker: Blocker::new(network_filters, &blocker_options)
-    };
+    let engine = Engine::from_rules_parametrised(&filters, true, false, true, false);
     engine
 }
 

@@ -1,5 +1,6 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
+use crate::cosmetic_filter_cache::CosmeticFilterCache;
 use crate::lists::parse_filters;
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
@@ -11,29 +12,31 @@ use flate2::Compression;
 
 pub struct Engine {
     pub blocker: Blocker,
+    cosmetic_cache: CosmeticFilterCache,
 }
 
 impl Engine {
     pub fn from_rules(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, false, true)
+        Self::from_rules_parametrised(&network_filters, true, false, false, true)
     }
 
     pub fn from_rules_debug(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, true, true)
+        Self::from_rules_parametrised(&network_filters, true, false, true, true)
     }
 
-    pub fn from_rules_parametrised(network_filters: &[String], debug: bool, optimize: bool) -> Engine {
-        let (parsed_network_filters, _) = parse_filters(&network_filters, true, false, debug);
+    pub fn from_rules_parametrised(filter_rules: &[String], load_network: bool, load_cosmetic: bool, debug: bool, optimize: bool) -> Engine {
+        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filter_rules, load_network, load_cosmetic, debug);
 
         let blocker_options = BlockerOptions {
             debug,
             enable_optimizations: optimize,
-            load_cosmetic_filters: false,
-            load_network_filters: true
+            load_cosmetic_filters: load_cosmetic,
+            load_network_filters: load_network,
         };
 
         Engine {
             blocker: Blocker::new(parsed_network_filters, &blocker_options),
+            cosmetic_cache: CosmeticFilterCache::new(parsed_cosmetic_filters),
         }
     }
 
