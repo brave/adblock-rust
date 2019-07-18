@@ -30,8 +30,6 @@ impl Engine {
         let blocker_options = BlockerOptions {
             debug,
             enable_optimizations: optimize,
-            load_cosmetic_filters: load_cosmetic,
-            load_network_filters: load_network,
         };
 
         Engine {

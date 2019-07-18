@@ -59,8 +59,6 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
     let blocker_options = BlockerOptions {
         debug: false,
         enable_optimizations: true,
-        load_cosmetic_filters: false,
-        load_network_filters: true
     };
 
     let mut blocker = Blocker::new(rules, &blocker_options);

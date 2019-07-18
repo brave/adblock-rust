@@ -83,18 +83,16 @@ fn list_parse(c: &mut Criterion) {
 
 
 fn get_blocker(rules: &Vec<String>) -> Blocker {
-  let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
+    let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
 
-  println!("Got {} network filters", network_filters.len());
+    println!("Got {} network filters", network_filters.len());
 
-  let blocker_options = BlockerOptions {
-    debug: false,
-    enable_optimizations: true,
-    load_cosmetic_filters: false,
-    load_network_filters: true
-  };
+    let blocker_options = BlockerOptions {
+        debug: false,
+        enable_optimizations: true,
+    };
   
-  Blocker::new(network_filters, &blocker_options)
+    Blocker::new(network_filters, &blocker_options)
 }
 
 
