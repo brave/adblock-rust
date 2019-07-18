@@ -27,16 +27,14 @@ fn load_requests() -> Vec<TestRequest> {
 }
 
 fn get_blocker(rules: &Vec<String>) -> Blocker {
-  let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
+    let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
 
-  let blocker_options = BlockerOptions {
-    debug: false,
-    enable_optimizations: true,
-    load_cosmetic_filters: false,
-    load_network_filters: true
-  };
+    let blocker_options = BlockerOptions {
+        debug: false,
+        enable_optimizations: true,
+    };
   
-  Blocker::new(network_filters, &blocker_options)
+    Blocker::new(network_filters, &blocker_options)
 }
 
 fn bench_rule_matching(engine: &Engine, requests: &Vec<TestRequest>) -> (u32, u32) {

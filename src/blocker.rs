@@ -17,8 +17,6 @@ use crate::utils;
 pub struct BlockerOptions {
     pub debug: bool,
     pub enable_optimizations: bool,
-    pub load_cosmetic_filters: bool,
-    pub load_network_filters: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,8 +97,8 @@ pub struct Blocker {
 
     debug: bool,
     enable_optimizations: bool,
-    load_cosmetic_filters: bool,
-    load_network_filters: bool,
+    _unused: bool,      // This field exists for backwards compatibility only.
+    _unused2: bool,     // This field exists for backwards compatibility only.
 
     #[serde(default)]
     resources: RedirectResourceStorage,
@@ -119,7 +117,7 @@ impl Blocker {
     }
 
     pub fn check_parameterised(&self, request: &Request, matched_rule: bool, force_check_exceptions: bool) -> BlockerResult {
-        if !self.load_network_filters || !request.is_supported {
+        if !request.is_supported {
             return BlockerResult::default();
         }
 
@@ -262,7 +260,7 @@ impl Blocker {
         // Injections
         // TODO: resource handling
 
-        if !network_filters.is_empty() && options.load_network_filters {
+        if !network_filters.is_empty() {
             for filter in network_filters.iter() {
                 if filter.is_badfilter() {
                     badfilters.push(filter);
@@ -312,8 +310,8 @@ impl Blocker {
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
-            load_cosmetic_filters: options.load_cosmetic_filters,
-            load_network_filters: options.load_network_filters,
+            _unused: false,
+            _unused2: false,
 
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
@@ -1044,8 +1042,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
@@ -1143,8 +1139,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
@@ -1182,8 +1176,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
@@ -1222,8 +1214,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
@@ -1249,8 +1239,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: false,
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
@@ -1269,8 +1257,6 @@ mod blocker_tests {
             let blocker_options: BlockerOptions = BlockerOptions {
                 debug: false,
                 enable_optimizations: false,
-                load_cosmetic_filters: false,   
-                load_network_filters: true
             };
 
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
@@ -1287,8 +1273,6 @@ mod blocker_tests {
             let blocker_options: BlockerOptions = BlockerOptions {
                 debug: false,
                 enable_optimizations: true,
-                load_cosmetic_filters: false,   
-                load_network_filters: true
             };
 
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
@@ -1306,8 +1290,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: true,
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
@@ -1340,8 +1322,6 @@ mod blocker_tests {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: true,
-            load_cosmetic_filters: false,
-            load_network_filters: true
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
@@ -1356,6 +1336,7 @@ mod blocker_tests {
     }
 }
 
+#[cfg(test)]
 mod legacy_rule_parsing_tests {
     use crate::utils::rules_from_lists;
     use crate::lists::parse_filters;
@@ -1412,8 +1393,6 @@ mod legacy_rule_parsing_tests {
         let blocker_options = BlockerOptions {
             debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
-            load_cosmetic_filters: false,   
-            load_network_filters: true
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
