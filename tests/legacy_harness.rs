@@ -631,10 +631,10 @@ mod legacy_misc_tests {
             String::from("||googlesyndication.com$third-party"),
             String::from("@@||googlesyndication.ca"),
             String::from("a$explicitcancel")
-        ], true, false);    // enable debugging and disable optimizations
+        ], true, false, true, false);    // parse network, don't parse cosmetic, enable debugging and disable optimizations
 
         let serialized = engine.serialize().unwrap();
-        let mut engine2 = Engine::from_rules_parametrised(&[], true, false);
+        let mut engine2 = Engine::from_rules_parametrised(&[], true, false, true, false);
         engine2.deserialize(&serialized).unwrap();
 
         assert!(engine.filter_exists("||googlesyndication.com$third-party"));

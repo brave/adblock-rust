@@ -1,6 +1,5 @@
 extern crate adblock;
 
-use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
 use adblock::request::Request;
 use adblock::url_parser::UrlParser;
@@ -46,48 +45,26 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 }
 
 fn get_blocker_engine() -> Engine {
-  let rules = rules_from_lists(&vec![
-    String::from("data/regression-testing/easylist.txt"),
-    String::from("data/regression-testing/easyprivacy.txt"),
-  ]);
+    let rules = rules_from_lists(&vec![
+        String::from("data/regression-testing/easylist.txt"),
+        String::from("data/regression-testing/easyprivacy.txt"),
+    ]);
 
-  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
-
-  let blocker_options = BlockerOptions {
-    debug: true,
-    enable_optimizations: false,
-    load_cosmetic_filters: false,
-    load_network_filters: true
-  };
-  
-    Engine {
-        blocker: Blocker::new(network_filters, &blocker_options)
-    }
+    Engine::from_rules_parametrised(&rules, true, false, true, false)
 }
 
 fn get_blocker_engine_default() -> Engine {
-  let rules = rules_from_lists(&vec![
-    String::from("data/easylist.to/easylist/easylist.txt"),
-    String::from("data/easylist.to/easylist/easyprivacy.txt"),
-    String::from("data/uBlockOrigin/unbreak.txt"),
-    String::from("data/uBlockOrigin/filters.txt"),
-    String::from("data/brave/brave-unbreak.txt"),
-    String::from("data/brave/coin-miners.txt"),
-    // String::from("data/test/abpjf.txt"),
-  ]);
+    let rules = rules_from_lists(&vec![
+        String::from("data/easylist.to/easylist/easylist.txt"),
+        String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        String::from("data/uBlockOrigin/unbreak.txt"),
+        String::from("data/uBlockOrigin/filters.txt"),
+        String::from("data/brave/brave-unbreak.txt"),
+        String::from("data/brave/coin-miners.txt"),
+        // String::from("data/test/abpjf.txt"),
+    ]);
 
-  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, true);
-
-  let blocker_options = BlockerOptions {
-    debug: true,
-    enable_optimizations: false,
-    load_cosmetic_filters: false,
-    load_network_filters: true
-  };
-  
-    Engine {
-        blocker: Blocker::new(network_filters, &blocker_options)
-    }
+    Engine::from_rules_parametrised(&rules, true, false, true, false)
 }
 
 #[test]

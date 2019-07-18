@@ -320,42 +320,33 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
   let el_req = elep_req.clone();
   let slim = elep_req.clone();
 
-  c.bench(
+    c.bench(
         "rule-match-browserlike",
         Benchmark::new("el+ep", move |b| {
-          let rules = rules_from_lists(&vec![
-            "data/easylist.to/easylist/easylist.txt".to_owned(),
-            "data/easylist.to/easylist/easyprivacy.txt".to_owned()
-          ]);
-          let blocker = get_blocker(&rules);
-          let engine = Engine {
-            blocker
-          };
-          b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
+            let rules = rules_from_lists(&vec![
+                "data/easylist.to/easylist/easylist.txt".to_owned(),
+                "data/easylist.to/easylist/easyprivacy.txt".to_owned()
+            ]);
+            let engine = Engine::from_rules_parametrised(&rules, true, false, false, true);
+            b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
         },)
         .with_function("el", move |b| {
-          let rules = rules_from_lists(&vec![
-            "data/easylist.to/easylist/easylist.txt".to_owned(),
-          ]);
-          let blocker = get_blocker(&rules);
-          let engine = Engine {
-            blocker
-          };
-          b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
+            let rules = rules_from_lists(&vec![
+                "data/easylist.to/easylist/easylist.txt".to_owned(),
+            ]);
+            let engine = Engine::from_rules_parametrised(&rules, true, false, false, true);
+            b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
         },)
         .with_function("slimlist", move |b| {
-          let rules = rules_from_lists(&vec![
-            "data/slim-list.txt".to_owned()
-          ]);
-          let blocker = get_blocker(&rules);
-          let engine = Engine {
-            blocker
-          };
-          b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
+            let rules = rules_from_lists(&vec![
+                "data/slim-list.txt".to_owned()
+            ]);
+            let engine = Engine::from_rules_parametrised(&rules, true, false, false, true);
+            b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
         },)
         .throughput(Throughput::Elements(requests_len))
         .sample_size(20)
-    );
+      );
 }
 
 criterion_group!(
