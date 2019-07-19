@@ -7,7 +7,7 @@ use std::iter::FromIterator;
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable, NetworkFilterError};
+use crate::filters::network::{NetworkFilter, NetworkMatchable};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -51,13 +51,6 @@ pub enum BlockerError {
     OptimizedFilterExistence,
     BadFilterAddUnsupported,
     FilterExists,
-    BlockerFilterError(NetworkFilterError),
-}
-
-impl From<NetworkFilterError> for BlockerError {
-    fn from(error: NetworkFilterError) -> BlockerError {
-        BlockerError::BlockerFilterError(error)
-    }
 }
 
 #[cfg(feature = "object-pooling")]
@@ -319,7 +312,7 @@ impl Blocker {
         }
     }
 
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> Result<bool, BlockerError> {
+    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
         if filter.is_csp() {
             self.csp.filter_exists(filter)
         } else if filter.is_exception() {
@@ -329,7 +322,7 @@ impl Blocker {
         } else if filter.is_redirect() {
             self.redirects.filter_exists(filter)
         } else if filter.tag.is_some() {
-            Ok(self.tagged_filters_all.iter().any(|f| f.id == filter.id))
+            self.tagged_filters_all.iter().any(|f| f.id == filter.id)
         } else {
             self.filters.filter_exists(filter)
         }
@@ -338,7 +331,7 @@ impl Blocker {
     pub fn filter_add(&mut self, filter: NetworkFilter) -> Result<&mut Blocker, BlockerError> {
         if filter.is_badfilter() {
             Err(BlockerError::BadFilterAddUnsupported)
-        } else if self.filter_exists(&filter) == Ok(true) {
+        } else if self.filter_exists(&filter) {
             Err(BlockerError::FilterExists)
         } else if filter.is_csp() {
             self.csp.filter_add(filter);
@@ -525,7 +518,7 @@ impl NetworkFilterList {
         self
     }
 
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> Result<bool, BlockerError> {
+    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
         // if self.optimized == Some(true) {
         //     return Err(BlockerError::OptimizedFilterExistence)
         // }
@@ -539,13 +532,13 @@ impl NetworkFilterList {
             if let Some(filters) = self.filter_map.get(&token) {
                 for saved_filter in filters {
                     if saved_filter.id == filter.id {
-                        return Ok(true)
+                        return true;
                     }
                 }
             }
         }
 
-        Ok(false)
+        false
     }
 
     pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Option<&NetworkFilter> {
@@ -1263,7 +1256,7 @@ mod blocker_tests {
 
             let filter = NetworkFilter::parse("adv", true).unwrap();
             let blocker = blocker.filter_add(filter.clone()).unwrap();
-            assert_eq!(blocker.filter_exists(&filter), Ok(true), "Expected filter to be inserted");
+            assert!(blocker.filter_exists(&filter), "Expected filter to be inserted");
             let added = blocker.filter_add(filter);
             assert!(added.is_err(), "Expected repeated insertion to fail");
             assert_eq!(added.err().unwrap(), BlockerError::FilterExists, "Expected specific error on repeated insertion fail");

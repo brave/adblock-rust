@@ -1,9 +1,10 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::CosmeticFilterCache;
-use crate::lists::parse_filters;
+use crate::lists::{parse_filters, parse_filter, ParsedFilter, FilterParseError};
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
+use crate::filters::cosmetic::CosmeticFilter;
 use crate::resources::{Resource, RedirectResource};
 use rmps;
 use flate2::write::GzEncoder;
@@ -111,39 +112,41 @@ impl Engine {
 
     pub fn filter_exists(&self, filter: &str) -> bool {
         let filter_parsed = NetworkFilter::parse(filter, true);
-        match filter_parsed
-        .map_err(BlockerError::from)
-        .and_then(|f| self.blocker.filter_exists(&f)) {
+        match filter_parsed.map(|f| self.blocker.filter_exists(&f)) {
             Ok(exists) => exists,
             Err(e) => {
-                match e {
-                    BlockerError::BlockerFilterError(e) => eprintln!("Encountered filter error {:?} when checking for filter existence", e),
-                    BlockerError::OptimizedFilterExistence => eprintln!("Checking for filter existence in optimized engine will not return expected results"),
-                    e => eprintln!("Encountered unexpected error {:?} when checking for filter existence", e),
-                }
-                
+                eprintln!("Encountered unparseable filter when checking for filter existence: {:?}", e);
                 false
             }
         }
     }
 
     pub fn filter_add<'a>(&'a mut self, filter: &str) -> &'a mut Engine {
-        let filter_parsed = NetworkFilter::parse(filter, true);
-        match filter_parsed
-        .map_err(BlockerError::from)
-        .and_then(|f| self.blocker.filter_add(f)) {
-            Ok(_b) => self,
-            Err(e) => {
-                match e {
-                    BlockerError::BlockerFilterError(e) => eprintln!("Encountered filter error {:?} when adding", e),
-                    BlockerError::BadFilterAddUnsupported => eprintln!("Adding filters with `badfilter` option dynamically is not supported"),
-                    BlockerError::FilterExists => eprintln!("Filter already exists"),
-                    e => eprintln!("Encountered unexpected error {:?} when checking for filter existence", e),
-                }
-                
-                self
-            }
+        let filter_parsed = parse_filter(filter, true, true, true);
+        match filter_parsed {
+            Ok(ParsedFilter::Network(filter)) => self.add_network_filter(filter),
+            Ok(ParsedFilter::Cosmetic(filter)) => self.add_cosmetic_filter(filter),
+            Err(FilterParseError::Network(e)) => eprintln!("Encountered filter error {:?} when adding network filter", e),
+            Err(FilterParseError::Cosmetic(e)) => eprintln!("Encountered filter error {:?} when adding cosmetic filter", e),
+            Err(FilterParseError::Unsupported) => (),
+            Err(FilterParseError::Unused) => (),
+            Err(FilterParseError::Empty) => (),
         }
+
+        self
+    }
+
+    fn add_network_filter(&mut self, filter: NetworkFilter) {
+        match self.blocker.filter_add(filter) {
+            Ok(_) => (),
+            Err(BlockerError::BadFilterAddUnsupported) => eprintln!("Adding filters with `badfilter` option dynamically is not supported"),
+            Err(BlockerError::FilterExists) => eprintln!("Filter already exists"),
+            Err(e) => eprintln!("Encountered unexpected error {:?} when adding network filter", e),
+        }
+    }
+
+    fn add_cosmetic_filter(&mut self, filter: CosmeticFilter) {
+        self.cosmetic_cache.add_filter(filter);
     }
 
     pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Engine {
