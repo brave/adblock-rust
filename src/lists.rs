@@ -1,5 +1,5 @@
-use crate::filters::network::NetworkFilter;
-use crate::filters::cosmetic::CosmeticFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterError};
+use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 use itertools::Either;
 use serde::{Serialize, Deserialize};
 
@@ -10,14 +10,6 @@ pub enum FilterType {
     Network,
     Cosmetic,
     NotSupported,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum FilterError {
-    NotSupported,
-    NotImplemented,
-    Empty,
-    ParseError,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +23,85 @@ pub struct FilterList {
     pub base64_public_key: String,
 }
 
+/// Successful result of parsing a single filter rule
+pub enum ParsedFilter {
+    Network(NetworkFilter),
+    Cosmetic(CosmeticFilter),
+}
+
+impl From<NetworkFilter> for ParsedFilter {
+    fn from(v: NetworkFilter) -> Self {
+        ParsedFilter::Network(v)
+    }
+}
+
+impl From<CosmeticFilter> for ParsedFilter {
+    fn from(v: CosmeticFilter) -> Self {
+        ParsedFilter::Cosmetic(v)
+    }
+}
+
+/// Unsuccessful result of parsing a single filter rule.
+/// Unused means that e.g. only network filters were requested, but a cosmetic filter was
+/// specified.
+pub enum FilterParseError {
+    Network(NetworkFilterError),
+    Cosmetic(CosmeticFilterError),
+    Unsupported,
+    Unused,
+    Empty,
+}
+
+impl From<NetworkFilterError> for FilterParseError {
+    fn from(v: NetworkFilterError) -> Self {
+        FilterParseError::Network(v)
+    }
+}
+
+impl From<CosmeticFilterError> for FilterParseError {
+    fn from(v: CosmeticFilterError) -> Self {
+        FilterParseError::Cosmetic(v)
+    }
+}
+
+/// Parse a single filter rule
+pub fn parse_filter(
+    line: &str,
+    load_network_filters: bool,
+    load_cosmetic_filters: bool,
+    debug: bool
+) -> Result<ParsedFilter, FilterParseError> {
+
+    let filter = line.trim();
+
+    if filter.is_empty() {
+        return Err(FilterParseError::Empty);
+    }
+
+    match detect_filter_type(filter) {
+        FilterType::Network => {
+            if load_network_filters {
+                NetworkFilter::parse(filter, debug)
+                    .map(|f| f.into())
+                    .map_err(|e| e.into())
+            } else {
+                Err(FilterParseError::Unused)
+            }
+        }
+        FilterType::Cosmetic => {
+            if load_cosmetic_filters {
+                CosmeticFilter::parse(filter, debug)
+                    .map(|f| f.into())
+                    .map_err(|e| e.into())
+            } else {
+                Err(FilterParseError::Unused)
+            }
+        }
+        _ => Err(FilterParseError::Unsupported),
+    }
+}
+
+/// Parse an entire list of filters, ignoring any errors
 pub fn parse_filters(
     list: &[String],
     load_network_filters: bool,
@@ -41,34 +112,11 @@ pub fn parse_filters(
     let list_iter = list.iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
-        .map(|line| {
-            let filter = line.trim();
-            if !filter.is_empty() {
-                let filter_type = detect_filter_type(filter);
-                if filter_type == FilterType::Network && load_network_filters {
-                    let network_filter = NetworkFilter::parse(filter, debug);
-                    // if debug && network_filter.is_err() {
-                    //     println!("Error parsing rule {}: {:?}", filter, network_filter.as_ref().err())
-                    // }
-                    network_filter
-                        .map(Either::Left)
-                        .or_else(|_| Err(FilterError::ParseError))
-                } else if filter_type == FilterType::Cosmetic && load_cosmetic_filters {
-                    let cosmetic_filter = CosmeticFilter::parse(filter, debug);
-                    cosmetic_filter
-                        .map(Either::Right)
-                        .or_else(|_| Err(FilterError::ParseError))
-                } else {
-                    Err(FilterError::NotSupported)
-                }
-            } else {
-                Err(FilterError::Empty)
-            }
-        })
+        .map(|line| parse_filter(line, load_network_filters, load_cosmetic_filters, debug))
         .filter_map(Result::ok)
         .partition_map(|filter| match filter {
-            Either::Left(f) => Either::Left(f),
-            Either::Right(f) => Either::Right(f),
+            ParsedFilter::Network(f) => Either::Left(f),
+            ParsedFilter::Cosmetic(f) => Either::Right(f),
         });
 
     (network_filters, cosmetic_filters)
