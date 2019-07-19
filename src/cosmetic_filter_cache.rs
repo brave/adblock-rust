@@ -3,8 +3,10 @@ use crate::filters::cosmetic::CosmeticFilterMask;
 use crate::utils::Hash;
 
 use std::collections::{HashSet, HashMap};
+use std::cell::RefCell;
+use std::sync::Mutex;
 
-fn rules_to_stylesheet(rules: Vec<CosmeticFilter>) -> String {
+fn rules_to_stylesheet(rules: &[CosmeticFilter]) -> String {
     if rules.is_empty() {
         "".into()
     } else {
@@ -44,74 +46,91 @@ pub struct CosmeticFilterCache {
 
     specific_rules: Vec<CosmeticFilter>,
 
-    base_stylesheet: String,
+    misc_rules: Vec<CosmeticFilter>,
+    // The base stylesheet can be invalidated if a new miscellaneous rule is added. RefCell is used
+    // to regenerate and cache the base stylesheet behind an immutable reference if necessary.
+    // Mutex is used to ensure thread-safety in the event that multiple FFI accesses occur
+    // simultaneously.
+    base_stylesheet: Mutex<RefCell<Option<String>>>,
 }
 
 impl CosmeticFilterCache {
     pub fn new(rules: Vec<CosmeticFilter>) -> Self {
-        let mut simple_class_rules = HashSet::with_capacity(rules.len() / 2);
-        let mut simple_id_rules = HashSet::with_capacity(rules.len() / 2);
-        let mut complex_class_rules: HashMap<String, Vec<String>> = HashMap::with_capacity(rules.len() / 2);
-        let mut complex_id_rules: HashMap<String, Vec<String>> = HashMap::with_capacity(rules.len() / 2);
+        let mut self_ = CosmeticFilterCache {
+            simple_class_rules: HashSet::with_capacity(rules.len() / 2),
+            simple_id_rules: HashSet::with_capacity(rules.len() / 2),
+            complex_class_rules: HashMap::with_capacity(rules.len() / 2),
+            complex_id_rules: HashMap::with_capacity(rules.len() / 2),
 
-        let mut specific_rules = Vec::with_capacity(rules.len() / 2);
+            specific_rules: Vec::with_capacity(rules.len() / 2),
+            //specific_scripts = HashMap<String, Vec<String>>
 
-        let mut misc_rules = Vec::with_capacity(rules.len() / 30);
-
+            misc_rules: Vec::with_capacity(rules.len() / 30),
+            base_stylesheet: Mutex::new(RefCell::new(None)),
+        };
 
         for rule in rules {
-            //TODO deal with script inject and unhide rules
-            if rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT) ||
-                rule.mask.contains(CosmeticFilterMask::UNHIDE) {
-                continue;
-            }
-
-            if rule.has_hostname_constraint() {
-                specific_rules.push(rule);
-            } else {
-                if rule.mask.contains(CosmeticFilterMask::IS_CLASS_SELECTOR) {
-                    if let Some(key) = &rule.key {
-                        let key = key.clone();
-                        if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
-                            simple_class_rules.insert(key);
-                        } else {
-                            if let Some(bucket) = complex_class_rules.get_mut(&key) {
-                                bucket.push(rule.selector);
-                            } else {
-                                complex_class_rules.insert(key, vec![rule.selector]);
-                            }
-                        }
-                    }
-                } else if rule.mask.contains(CosmeticFilterMask::IS_ID_SELECTOR) {
-                    if let Some(key) = &rule.key {
-                        let key = key.clone();
-                        if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
-                            simple_id_rules.insert(key);
-                        } else {
-                            if let Some(bucket) = complex_id_rules.get_mut(&key) {
-                                bucket.push(rule.selector);
-                            } else {
-                                complex_id_rules.insert(key, vec![rule.selector]);
-                            }
-                        }
-                    }
-                } else {
-                    misc_rules.push(rule);
-                }
-            }
+            self_.add_filter(rule)
         }
 
-        let base_stylesheet = rules_to_stylesheet(misc_rules);
+        self_.regen_base_stylesheet();
 
-        CosmeticFilterCache {
-            simple_class_rules,
-            simple_id_rules,
-            complex_class_rules,
-            complex_id_rules,
+        self_
+    }
 
-            specific_rules,
+    /// Rebuilds and caches the base stylesheet if necessary.
+    /// This operation can be done for free if the stylesheet has not already been invalidated.
+    fn regen_base_stylesheet(&self) {
+        // `expect` should not fail unless a thread holding the locked mutex panics
+        let base_stylesheet = self.base_stylesheet.lock().expect("Acquire base_stylesheet mutex");
+        if base_stylesheet.borrow().is_none() {
+            let stylesheet = rules_to_stylesheet(&self.misc_rules);
+            base_stylesheet.replace(Some(stylesheet));
+        }
+    }
 
-            base_stylesheet,
+    pub fn add_filter(&mut self, rule: CosmeticFilter) {
+        //TODO deal with script inject and unhide rules
+        if rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT) ||
+            rule.mask.contains(CosmeticFilterMask::UNHIDE)
+        {
+            return;
+        }
+
+        if rule.has_hostname_constraint() {
+            self.specific_rules.push(rule);
+        } else {
+            if rule.mask.contains(CosmeticFilterMask::IS_CLASS_SELECTOR) {
+                if let Some(key) = &rule.key {
+                    let key = key.clone();
+                    if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
+                        self.simple_class_rules.insert(key);
+                    } else {
+                        if let Some(bucket) = self.complex_class_rules.get_mut(&key) {
+                            bucket.push(rule.selector);
+                        } else {
+                            self.complex_class_rules.insert(key, vec![rule.selector]);
+                        }
+                    }
+                }
+            } else if rule.mask.contains(CosmeticFilterMask::IS_ID_SELECTOR) {
+                if let Some(key) = &rule.key {
+                    let key = key.clone();
+                    if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
+                        self.simple_id_rules.insert(key);
+                    } else {
+                        if let Some(bucket) = self.complex_id_rules.get_mut(&key) {
+                            bucket.push(rule.selector);
+                        } else {
+                            self.complex_id_rules.insert(key, vec![rule.selector]);
+                        }
+                    }
+                }
+            } else {
+                self.misc_rules.push(rule);
+                // `expect` should not fail unless a thread holding the locked mutex panics
+                self.base_stylesheet.lock().expect("acquire base_stylesheet mutex").replace(None);
+            }
         }
     }
 
@@ -158,15 +177,26 @@ impl CosmeticFilterCache {
         let (request_entities, request_hostnames) = hostname_domain_hashes(hostname, domain);
 
         // TODO it would probably be better to use hashmaps here
-        rules_to_stylesheet(self.specific_rules
+        rules_to_stylesheet(&self.specific_rules
             .iter()
             .filter(|rule| rule.matches(&request_entities[..], &request_hostnames[..]))
             .cloned()
             .collect::<Vec<_>>())
+
+        // TODO Investigate using something like a HostnameBasedDB for this.
     }
 
     pub fn base_stylesheet(&self) -> String {
-        self.base_stylesheet.clone()
+        self.regen_base_stylesheet();
+        self.base_stylesheet
+            .lock()
+            // `expect` should not fail unless a thread holding the locked mutex panics
+            .expect("Acquire base_stylesheet mutex")
+            .borrow()
+            .as_ref()
+            // Unwrap is safe because the stylesheet is regenerated above if it is None
+            .unwrap()
+            .clone()
     }
 }
 
