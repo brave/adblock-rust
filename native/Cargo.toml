@@ -1,10 +1,6 @@
 [package]
 name = "adblock-rs"
-<<<<<<< HEAD
-version = "0.1.26"
-=======
-version = "0.1.25"
->>>>>>> master
+version = "0.1.27"
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
 license = "MPL-2.0"
 build = "build.rs"
