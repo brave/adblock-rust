@@ -1,6 +1,10 @@
 [package]
 name = "adblock-rs"
+<<<<<<< HEAD
 version = "0.1.26"
+=======
+version = "0.1.25"
+>>>>>>> master
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
 license = "MPL-2.0"
 build = "build.rs"
@@ -16,7 +20,7 @@ neon-build = "0.2.0"
 [dependencies]
 neon-serde = "0.1.1"
 serde =  { version = "1.0", features = ["derive", "rc"] }
-adblock = { path = "../" }
+adblock = { path = "../", default-features = false }
 neon = "0.2.0"
 
 [patch.crates-io]

@@ -47,7 +47,7 @@ pub fn default_lists() -> Vec<FilterList> {
             url: String::from(
                 "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt",
             ),
-            title: String::from("Brave Unblock"),
+            title: String::from("Brave Unbreak"),
             langs: Vec::new(),
             support_url: String::from("https://github.com/brave/adblock-lists"),
             component_id: String::from(""),
@@ -59,6 +59,17 @@ pub fn default_lists() -> Vec<FilterList> {
                 "https://raw.githubusercontent.com/brave/adblock-lists/master/coin-miners.txt",
             ),
             title: String::from("NoCoin Filter List"),
+            langs: Vec::new(),
+            support_url: String::from("https://github.com/brave/adblock-lists"),
+            component_id: String::from(""),
+            base64_public_key: String::from(""),
+        },
+        FilterList {
+            uuid: String::from("9FA0665A-8FC0-4590-A80A-3FF6117A1258"),
+            url: String::from(
+                "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-disconnect.txt",
+            ),
+            title: String::from("Disconnect rules"),
             langs: Vec::new(),
             support_url: String::from("https://github.com/brave/adblock-lists"),
             component_id: String::from(""),

@@ -25,6 +25,7 @@ pub enum FilterError {
     EmptyRedirection,
     UnrecognisedOption,
     NoRegex,
+    FullRegexUnsupported,
     RegexParsingError(regex::Error),
     PunycodeError,
 }
@@ -205,6 +206,7 @@ pub struct NetworkFilter {
 }
 
 impl NetworkFilter {
+    #[allow(clippy::cognitive_complexity)]
     pub fn parse(line: &str, debug: bool) -> Result<NetworkFilter, FilterError> {
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
@@ -402,8 +404,15 @@ impl NetworkFilter {
         if line[filter_index_start..filter_index_end].starts_with('/')
             && line[filter_index_start..filter_index_end].ends_with('/')
         {
-            // return Err(FilterError::NoRegex);
-            mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+            #[cfg(feature = "full-regex-handling")]
+            {
+                mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
+            }
+
+            #[cfg(not(feature = "full-regex-handling"))]
+            {
+                return Err(FilterError::FullRegexUnsupported);
+            }
         }
 
         if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
@@ -422,7 +431,7 @@ impl NetworkFilter {
                     // somewhere.
 
                     // If the first separator is a wildcard, included in in hostname
-                    if first_separator_start < line.len() && line[first_separator_start..first_separator_start+1].starts_with("*") {
+                    if first_separator_start < line.len() && line[first_separator_start..=first_separator_start].starts_with('*') {
                         mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
                     }
 
@@ -831,7 +840,7 @@ fn compute_filter_id(
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
-    let mut hash: Hash = (5408 * 33) ^ (mask.bits as Hash);
+    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits);
 
     if let Some(s) = csp {
         let chars = s.chars();
@@ -988,18 +997,18 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
             // Examples (filter_hostname, hostname):
             //   * (foo, foo.com)
             //   * (sub.foo, sub.foo.com)
-            wildcard_filter_hostname || filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with(".")
+            wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.')
         } else if match_index == hostname_len - filter_hostname_len {
             // `filter_hostname` is a suffix of `hostname`.
             //
             // Examples (filter_hostname, hostname):
             //    * (foo.com, sub.foo.com)
             //    * (com, foo.com)
-            filter_hostname.starts_with(".") || hostname[match_index - 1..].starts_with(".")
+            filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
         } else {
             // `filter_hostname` is infix of `hostname` and needs match full labels
-            (wildcard_filter_hostname || filter_hostname.ends_with(".") || hostname[filter_hostname_len..].starts_with("."))
-                && (filter_hostname.starts_with(".") || hostname[match_index - 1..].starts_with("."))
+            (wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
+                && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
         }
     }
     else {
@@ -1007,7 +1016,6 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
         false
     }
 }
-
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
     let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len());
@@ -1372,7 +1380,7 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
             // If the union of included domains is recorded
             if let Some(included_domains_union) = filter.opt_domains_union {
                 // If there isn't any source hash that matches the union, there's no match at all
-                if source_hashes.iter().all(|h| !(h & included_domains_union == *h)) {
+                if source_hashes.iter().all(|h| h & included_domains_union != *h) {
                     return false
                 }
             }
