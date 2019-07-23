@@ -6,6 +6,12 @@ use std::collections::{HashSet, HashMap};
 use std::cell::RefCell;
 use std::sync::Mutex;
 
+use psl::Psl;
+
+lazy_static! {
+    static ref PUBLIC_SUFFIXES: psl::List = psl::List::new();
+}
+
 fn rules_to_stylesheet(rules: &[CosmeticFilter]) -> String {
     if rules.is_empty() {
         "".into()
@@ -173,8 +179,14 @@ impl CosmeticFilterCache {
         Some(stylesheet)
     }
 
-    pub fn hostname_stylesheet(&self, hostname: &str, domain: &str) -> String {
-        let (request_entities, request_hostnames) = hostname_domain_hashes(hostname, domain);
+    pub fn hostname_stylesheet(&self, hostname: &str) -> String {
+        let domain = match PUBLIC_SUFFIXES.domain(hostname) {
+            Some(domain) => domain,
+            None => return String::new(),
+        };
+        let domain_str = domain.to_str();
+
+        let (request_entities, request_hostnames) = hostname_domain_hashes(hostname, domain_str);
 
         // TODO it would probably be better to use hashmaps here
         rules_to_stylesheet(&self.specific_rules
