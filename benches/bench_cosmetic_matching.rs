@@ -15,7 +15,7 @@ fn by_hostname(c: &mut Criterion) {
             ]);
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
-            b.iter(|| cfcache.hostname_stylesheet("google.com", "google.com"))
+            b.iter(|| cfcache.hostname_stylesheet("google.com"))
         }).with_function("many lists", move |b| {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
@@ -25,7 +25,7 @@ fn by_hostname(c: &mut Criterion) {
             ]);
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
-            b.iter(|| cfcache.hostname_stylesheet("google.com", "google.com"))
+            b.iter(|| cfcache.hostname_stylesheet("google.com"))
         }).with_function("complex_hostname", move |b| {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
@@ -35,7 +35,7 @@ fn by_hostname(c: &mut Criterion) {
             ]);
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
-            b.iter(|| cfcache.hostname_stylesheet("ads.serve.1.domain.google.com", "google.com"))
+            b.iter(|| cfcache.hostname_stylesheet("ads.serve.1.domain.google.com"))
         })
         .throughput(Throughput::Elements(1))
         .sample_size(20)

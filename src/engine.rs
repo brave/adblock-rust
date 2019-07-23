@@ -186,8 +186,8 @@ impl Engine {
         self.cosmetic_cache.class_id_stylesheet(classes, ids)
     }
 
-    pub fn hostname_stylesheet(&self, hostname: &str, domain: &str) -> String {
-        self.cosmetic_cache.hostname_stylesheet(hostname, domain)
+    pub fn hostname_stylesheet(&self, hostname: &str) -> String {
+        self.cosmetic_cache.hostname_stylesheet(hostname)
     }
 
     pub fn base_stylesheet(&self) -> String {
