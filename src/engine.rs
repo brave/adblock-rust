@@ -121,6 +121,21 @@ impl Engine {
         }
     }
 
+    pub fn add_filter_list<'a>(&'a mut self, filter_list: &str) -> &'a mut Engine {
+        let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
+        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&rules, true, true, true);
+
+        for rule in parsed_network_filters {
+            self.add_network_filter(rule);
+        }
+
+        for rule in parsed_cosmetic_filters {
+            self.add_cosmetic_filter(rule);
+        }
+
+        self
+    }
+
     pub fn filter_add<'a>(&'a mut self, filter: &str) -> &'a mut Engine {
         let filter_parsed = parse_filter(filter, true, true, true);
         match filter_parsed {
