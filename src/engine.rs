@@ -202,7 +202,7 @@ impl Engine {
     }
 
     pub fn hostname_stylesheet(&self, hostname: &str) -> String {
-        self.cosmetic_cache.hostname_stylesheet(hostname)
+        self.cosmetic_cache.hostname_stylesheet(hostname).stylesheet
     }
 
     pub fn base_stylesheet(&self) -> String {
