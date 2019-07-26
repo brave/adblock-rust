@@ -286,6 +286,31 @@ impl CosmeticFilter {
             self.not_entities.is_some() ||
             self.not_hostnames.is_some()
     }
+
+    /// In general, adding a hostname or entity to a rule *increases* the number of situations in
+    /// which it applies. However, if a specific rule only has negated hostnames or entities, it
+    /// technically should apply to any hostname which does not match a negation.
+    ///
+    /// See: https://github.com/chrisaljoudi/uBlock/issues/145
+    ///
+    /// To account for this inconsistency, this method will generate and return the corresponding
+    /// 'hidden' generic rule if one applies.
+    ///
+    /// Note that this behavior is not applied to script injections or custom style rules.
+    pub fn hidden_generic_rule(&self) -> Option<CosmeticFilter> {
+        if self.hostnames.is_some() || self.entities.is_some() {
+            None
+        } else if (self.not_hostnames.is_some() || self.not_entities.is_some()) &&
+            (self.style.is_none() && !self.mask.contains(CosmeticFilterMask::SCRIPT_INJECT))
+        {
+            let mut generic_rule = self.clone();
+            generic_rule.not_hostnames = None;
+            generic_rule.not_entities = None;
+            Some(generic_rule)
+        } else {
+            None
+        }
+    }
 }
 
 /// Returns a slice of `hostname` up to and including the segment that overlaps with the first
@@ -593,6 +618,12 @@ mod parse_tests {
         }
     }
 
+    impl From<CosmeticFilter> for CosmeticFilterBreakdown {
+        fn from(filter: CosmeticFilter) -> CosmeticFilterBreakdown {
+            (&filter).into()
+        }
+    }
+
     impl Default for CosmeticFilterBreakdown {
         fn default() -> Self {
             CosmeticFilterBreakdown {
@@ -616,7 +647,7 @@ mod parse_tests {
     /// Asserts that `rule` parses into a `CosmeticFilter` equivalent to the summary provided by
     /// `expected`.
     fn check_parse_result(rule: &str, expected: CosmeticFilterBreakdown) {
-        let filter: CosmeticFilterBreakdown = (&CosmeticFilter::parse(rule, false).unwrap()).into();
+        let filter: CosmeticFilterBreakdown = CosmeticFilter::parse(rule, false).unwrap().into();
         assert_eq!(expected, filter);
     }
 
@@ -1166,6 +1197,78 @@ mod parse_tests {
         assert!(CosmeticFilter::parse("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)", false).is_err());
         assert!(CosmeticFilter::parse("##", false).is_err());
         assert!(CosmeticFilter::parse("", false).is_err());
+    }
+
+    #[test]
+    fn hidden_generic() {
+        let rule = CosmeticFilter::parse("##.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.com##.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.*##.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.com,~a.test.com##.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.*,~a.test.com##.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.*,~a.test.*##.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.com#@#.selector", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("~test.com##.selector", false).unwrap();
+        assert_eq!(
+            CosmeticFilterBreakdown::from(rule.hidden_generic_rule().unwrap()),
+            CosmeticFilter::parse("##.selector", false).unwrap().into(),
+        );
+
+        let rule = CosmeticFilter::parse("~test.*##.selector", false).unwrap();
+        assert_eq!(
+            CosmeticFilterBreakdown::from(rule.hidden_generic_rule().unwrap()),
+            CosmeticFilter::parse("##.selector", false).unwrap().into(),
+        );
+
+        let rule = CosmeticFilter::parse("~test.*,~a.test.*##.selector", false).unwrap();
+        assert_eq!(
+            CosmeticFilterBreakdown::from(rule.hidden_generic_rule().unwrap()),
+            CosmeticFilter::parse("##.selector", false).unwrap().into(),
+        );
+
+        let rule = CosmeticFilter::parse("test.com##.selector:style(border-radius: 13px)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.*##.selector:style(border-radius: 13px)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("~test.com##.selector:style(border-radius: 13px)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("~test.*##.selector:style(border-radius: 13px)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.com#@#.selector:style(border-radius: 13px)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.com##+js(nowebrtc.js)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.*##+js(nowebrtc.js)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("~test.com##+js(nowebrtc.js)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("~test.*##+js(nowebrtc.js)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
+
+        let rule = CosmeticFilter::parse("test.com#@#+js(nowebrtc.js)", false).unwrap();
+        assert!(rule.hidden_generic_rule().is_none());
     }
 }
 
