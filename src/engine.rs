@@ -198,7 +198,7 @@ impl Engine {
     // Cosmetic filter functionality
 
     pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String]) -> Option<String> {
-        self.cosmetic_cache.class_id_stylesheet(classes, ids)
+        self.cosmetic_cache.class_id_stylesheet(classes, ids, &crate::cosmetic_filter_cache::HostnameExceptions::default())
     }
 
     pub fn hostname_stylesheet(&self, hostname: &str) -> String {
