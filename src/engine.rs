@@ -1,6 +1,6 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
-use crate::cosmetic_filter_cache::CosmeticFilterCache;
+use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameExceptions, HostnameSpecificResources};
 use crate::lists::{parse_filters, parse_filter, ParsedFilter, FilterParseError};
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
@@ -197,12 +197,12 @@ impl Engine {
 
     // Cosmetic filter functionality
 
-    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String]) -> Option<String> {
-        self.cosmetic_cache.class_id_stylesheet(classes, ids, &crate::cosmetic_filter_cache::HostnameExceptions::default())
+    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: HostnameExceptions) -> Option<String> {
+        self.cosmetic_cache.class_id_stylesheet(classes, ids, &exceptions)
     }
 
-    pub fn hostname_stylesheet(&self, hostname: &str) -> String {
-        self.cosmetic_cache.hostname_stylesheet(hostname).stylesheet
+    pub fn hostname_cosmetic_resources(&self, hostname: &str) -> HostnameSpecificResources {
+        self.cosmetic_cache.hostname_cosmetic_resources(hostname)
     }
 
     pub fn base_stylesheet(&self) -> String {

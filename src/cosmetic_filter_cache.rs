@@ -225,7 +225,7 @@ impl CosmeticFilterCache {
         Some(stylesheet)
     }
 
-    pub fn hostname_stylesheet(&self, hostname: &str) -> HostnameSpecificResources {
+    pub fn hostname_cosmetic_resources(&self, hostname: &str) -> HostnameSpecificResources {
         let domain = match PUBLIC_SUFFIXES.domain(hostname) {
             Some(domain) => domain,
             None => return HostnameSpecificResources::empty(),
@@ -464,15 +464,15 @@ mod cosmetic_cache_tests {
             "sub.example.com#@#.item2",
         ]);
 
-        let out = cfcache.hostname_stylesheet("test.com");
+        let out = cfcache.hostname_cosmetic_resources("test.com");
         let mut expected = HostnameSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_stylesheet("example.com");
+        let out = cfcache.hostname_cosmetic_resources("example.com");
         expected.exceptions.hide_exceptions.insert(".item".into());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_stylesheet("sub.example.com");
+        let out = cfcache.hostname_cosmetic_resources("sub.example.com");
         expected.exceptions.hide_exceptions.insert(".item2".into());
         assert_eq!(out, expected);
     }
@@ -483,15 +483,15 @@ mod cosmetic_cache_tests {
             "example.com,~sub.example.com##.item",
         ]);
 
-        let out = cfcache.hostname_stylesheet("test.com");
+        let out = cfcache.hostname_cosmetic_resources("test.com");
         let mut expected = HostnameSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_stylesheet("example.com");
+        let out = cfcache.hostname_cosmetic_resources("example.com");
         expected.stylesheet = ".item{display:none !important;}\n".into();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_stylesheet("sub.example.com");
+        let out = cfcache.hostname_cosmetic_resources("sub.example.com");
         let mut expected = HostnameSpecificResources::empty();
         expected.exceptions.hide_exceptions.insert(".item".into());
         assert_eq!(out, expected);
@@ -625,7 +625,7 @@ mod cosmetic_cache_tests {
             "~test.com###test-element",
         ];
         let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
-        let exceptions = cfcache.hostname_stylesheet("example.co.uk").exceptions;
+        let exceptions = cfcache.hostname_cosmetic_resources("example.co.uk").exceptions;
 
         let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &exceptions);
         assert_eq!(out, Some(".a-class .with .children{display:none !important;}".to_string()));
@@ -636,7 +636,7 @@ mod cosmetic_cache_tests {
         let out = cfcache.class_id_stylesheet(&vec![], &vec!["test-element".into()], &exceptions);
         assert_eq!(out, Some("#test-element{display:none !important;}".to_string()));
 
-        let exceptions = cfcache.hostname_stylesheet("a1.test.com").exceptions;
+        let exceptions = cfcache.hostname_cosmetic_resources("a1.test.com").exceptions;
 
         let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &exceptions);
         assert_eq!(out, Some(".a-class,.a-class .with .children{display:none !important;}".to_string()));
