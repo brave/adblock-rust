@@ -41,7 +41,7 @@ impl HostnameSpecificResources {
     pub fn empty() -> Self {
         Self {
             stylesheet: String::new(),
-            exceptions: HostnameExceptions::new(),
+            exceptions: HostnameExceptions::default(),
             script_injections: vec![],
         }
     }
@@ -182,29 +182,33 @@ impl CosmeticFilterCache {
         }
     }
 
-    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String]) -> Option<String> {
+    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: &HostnameExceptions) -> Option<String> {
         let mut simple_classes = vec![];
         let mut simple_ids = vec![];
         let mut complex_selectors = vec![];
 
         classes.iter().for_each(|class| {
-            if !self.simple_class_rules.contains(class) {
-                return;
+            if self.simple_class_rules.contains(class) {
+                if exceptions.allow_generic_selector(&format!(".{}", class)) {
+                    simple_classes.push(class);
+                }
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
-                complex_selectors.extend_from_slice(&bucket[..]);
-            } else {
-                simple_classes.push(class);
+                complex_selectors.extend(bucket.iter().filter(|sel| {
+                    exceptions.allow_generic_selector(sel)
+                }));
             }
         });
         ids.iter().for_each(|id| {
-            if !self.simple_id_rules.contains(id) {
-                return;
+            if self.simple_id_rules.contains(id) {
+                if exceptions.allow_generic_selector(&format!("#{}", id)) {
+                    simple_ids.push(id);
+                }
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
-                complex_selectors.extend_from_slice(&bucket[..]);
-            } else {
-                simple_ids.push(id);
+                complex_selectors.extend(bucket.iter().filter(|sel| {
+                    exceptions.allow_generic_selector(sel)
+                }));
             }
         });
 
@@ -214,7 +218,7 @@ impl CosmeticFilterCache {
 
         let stylesheet = simple_classes.into_iter().map(|class| format!(".{}", class))
             .chain(simple_ids.into_iter().map(|id| format!("#{}", id)))
-            .chain(complex_selectors.into_iter())
+            .chain(complex_selectors.into_iter().cloned())
             .collect::<Vec<_>>()
             .join(",") + "{display:none !important;}";
 
@@ -237,14 +241,14 @@ impl CosmeticFilterCache {
             }
         };
 
-        let mut exceptions = HostnameExceptions::new();
+        let mut exceptions = HostnameExceptions::default();
 
         rules_that_apply.iter().for_each(|r| {
             exceptions.insert_if_exception(r);
         });
 
         let rules_that_apply = rules_that_apply.iter().map(|r| r.to_owned()).filter(|r| {
-            exceptions.is_allowed(r)
+            exceptions.allow_specific_rule(r)
         }).collect::<Vec<_>>();
 
         let (stylesheet, script_injections) = specific_rules_to_stylesheet(&rules_that_apply[..]);
@@ -270,7 +274,7 @@ impl CosmeticFilterCache {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct HostnameExceptions {
     hide_exceptions: HashSet<String>,
     style_exceptions: HashSet<(String, String)>,
@@ -278,14 +282,6 @@ pub struct HostnameExceptions {
 }
 
 impl HostnameExceptions {
-    pub fn new() -> Self {
-        HostnameExceptions {
-            hide_exceptions: HashSet::new(),
-            style_exceptions: HashSet::new(),
-            script_inject_exceptions: HashSet::new(),
-        }
-    }
-
     /// Saves the given rule if it's an exception, or ignores it otherwise.
     pub fn insert_if_exception(&mut self, rule: &SpecificFilterType) {
         use SpecificFilterType as Rule;
@@ -304,9 +300,15 @@ impl HostnameExceptions {
         }
     }
 
-    /// Rules are allowed if the rule is not an exception rule and doesn't have a corresponding
-    /// exception rule added previously.
-    pub fn is_allowed(&self, rule: &SpecificFilterType) -> bool {
+    /// A generic selector is allowed if it is not excepted by this set of exceptions.
+    pub fn allow_generic_selector(&self, selector: &str) -> bool {
+        !self.hide_exceptions.contains(selector)
+    }
+
+    /// Specific rules are allowed if they can be used to hide, restyle, or inject a script in the
+    /// context of this set of exceptions - i.e. if the rule itself is not an exception rule and
+    /// doesn't have a corresponding exception rule added previously.
+    pub fn allow_specific_rule(&self, rule: &SpecificFilterType) -> bool {
         match rule {
             SpecificFilterType::Hide(sel) => !self.hide_exceptions.contains(sel),
             SpecificFilterType::Style(sel, style) => !self.style_exceptions.contains(&(sel.to_string(), style.to_string())),
@@ -446,13 +448,21 @@ fn hostname_domain_hashes(hostname: &str, domain: &str) -> (Vec<Hash>, Vec<Hash>
 mod cosmetic_cache_tests {
     use super::*;
 
+    fn cache_from_rules(rules: Vec<&str>) -> CosmeticFilterCache {
+        let parsed_rules = rules
+            .iter()
+            .map(|r| CosmeticFilter::parse(r, false).unwrap())
+            .collect::<Vec<_>>();
+
+        CosmeticFilterCache::new(parsed_rules)
+    }
+
     #[test]
     fn exceptions() {
-        let rules = vec![
+        let cfcache = cache_from_rules(vec![
             "~example.com##.item",
             "sub.example.com#@#.item2",
-        ];
-        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        ]);
 
         let out = cfcache.hostname_stylesheet("test.com");
         let mut expected = HostnameSpecificResources::empty();
@@ -469,10 +479,9 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn exceptions2() {
-        let rules = vec![
+        let cfcache = cache_from_rules(vec![
             "example.com,~sub.example.com##.item",
-        ];
-        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        ]);
 
         let out = cfcache.hostname_stylesheet("test.com");
         let mut expected = HostnameSpecificResources::empty();
@@ -556,16 +565,86 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn base_stylesheet() {
-        let rules = vec![
+        let cfcache = cache_from_rules(vec![
             "##a[href=\"https://ads.com\"]",
             "~test.com##div > p.ads",
             "example.com,~sub.example.com##[href^=\"http://malware.ru\"]",
             "###simple-generic",
             "##.complex #generic",
-        ];
-        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        ]);
 
         let out = cfcache.base_stylesheet();
         assert_eq!(out, "a[href=\"https://ads.com\"],div > p.ads{display:none !important;}".to_string());
+    }
+
+    #[test]
+    fn matching_class_id_stylesheet() {
+        let rules = vec![
+            "##.a-class",
+            "###simple-id",
+            "##.a-class .with .children",
+            "##.children .including #simple-id",
+            "##a.a-class",
+        ];
+        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+
+        let out = cfcache.class_id_stylesheet(&vec!["with".into()], &vec![], &HostnameExceptions::default());
+        assert_eq!(out, None);
+
+        let out = cfcache.class_id_stylesheet(&vec![], &vec!["with".into()], &HostnameExceptions::default());
+        assert_eq!(out, None);
+
+        let out = cfcache.class_id_stylesheet(&vec![], &vec!["a-class".into()], &HostnameExceptions::default());
+        assert_eq!(out, None);
+
+        let out = cfcache.class_id_stylesheet(&vec!["simple-id".into()], &vec![], &HostnameExceptions::default());
+        assert_eq!(out, None);
+
+        let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &HostnameExceptions::default());
+        assert_eq!(out, Some(".a-class,.a-class .with .children{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec![], &HostnameExceptions::default());
+        assert_eq!(out, Some(".a-class,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec![], &vec!["simple-id".into()], &HostnameExceptions::default());
+        assert_eq!(out, Some("#simple-id{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec!["simple-id".into()], &HostnameExceptions::default());
+        assert_eq!(out, Some(".a-class,#simple-id,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+    }
+
+    #[test]
+    fn class_id_exceptions() {
+        let rules = vec![
+            "##.a-class",
+            "###simple-id",
+            "##.a-class .with .children",
+            "##.children .including #simple-id",
+            "##a.a-class",
+            "example.*#@#.a-class",
+            "~test.com###test-element",
+        ];
+        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        let exceptions = cfcache.hostname_stylesheet("example.co.uk").exceptions;
+
+        let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &exceptions);
+        assert_eq!(out, Some(".a-class .with .children{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec!["simple-id".into()], &exceptions);
+        assert_eq!(out, Some("#simple-id,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec![], &vec!["test-element".into()], &exceptions);
+        assert_eq!(out, Some("#test-element{display:none !important;}".to_string()));
+
+        let exceptions = cfcache.hostname_stylesheet("a1.test.com").exceptions;
+
+        let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &exceptions);
+        assert_eq!(out, Some(".a-class,.a-class .with .children{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec!["simple-id".into()], &exceptions);
+        assert_eq!(out, Some(".a-class,#simple-id,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+
+        let out = cfcache.class_id_stylesheet(&vec![], &vec!["test-element".into()], &exceptions);
+        assert_eq!(out, None);
     }
 }
