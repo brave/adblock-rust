@@ -1,6 +1,6 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
-use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameExceptions, HostnameSpecificResources};
+use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameSpecificResources};
 use crate::lists::{parse_filters, parse_filter, ParsedFilter, FilterParseError};
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
@@ -10,6 +10,7 @@ use rmps;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use flate2::Compression;
+use std::collections::HashSet;
 
 pub struct Engine {
     pub blocker: Blocker,
@@ -197,7 +198,7 @@ impl Engine {
 
     // Cosmetic filter functionality
 
-    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: HostnameExceptions) -> Option<String> {
+    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: HashSet<String>) -> Option<String> {
         self.cosmetic_cache.class_id_stylesheet(classes, ids, &exceptions)
     }
 
