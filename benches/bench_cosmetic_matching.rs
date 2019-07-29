@@ -51,7 +51,7 @@ fn by_classes_ids(c: &mut Criterion) {
             ]);
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
-            let exceptions = adblock::cosmetic_filter_cache::HostnameExceptions::default();
+            let exceptions = Default::default();
             b.iter(|| cfcache.class_id_stylesheet(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
         }).with_function("many lists", move |b| {
             let rules = rules_from_lists(&vec![
@@ -62,7 +62,7 @@ fn by_classes_ids(c: &mut Criterion) {
             ]);
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
-            let exceptions = adblock::cosmetic_filter_cache::HostnameExceptions::default();
+            let exceptions = Default::default();
             b.iter(|| cfcache.class_id_stylesheet(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
         }).with_function("many matching classes and ids", move |b| {
             let rules = rules_from_lists(&vec![
@@ -73,7 +73,7 @@ fn by_classes_ids(c: &mut Criterion) {
             ]);
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
-            let exceptions = adblock::cosmetic_filter_cache::HostnameExceptions::default();
+            let exceptions = Default::default();
             let class_list = vec![
                 "block-bg-advertisement-region-1".to_owned(),
                 "photobox-adbox".to_owned(),
