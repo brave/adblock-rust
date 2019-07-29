@@ -355,10 +355,10 @@ pub fn regions() -> Vec<FilterList> {
         },
         FilterList {
             uuid: String::from("6A0209AC-9869-4FD6-A9DF-039B4200D52C"),
-            url: String::from("https://www.fanboy.co.nz/fanboy-vietnam.txt"),
-            title: String::from("VIE: Fanboy's Vietnamese"),
+            url: String::from("https://raw.githubusercontent.com/abpvn/abpvn/master/filter/abpvn.txt"),
+            title: String::from("ABPVN List"),
             langs: [String::from("vi")].to_vec(),
-            support_url: String::from("https://forums.lanik.us/"),
+            support_url: String::from("https://abpvn.com/"),
             component_id: String::from("cklgijeopkpaadeipkhdaodemoenlene"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAymFhKEG/UJ8ZyKjdx4xfRFtECXdWXixG8GoS3mrw/haeVQoB1jXmPBQTZfL2WGZqYvrAkHRRel7XEoZNYziP3bCYbS4yVqKnDUp1u5GIsMsN0Pff1O1SHEbqClb79vAVhftNq1VQkHPpXQdoSiINQ12Om8WbOIuaNxkrTToFW7XRMtbI3tluoLUSy9YTkCEGah68Dl1uL6nOzOxaMV1iQRRk5Pw4ugTzwGHHL2U2kDYDNrlywK8cUIFgtZskqQ/TF1zF6u9xTGjwjB9X319XrTg2llcojCgj/dllBuXL2aJoDsS3qAVzqbSYxIE6bQU8JX8wv+KCDMpJt/dHPQqOMwIDAQAB")
         }
