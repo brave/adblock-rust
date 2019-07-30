@@ -26,6 +26,7 @@ pub struct BlockerOptions {
 pub struct BlockerResult {
     pub matched: bool,
     pub explicit_cancel: bool,
+    pub important: bool,
     pub redirect: Option<String>,
     pub exception: Option<String>,
     pub filter: Option<String>,
@@ -37,6 +38,7 @@ impl Default for BlockerResult {
         BlockerResult {
             matched: false,
             explicit_cancel: false,
+            important: false,
             redirect: None,
             exception: None,
             filter: None,
@@ -208,9 +210,15 @@ impl Blocker {
         });
 
         let matched = exception.is_none() && filter.is_some();
+        let important = if let Some(filter) = filter {
+            filter.is_important()
+        } else {
+            false
+        };
         BlockerResult {
             matched,
             explicit_cancel: matched && filter.is_some() && filter.as_ref().map(|f| f.is_explicit_cancel()).unwrap_or_else(|| false),
+            important,
             redirect,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter

@@ -72,6 +72,7 @@ impl Engine {
             BlockerResult {
                 matched: false,
                 explicit_cancel: false,
+                important: false,
                 redirect: None,
                 exception: None,
                 filter: None,
