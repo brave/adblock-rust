@@ -165,9 +165,11 @@ impl Blocker {
                 self.filters.check(request, &request_tokens, &NO_TAGS)
             });
 
-        let exception = filter.as_ref().and_then(|f| {
-            // Set `bug` of request
-            if !f.is_important() {
+        let exception = if let Some(f) = filter.as_ref() {
+            if f.is_important() {
+                None
+            } else {
+                // Set `bug` of request
                 #[cfg(feature = "metrics")]
                 print!("exceptions\t");
                 if f.has_bug() {
@@ -177,10 +179,10 @@ impl Blocker {
                 } else {
                     self.exceptions.check(request, &request_tokens, &self.tags_enabled)
                 }
-            } else {
-                None
             }
-        });
+        } else {
+            self.exceptions.check(request, &request_tokens)
+        };
         
         #[cfg(feature = "metrics")]
         println!();
@@ -1325,6 +1327,26 @@ mod blocker_tests {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
             }
         });
+    }
+
+    #[test]
+    fn exception_without_match() {
+        let blocker_options: BlockerOptions = BlockerOptions {
+            debug: false,
+            enable_optimizations: true,
+            load_cosmetic_filters: false,
+            load_network_filters: true
+        };
+
+        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+
+        blocker.filter_add(NetworkFilter::parse("@@*ad_banner.png", true).unwrap()).unwrap();
+
+        let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
+
+        let matched_rule = blocker.check(&request);
+        assert!(!matched_rule.matched);
+        assert!(matched_rule.exception.is_some());
     }
 }
 
