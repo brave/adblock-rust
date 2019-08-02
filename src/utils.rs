@@ -182,6 +182,19 @@ pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
     rules
 }
 
+pub fn is_eof_error(e: &rmps::decode::Error) -> bool {
+    if let rmps::decode::Error::InvalidMarkerRead(e) = e {
+        if e.kind() == std::io::ErrorKind::UnexpectedEof {
+            if let Some(e) = e.get_ref() {
+                if format!("{}", e) == "failed to fill whole buffer" {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
