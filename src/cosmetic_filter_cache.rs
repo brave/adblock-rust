@@ -240,7 +240,7 @@ impl CosmeticFilterCache {
         let mut exceptions = HostnameExceptions::new();
 
         rules_that_apply.iter().for_each(|r| {
-            exceptions.insert(r);
+            exceptions.insert_if_exception(r);
         });
 
         let rules_that_apply = rules_that_apply.iter().map(|r| r.to_owned()).filter(|r| {
@@ -288,12 +288,19 @@ impl HostnameExceptions {
 
     /// Saves the given rule if it's an exception, or ignores it otherwise.
     pub fn insert_if_exception(&mut self, rule: &SpecificFilterType) {
+        use SpecificFilterType as Rule;
+
         match rule {
-            SpecificFilterType::Hide(_) => (),
-            SpecificFilterType::Unhide(sel) => {
+            Rule::Hide(_) | Rule::Style(_, _) | Rule::ScriptInject(_) => (),
+            Rule::Unhide(sel) => {
                 self.hide_exceptions.insert(sel.clone());
             }
-            _ => (), // TODO
+            Rule::UnhideStyle(sel, style) => {
+                self.style_exceptions.insert((sel.clone(), style.clone()));
+            }
+            Rule::UnhideScriptInject(script) => {
+                self.script_inject_exceptions.insert(script.clone());
+            }
         }
     }
 
@@ -390,14 +397,26 @@ pub enum SpecificFilterType {
 /// appropriate 'hidden' generic rule has already been applied externally if necessary.
 impl From<&CosmeticFilter> for SpecificFilterType {
     fn from(rule: &CosmeticFilter) -> Self {
-        if rule.mask.contains(CosmeticFilterMask::UNHIDE) {
-            SpecificFilterType::Unhide(rule.selector.clone())
-        } else if let Some(ref style) = rule.style {
-            SpecificFilterType::Style(rule.selector.clone(), style.clone())
+        let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
+
+        if let Some(ref style) = rule.style {
+            if unhide {
+                SpecificFilterType::UnhideStyle(rule.selector.clone(), style.clone())
+            } else {
+                SpecificFilterType::Style(rule.selector.clone(), style.clone())
+            }
         } else if rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
-            SpecificFilterType::ScriptInject(rule.selector.clone())
+            if unhide {
+                SpecificFilterType::UnhideScriptInject(rule.selector.clone())
+            } else {
+                SpecificFilterType::ScriptInject(rule.selector.clone())
+            }
         } else {
-            SpecificFilterType::Hide(rule.selector.clone())
+            if unhide {
+                SpecificFilterType::Unhide(rule.selector.clone())
+            } else {
+                SpecificFilterType::Hide(rule.selector.clone())
+            }
         }
     }
 }
@@ -466,6 +485,72 @@ mod cosmetic_cache_tests {
         let out = cfcache.hostname_stylesheet("sub.example.com");
         let mut expected = HostnameSpecificResources::empty();
         expected.exceptions.hide_exceptions.insert(".item".into());
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn style_exceptions() {
+        let cfcache = cache_from_rules(vec![
+            "example.com,~sub.example.com##.element:style(background: #fff)",
+            "sub.test.example.com#@#.element:style(background: #fff)",
+            "a1.sub.example.com##.element",
+            "a2.sub.example.com##.element:style(background: #000)",
+        ]);
+
+        let out = cfcache.hostname_cosmetic_resources("sub.example.com");
+        let mut expected = HostnameSpecificResources::empty();
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com");
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("a1.sub.example.com");
+        expected.stylesheet = ".element{display:none !important;}\n".into();
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("test.example.com");
+        expected.stylesheet = ".element{background: #fff}\n".into();
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("a2.sub.example.com");
+        expected.stylesheet = ".element{background: #000}\n".into();
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn script_exceptions() {
+        let cfcache = cache_from_rules(vec![
+            "example.com,~sub.example.com##+js(set-constant.js, atob, trueFunc)",
+            "sub.test.example.com#@#+js(set-constant.js, atob, trueFunc)",
+            "cosmetic.net##+js(nowebrtc.js)",
+            "g.cosmetic.net##+js(window.open-defuser.js)",
+            "c.g.cosmetic.net#@#+js(nowebrtc.js)",
+        ]);
+
+        let out = cfcache.hostname_cosmetic_resources("sub.example.com");
+        let mut expected = HostnameSpecificResources::empty();
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com");
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("test.example.com");
+        expected.script_injections = vec!["set-constant.js, atob, trueFunc".into()];
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("cosmetic.net");
+        expected.script_injections = vec!["nowebrtc.js".into()];
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("g.cosmetic.net");
+        expected.script_injections = vec![
+            "nowebrtc.js".into(),
+            "window.open-defuser.js".into()
+        ];
+        assert_eq!(out, expected);
+
+        let out = cfcache.hostname_cosmetic_resources("c.g.cosmetic.net");
+        expected.script_injections = vec!["window.open-defuser.js".into()];
         assert_eq!(out, expected);
     }
 
