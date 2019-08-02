@@ -6,6 +6,7 @@ use crate::request::Request;
 use crate::filters::network::NetworkFilter;
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::resources::{Resource, RedirectResource};
+use crate::utils::is_eof_error;
 use rmps;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
@@ -47,6 +48,11 @@ impl Engine {
                 eprintln!("Error serializing: {:?}", e);
                 Err(BlockerError::SerializationError)
             })?;
+        rmps::encode::write(&mut gz, &self.cosmetic_cache)
+            .or_else(|e| {
+                eprintln!("Error serializing cosmetic filters: {:?}", e);
+                Err(BlockerError::SerializationError)
+            })?;
 
         let compressed = gz.finish()
             .or_else(|_| Err(BlockerError::SerializationError))?;
@@ -55,14 +61,24 @@ impl Engine {
 
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), BlockerError> {
         let current_tags = self.blocker.tags_enabled();
-        let gz = GzDecoder::new(serialized);
-        let blocker = rmps::decode::from_read(gz)
+        let mut gz = GzDecoder::new(serialized);
+        let blocker = rmps::decode::from_read(&mut gz)
             .or_else(|e| {
                 eprintln!("Error deserializing: {:?}", e);
                 Err(BlockerError::DeserializationError)
             })?;
         self.blocker = blocker;
         self.blocker.with_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
+        match rmps::decode::from_read(&mut gz) {
+            Ok(cosmetic_cache) => self.cosmetic_cache = cosmetic_cache,
+            Err(ref e) if is_eof_error(e) => {
+                eprintln!("Could not deserialize cosmetic filters, ignoring: {:?}", e);
+            }
+            Err(e) => {
+                eprintln!("Error deserializing cosmetic filters: {:?}", e);
+                return Err(BlockerError::DeserializationError);
+            }
+        }
         Ok(())
     }
 
