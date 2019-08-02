@@ -253,16 +253,19 @@ impl CosmeticFilterCache {
             exceptions.allow_specific_rule(r)
         }).collect::<Vec<_>>();
 
-        let (stylesheet, script_injections) = specific_rules_to_stylesheet(&rules_that_apply[..]);
+        // TODO some rules in the base_stylesheet could be overridden by hostname exceptions
+        let (hostname_stylesheet, script_injections) = specific_rules_to_stylesheet(&rules_that_apply[..]);
+        let mut base_stylesheet = self.base_stylesheet();
+        base_stylesheet += &hostname_stylesheet;
 
         HostnameSpecificResources {
-            stylesheet,
+            stylesheet: base_stylesheet,
             exceptions: exceptions.hide_exceptions,
             script_injections,
         }
     }
 
-    pub fn base_stylesheet(&self) -> String {
+    fn base_stylesheet(&self) -> String {
         self.regen_base_stylesheet();
         self.base_stylesheet
             .lock()
