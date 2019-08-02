@@ -2406,15 +2406,17 @@ mod parse_tests {
         }
     }
 
-    use bincode::{deserialize, serialize};
-
+    use rmps::{Deserializer, Serializer};
     #[test]
     fn binary_serialization_works() {
         {
             let filter = NetworkFilter::parse("||foo.com/bar/baz$important", true).unwrap();
 
-            let encoded: Vec<u8> = serialize(&filter).unwrap();
-            let decoded: NetworkFilter = deserialize(&encoded[..]).unwrap();
+            let mut encoded = Vec::new();
+            filter.serialize(&mut Serializer::new(&mut encoded)).unwrap();
+            let mut de = Deserializer::new(&encoded[..]);
+            let decoded: NetworkFilter = Deserialize::deserialize(&mut de).unwrap();
+
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some(String::from("foo.com"));
             defaults.filter = Some(String::from("/bar/baz"));
@@ -2433,8 +2435,10 @@ mod parse_tests {
             defaults.is_regex = true;
             defaults.is_plain = false;
 
-            let encoded: Vec<u8> = serialize(&filter).unwrap();
-            let decoded: NetworkFilter = deserialize(&encoded[..]).unwrap();
+            let mut encoded = Vec::new();
+            filter.serialize(&mut Serializer::new(&mut encoded)).unwrap();
+            let mut de = Deserializer::new(&encoded[..]);
+            let decoded: NetworkFilter = Deserialize::deserialize(&mut de).unwrap();
 
             assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded));
 
