@@ -221,10 +221,6 @@ impl Engine {
     pub fn hostname_cosmetic_resources(&self, hostname: &str) -> HostnameSpecificResources {
         self.cosmetic_cache.hostname_cosmetic_resources(hostname)
     }
-
-    pub fn base_stylesheet(&self) -> String {
-        self.cosmetic_cache.base_stylesheet()
-    }
 }
 
 
