@@ -241,7 +241,7 @@ fn check_matching_hostnames() {
         };
         
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
-        let checked_hostnames = engine.check_network_urls_with_hostnames(&req.url, url_host.hostname(), source_host.hostname(), &req.r#type, third_party);
+        let checked_hostnames = engine.check_network_urls_with_hostnames(&req.url, url_host.hostname(), source_host.hostname(), &req.r#type, third_party, false, false);
 
         assert_eq!(checked.matched, checked_hostnames.matched);
         assert_eq!(checked.filter, checked_hostnames.filter);

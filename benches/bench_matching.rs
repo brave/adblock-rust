@@ -62,7 +62,7 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
   requests
     .iter()
     .for_each(|parsed| {
-      let check =  blocker.check(&parsed);
+      let check =  blocker.check(&parsed, false, false);
       if check.matched {
         matches += 1;
       } else {
@@ -79,7 +79,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &Vec<(String, Str
   requests
     .iter()
     .for_each(|(url, hostname, source_hostname, request_type, third_party)| {
-      let check = blocker.check_network_urls_with_hostnames(&url, &hostname, &source_hostname, &request_type, *third_party);
+      let check = blocker.check_network_urls_with_hostnames(&url, &hostname, &source_hostname, &request_type, *third_party, false, false);
       if check.matched {
         matches += 1;
       } else {

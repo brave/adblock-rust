@@ -115,7 +115,7 @@ impl Blocker {
      * Decide if a network request (usually from WebRequest API) should be
      * blocked, redirected or allowed.
      */
-    pub fn check(&self, request: &Request) -> BlockerResult {
+    pub fn check(&self, request: &Request, skip_unimportant: bool, skip_exception: bool) -> BlockerResult {
         if !self.load_network_filters || !request.is_supported {
             return BlockerResult::default();
         }
@@ -165,51 +165,58 @@ impl Blocker {
                 self.filters.check(request, &request_tokens, &NO_TAGS)
             });
 
-        let exception = if let Some(f) = filter.as_ref() {
-            if f.is_important() {
-                None
-            } else {
-                // Set `bug` of request
-                #[cfg(feature = "metrics")]
-                print!("exceptions\t");
-                if f.has_bug() {
+        let exception = if skip_exception {
+            None
+        } else {
+            match filter.as_ref() {
+                None => self.exceptions.check(request, &request_tokens, &self.tags_enabled),
+                Some(f) if f.is_important() => None,
+                Some(f) if f.has_bug() => {
+                    #[cfg(feature = "metrics")]
+                    print!("exceptions\t");
+                    // Set `bug` of request
                     let mut request_bug = request.clone();
                     request_bug.bug = f.bug;
                     self.exceptions.check(&request_bug, &request_tokens, &self.tags_enabled)
-                } else {
+                }
+                Some(_) => {
+                    #[cfg(feature = "metrics")]
+                    print!("exceptions\t");
                     self.exceptions.check(request, &request_tokens, &self.tags_enabled)
                 }
             }
-        } else {
-            self.exceptions.check(request, &request_tokens)
         };
         
         #[cfg(feature = "metrics")]
         println!();
 
         // only match redirects if we have them set up
-        let redirect: Option<String> = filter.as_ref().and_then(|f| {
-            // Filter redirect option is set
-            if let Some(redirect) = f.redirect.as_ref() {
-                // And we have a matching redirect resource
-                if let Some(resource) = self.resources.get_resource(redirect) {
-                    let data_url = if resource.content_type.contains(';') {
-                        format!("data:{},{}", resource.content_type, resource.data)
+        let redirect: Option<String> = if skip_unimportant {
+            None
+        } else {
+            filter.as_ref().and_then(|f| {
+                // Filter redirect option is set
+                if let Some(redirect) = f.redirect.as_ref() {
+                    // And we have a matching redirect resource
+                    if let Some(resource) = self.resources.get_resource(redirect) {
+                        let data_url = if resource.content_type.contains(';') {
+                            format!("data:{},{}", resource.content_type, resource.data)
+                        } else {
+                            format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
+                        };
+                        Some(data_url.trim().to_owned())
                     } else {
-                        format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
-                    };
-                    Some(data_url.trim().to_owned())
-                } else {
-                    // TOOD: handle error - throw?
-                    if self.debug {
-                        eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
+                        // TOOD: handle error - throw?
+                        if self.debug {
+                            eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
+                        }
+                        None
                     }
+                } else {
                     None
                 }
-            } else {
-                None
-            }
-        });
+            })
+        };
 
         let matched = exception.is_none() && filter.is_some();
         let important = if let Some(filter) = filter {
@@ -1045,7 +1052,7 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         requests.iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, false, false);
             if *expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1147,7 +1154,7 @@ mod blocker_tests {
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
         url_results.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, false, false);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1187,7 +1194,7 @@ mod blocker_tests {
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
 
         url_results.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, false, false);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1229,7 +1236,7 @@ mod blocker_tests {
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
         url_results.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, false, false);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1320,7 +1327,7 @@ mod blocker_tests {
         ];
         
         url_results.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, false, false);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1344,7 +1351,7 @@ mod blocker_tests {
 
         let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
 
-        let matched_rule = blocker.check(&request);
+        let matched_rule = blocker.check(&request, false, false);
         assert!(!matched_rule.matched);
         assert!(matched_rule.exception.is_some());
     }
