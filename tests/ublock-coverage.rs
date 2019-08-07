@@ -150,6 +150,13 @@ fn check_specifics_default() {
                 "main_frame");
             assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
+    {
+        engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+        let checked = engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script");
+        assert!(checked.exception.is_some(), "Expected exception to match");
+        assert!(checked.filter.is_some(), "Expected rule to match");
+        assert_eq!(checked.matched, true, "Matched on {:?}", checked.exception)
+    }
 }
 
 #[test]
