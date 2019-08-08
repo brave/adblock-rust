@@ -62,7 +62,7 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
   requests
     .iter()
     .for_each(|parsed| {
-      let check =  blocker.check(&parsed, false, false);
+      let check =  blocker.check(&parsed);
       if check.matched {
         matches += 1;
       } else {

@@ -66,7 +66,7 @@ impl Engine {
     pub fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str) -> BlockerResult {
         Request::from_urls(&url, &source_url, &request_type)
         .map(|request| {
-            self.blocker.check(&request, false, false)
+            self.blocker.check(&request)
         })
         .unwrap_or_else(|_e| {
             BlockerResult {
@@ -89,11 +89,15 @@ impl Engine {
         source_hostname: &str,
         request_type: &str,
         third_party_request: Option<bool>,
-        skip_unimportant: bool,
-        skip_exception: bool,
+        previously_matched_rule: bool,
+        previously_matched_exception: bool,
     ) -> BlockerResult {
         let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
-        self.blocker.check(&request, skip_unimportant, skip_exception)
+
+        let skip_exception = previously_matched_exception;
+        let skip_unimportant = previously_matched_rule || previously_matched_exception;
+
+        self.blocker.check_parameterised(&request, skip_unimportant, skip_exception)
     }
 
     pub fn filter_exists(&self, filter: &str) -> bool {
