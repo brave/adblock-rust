@@ -11,3 +11,5 @@ native/artifacts.json
 **/.DS_Store
 **/target/
 ignored/
+NDK/
+.cargo

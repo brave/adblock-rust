@@ -2,6 +2,9 @@
 use std::io::{BufRead, BufReader};
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::File;
+#[cfg(target_pointer_width = "32")]
+use seahash::reference::hash;
+#[cfg(target_pointer_width = "64")]
 use seahash::hash;
 
 pub type Hash = u64;

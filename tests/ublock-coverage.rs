@@ -150,6 +150,13 @@ fn check_specifics_default() {
                 "main_frame");
             assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
+    {
+        engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+        let checked = engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script");
+        assert!(checked.exception.is_some(), "Expected exception to match");
+        assert!(checked.filter.is_some(), "Expected rule to match");
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.exception)
+    }
 }
 
 #[test]
@@ -241,28 +248,5 @@ fn check_matching_hostnames() {
         assert_eq!(checked.exception, checked_hostnames.exception);
         assert_eq!(checked.redirect, checked_hostnames.redirect);
     }
-}
-
-#[test]
-fn check_works_same_after_deserialization() {
-    let requests = load_requests();
-
-    assert!(requests.len() > 0, "List of parsed request info is empty");
-
-    let engine = get_blocker_engine();
-    let serialized = engine.serialize().unwrap();
-    let mut deserialized_engine = Engine::from_rules(&[]);
-    deserialized_engine.deserialize(&serialized).unwrap();
-
-    for req in requests {
-        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
-        let deserialized_checked = deserialized_engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
-
-        assert_eq!(checked.matched, deserialized_checked.matched);
-        assert_eq!(checked.filter, deserialized_checked.filter);
-        assert_eq!(checked.exception, deserialized_checked.exception);
-        assert_eq!(checked.redirect, deserialized_checked.redirect);
-    }
-
 }
 
