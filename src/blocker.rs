@@ -116,6 +116,12 @@ impl Blocker {
             return BlockerResult::default();
         }
 
+        lazy_static! {
+            // only check for tags in tagged and exception rule buckets,
+            // pass empty set for the rest
+            static ref NO_TAGS: HashSet<String> = HashSet::new();
+        }
+
         // Check the filters in the following order:
         // 1. $important (not subject to exceptions)
         // 2. redirection ($redirect=resource)
@@ -137,22 +143,22 @@ impl Blocker {
 
         let filter = self
             .importants
-            // .filters
-            .check(request, &request_tokens)
+            // Don't look at tags by default, only for the tagged rule bucket
+            .check(request, &request_tokens, &NO_TAGS)
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("tagged\t");
-                self.filters_tagged.check(request, &request_tokens)
+                self.filters_tagged.check(request, &request_tokens, &self.tags_enabled)
             })
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("redirects\t");
-                self.redirects.check(request, &request_tokens)
+                self.redirects.check(request, &request_tokens, &NO_TAGS)
             })
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("filters\t"); 
-                self.filters.check(request, &request_tokens)
+                self.filters.check(request, &request_tokens, &NO_TAGS)
             });
 
         let exception = filter.as_ref().and_then(|f| {
@@ -163,9 +169,9 @@ impl Blocker {
                 if f.has_bug() {
                     let mut request_bug = request.clone();
                     request_bug.bug = f.bug;
-                    self.exceptions.check(&request_bug, &request_tokens)
+                    self.exceptions.check(&request_bug, &request_tokens, &self.tags_enabled)
                 } else {
-                    self.exceptions.check(request, &request_tokens)
+                    self.exceptions.check(request, &request_tokens, &self.tags_enabled)
                 }
             } else {
                 None
@@ -525,7 +531,7 @@ impl NetworkFilterList {
         Ok(false)
     }
 
-    pub fn check(&self, request: &Request, request_tokens: &[Hash]) -> Option<&NetworkFilter> {
+    pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Option<&NetworkFilter> {
         #[cfg(feature = "metrics")]
         let mut filters_checked = 0;
         #[cfg(feature = "metrics")]
@@ -551,7 +557,8 @@ impl NetworkFilterList {
                         {
                             filters_checked += 1;
                         }
-                        if filter.matches(request) {
+                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                             #[cfg(feature = "metrics")]
                             print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             return Some(filter);
@@ -575,7 +582,8 @@ impl NetworkFilterList {
                     {
                         filters_checked += 1;
                     }
-                    if filter.matches(request) {
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                         #[cfg(feature = "metrics")]
                         print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         return Some(filter);
@@ -819,7 +827,7 @@ mod tests {
         requests.into_iter().for_each(|(req, expected_result)| {
             let mut tokens = Vec::new();
             req.get_tokens(&mut tokens);
-            let matched_rule = filter_list.check(&req, &tokens);
+            let matched_rule = filter_list.check(&req, &tokens, &HashSet::new());
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {

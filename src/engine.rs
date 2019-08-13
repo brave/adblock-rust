@@ -224,6 +224,57 @@ mod tests {
     }
 
     #[test]
+    fn exception_tags_inactive_by_default() {
+        let filters = vec![
+            String::from("adv"),
+            String::from("||brianbondy.com/$tag=brian"),
+            String::from("@@||brianbondy.com/$tag=brian"),
+        ];
+        let url_results = vec![
+            ("http://example.com/advert.html", true),
+            ("https://brianbondy.com/about", false),
+            ("https://brianbondy.com/advert", true),
+        ];
+        
+        let engine = Engine::from_rules(&filters);
+
+        url_results.into_iter().for_each(|(url, expected_result)| {
+            let matched_rule = engine.check_network_urls(&url, "", "");
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+            }
+        });
+    }
+
+    #[test]
+    fn exception_tags_works() {
+        let filters = vec![
+            String::from("adv"),
+            String::from("||brianbondy.com/$tag=brian"),
+            String::from("@@||brianbondy.com/$tag=brian"),
+        ];
+        let url_results = vec![
+            ("http://example.com/advert.html", true),
+            ("https://brianbondy.com/about", false),
+            ("https://brianbondy.com/advert", false),
+        ];
+        
+        let mut engine = Engine::from_rules(&filters);
+        engine.tags_enable(&["brian", "stuff"]);
+
+        url_results.into_iter().for_each(|(url, expected_result)| {
+            let matched_rule = engine.check_network_urls(&url, "", "");
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+            }
+        });
+    }
+
+    #[test]
     fn serialization_retains_tags() {
         let filters = vec![
             String::from("adv$tag=stuff"),
