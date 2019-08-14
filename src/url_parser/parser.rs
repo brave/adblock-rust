@@ -319,9 +319,9 @@ impl Parser {
         debug_assert!(self.serialization.is_empty());
         while let Some(c) = input.next() {
             match c {
-                'a'...'z' => self.serialization.push(c),
-                'A'...'Z' => self.serialization.push(c.to_ascii_lowercase()),
-                '0'...'9' | '+' | '-' | '.' => self.serialization.push(c),
+                'a'..='z' => self.serialization.push(c),
+                'A'..='Z' => self.serialization.push(c.to_ascii_lowercase()),
+                '0'..='9' | '+' | '-' | '.' => self.serialization.push(c),
                 ':' => return Ok(input),
                 _ => {
                     self.serialization.clear();
@@ -534,6 +534,6 @@ fn c0_control_or_space(ch: char) -> bool {
 /// https://url.spec.whatwg.org/#ascii-alpha
 #[inline]
 pub fn ascii_alpha(ch: char) -> bool {
-    matches!(ch, 'a'...'z' | 'A'...'Z')
+    matches!(ch, 'a'..='z' | 'A'..='Z')
 }
 
