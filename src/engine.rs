@@ -88,16 +88,24 @@ impl Engine {
         hostname: &str,
         source_hostname: &str,
         request_type: &str,
-        third_party_request: Option<bool>,
-        previously_matched_rule: bool,
-        previously_matched_exception: bool,
+        third_party_request: Option<bool>
     ) -> BlockerResult {
         let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        self.blocker.check(&request)
+    }
 
-        let skip_exception = previously_matched_exception;
-        let skip_unimportant = previously_matched_rule || previously_matched_exception;
-
-        self.blocker.check_parameterised(&request, skip_unimportant, skip_exception)
+    pub fn check_network_urls_with_hostnames_subset(
+        &self,
+        url: &str,
+        hostname: &str,
+        source_hostname: &str,
+        request_type: &str,
+        third_party_request: Option<bool>,
+        previously_matched_rule: bool,
+        force_check_exceptions: bool,
+    ) -> BlockerResult {
+        let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        self.blocker.check_parameterised(&request, previously_matched_rule, force_check_exceptions)
     }
 
     pub fn filter_exists(&self, filter: &str) -> bool {

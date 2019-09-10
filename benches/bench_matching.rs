@@ -79,7 +79,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &Vec<(String, Str
   requests
     .iter()
     .for_each(|(url, hostname, source_hostname, request_type, third_party)| {
-      let check = blocker.check_network_urls_with_hostnames(&url, &hostname, &source_hostname, &request_type, *third_party, false, false);
+      let check = blocker.check_network_urls_with_hostnames(&url, &hostname, &source_hostname, &request_type, *third_party);
       if check.matched {
         matches += 1;
       } else {

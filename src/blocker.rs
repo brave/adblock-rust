@@ -119,7 +119,7 @@ impl Blocker {
         self.check_parameterised(request, false, false)
     }
 
-    pub fn check_parameterised(&self, request: &Request, skip_unimportant: bool, skip_exception: bool) -> BlockerResult {
+    pub fn check_parameterised(&self, request: &Request, matched_rule: bool, force_check_exceptions: bool) -> BlockerResult {
         if !self.load_network_filters || !request.is_supported {
             return BlockerResult::default();
         }
@@ -129,14 +129,6 @@ impl Blocker {
             // pass empty set for the rest
             static ref NO_TAGS: HashSet<String> = HashSet::new();
         }
-
-        // Check the filters in the following order:
-        // 1. $important (not subject to exceptions)
-        // 2. exceptions
-        // 3. redirection ($redirect=resource)
-        // 4. normal filters
-        #[cfg(feature = "metrics")]
-        print!("importants\t");
 
         let mut request_tokens;
         #[cfg(feature = "object-pooling")]
@@ -149,37 +141,24 @@ impl Blocker {
         }
         request.get_tokens(&mut request_tokens);
 
-        let mut filter = self
+        // Check the filters in the following order:
+        // 1. $important (not subject to exceptions)
+        // 2. redirection ($redirect=resource)
+        // 3. normal filters - if no match by then
+        // 4. exceptions - if any non-important match of forced
+        
+        #[cfg(feature = "metrics")]
+        print!("importants\t");
+        // Always check important filters
+        let important_filter = self
             .importants
-            // Don't look at tags by default, only for the tagged rule bucket
             .check(request, &request_tokens, &NO_TAGS);
-
-        let exception = if skip_exception {
-            None
-        } else {
-            match filter.as_ref() {
-                None => self.exceptions.check(request, &request_tokens, &self.tags_enabled),
-                Some(f) if f.is_important() => None,
-                Some(f) if f.has_bug() => {
-                    #[cfg(feature = "metrics")]
-                    print!("exceptions\t");
-                    // Set `bug` of request
-                    let mut request_bug = request.clone();
-                    request_bug.bug = f.bug;
-                    self.exceptions.check(&request_bug, &request_tokens, &self.tags_enabled)
-                }
-                Some(_) => {
-                    #[cfg(feature = "metrics")]
-                    print!("exceptions\t");
-                    self.exceptions.check(request, &request_tokens, &self.tags_enabled)
-                }
-            }
-        };
-
-        if filter.is_none() && !skip_unimportant {
+        
+        // only check the rest of the rules if not previously matched
+        let filter = if important_filter.is_none() && !matched_rule {
             #[cfg(feature = "metrics")]
             print!("tagged\t");
-            filter = self.filters_tagged.check(request, &request_tokens, &self.tags_enabled)
+            self.filters_tagged.check(request, &request_tokens, &self.tags_enabled)
                 .or_else(|| {
                     #[cfg(feature = "metrics")]
                     print!("redirects\t");
@@ -189,50 +168,69 @@ impl Blocker {
                     #[cfg(feature = "metrics")]
                     print!("filters\t"); 
                     self.filters.check(request, &request_tokens, &NO_TAGS)
-                });
-        }
-        
+                })
+        } else {
+            important_filter
+        };
+
+        let exception = match filter.as_ref() {
+            // if no other rule matches, only check exceptions if forced to
+            None if matched_rule || force_check_exceptions => {
+                #[cfg(feature = "metrics")]
+                print!("exceptions\t");
+                self.exceptions.check(request, &request_tokens, &self.tags_enabled)
+            }
+            None => None,
+            // If matched an important filter, exceptions don't atter
+            Some(f) if f.is_important() => None,
+            Some(f) if f.has_bug() => {
+                #[cfg(feature = "metrics")]
+                print!("exceptions\t");
+                // Set `bug` of request
+                let mut request_bug = request.clone();
+                request_bug.bug = f.bug;
+                self.exceptions.check(&request_bug, &request_tokens, &self.tags_enabled)
+            }
+            Some(_) => {
+                #[cfg(feature = "metrics")]
+                print!("exceptions\t");
+                self.exceptions.check(request, &request_tokens, &self.tags_enabled)
+            }
+        };
+
         #[cfg(feature = "metrics")]
         println!();
 
         // only match redirects if we have them set up
-        let redirect: Option<String> = if skip_unimportant {
-            None
-        } else {
-            filter.as_ref().and_then(|f| {
-                // Filter redirect option is set
-                if let Some(redirect) = f.redirect.as_ref() {
-                    // And we have a matching redirect resource
-                    if let Some(resource) = self.resources.get_resource(redirect) {
-                        let data_url = if resource.content_type.contains(';') {
-                            format!("data:{},{}", resource.content_type, resource.data)
-                        } else {
-                            format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
-                        };
-                        Some(data_url.trim().to_owned())
+        let redirect: Option<String> = filter.as_ref().and_then(|f| {
+            // Filter redirect option is set
+            if let Some(redirect) = f.redirect.as_ref() {
+                // And we have a matching redirect resource
+                if let Some(resource) = self.resources.get_resource(redirect) {
+                    let data_url = if resource.content_type.contains(';') {
+                        format!("data:{},{}", resource.content_type, resource.data)
                     } else {
-                        // TOOD: handle error - throw?
-                        if self.debug {
-                            eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
-                        }
-                        None
-                    }
+                        format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
+                    };
+                    Some(data_url.trim().to_owned())
                 } else {
+                    // TOOD: handle error - throw?
+                    if self.debug {
+                        eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
+                    }
                     None
                 }
-            })
-        };
+            } else {
+                None
+            }
+        });
 
-        let matched = exception.is_none() && filter.is_some();
-        let important = if let Some(filter) = filter {
-            filter.is_important()
-        } else {
-            false
-        };
+        // If something has already matched before but we don't know what, still return a match
+        let matched = exception.is_none() && (filter.is_some() || matched_rule);
         BlockerResult {
             matched,
             explicit_cancel: matched && filter.is_some() && filter.as_ref().map(|f| f.is_explicit_cancel()).unwrap_or_else(|| false),
-            important,
+            important: filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false),
             redirect,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
@@ -1342,7 +1340,7 @@ mod blocker_tests {
     }
 
     #[test]
-    fn exception_without_match() {
+    fn exception_force_check() {
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
             enable_optimizations: true,
@@ -1356,7 +1354,7 @@ mod blocker_tests {
 
         let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
 
-        let matched_rule = blocker.check(&request);
+        let matched_rule = blocker.check_parameterised(&request, false, true);
         assert!(!matched_rule.matched);
         assert!(matched_rule.exception.is_some());
     }
