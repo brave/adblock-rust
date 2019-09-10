@@ -31,7 +31,7 @@ const TOKENS_MAX: usize = TOKENS_BUFFER_SIZE - TOKENS_BUFFER_RESERVED;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,
-    is_allowed_code: &Fn(char) -> bool,
+    is_allowed_code: &dyn Fn(char) -> bool,
     skip_first_token: bool,
     skip_last_token: bool,
     tokens_buffer: &mut Vec<Hash>
@@ -80,7 +80,7 @@ fn fast_tokenizer_no_regex(
 
 fn fast_tokenizer(
     pattern: &str,
-    is_allowed_code: &Fn(char) -> bool,
+    is_allowed_code: &dyn Fn(char) -> bool,
     skip_first_token: bool,
     skip_last_token: bool,
     tokens_buffer: &mut Vec<Hash>) {
