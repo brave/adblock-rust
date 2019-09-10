@@ -32,7 +32,12 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     for result in rdr.deserialize() {
         if result.is_ok() {
             let record: RequestRuleMatch = result.unwrap();
-            reqs.push(record);
+            reqs.push(RequestRuleMatch {
+                url: record.url.trim_matches('"').to_owned(),
+                sourceUrl: record.sourceUrl.trim_matches('"').to_owned(),
+                r#type: record.r#type.trim_matches('"').to_owned(),
+                blocked: record.blocked
+            });
         } else {
             println!("Could not parse {:?}", result);
         }
@@ -85,9 +90,32 @@ fn get_blocker_engine_deserialized() -> Engine {
     engine
 }
 
+fn get_blocker_engine_deserialized_ios() -> Engine {
+    let list_url = "https://adblock-data.s3.amazonaws.com/ios/latest.txt";
+    let filters: Vec<String> = reqwest::get(list_url).expect("Could not request rules")
+        .text().expect("Could not get rules as text")
+        .lines()
+        .map(|s| s.to_owned())
+        .collect();
+
+    let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
+    
+    let blocker_options = BlockerOptions {
+        debug: true,
+        enable_optimizations: false,
+        load_cosmetic_filters: false,
+        load_network_filters: true
+    };
+  
+    let engine = Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    };
+    engine
+}
+
 #[test]
 fn check_live_specific_urls() {
-    let engine = get_blocker_engine();
+    let mut engine = get_blocker_engine();
     {
         let checked = engine.check_network_urls(
             "https://static.scroll.com/js/scroll.js",
@@ -95,6 +123,53 @@ fn check_live_specific_urls() {
             "script");
         assert_eq!(checked.matched, false,
             "Expected match, got filter {:?}, exception {:?}",
+            checked.filter, checked.exception);
+    }
+    {
+        engine.tags_disable(&["twitter-embeds"]);
+        let checked = engine.check_network_urls(
+            "https://platform.twitter.com/widgets.js",
+            "https://fmarier.github.io/brave-testing/social-widgets.html",
+            "script");
+        assert_eq!(checked.matched, true,
+            "Expected no match, got filter {:?}, exception {:?}",
+            checked.filter, checked.exception);
+        engine.tags_enable(&["twitter-embeds"]);
+    }
+    {
+        engine.tags_disable(&["twitter-embeds"]);
+        let checked = engine.check_network_urls(
+            "https://imagesrv.adition.com/banners/1337/files/00/0e/6f/09/000000945929.jpg?PQgSgs13hf1fw.jpg",
+            "https://spiegel.de",
+            "image");
+        assert_eq!(checked.matched, true,
+            "Expected match, got filter {:?}, exception {:?}",
+            checked.filter, checked.exception);
+        engine.tags_enable(&["twitter-embeds"]);
+    }
+}
+
+#[test]
+fn check_live_deserialized_specific_urls() {
+    let mut engine = get_blocker_engine_deserialized();
+    {
+        engine.tags_disable(&["twitter-embeds"]);
+        let checked = engine.check_network_urls(
+            "https://platform.twitter.com/widgets.js",
+            "https://fmarier.github.io/brave-testing/social-widgets.html",
+            "script");
+        assert_eq!(checked.matched, true,
+            "Expected match, got filter {:?}, exception {:?}",
+            checked.filter, checked.exception);
+    }
+    {
+        engine.tags_enable(&["twitter-embeds"]);
+        let checked = engine.check_network_urls(
+            "https://platform.twitter.com/widgets.js",
+            "https://fmarier.github.io/brave-testing/social-widgets.html",
+            "script");
+        assert_eq!(checked.matched, false,
+            "Expected no match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception);
     }
 }
@@ -113,8 +188,23 @@ fn check_live_from_filterlists() {
 }
 
 #[test]
-fn check_live_deserialized() {
+fn check_live_deserialized_file() {
     let engine = get_blocker_engine_deserialized();
+    let requests = load_requests();
+    
+    for req in requests {
+        println!("Checking {:?}", req);
+        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+        assert_eq!(checked.matched, req.blocked,
+            "Expected match {} for {} {} {}",
+            req.blocked, req.url, req.sourceUrl, req.r#type);
+    }
+}
+
+#[test]
+#[ignore]
+fn check_live_deserialized_ios() {
+    let engine = get_blocker_engine_deserialized_ios();
     let requests = load_requests();
     
     for req in requests {
