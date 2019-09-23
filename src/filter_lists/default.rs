@@ -43,6 +43,18 @@ pub fn default_lists() -> Vec<FilterList> {
             base64_public_key: String::from(""),
         },
         FilterList {
+            uuid: String::from("744e5fb2-5446-4578-a097-68efd098ed5e"),
+            url: String::from(
+                "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt",
+            ),
+            title: String::from("uBlock filters – Privacy"),
+            langs: Vec::new(),
+            support_url: String::from("https://github.com/uBlockOrigin/uAssets"),
+            component_id: String::from(""),
+            base64_public_key: String::from(""),
+            
+        },
+        FilterList {
             uuid: String::from("2FBEB0BC-E2E1-4170-BAA9-05E76AAB5BA5"),
             url: String::from(
                 "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt",
