@@ -29,5 +29,6 @@ pub mod optimizer;
 pub mod url_parser;
 pub mod engine;
 pub mod filter_lists;
+pub mod redirect_resources;
 pub mod resources;
 pub mod resource_assembler;

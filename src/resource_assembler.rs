@@ -1,8 +1,11 @@
+//! Contains methods useful for building `Resource` descriptors from resources directly from files
+//! in the uBlock Origin repository.
+
 use std::io::Read;
 use regex::Regex;
 use std::fs::File;
 use std::path::Path;
-use serde::{Serialize, Deserialize};
+use crate::resources::{Resource, ResourceType, MimeType};
 
 lazy_static! {
     //    [ '1x1.gif', {
@@ -18,103 +21,6 @@ lazy_static! {
     static ref ESCAPE_SCRIPTLET_ARG_RE: Regex = Regex::new(r#"[\\'"]"#).unwrap();
     static ref TOP_COMMENT_RE: Regex = Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap();
     static ref NON_EMPTY_LINE_RE: Regex = Regex::new(r#"\S"#).unwrap();
-}
-
-/// Struct representing a resource that can be used by an adblocking engine.
-///
-/// - `name`: Represents the primary name of the resource, often a filename
-///
-/// - `aliases`: Represents secondary names that can be used to access the resource
-///
-/// - `kind`: How to interpret the resource data within `content`
-///
-/// - `content`: The resource data, encoded using standard base64 configuration
-#[derive(Serialize, Deserialize)]
-pub struct Resource {
-    pub name: String,
-    pub aliases: Vec<String>,
-    pub kind: ResourceType,
-    pub content: String,
-}
-
-/// Different ways that the data within the `content` field of a `Resource` can be interpreted.
-///
-/// - `Mime(type)` - interpret the data according to the MIME type represented by `type`
-///
-/// - `Template` - interpret the data as a Javascript scriptlet template, with embedded template
-/// parameters in the form of `{{1}}`, `{{2}}`, etc.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum ResourceType {
-    Mime(MimeType),
-    Template,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(into = "String")]
-#[serde(from = "&str")]
-pub enum MimeType {
-    ImageGif,
-    TextHtml,
-    ApplicationJavascript,
-    AudioMp3,
-    VideoMp4,
-    ImagePng,
-    TextPlain,
-    Unknown,
-}
-
-impl MimeType {
-    /// Infers a resource's MIME type according to the extension of its path
-    pub fn from_extension(resource_path: &str) -> Self {
-        if let Some(extension_index) = resource_path.rfind('.') {
-            match &resource_path[extension_index + 1..] {
-                "gif" => MimeType::ImageGif,
-                "html" => MimeType::TextHtml,
-                "js" => MimeType::ApplicationJavascript,
-                "mp3" => MimeType::AudioMp3,
-                "mp4" => MimeType::VideoMp4,
-                "png" => MimeType::ImagePng,
-                "txt" => MimeType::TextPlain,
-                _ => {
-                    eprintln!("Unrecognized file extension on: {:?}", resource_path);
-                    MimeType::Unknown
-                }
-            }
-        } else {
-            return MimeType::Unknown
-        }
-    }
-}
-
-impl From<&str> for MimeType {
-    fn from(v: &str) -> Self {
-        match v {
-            "image/gif" => MimeType::ImageGif,
-            "text/html" => MimeType::TextHtml,
-            "application/javascript" => MimeType::ApplicationJavascript,
-            "audio/mp3" => MimeType::AudioMp3,
-            "video/mp4" => MimeType::VideoMp4,
-            "image/png" => MimeType::ImagePng,
-            "text/plain" => MimeType::TextPlain,
-            _ => MimeType::Unknown,
-        }
-    }
-}
-
-impl From<MimeType> for String {
-    fn from(v: MimeType) -> Self {
-        match v {
-            MimeType::ImageGif => "image/gif",
-            MimeType::TextHtml => "text/html",
-            MimeType::ApplicationJavascript => "application/javascript",
-            MimeType::AudioMp3 => "audio/mp3",
-            MimeType::VideoMp4 => "video/mp4",
-            MimeType::ImagePng => "image/png",
-            MimeType::TextPlain => "text/plain",
-            MimeType::Unknown => "application/octet-stream",
-        }.to_owned()
-    }
 }
 
 /// Represents a single entry of the `redirectableResources` map from uBlock Origin's
@@ -320,12 +226,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_resource_assembly() {
+    fn test_war_resource_assembly() {
         let web_accessible_resource_dir = Path::new("data/test/fake-uBO-files/web_accessible_resources");
         let redirect_engine_path = Path::new("data/test/fake-uBO-files/redirect-engine.js");
-        let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets.js");
-        let mut resources = assemble_web_accessible_resources(web_accessible_resource_dir, redirect_engine_path);
-        resources.append(&mut assemble_scriptlet_resources(scriptlets_path));
+        let resources = assemble_web_accessible_resources(web_accessible_resource_dir, redirect_engine_path);
 
         let expected_resource_names = vec![
             "1x1.gif",
@@ -366,19 +270,59 @@ mod tests {
             "window.open-defuser.js",
         ];
 
-        let expected_template_resources = vec![
+        for name in expected_resource_names {
+            assert!(resources.iter()
+                .find(|resource| {
+                    if let ResourceType::Mime(_) = resource.kind {
+                        resource.name == name
+                    } else {
+                        false
+                    }
+                }).is_some());
+        }
+
+        let serialized = serde_json::to_string(&resources).expect("serialize resources");
+
+        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+
+        assert_eq!(reserialized[0].name, "1x1.gif");
+        assert_eq!(reserialized[0].aliases, vec!["1x1-transparent.gif"]);
+        assert_eq!(reserialized[0].kind, ResourceType::Mime(MimeType::ImageGif));
+
+        assert_eq!(reserialized[29].name, "noop.js");
+        assert_eq!(reserialized[29].aliases, vec!["noopjs"]);
+        assert_eq!(reserialized[29].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
+        let noopjs_contents = std::fs::read_to_string(Path::new("data/test/fake-uBO-files/web_accessible_resources/noop.js")).unwrap().replace('\r', "");
+        assert_eq!(
+            std::str::from_utf8(
+                &base64::decode(&reserialized[29].content).expect("decode base64 content")
+            ).expect("convert to utf8 string"),
+            noopjs_contents,
+        );
+    }
+
+    #[test]
+    fn test_scriptlet_resource_assembly() {
+        let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets.js");
+        let resources = assemble_scriptlet_resources(scriptlets_path);
+
+        let expected_resource_names = vec![
             "abort-current-inline-script.js",
             "abort-on-property-read.js",
             "abort-on-property-write.js",
             "addEventListener-defuser.js",
             "addEventListener-logger.js",
+            "json-prune.js",
             "nano-setInterval-booster.js",
             "nano-setTimeout-booster.js",
             "noeval-if.js",
             "remove-attr.js",
+            "requestAnimationFrame-if.js",
             "set-constant.js",
             "setInterval-defuser.js",
+            "no-setInterval-if.js",
             "setTimeout-defuser.js",
+            "no-setTimeout-if.js",
             "webrtc-if.js",
             "window.name-defuser",
             "overlay-buster.js",
@@ -399,21 +343,9 @@ mod tests {
         for name in expected_resource_names {
             assert!(resources.iter()
                 .find(|resource| {
-                    if let ResourceType::Mime(_) = resource.kind {
-                        resource.name == name
-                    } else {
-                        false
-                    }
-                }).is_some());
-        }
-
-        for name in expected_template_resources {
-            assert!(resources.iter()
-                .find(|resource| {
-                    if let ResourceType::Template = resource.kind {
-                        resource.name == name
-                    } else {
-                        false
+                    match resource.kind {
+                        ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript) => resource.name == name,
+                        _ => false,
                     }
                 })
                 .is_some(), "failed to find {}", name);
@@ -423,19 +355,18 @@ mod tests {
 
         let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
 
-        assert_eq!(reserialized[0].name, "1x1.gif");
-        assert_eq!(reserialized[0].aliases, vec!["1x1-transparent.gif"]);
-        assert_eq!(reserialized[0].kind, ResourceType::Mime(MimeType::ImageGif));
+        assert_eq!(reserialized[0].name, "abort-current-inline-script.js");
+        assert_eq!(reserialized[0].aliases, vec!["acis.js"]);
+        assert_eq!(reserialized[0].kind, ResourceType::Template);
 
-        assert_eq!(reserialized[29].name, "noop.js");
-        assert_eq!(reserialized[29].aliases, vec!["noopjs"]);
-        assert_eq!(reserialized[29].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
-        let noopjs_contents = std::fs::read_to_string(Path::new("data/test/fake-uBO-files/web_accessible_resources/noop.js")).unwrap().replace('\r', "");
+        assert_eq!(reserialized[18].name, "overlay-buster.js");
+        assert_eq!(reserialized[18].aliases, Vec::<String>::new());
+        assert_eq!(reserialized[18].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
         assert_eq!(
             std::str::from_utf8(
-                &base64::decode(&reserialized[29].content).expect("decode base64 content")
+                &base64::decode(&reserialized[18].content).expect("decode base64 content")
             ).expect("convert to utf8 string"),
-            noopjs_contents,
+            "(function() {if ( window !== window.top ) {return;}var tstart;var ttl = 30000;var delay = 0;var delayStep = 50;var buster = function() {var docEl = document.documentElement,bodyEl = document.body,vw = Math.min(docEl.clientWidth, window.innerWidth),vh = Math.min(docEl.clientHeight, window.innerHeight),tol = Math.min(vw, vh) * 0.05,el = document.elementFromPoint(vw/2, vh/2),style, rect;for (;;) {if ( el === null || el.parentNode === null || el === bodyEl ) {break;}style = window.getComputedStyle(el);if ( parseInt(style.zIndex, 10) >= 1000 || style.position === \'fixed\' ) {rect = el.getBoundingClientRect();if ( rect.left <= tol && rect.top <= tol && (vw - rect.right) <= tol && (vh - rect.bottom) < tol ) {el.parentNode.removeChild(el);tstart = Date.now();el = document.elementFromPoint(vw/2, vh/2);bodyEl.style.setProperty(\'overflow\', \'auto\', \'important\');docEl.style.setProperty(\'overflow\', \'auto\', \'important\');continue;}}el = el.parentNode;}if ( (Date.now() - tstart) < ttl ) {delay = Math.min(delay + delayStep, 1000);setTimeout(buster, delay);}};var domReady = function(ev) {if ( ev ) {document.removeEventListener(ev.type, domReady);}tstart = Date.now();setTimeout(buster, delay);};if ( document.readyState === \'loading\' ) {document.addEventListener(\'DOMContentLoaded\', domReady);} else {domReady();}})();",
         );
     }
 }

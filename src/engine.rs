@@ -3,7 +3,8 @@ use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::lists::parse_filters;
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
-use crate::resources::{Resources, Resource};
+use crate::resources::Resource;
+use crate::redirect_resources::{RedirectResource};
 use rmps;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
@@ -162,22 +163,17 @@ impl Engine {
         self.blocker.tags_enabled().contains(&tag.to_owned())
     }
 
-    pub fn with_resources<'a>(&'a mut self, resources: &'a str) -> &'a mut Engine {
-        let resources = Resources::parse(resources);
+    pub fn with_resources<'a>(&'a mut self, resources: &[Resource]) -> &'a mut Engine {
         self.blocker.with_resources(resources);
         self
     }
 
-    pub fn resource_add<'a>(&'a mut self, key: &str, content_type: &str, data: &str) -> &'a mut Engine {
-        let resource = Resource {
-            content_type: content_type.to_owned(),
-            data: data.to_owned()
-        };
-        self.blocker.resource_add(key.to_owned(), resource);
+    pub fn resource_add<'a>(&'a mut self, resource: Resource) -> &'a mut Engine {
+        self.blocker.resource_add(resource);
         self
     }
 
-    pub fn resource_get(&self, key: &str) -> Option<Resource> {
+    pub fn resource_get(&self, key: &str) -> Option<RedirectResource> {
         self.blocker.resource_get(key).cloned()
     }
 }
@@ -186,6 +182,7 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::resources::{ResourceType, MimeType};
     
     #[test]
     fn tags_enable_adds_tags() {
@@ -413,15 +410,22 @@ mod tests {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext".to_owned()
         ]);
-        let resources_str = r###"
-nooptext text/plain
 
-
-noopcss text/css
-
-
-"###;
-        engine.with_resources(&resources_str);
+        let resources = vec![
+            Resource {
+                name: "nooptext".to_string(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::TextPlain),
+                content: base64::encode(""),
+            },
+            Resource {
+                name: "noopcss".to_string(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::TextPlain),
+                content: base64::encode(""),
+            },
+        ];
+        engine.with_resources(&resources);
         
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
@@ -433,7 +437,12 @@ noopcss text/css
             "ad-banner$redirect=nooptext".to_owned()
         ]);
 
-        engine.resource_add("nooptext", "text/plain", "");
+        engine.resource_add(Resource {
+            name: "nooptext".to_owned(),
+            aliases: vec![],
+            kind: ResourceType::Mime(MimeType::TextPlain),
+            content: "".to_owned(),
+        });
 
         let url = "http://example.com/ad-banner.gif";
         let matched_rule = engine.check_network_urls(url, "", "");
@@ -452,7 +461,12 @@ noopcss text/css
 
         let mut engine = Engine::from_rules(&[]);
 
-        engine.resource_add("noopjs", "application/javascript", script);
+        engine.resource_add(Resource {
+            name: "noopjs".to_owned(),
+            aliases: vec![],
+            kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+            content: script.to_owned(),
+        });
         let inserted_resource = engine.resource_get("noopjs");
         assert!(inserted_resource.is_some());
         let resource = inserted_resource.unwrap();
