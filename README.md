@@ -46,7 +46,7 @@ const AdBlockClient = require('adblock-rs');
 let el_rules = fs.readFileSync('./data/easylist.to/easylist/easylist.txt', { encoding: 'utf-8' }).split('\n');
 let ubo_unbreak_rules = fs.readFileSync('./data/uBlockOrigin/unbreak.txt', { encoding: 'utf-8' }).split('\n');
 let rules = el_rules.concat(ubo_unbreak_rules);
-let resources = fs.readFileSync('./data/uBlockOrigin/resources.txt', { encoding: 'utf-8' });
+let resources = AdBlockClient.uBlockResources('uBlockOrigin/src/web_accessible_resources', 'uBlockOrigin/src/js/redirect-engine.js', 'uBlockOrigin/assets/resources/scriptlets.js');
 
 // create client with debug = true
 const client = new AdBlockClient.Engine(rules, true);
