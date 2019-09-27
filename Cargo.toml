@@ -41,6 +41,7 @@ criterion = "0.2"
 csv = "1"
 serde_json = "1.0"
 reqwest = "0.9"
+psl = "0.4.1"
 
 [lib]
 bench = false
@@ -59,6 +60,10 @@ harness = false
 
 [[bench]]
 name = "bench_rules"
+harness = false
+
+[[bench]]
+name = "bench_redirect_performance"
 harness = false
 
 [features]
