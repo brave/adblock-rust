@@ -11,14 +11,14 @@ name = "adblock_rs"
 crate-type = ["dylib"]
 
 [build-dependencies]
-neon-build = "0.2.0"
+neon-build = "0.3.1"
 
 [dependencies]
-neon-serde = "0.1.1"
+neon-serde = "0.2"
 serde =  { version = "1.0", features = ["derive", "rc"] }
 adblock = { path = "../", default-features = false }
-neon = "0.2.0"
+neon = "0.3.1"
 
-[patch.crates-io]
-neon = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12' }
-neon-runtime = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12' }
+# [patch.crates-io]
+# neon = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12' }
+# neon-runtime = { git = 'https://github.com/kjvalencik/neon/', branch = 'node12' }

@@ -29,6 +29,7 @@ pub struct BlockerResult {
     pub redirect: Option<String>,
     pub exception: Option<String>,
     pub filter: Option<String>,
+    pub error: Option<String>,
 }
 
 impl Default for BlockerResult {
@@ -38,7 +39,8 @@ impl Default for BlockerResult {
             explicit_cancel: false,
             redirect: None,
             exception: None,
-            filter: None
+            filter: None,
+            error: None,
         }
     }
 }
@@ -212,6 +214,7 @@ impl Blocker {
             redirect,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
+            error: None,
         }
     }
 
