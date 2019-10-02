@@ -69,13 +69,13 @@ impl Engine {
             self.blocker.check(&request)
         })
         .unwrap_or_else(|_e| {
-            eprintln!("Error parsing request, returning no match");
             BlockerResult {
                 matched: false,
                 explicit_cancel: false,
                 redirect: None,
                 exception: None,
                 filter: None,
+                error: Some("Error parsing request".to_owned())
             }
         })
         

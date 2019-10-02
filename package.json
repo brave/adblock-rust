@@ -1,6 +1,6 @@
 {
   "name": "adblock-rs",
-  "version": "0.1.33",
+  "version": "0.1.34",
   "description": "Very fast, Rust-based, native implementation of ad-blocker engine for Node",
   "main": "lib/index.js",
   "author": "Andrius Aucinas <aaucinas@brave.com>",
@@ -11,7 +11,7 @@
   },
   "repository": "https://github.com/brave/adblock-rust.git",
   "dependencies": {
-    "neon-cli": "^0.2.0"
+    "neon-cli": "^0.3.1"
   },
   "scripts": {
     "install": "neon build --release"

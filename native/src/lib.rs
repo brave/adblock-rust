@@ -3,10 +3,18 @@ extern crate neon;
 
 extern crate neon_serde;
 extern crate adblock;
+extern crate serde;
 
 use neon::prelude::*;
+use serde::{Deserialize, Serialize};
 use adblock::engine::Engine;
 use adblock::filter_lists;
+
+#[derive(Serialize, Deserialize)]
+struct EngineOptions {
+    pub debug: Option<bool>,
+    pub optimize: Option<bool>
+}
 
 declare_types! {
     pub class JsEngine for Engine {
@@ -14,13 +22,25 @@ declare_types! {
             // Take the first argument, which must be an array
             let rules_handle: Handle<JsArray> = cx.argument(0)?;
 
-            let rules_debug = match cx.argument_opt(1) {
+            let debug: bool;
+            let optimize: bool;
+            match cx.argument_opt(1) {
                 Some(arg) => {
                     // Throw if the argument exist and it cannot be downcasted to a boolean
-                    arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value()
+                    let maybe_config: Result<EngineOptions, _> = neon_serde::from_value(&mut cx, arg);
+                    if let Ok(config) = maybe_config {
+                        debug = config.debug.unwrap_or(false);
+                        optimize = config.optimize.unwrap_or(true);
+                    } else {
+                        debug = arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value();
+                        optimize = true;
+                    }
                 }
-                None => false,
-            };
+                None => {
+                    debug = false;
+                    optimize = true;
+                },
+            }
             // Convert a JsArray to a Rust Vec
             let rules_wrapped: Vec<_> = rules_handle.to_vec(&mut cx)?;
 
@@ -31,11 +51,7 @@ declare_types! {
                 rules.push(rule);
             }
 
-            if rules_debug {
-                Ok(Engine::from_rules_debug(&rules))
-            } else {
-                Ok(Engine::from_rules(&rules))
-            }            
+            Ok(Engine::from_rules_parametrised(&rules, debug, optimize))
         }
 
         method check(mut cx) {
@@ -200,9 +216,19 @@ fn lists(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(js_list)
 }
 
+fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
+    let url: String = cx.argument::<JsString>(0)?.value();
+    let source_url: String = cx.argument::<JsString>(1)?.value();
+    let request_type: String = cx.argument::<JsString>(2)?.value();
+    let request_ok = adblock::request::Request::from_urls(&url, &source_url, &request_type).is_ok();
+
+    Ok(cx.boolean(request_ok))
+}
+
 register_module!(mut m, {
     // Export the `JsEngine` class
     m.export_class::<JsEngine>("Engine")?;
     m.export_function("lists", lists)?;
+    m.export_function("validateRequest", validate_request)?;
     Ok(())
 });
