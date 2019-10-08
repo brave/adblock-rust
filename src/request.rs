@@ -32,8 +32,8 @@ pub enum RequestError {
     UnicodeDecodingError,
 }
 
-impl From<idna::uts46::Errors> for RequestError {
-    fn from(_err: idna::uts46::Errors) -> RequestError {
+impl From<idna::Errors> for RequestError {
+    fn from(_err: idna::Errors) -> RequestError {
         RequestError::UnicodeDecodingError
     }
 }
