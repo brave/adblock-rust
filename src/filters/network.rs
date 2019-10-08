@@ -544,12 +544,7 @@ impl NetworkFilter {
             if lowercase.is_ascii() {
                 hostname.push_str(&lowercase);
             } else {
-                let decode_flags = idna::uts46::Flags {
-                    use_std3_ascii_rules: true,
-                    transitional_processing: true,
-                    verify_dns_length: true,
-                };
-                match idna::uts46::to_ascii(&lowercase, decode_flags) {
+                match idna::domain_to_ascii(&lowercase) {
                     Ok(x) => hostname.push_str(&x),
                     Err(_) => return Err(FilterError::PunycodeError),
                 }

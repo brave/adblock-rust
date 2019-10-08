@@ -13,9 +13,28 @@ use std::error::Error;
 use std::fmt::{self, Formatter, Write};
 use std::str;
 
-use url::idna;
-use url::percent_encoding::{utf8_percent_encode, USERINFO_ENCODE_SET};
+use idna;
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use std::ops::{Range, RangeFrom, RangeTo};
+
+/// https://url.spec.whatwg.org/#fragment-percent-encode-set
+const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
+
+/// https://url.spec.whatwg.org/#path-percent-encode-set
+const PATH: &AsciiSet = &FRAGMENT.add(b'#').add(b'?').add(b'{').add(b'}');
+
+/// https://url.spec.whatwg.org/#userinfo-percent-encode-set
+pub(crate) const USERINFO: &AsciiSet = &PATH
+    .add(b'/')
+    .add(b':')
+    .add(b';')
+    .add(b'=')
+    .add(b'@')
+    .add(b'[')
+    .add(b'\\')
+    .add(b']')
+    .add(b'^')
+    .add(b'|');
 
 #[derive(Clone)]
 pub struct Hostname {
@@ -181,8 +200,8 @@ impl fmt::Display for ParseError {
     }
 }
 
-impl From<idna::uts46::Errors> for ParseError {
-    fn from(_: idna::uts46::Errors) -> ParseError { ParseError::IdnaError }
+impl From<idna::Errors> for ParseError {
+    fn from(_: idna::Errors) -> ParseError { ParseError::IdnaError }
 }
 
 #[derive(Copy, Clone)]
@@ -449,7 +468,8 @@ impl Parser {
                 if !has_password {
                     has_username = true;
                 }
-                self.serialization.extend(utf8_percent_encode(utf8_c, USERINFO_ENCODE_SET));
+                self.serialization
+                    .extend(utf8_percent_encode(utf8_c, USERINFO));
             }
         }
         let username_end = match username_end {
@@ -506,16 +526,10 @@ impl Parser {
             }
         }
 
-        let decode_flags = idna::uts46::Flags {
-            use_std3_ascii_rules: true,
-            transitional_processing: true,
-            verify_dns_length: true,
-        };
-
         if host_str.is_ascii() {
             write!(&mut self.serialization, "{}", host_str).unwrap();
         } else {
-            let encoded = idna::uts46::to_ascii(&host_str, decode_flags)?;
+            let encoded = idna::domain_to_ascii(&host_str)?;
             write!(&mut self.serialization, "{}", encoded).unwrap();
         }
 
