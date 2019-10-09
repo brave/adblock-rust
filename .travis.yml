@@ -3,19 +3,6 @@ os:
   - linux
   - osx
   - windows
-arch:
-  - amd64
-  - arm64
-matrix:
-  include:
-   - os: linux
-     arch: amd64
-   - os: linux
-     arch: arm64
-   - os: osx
-     arch: amd64
-   - os: windows
-     arch: amd64 
 rust:
   - stable
 cache: cargo # cache cargo-audit once installed
