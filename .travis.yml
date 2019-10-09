@@ -1,8 +1,12 @@
 language: rust
-os:
-  - linux
-  - osx
-  - windows
+matrix:
+  include:
+   - os: linux
+     arch: amd64
+   - os: linux
+     arch: arm64
+   - os: osx
+   - os: windows   
 rust:
   - stable
 cache: cargo # cache cargo-audit once installed
