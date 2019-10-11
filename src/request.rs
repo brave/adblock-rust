@@ -2,7 +2,7 @@ use crate::url_parser::{get_host_domain, UrlParser};
 use crate::utils;
 
 use idna;
-use std::sync::{Arc, RwLock};
+use smallvec::SmallVec;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -79,16 +79,20 @@ pub struct Request {
     pub is_first_party: Option<bool>,
     pub is_third_party: Option<bool>,
     pub url: String,
-    pub hostname: String,
-    pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    // pub hostname: String,
+    pub source_hostname_hashes: Option<SmallVec<[utils::Hash; 4]>>,
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
+    hostname_start: usize,
     hostname_end: usize
 }
 
 impl<'a> Request {
+    pub fn hostname(&self) -> &str {
+        &self.url[self.hostname_start..self.hostname_end]
+    }
+
     pub fn get_tokens(&self, mut token_buffer: &mut Vec<utils::Hash>) {
         token_buffer.clear();
         utils::tokenize_pooled(&self.url, &mut token_buffer);
@@ -101,18 +105,7 @@ impl<'a> Request {
     }
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
-        {
-            let signature_cache = self.fuzzy_signature.read().unwrap();
-            if signature_cache.is_some() {
-                return signature_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut signature_cache = self.fuzzy_signature.write().unwrap();
-            let signature = utils::create_fuzzy_signature(&self.url);
-            *signature_cache = Some(signature);
-        }
-        self.get_fuzzy_signature()
+        utils::create_fuzzy_signature(&self.url)
     }
 
     pub fn new(
@@ -182,7 +175,7 @@ impl<'a> Request {
         }
 
         let source_hostname_hashes = if !source_hostname.is_empty() {
-            let mut hashes = Vec::with_capacity(4);
+            let mut hashes: SmallVec<[utils::Hash; 4]> = SmallVec::with_capacity(4);
             hashes.push(utils::fast_hash(&source_hostname));
             for (i, c) in
                 source_hostname[..source_hostname.len() - source_domain.len()].char_indices()
@@ -196,10 +189,11 @@ impl<'a> Request {
             None
         };
 
+        let hostname_start: usize = hostname_end - hostname.len();
+
         Request {
             request_type,
             url: url.to_owned(),
-            hostname: hostname.to_owned(),
             source_hostname_hashes,
             is_first_party: first_party,
             is_third_party: third_party,
@@ -207,7 +201,7 @@ impl<'a> Request {
             is_https,
             is_supported,
             bug: None,
-            fuzzy_signature: Arc::new(RwLock::new(None)),
+            hostname_start,
             hostname_end
         }
     }

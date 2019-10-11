@@ -10,6 +10,8 @@ use crate::utils::Hash;
 use std::cell::RefCell;
 use std::rc::Rc;
 use twoway;
+use smallvec::SmallVec;
+use smallvec;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -31,7 +33,7 @@ pub enum FilterError {
 }
 
 bitflags! {
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, MallocSizeOf)]
     pub struct NetworkFilterMask: u32 {
         const FROM_IMAGE = 1; // 1 << 0;
         const FROM_MEDIA = 1 << 1;
@@ -156,7 +158,7 @@ impl From<&request::RequestType> for NetworkFilterMask {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, MallocSizeOf)]
 pub enum FilterPart {
     Empty,
     Simple(String),
@@ -177,8 +179,8 @@ impl FilterPart {
 pub struct NetworkFilter {
     pub mask: NetworkFilterMask,
     pub filter: FilterPart,
-    pub opt_domains: Option<Vec<Hash>>,
-    pub opt_not_domains: Option<Vec<Hash>>,
+    pub opt_domains: Option<SmallVec<[Hash; 4]>>,
+    pub opt_not_domains: Option<SmallVec<[Hash; 4]>>,
     pub redirect: Option<String>,
     pub hostname: Option<String>,
     pub csp: Option<String>,
@@ -202,6 +204,7 @@ pub struct NetworkFilter {
     // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to Some<CompiledRegex>
     // to avoid expensive cloning of the Regex itself.
     #[serde(skip_serializing, skip_deserializing)]
+    // #[ignore_malloc_size_of = "Only computed on demand"]
     regex: Rc<RefCell<Option<Rc<CompiledRegex>>>>
 }
 
@@ -291,11 +294,13 @@ impl NetworkFilter {
                         if !opt_domains_array.is_empty() {
                             opt_domains_array.sort();
                             opt_domains_union = Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
+                            opt_domains_array.shrink_to_fit();
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort();
                             opt_not_domains_union = Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
+                            opt_not_domains_array.shrink_to_fit();
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
@@ -549,6 +554,7 @@ impl NetworkFilter {
                     Err(_) => return Err(FilterError::PunycodeError),
                 }
             }
+            hostname.shrink_to_fit();
             Ok(hostname)
         });
 
@@ -568,8 +574,8 @@ impl NetworkFilter {
             },
             hostname: hostname_decoded.map_or(Ok(None), |r| r.map(Some))?,
             mask,
-            opt_domains,
-            opt_not_domains,
+            opt_domains: opt_domains.map(SmallVec::from),
+            opt_not_domains: opt_not_domains.map(SmallVec::from),
             tag,
             raw_line: if debug {
                 Some(String::from(line))
@@ -679,7 +685,7 @@ impl NetworkFilter {
         if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
             self.opt_domains
                 .as_ref()
-                .unwrap_or(&vec![])
+                .unwrap_or(&SmallVec::new())
                 .iter()
                 .map(|&d| vec![d])
                 .collect()
@@ -832,8 +838,8 @@ fn compute_filter_id(
     mask: NetworkFilterMask,
     filter: Option<&str>,
     hostname: Option<&str>,
-    opt_domains: Option<&Vec<Hash>>,
-    opt_not_domains: Option<&Vec<Hash>>,
+    opt_domains: Option<&SmallVec<[Hash; 4]>>,
+    opt_not_domains: Option<&SmallVec<[Hash; 4]>>,
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits);
 
@@ -1052,7 +1058,7 @@ fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::
         FilterPart::Empty => true,
         FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
         FilterPart::AnyOf(filters) => {
-            for f in filters {
+            for f in filters.iter() {
                 if twoway::find_str(&request.url, f).is_some() {
                     return true;
                 }
@@ -1136,7 +1142,7 @@ fn check_pattern_hostname_anchor_regex_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(hostname, &request.hostname(), filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 check_pattern_regex_filter_at(
                     filter,
                     request,
@@ -1158,15 +1164,15 @@ fn check_pattern_hostname_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(hostname, &request.hostname(), filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // In this specific case it means that the specified hostname should match
                     // at the end of the hostname of the request. This allows to prevent false
                     // positive like ||foo.bar which would match https://foo.bar.baz where
                     // ||foo.bar^ would not.
                     FilterPart::Empty => {
-                        request.hostname.len() == hostname.len()        // if lengths are equal, hostname equality is implied by anchoring check
-                            || request.hostname.ends_with(hostname)
+                        request.hostname().len() == hostname.len()        // if lengths are equal, hostname equality is implied by anchoring check
+                            || request.hostname().ends_with(hostname)
                     }
                     _ => check_pattern_right_anchor_filter(&filter, request),
                 }
@@ -1190,7 +1196,7 @@ fn check_pattern_hostname_left_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(hostname, &request.hostname(), filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1200,7 +1206,7 @@ fn check_pattern_hostname_left_right_anchor_filter(
                     FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname) == f,
                     FilterPart::AnyOf(filters) => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
-                        for f in filters {
+                        for f in filters.iter() {
                             if url_after_hostname == f {
                                 return true;
                             }
@@ -1225,7 +1231,7 @@ fn check_pattern_hostname_left_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(hostname, &request.hostname(), filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1237,7 +1243,7 @@ fn check_pattern_hostname_left_anchor_filter(
                     }
                     FilterPart::AnyOf(filters) => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
-                        for f in filters {
+                        for f in filters.iter() {
                             if url_after_hostname.starts_with(f) {
                                 return true;
                             }
@@ -1261,7 +1267,7 @@ fn check_pattern_hostname_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(hostname, &request.hostname(), filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
@@ -1271,7 +1277,7 @@ fn check_pattern_hostname_anchor_filter(
                         .is_some(),
                     FilterPart::AnyOf(filters) => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
-                        for f in filters {
+                        for f in filters.iter() {
                             if url_after_hostname.find(f).is_some()
                             {
                                 return true;
@@ -1296,7 +1302,7 @@ fn check_pattern_hostname_anchor_fuzzy_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(hostname, &request.hostname(), filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
                 check_pattern_fuzzy_filter(filter, request)
             } else {
                 false
@@ -1412,8 +1418,8 @@ mod parse_tests {
         bug: Option<u32>,
         csp: Option<String>,
         hostname: Option<String>,
-        opt_domains: Option<Vec<Hash>>,
-        opt_not_domains: Option<Vec<Hash>>,
+        pub opt_domains: Option<SmallVec<[Hash; 4]>>,
+        pub opt_not_domains: Option<SmallVec<[Hash; 4]>>,
         redirect: Option<String>,
 
         // filter type
@@ -1929,7 +1935,7 @@ mod parse_tests {
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
-            defaults.opt_domains = Some(vec![utils::fast_hash("test.com")]);
+            defaults.opt_domains = Some(vec![utils::fast_hash("test.com")]).map(SmallVec::from);
 
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
         }
@@ -1941,7 +1947,7 @@ mod parse_tests {
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
-            defaults.opt_domains = Some(vec![utils::fast_hash("test.com")]);
+            defaults.opt_domains = Some(vec![utils::fast_hash("test.com")]).map(SmallVec::from);
             defaults.match_case = true;
 
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
@@ -2000,14 +2006,14 @@ mod parse_tests {
         // parses domain
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com", true).unwrap();
-            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("bar.com")]));
+            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("bar.com")]).map(SmallVec::from));
             assert_eq!(filter.opt_not_domains, None);
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com|baz.com", true).unwrap();
             let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
             domains.sort_unstable();
-            assert_eq!(filter.opt_domains, Some(domains));
+            assert_eq!(filter.opt_domains, Some(domains).map(SmallVec::from));
             assert_eq!(filter.opt_not_domains, None);
         }
 
@@ -2017,7 +2023,7 @@ mod parse_tests {
             assert_eq!(filter.opt_domains, None);
             assert_eq!(
                 filter.opt_not_domains,
-                Some(vec![utils::fast_hash("bar.com")])
+                Some(vec![utils::fast_hash("bar.com")]).map(SmallVec::from)
             );
         }
         {
@@ -2025,31 +2031,31 @@ mod parse_tests {
             assert_eq!(filter.opt_domains, None);
             let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
             domains.sort_unstable();
-            assert_eq!(filter.opt_not_domains, Some(domains));
+            assert_eq!(filter.opt_not_domains, Some(domains).map(SmallVec::from));
         }
         // parses domain and ~domain
         {
             let filter = NetworkFilter::parse("||foo.com$domain=~bar.com|baz.com", true).unwrap();
-            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("baz.com")]));
+            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("baz.com")]).map(SmallVec::from));
             assert_eq!(
                 filter.opt_not_domains,
-                Some(vec![utils::fast_hash("bar.com")])
+                Some(vec![utils::fast_hash("bar.com")]).map(SmallVec::from)
             );
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com|~baz.com", true).unwrap();
-            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("bar.com")]));
+            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("bar.com")]).map(SmallVec::from));
             assert_eq!(
                 filter.opt_not_domains,
-                Some(vec![utils::fast_hash("baz.com")])
+                Some(vec![utils::fast_hash("baz.com")]).map(SmallVec::from)
             );
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=foo|~bar|baz", true).unwrap();
             let mut domains = vec![utils::fast_hash("foo"), utils::fast_hash("baz")];
             domains.sort();
-            assert_eq!(filter.opt_domains, Some(domains));
-            assert_eq!(filter.opt_not_domains, Some(vec![utils::fast_hash("bar")]));
+            assert_eq!(filter.opt_domains, Some(domains).map(SmallVec::from));
+            assert_eq!(filter.opt_not_domains, Some(vec![utils::fast_hash("bar")]).map(SmallVec::from));
         }
         // defaults to no constraint
         {
@@ -2355,7 +2361,7 @@ mod parse_tests {
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
                 defaults.from_any = false;
-                defaults.opt_domains = Some(vec![utils::fast_hash("bar.com")]);
+                defaults.opt_domains = Some(vec![utils::fast_hash("bar.com")]).map(SmallVec::from);
                 set_all_options(&mut defaults, false);
                 set_option(&option, &mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
@@ -2455,7 +2461,7 @@ mod parse_tests {
         defaults.is_exception = true;
         defaults.is_plain = true;
         defaults.from_any = true;
-        defaults.opt_domains = Some(vec![utils::fast_hash("auth.wi-fi.ru")]);
+        defaults.opt_domains = Some(vec![utils::fast_hash("auth.wi-fi.ru")]).map(SmallVec::from);
         assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
     }
 

@@ -36,6 +36,12 @@ base64 = "0.10"
 rmp-serde = "0.13.7"    # rmp-serde 0.14.0 breaks deserialization by changing how enums are deserialized
 hashbrown = { version = "0.6", features = ["serde"] }
 lifeguard = { version = "0.6", optional = true }
+graphannis-malloc_size_of = "1.0"
+graphannis-malloc_size_of_derive = "2.0"
+jemallocator = "0.3.0"
+smallstring = "0.1.2"
+smallvec = { version = "0.6.10", features = ["serde"] }
+rustc-hash = "1.0.1"
 
 [dev-dependencies]
 criterion = "0.2"

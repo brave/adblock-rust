@@ -2,6 +2,7 @@ use crate::filters::network::{NetworkFilter, NetworkFilterMask, FilterPart};
 use itertools::*;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
+use smallvec::SmallVec;
 
 trait Optimization {
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
@@ -159,14 +160,14 @@ impl Optimization for UnionDomainGroup {
             let mut domains = Vec::from_iter(domains.into_iter().cloned());
             domains.sort();
             let opt_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
-            filter.opt_domains = Some(domains);
+            filter.opt_domains = Some(domains).map(SmallVec::from);
             filter.opt_domains_union = opt_domains_union;
         }
         if !not_domains.is_empty() {
             let mut domains = Vec::from_iter(not_domains.into_iter().cloned());
             domains.sort();
             let opt_not_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
-            filter.opt_not_domains = Some(domains);
+            filter.opt_not_domains = Some(domains).map(SmallVec::from);
             filter.opt_not_domains_union = opt_not_domains_union;
         }
 
