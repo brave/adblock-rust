@@ -5,9 +5,10 @@ use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::filters::network::NetworkFilter;
 use std::fs::File;
 use std::io::prelude::*;
+use adblock::utils::rules_from_lists;
 
 fn get_blocker_engine() -> Engine {
-  let network_filters: Vec<NetworkFilter> = adblock::filter_lists::slimlist::slim_list()
+  let network_filters: Vec<NetworkFilter> = adblock::filter_lists::default::default_lists()
         .iter()
         .map(|list| {
             let filters: Vec<String> = reqwest::get(&list.url).expect("Could not request rules")
@@ -16,7 +17,7 @@ fn get_blocker_engine() -> Engine {
                 .map(|s| s.to_owned())
                 .collect();
 
-            let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
+            let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, false);
             network_filters
         })
         .flatten()
@@ -38,9 +39,29 @@ fn get_blocker_engine() -> Engine {
     engine
 }
 
+fn get_blocker_engine_fixed() -> Engine {
+  let rules = rules_from_lists(&vec![
+    String::from("data/regression-testing/easylist.txt"),
+    String::from("data/regression-testing/easyprivacy.txt"),
+  ]);
+
+  let (network_filters, _) = adblock::lists::parse_filters(&rules, true, false, false);
+
+  let blocker_options = BlockerOptions {
+    debug: false,
+    enable_optimizations: true,
+    load_cosmetic_filters: false,
+    load_network_filters: true
+  };
+  
+    Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    }
+}
+
 fn main() {
     // Rules we want to serialize
-    // let engine = get_blocker_engine();  
+    let engine = get_blocker_engine();  
     // Rules we want to serialize
     let rules = vec![
         String::from("/beacon.js"),
@@ -48,7 +69,7 @@ fn main() {
     ];
 
     // Serialize
-    let mut engine = Engine::from_rules_debug(&rules);
+    // let mut engine = Engine::from_rules_debug(&rules);
     // engine.with_tags(&["twitter-embeds"]);    
     // assert!(engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script").exception.is_some());
     // let serialized = engine.serialize().expect("Could not serialize!");

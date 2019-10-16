@@ -1,6 +1,8 @@
 extern crate adblock;
 
 use adblock::engine::Engine;
+use adblock::blocker::{Blocker, BlockerOptions};
+use adblock::filters::network::NetworkFilter;
 
 use serde::{Deserialize};
 use std::fs::File;
@@ -41,19 +43,58 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
+fn get_blocker_engine() -> Engine {
+  let network_filters: Vec<NetworkFilter> = adblock::filter_lists::default::default_lists()
+        .iter()
+        .map(|list| {
+            let filters: Vec<String> = reqwest::get(&list.url).expect("Could not request rules")
+                .text().expect("Could not get rules as text")
+                .lines()
+                .map(|s| s.to_owned())
+                .collect();
+
+            let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, false);
+            network_filters
+        })
+        .flatten()
+        .collect();
+
+    let blocker_options = BlockerOptions {
+        debug: false,
+        enable_optimizations: true,
+        load_cosmetic_filters: false,
+        load_network_filters: true
+    };
+  
+    let mut engine = Engine {
+        blocker: Blocker::new(network_filters, &blocker_options)
+    };
+
+    engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+
+    engine
+}
+
 fn main() {
+    println!("Deserializing engine");
+    let mut engine;
+    {
+        let mut file = File::open("data/engine-full.dat").expect("Opening serialization file failed");
+        let mut serialized = Vec::<u8>::new();
+        file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
+        engine = Engine::from_rules(&[]);
+        engine.deserialize(&serialized).expect("Deserialization failed");
+        // engine = get_blocker_engine();
+    }
+    engine.with_tags(&["twitter-embeds"]);
+
+    println!("Sleeping");
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
     println!("Loading requests");
     let requests = load_requests();
     let requests_len = requests.len() as u32;
     assert!(requests_len > 0, "List of parsed request info is empty");
-
-    println!("Deserializing engine");
-    let mut file = File::open("data/rs-ABPFilterParserData.dat").expect("Opening serialization file failed");
-    let mut serialized = Vec::<u8>::new();
-    file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
-    let mut engine = Engine::from_rules(&[]);
-    engine.deserialize(&serialized).expect("Deserialization failed");
-    engine.with_tags(&["twitter-embeds"]);
 
     println!("Matching");
     let mut mismatch_expected_match = 0;
