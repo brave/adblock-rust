@@ -4,6 +4,7 @@ use adblock::request::Request;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
 use adblock::engine::Engine;
+use adblock::resources::{Resource, ResourceType, MimeType};
 
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -30,24 +31,22 @@ fn load_requests() -> Vec<TestRuleRequest> {
     reqs
 }
 
-fn build_resources_from_filters(filters: &[String]) -> String {
-    let resources: Vec<_> = filters.iter()
+fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
+    filters.iter()
         .map(|r| NetworkFilter::parse(&r, true))
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
         .map(|f| {
             let redirect = f.redirect.unwrap();
-            let rtype = if redirect.ends_with(".gif") {
-                "image/gif;base64"
-            } else {
-                "application/javascript"
-            };
 
-            format!("{} {}\n{}", redirect, rtype, redirect)
+            Resource {
+                name: redirect.to_owned(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
+                content: redirect,
+            }
         })
-        .collect();
-
-    resources.join("\n\n")
+        .collect()
 }
 
 

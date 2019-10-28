@@ -7,8 +7,12 @@ extern crate serde;
 
 use neon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use adblock::engine::Engine;
 use adblock::filter_lists;
+use adblock::resources::Resource;
+use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
+
 
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
@@ -127,7 +131,8 @@ declare_types! {
         }
 
         method updateResources(mut cx) {
-            let resources: String = cx.argument::<JsString>(0)?.value();
+            let resources_arg = cx.argument::<JsValue>(0)?;
+            let resources: Vec<Resource> = neon_serde::from_value(&mut cx, resources_arg)?;
 
             let mut this = cx.this();
             let guard = cx.lock();
@@ -174,15 +179,14 @@ declare_types! {
         }
 
         method addResource(mut cx) {
-            let name: String = cx.argument::<JsString>(0)?.value();
-            let content_type: String = cx.argument::<JsString>(1)?.value();
-            let data: String = cx.argument::<JsString>(2)?.value();
+            let resource_arg = cx.argument::<JsValue>(0)?;
+            let resource: Resource = neon_serde::from_value(&mut cx, resource_arg)?;
 
             let mut this = cx.this();
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                engine.resource_add(&name, &content_type, &data);
+                engine.resource_add(resource);
             }
             Ok(JsNull::new().upcast())
         }
@@ -225,10 +229,24 @@ fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     Ok(cx.boolean(request_ok))
 }
 
+fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let web_accessible_resource_dir: String = cx.argument::<JsString>(0)?.value();
+    let redirect_engine_path: String = cx.argument::<JsString>(1)?.value();
+    let scriptlets_path: String = cx.argument::<JsString>(2)?.value();
+
+    let mut resources = assemble_web_accessible_resources(&Path::new(&web_accessible_resource_dir), &Path::new(&redirect_engine_path));
+    resources.append(&mut assemble_scriptlet_resources(&Path::new(&scriptlets_path)));
+
+    let js_resources = neon_serde::to_value(&mut cx, &resources)?;
+
+    Ok(js_resources)
+}
+
 register_module!(mut m, {
     // Export the `JsEngine` class
     m.export_class::<JsEngine>("Engine")?;
     m.export_function("lists", lists)?;
     m.export_function("validateRequest", validate_request)?;
+    m.export_function("uBlockResources", ublock_resources)?;
     Ok(())
 });

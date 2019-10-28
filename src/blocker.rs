@@ -11,8 +11,7 @@ use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
-use crate::resources::{Resources, Resource};
-use base64;
+use crate::resources::{Resource, RedirectResourceStorage, RedirectResource};
 use crate::utils;
 
 pub struct BlockerOptions {
@@ -104,7 +103,7 @@ pub struct Blocker {
     load_network_filters: bool,
 
     #[serde(default)]
-    resources: Resources,
+    resources: RedirectResourceStorage,
     #[cfg(feature = "object-pooling")]
     #[serde(skip_serializing, skip_deserializing)]
     pool: TokenPool,
@@ -207,11 +206,7 @@ impl Blocker {
             if let Some(redirect) = f.redirect.as_ref() {
                 // And we have a matching redirect resource
                 if let Some(resource) = self.resources.get_resource(redirect) {
-                    let data_url = if resource.content_type.contains(';') {
-                        format!("data:{},{}", resource.content_type, resource.data)
-                    } else {
-                        format!("data:{};base64,{}", resource.content_type, base64::encode(&resource.data))
-                    };
+                    let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
                     Some(data_url.trim().to_owned())
                 } else {
                     // TOOD: handle error - throw?
@@ -320,7 +315,7 @@ impl Blocker {
             load_cosmetic_filters: options.load_cosmetic_filters,
             load_network_filters: options.load_network_filters,
 
-            resources: Resources::default(),
+            resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
         }
@@ -404,17 +399,18 @@ impl Blocker {
         self.tags_enabled.iter().cloned().collect()
     }
     
-    pub fn with_resources(&mut self, resources: Resources) -> &mut Blocker {
+    pub fn with_resources(&mut self, resources: &[Resource]) -> &mut Blocker {
+        let resources = RedirectResourceStorage::from_resources(resources);
         self.resources = resources;
         self
     }
 
-    pub fn resource_add(&mut self, key: String, resource: Resource) -> &mut Blocker {
-        self.resources.add_resource(key, resource);
+    pub fn resource_add(&mut self, resource: Resource) -> &mut Blocker {
+        self.resources.add_resource(resource);
         self
     }
 
-    pub fn resource_get(&self, key: &str) -> Option<&Resource> {
+    pub fn resource_get(&self, key: &str) -> Option<&RedirectResource> {
         self.resources.get_resource(key)
     }
 }

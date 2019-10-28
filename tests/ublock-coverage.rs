@@ -8,6 +8,7 @@ use adblock::utils::rules_from_lists;
 
 use serde::{Deserialize};
 use std::fs::File;
+use std::path::Path;
 use std::io::BufReader;
 
 use std::collections::HashMap;
@@ -107,13 +108,15 @@ fn check_specific_rules() {
         let mut engine = Engine::from_rules_debug(&[
             String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
         ]);
-        let resources_lines = adblock::utils::read_file_lines("data/uBlockOrigin/resources.txt");
-        let resources_str = resources_lines.join("\n");
-        engine.with_resources(&resources_str);
+        let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
+            Path::new("data/test/fake-uBO-files/web_accessible_resources"),
+            Path::new("data/test/fake-uBO-files/redirect-engine.js")
+        );
+        engine.with_resources(&resources);
 
         let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
         assert_eq!(checked.matched, true);
-        assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewoJOwp9KSgpOw==".to_owned()));
+        assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
 }
 
