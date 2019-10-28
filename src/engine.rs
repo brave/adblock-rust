@@ -308,6 +308,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn deserialization_backwards_compatible_plain() {
         // deserialization_generate_simple();
         // assert!(false);
@@ -326,6 +327,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn deserialization_backwards_compatible_tags() {
         // deserialization_generate_tags();
         // assert!(false);
@@ -351,6 +353,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn deserialization_backwards_compatible_resources() {
         // deserialization_generate_resources();
         // assert!(false);

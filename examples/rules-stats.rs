@@ -122,6 +122,8 @@ fn main() {
     let mut csp_lengths: Vec<_> = network_filters.iter().map(|f| f.csp.as_ref().map(|d| d.len() as i32).unwrap_or(0)).collect();
     print_stats("Network filter csp lengths", &mut csp_lengths);
 
-    let mut tag_lengths: Vec<_> = network_filters.iter().map(|f| f.tag.as_ref().map(|d| d.len() as i32).unwrap_or(0)).collect();
-    print_stats("Network filter tag lengths", &mut tag_lengths);
+    // network_filters.get_tokens()
+
+    // let mut tag_lengths: Vec<_> = network_filters.iter().map(|f| f.tag().as_ref().map(|d| d.len() as i32).unwrap_or(0)).collect();
+    // print_stats("Network filter tag lengths", &mut tag_lengths);
 }

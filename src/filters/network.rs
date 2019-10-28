@@ -59,6 +59,9 @@ bitflags! {
         // full document rules tend to be handled differently
         const FROM_DOCUMENT = 1 << 29;
 
+        // flag if the filter is marked for a bug
+        const HAS_BUG = 1 << 30;
+
         // Kind of pattern
         const IS_REGEX = 1 << 18;
         const IS_LEFT_ANCHOR = 1 << 19;
@@ -134,30 +137,6 @@ impl fmt::Display for NetworkFilterMask {
     }
 }
 
-impl From<&request::RequestType> for NetworkFilterMask {
-    fn from(request_type: &request::RequestType) -> NetworkFilterMask {
-        match request_type {
-            request::RequestType::Beacon => NetworkFilterMask::FROM_PING,
-            request::RequestType::Csp => NetworkFilterMask::UNMATCHED,
-            request::RequestType::Document => NetworkFilterMask::FROM_DOCUMENT,
-            request::RequestType::Dtd => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Fetch => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Font => NetworkFilterMask::FROM_FONT,
-            request::RequestType::Image => NetworkFilterMask::FROM_IMAGE,
-            request::RequestType::Media => NetworkFilterMask::FROM_MEDIA,
-            request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
-            request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Ping => NetworkFilterMask::FROM_PING,
-            request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
-            request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
-            request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
-            request::RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
-            request::RequestType::Xlst => NetworkFilterMask::FROM_OTHER,
-            request::RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, MallocSizeOf)]
 pub enum FilterPart {
     Empty,
@@ -185,7 +164,7 @@ pub struct NetworkFilter {
     pub hostname: Option<String>,
     pub csp: Option<String>,
     pub bug: Option<u32>,
-    pub tag: Option<String>,
+    pub tag: Hash,
 
     pub raw_line: Option<String>,
 
@@ -193,8 +172,8 @@ pub struct NetworkFilter {
     pub fuzzy_signature: Option<Vec<Hash>>,
 
     // All domain option values (their hashes) OR'ed together to quickly dismiss mis-matches
-    pub opt_domains_union: Option<Hash>,
-    pub opt_not_domains_union: Option<Hash>,
+    pub opt_domains_union: Hash,
+    pub opt_not_domains_union: Hash,
 
     // Regex compild lazily, using "Interior Mutability"
     // Arc (Atomic Reference Counter) allows for cloned NetworkFilters
@@ -226,13 +205,13 @@ impl NetworkFilter {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
-        let mut opt_domains_union: Option<Hash> = None;
-        let mut opt_not_domains_union: Option<Hash> = None;
+        let mut opt_domains_union: Hash = 0;
+        let mut opt_not_domains_union: Hash = 0;
 
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
         let mut bug: Option<u32> = None;
-        let mut tag: Option<String> = None;
+        let mut tag: Hash = 0;
 
         // Start parsing
         let mut filter_index_start: usize = 0;
@@ -293,13 +272,13 @@ impl NetworkFilter {
 
                         if !opt_domains_array.is_empty() {
                             opt_domains_array.sort();
-                            opt_domains_union = Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
+                            opt_domains_union = opt_domains_array.iter().fold(0, |acc, x| acc | x);
                             opt_domains_array.shrink_to_fit();
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort();
-                            opt_not_domains_union = Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
+                            opt_not_domains_union = opt_not_domains_array.iter().fold(0, |acc, x| acc | x);
                             opt_not_domains_array.shrink_to_fit();
                             opt_not_domains = Some(opt_not_domains_array);
                         }
@@ -325,8 +304,11 @@ impl NetworkFilter {
                     ("1p", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     ("fuzzy", _) => mask.set(NetworkFilterMask::FUZZY_MATCH, true),
                     ("collapse", _) => {}
-                    ("bug", _) => bug = value.parse::<u32>().ok(),
-                    ("tag", false) => tag = Some(String::from(value)),
+                    ("bug", _) => {
+                        bug = value.parse::<u32>().ok();
+                        mask.set(NetworkFilterMask::HAS_BUG, true);
+                    }
+                    ("tag", false) => tag = utils::fast_hash(value),
                     ("tag", true) => return Err(FilterError::NegatedTag),
                     // Negation of redirection doesn't make sense
                     ("redirect", true) => return Err(FilterError::NegatedRedirection),
@@ -395,6 +377,10 @@ impl NetworkFilter {
         } else if line[filter_index_start..].starts_with('|') {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
             filter_index_start += 1;
+        }
+        // Exceptions that apply to anything are explicitly marked to apply to documents as well
+        if mask.contains(NetworkFilterMask::IS_EXCEPTION) && mask.contains(NetworkFilterMask::FROM_ANY) {
+            mask.set(NetworkFilterMask::FROM_DOCUMENT, true)
         }
 
         // Deal with hostname pattern
@@ -585,7 +571,7 @@ impl NetworkFilter {
             redirect,
             id: utils::fast_hash(&line),
             fuzzy_signature: maybe_fuzzy_signature,
-            opt_domains_union,
+            opt_domains_union: if opt_domains_union != 0 { opt_domains_union } else { utils::HASH_MAX },
             opt_not_domains_union,
             regex: Rc::new(RefCell::new(None))
         })
@@ -793,7 +779,6 @@ pub trait NetworkMatchable {
 }
 
 impl NetworkMatchable for NetworkFilter {
-    
     fn matches(&self, request: &request::Request) -> bool {
         check_options(&self, request) && check_pattern(&self, request)
     }
@@ -1345,46 +1330,28 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
     }
 }
 
-pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> bool {
-    match NetworkFilterMask::from(cpt) {
-        NetworkFilterMask::FROM_DOCUMENT => filter.get_cpt_mask().contains(NetworkFilterMask::FROM_DOCUMENT) || filter.is_exception(),
-        mask => filter.mask.contains(mask),
-    }
-}
-
 fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
-    // Bad filter never matches
-    if filter.is_badfilter() {
-        return false;
-    }
-    // We first discard requests based on type, protocol and party. This is really
-    // cheap and should be done first.
-    if !check_cpt_allowed(&filter, &request.request_type)
-        || (request.is_https && !filter.for_https())
-        || (request.is_http && !filter.for_http())
-        || (!filter.first_party() && request.is_first_party == Some(true))
-        || (!filter.third_party() && request.is_third_party == Some(true))
+    if filter.mask.contains(NetworkFilterMask::BAD_FILTER)
+        // We first discard requests based on type, protocol and party. This is really
+        // cheap and should be done first.
+        || !filter.mask.contains(request.request_type)
+        // Make sure that an exception with a bug ID can only apply to a request being
+        // matched for a specific bug ID.
+        || (filter.mask.contains(NetworkFilterMask::HAS_BUG | NetworkFilterMask::IS_EXCEPTION) && filter.bug != request.bug)
+        // Quickly reject requests that definitely don't match the rule's domains
+        || filter.opt_domains_union & request.source_hostname_intersection != request.source_hostname_intersection
     {
         return false;
     }
 
-    // Make sure that an exception with a bug ID can only apply to a request being
-    // matched for a specific bug ID.
-    if filter.bug.is_some() && filter.is_exception() && filter.bug != request.bug {
-        return false;
-    }
-
-    
     // Source URL must be among these domains to match
     if let Some(included_domains) = filter.opt_domains.as_ref() {
-        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            // If the union of included domains is recorded
-            if let Some(included_domains_union) = filter.opt_domains_union {
-                // If there isn't any source hash that matches the union, there's no match at all
-                if source_hashes.iter().all(|h| h & included_domains_union != *h) {
-                    return false
-                }
+        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {            
+            // If there isn't any source hash that matches the union, there's no match at all
+            if source_hashes.iter().all(|h| h & filter.opt_domains_union != *h) {
+                return false
             }
+            
             if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
                 return false
             }
@@ -1394,12 +1361,8 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
     if let Some(excluded_domains) = filter.opt_not_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
             // If the union of excluded domains is recorded
-            if let Some(excluded_domains_union) = filter.opt_not_domains_union {
-                // If there's any source hash that matches the union, check the actual values
-                if source_hashes.iter().any(|h| (h & excluded_domains_union == *h) && utils::bin_lookup(&excluded_domains, *h)) {
-                    return false
-                }
-            } else if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
+            // If there's any source hash that matches the union, check the actual values
+            if source_hashes.iter().any(|h| (h & filter.opt_not_domains_union == *h) && utils::bin_lookup(&excluded_domains, *h)) {
                 return false
             }
         }
@@ -2809,7 +2772,7 @@ mod match_tests {
             let request =
                 request::Request::from_urls("https://foo.com/bar", "http://baz.bar.com", "")
                     .unwrap();
-            assert_eq!(check_options(&network_filter, &request), false);
+            assert_eq!(check_options(&network_filter, &request), false, "Expected false for {:?} on {:?}", request, network_filter);
         }
 
         // ~first-party
@@ -3026,7 +2989,6 @@ mod match_tests {
             let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let request = request::Request::from_urls(url, source, "document").unwrap();
-            assert_eq!(request.is_third_party, Some(false));
             assert!(
                 network_filter.matches(&request) == true,
                 "Expected match for {} on {}",
@@ -3040,7 +3002,6 @@ mod match_tests {
             let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let request = request::Request::from_urls(url, source, "main_frame").unwrap();
-            assert_eq!(request.is_third_party, Some(false));
             assert!(
                 network_filter.matches(&request) == true,
                 "Expected match for {} on {}",

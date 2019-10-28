@@ -1,5 +1,6 @@
 use crate::url_parser::{get_host_domain, UrlParser};
 use crate::utils;
+use crate::filters::network::NetworkFilterMask;
 
 use idna;
 use smallvec::SmallVec;
@@ -44,8 +45,8 @@ impl From<url::ParseError> for RequestError {
     }
 }
 
-fn cpt_match_type(cpt: &str) -> RequestType {
-    match cpt {
+fn cpt_match_type(cpt: &str) -> NetworkFilterMask {
+    let request_type = match cpt {
         "beacon" => RequestType::Ping,
         "csp_report" => RequestType::Csp,
         "document" | "main_frame" => RequestType::Document,
@@ -66,23 +67,41 @@ fn cpt_match_type(cpt: &str) -> RequestType {
         "xml_dtd" => RequestType::Other,
         "xslt" => RequestType::Other,
         _ => RequestType::Other
+    };
+
+    NetworkFilterMask::from(&request_type)
+}
+
+impl From<&RequestType> for NetworkFilterMask {
+    fn from(request_type: &RequestType) -> NetworkFilterMask {
+        match request_type {
+            RequestType::Beacon => NetworkFilterMask::FROM_PING,
+            RequestType::Csp => NetworkFilterMask::UNMATCHED,
+            RequestType::Document => NetworkFilterMask::FROM_DOCUMENT,
+            RequestType::Dtd => NetworkFilterMask::FROM_OTHER,
+            RequestType::Fetch => NetworkFilterMask::FROM_OTHER,
+            RequestType::Font => NetworkFilterMask::FROM_FONT,
+            RequestType::Image => NetworkFilterMask::FROM_IMAGE,
+            RequestType::Media => NetworkFilterMask::FROM_MEDIA,
+            RequestType::Object => NetworkFilterMask::FROM_OBJECT,
+            RequestType::Other => NetworkFilterMask::FROM_OTHER,
+            RequestType::Ping => NetworkFilterMask::FROM_PING,
+            RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
+            RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
+            RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
+            RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
+            RequestType::Xlst => NetworkFilterMask::FROM_OTHER,
+            RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Request {
-    pub request_type: RequestType,
-
-    pub is_http: bool,
-    pub is_https: bool,
-    pub is_supported: bool,
-    pub is_first_party: Option<bool>,
-    pub is_third_party: Option<bool>,
+    pub request_type: NetworkFilterMask,
     pub url: String,
-    // pub hostname: String,
     pub source_hostname_hashes: Option<SmallVec<[utils::Hash; 4]>>,
-
-    // mutable fields, set later
+    pub source_hostname_intersection: utils::Hash,
     pub bug: Option<u32>,
     hostname_start: usize,
     hostname_end: usize
@@ -106,6 +125,10 @@ impl<'a> Request {
 
     pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
         utils::create_fuzzy_signature(&self.url)
+    }
+
+    pub fn is_supported(&self) -> bool {
+        !self.request_type.contains(NetworkFilterMask::UNMATCHED)
     }
 
     pub fn new(
@@ -150,30 +173,30 @@ impl<'a> Request {
     ) -> Request {
         let first_party = third_party.map(|p| !p);
 
-        let is_http: bool;
-        let is_https: bool;
-        let is_supported: bool;
-        let request_type: RequestType;
+        // let is_supported: bool;
+
+        let mut request_mask = NetworkFilterMask::NONE;
+        if first_party == Some(true) {
+            request_mask |= NetworkFilterMask::FIRST_PARTY
+        }
+        if third_party == Some(true) {
+            request_mask |= NetworkFilterMask::THIRD_PARTY
+        }
 
         if schema.is_empty() {
             // no ':' was found
-            is_https = true;
-            is_http = false;
-            is_supported = true;
-            request_type = cpt_match_type(raw_type);
+            request_mask |= NetworkFilterMask::FROM_HTTPS | cpt_match_type(raw_type);
         } else {
-            is_http = schema == "http";
-            is_https = !is_http && schema == "https";
-
-            let is_websocket = !is_http && !is_https && (schema == "ws" || schema == "wss");
-            is_supported = is_http || is_https || is_websocket;
-            if is_websocket {
-                request_type = RequestType::Websocket;
-            } else {
-                request_type = cpt_match_type(raw_type);
-            }
+            request_mask |= match schema {
+                "http" => NetworkFilterMask::FROM_HTTP | cpt_match_type(raw_type),
+                "https" => NetworkFilterMask::FROM_HTTPS | cpt_match_type(raw_type),
+                "ws" | "wss" => NetworkFilterMask::FROM_WEBSOCKET,
+                _ => NetworkFilterMask::UNMATCHED                                       // indicate unsupported request
+            };
         }
+        // is_supported = !request_mask.contains(NetworkFilterMask::UNMATCHED);
 
+        let source_hostname_intersection;
         let source_hostname_hashes = if !source_hostname.is_empty() {
             let mut hashes: SmallVec<[utils::Hash; 4]> = SmallVec::with_capacity(4);
             hashes.push(utils::fast_hash(&source_hostname));
@@ -184,22 +207,21 @@ impl<'a> Request {
                     hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
                 }
             }
+            source_hostname_intersection = hashes.iter().fold(utils::HASH_MAX, |acc, x| acc & x);
             Some(hashes)
         } else {
+            source_hostname_intersection = 0;
             None
         };
 
         let hostname_start: usize = hostname_end - hostname.len();
 
         Request {
-            request_type,
+            request_type: request_mask,
             url: url.to_owned(),
             source_hostname_hashes,
-            is_first_party: first_party,
-            is_third_party: third_party,
-            is_http,
-            is_https,
-            is_supported,
+            source_hostname_intersection,
+            // is_supported,
             bug: None,
             hostname_start,
             hostname_end
@@ -308,11 +330,11 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(simple_example.is_https, true);
-        assert_eq!(simple_example.is_supported, true);
-        assert_eq!(simple_example.is_first_party, Some(true));
-        assert_eq!(simple_example.is_third_party, Some(false));
-        assert_eq!(simple_example.request_type, RequestType::Document);
+        assert_eq!(simple_example.request_type.contains(NetworkFilterMask::FROM_HTTPS), true);
+        assert_eq!(simple_example.is_supported(), true);
+        assert_eq!(simple_example.request_type.contains(NetworkFilterMask::FIRST_PARTY), true);
+        assert_eq!(simple_example.request_type.contains(NetworkFilterMask::THIRD_PARTY), false);
+        assert!(simple_example.request_type.contains(NetworkFilterMask::FROM_DOCUMENT));
         assert_eq!(
             simple_example
                 .source_hostname_hashes
@@ -337,9 +359,9 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(unsupported_example.is_https, false);
-        assert_eq!(unsupported_example.is_http, false);
-        assert_eq!(unsupported_example.is_supported, false);
+        assert_eq!(unsupported_example.request_type.contains(NetworkFilterMask::FROM_HTTPS), false);
+        assert_eq!(unsupported_example.request_type.contains(NetworkFilterMask::FROM_HTTP), false);
+        assert_eq!(unsupported_example.is_supported(), false);
 
         let first_party = Request::new(
             "document",
@@ -350,10 +372,10 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(first_party.is_https, true);
-        assert_eq!(first_party.is_supported, true);
-        assert_eq!(first_party.is_first_party, Some(true));
-        assert_eq!(first_party.is_third_party, Some(false));
+        assert_eq!(first_party.request_type.contains(NetworkFilterMask::FROM_HTTPS), true);
+        assert_eq!(first_party.is_supported(), true);
+        assert_eq!(first_party.request_type.contains(NetworkFilterMask::FIRST_PARTY), true);
+        assert_eq!(first_party.request_type.contains(NetworkFilterMask::THIRD_PARTY), false);
 
         let third_party = Request::new(
             "document",
@@ -364,10 +386,10 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(third_party.is_https, true);
-        assert_eq!(third_party.is_supported, true);
-        assert_eq!(third_party.is_first_party, Some(false));
-        assert_eq!(third_party.is_third_party, Some(true));
+        assert_eq!(third_party.request_type.contains(NetworkFilterMask::FROM_HTTPS), true);
+        assert_eq!(third_party.is_supported(), true);
+        assert_eq!(third_party.request_type.contains(NetworkFilterMask::FIRST_PARTY), false);
+        assert_eq!(third_party.request_type.contains(NetworkFilterMask::THIRD_PARTY), true);
 
         let websocket = Request::new(
             "document",
@@ -378,12 +400,12 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(websocket.is_https, false);
-        assert_eq!(websocket.is_https, false);
-        assert_eq!(websocket.is_supported, true);
-        assert_eq!(websocket.is_first_party, Some(false));
-        assert_eq!(websocket.is_third_party, Some(true));
-        assert_eq!(websocket.request_type, RequestType::Websocket);
+        assert_eq!(websocket.request_type.contains(NetworkFilterMask::FROM_HTTPS), false);
+        assert_eq!(websocket.request_type.contains(NetworkFilterMask::FROM_HTTP), false);
+        assert_eq!(websocket.is_supported(), true);
+        assert_eq!(websocket.request_type.contains(NetworkFilterMask::FIRST_PARTY), false);
+        assert_eq!(websocket.request_type.contains(NetworkFilterMask::THIRD_PARTY), true);
+        assert!(websocket.request_type.contains(NetworkFilterMask::FROM_WEBSOCKET));
 
         let assumed_https = Request::new(
             "document",
@@ -394,9 +416,9 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(assumed_https.is_https, true);
-        assert_eq!(assumed_https.is_http, false);
-        assert_eq!(assumed_https.is_supported, true);
+        assert_eq!(assumed_https.request_type.contains(NetworkFilterMask::FROM_HTTPS), true);
+        assert_eq!(assumed_https.request_type.contains(NetworkFilterMask::FROM_HTTP), false);
+        assert_eq!(assumed_https.is_supported(), true);
     }
 
     fn tokenize(tokens: &[&str], extra_tokens: &[utils::Hash]) -> Vec<utils::Hash> {
@@ -466,14 +488,14 @@ mod tests {
             "document",
         )
         .unwrap();
-        assert_eq!(parsed.is_https, true);
-        assert_eq!(parsed.is_supported, true);
-        assert_eq!(parsed.is_first_party, Some(true));
-        assert_eq!(parsed.is_third_party, Some(false));
-        assert_eq!(parsed.request_type, RequestType::Document);
+        assert_eq!(parsed.request_type.contains(NetworkFilterMask::FROM_HTTPS), true);
+        assert_eq!(parsed.is_supported(), true);
+        assert_eq!(parsed.request_type.contains(NetworkFilterMask::FIRST_PARTY), true);
+        assert_eq!(parsed.request_type.contains(NetworkFilterMask::THIRD_PARTY), false);
+        assert!(parsed.request_type.contains(NetworkFilterMask::FROM_DOCUMENT));
 
         // assert_eq!(parsed.domain, "example.com");
-        assert_eq!(parsed.hostname, "subdomain.example.com");
+        assert_eq!(parsed.hostname(), "subdomain.example.com");
 
         // assert_eq!(parsed.source_domain, "example.com");
         assert_eq!(
@@ -508,27 +530,32 @@ mod tests {
         {
             // domain matches
             let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "example.com", "document", None);
-            assert_eq!(parsed.is_third_party, Some(false));
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::THIRD_PARTY), false);
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::FIRST_PARTY), true);
         }
         {
             // domain does not match
             let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "anotherexample.com", "document", None);
-            assert_eq!(parsed.is_third_party, Some(true));
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::THIRD_PARTY), true);
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::FIRST_PARTY), false);
         }
         {
             // cannot parse domain
             let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "", "document", None);
-            assert_eq!(parsed.is_third_party, None);
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::THIRD_PARTY), false);
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::FIRST_PARTY), false);
         }
         {
             // third-partiness set to false
             let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "example.com", "document", Some(true));
-            assert_eq!(parsed.is_third_party, Some(true));
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::THIRD_PARTY), true);
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::FIRST_PARTY), false);
         }
         {
             // third-partiness set to true
             let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "anotherexample.com", "document", Some(false));
-            assert_eq!(parsed.is_third_party, Some(false));
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::THIRD_PARTY), false);
+            assert_eq!(parsed.request_type.contains(NetworkFilterMask::FIRST_PARTY), true);
         }
     }
 }

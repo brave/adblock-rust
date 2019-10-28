@@ -1,3 +1,6 @@
+use nohash_hasher::NoHashHasher;
+use std::{hash::BuildHasherDefault};
+
 use hashbrown::HashMap;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
@@ -91,6 +94,8 @@ pub struct Blocker {
     // instance (the one we are recreating lists into) are maintained
     #[serde(skip_serializing, skip_deserializing)]
     tags_enabled: HashSet<String>,
+    #[serde(skip_serializing, skip_deserializing)]
+    tags_enabled_union: Hash,
     tagged_filters_all: Vec<NetworkFilter>,
 
     #[serde(skip_serializing, skip_deserializing)]
@@ -114,14 +119,14 @@ impl Blocker {
      * blocked, redirected or allowed.
      */
     pub fn check(&self, request: &Request) -> BlockerResult {
-        if !self.load_network_filters || !request.is_supported {
-            return BlockerResult::default();
-        }
+        // if !self.load_network_filters || !request.is_supported {
+        //     return BlockerResult::default();
+        // }
 
         lazy_static! {
             // only check for tags in tagged and exception rule buckets,
             // pass empty set for the rest
-            static ref NO_TAGS: HashSet<String> = HashSet::new();
+            static ref NO_TAGS: Hash = 0;
         }
 
         // Check the filters in the following order:
@@ -146,21 +151,21 @@ impl Blocker {
         let filter = self
             .importants
             // Don't look at tags by default, only for the tagged rule bucket
-            .check(request, &request_tokens, &NO_TAGS)
+            .check(request, &request_tokens, 0)
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("tagged\t");
-                self.filters_tagged.check(request, &request_tokens, &self.tags_enabled)
+                self.filters_tagged.check(request, &request_tokens, self.tags_enabled_union)
             })
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("redirects\t");
-                self.redirects.check(request, &request_tokens, &NO_TAGS)
+                self.redirects.check(request, &request_tokens, 0)
             })
             .or_else(|| {
                 #[cfg(feature = "metrics")]
                 print!("filters\t"); 
-                self.filters.check(request, &request_tokens, &NO_TAGS)
+                self.filters.check(request, &request_tokens, 0)
             });
 
         let exception = filter.as_ref().and_then(|f| {
@@ -171,9 +176,9 @@ impl Blocker {
                 if f.has_bug() {
                     let mut request_bug = request.clone();
                     request_bug.bug = f.bug;
-                    self.exceptions.check(&request_bug, &request_tokens, &self.tags_enabled)
+                    self.exceptions.check(&request_bug, &request_tokens, self.tags_enabled_union)
                 } else {
-                    self.exceptions.check(request, &request_tokens, &self.tags_enabled)
+                    self.exceptions.check(request, &request_tokens, self.tags_enabled_union)
                 }
             } else {
                 None
@@ -268,7 +273,7 @@ impl Blocker {
                     importants.push(filter);
                 } else if filter.is_redirect() {
                     redirects.push(filter);
-                } else if filter.tag.is_some() {
+                } else if filter.tag != 0 {
                     tagged_filters_all.push(filter);
                 } else {
                     filters.push(filter);
@@ -292,6 +297,7 @@ impl Blocker {
             filters: NetworkFilterList::new(filters, options.enable_optimizations),
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
+            tags_enabled_union: 0,
             tagged_filters_all,
             hot_filters: NetworkFilterList::default(),
             // Options
@@ -315,7 +321,7 @@ impl Blocker {
             self.importants.filter_exists(filter)
         } else if filter.is_redirect() {
             self.redirects.filter_exists(filter)
-        } else if filter.tag.is_some() {
+        } else if filter.tag != 0 {
             Ok(self.tagged_filters_all.iter().any(|f| f.id == filter.id))
         } else {
             self.filters.filter_exists(filter)
@@ -339,7 +345,7 @@ impl Blocker {
         } else if filter.is_redirect() {
             self.redirects.filter_add(filter);
             Ok(self)
-        } else if filter.tag.is_some() {
+        } else if filter.tag != 0 {
             self.tagged_filters_all.push(filter);
             let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
             Ok(self.tags_with_set(tags_enabled))
@@ -372,8 +378,9 @@ impl Blocker {
 
     fn tags_with_set<'a>(&'a mut self, tags_enabled: HashSet<String>) -> &'a mut Blocker {
         self.tags_enabled = tags_enabled;
+        self.tags_enabled_union = self.tags_enabled.iter().fold(0, |acc, x| acc | utils::fast_hash(x));
         let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
-            .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
+            .filter(|n| n.tag & self.tags_enabled_union == n.tag)
             .cloned()
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
@@ -401,7 +408,7 @@ impl Blocker {
 
 #[derive(Serialize, Deserialize, Default)]
 struct NetworkFilterList {
-    filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
+    filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>, BuildHasherDefault<NoHashHasher<Hash>>>,
     // optimized: Option<bool>
 }
 
@@ -419,7 +426,7 @@ impl NetworkFilterList {
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
-        let mut filter_map = HashMap::with_capacity(filter_tokens.len());
+        let mut filter_map = HashMap::with_capacity_and_hasher(filter_tokens.len(), BuildHasherDefault::default());
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -445,7 +452,7 @@ impl NetworkFilterList {
 
         // Update all values
         if enable_optimizations {
-            let mut optimized_map = HashMap::with_capacity(filter_map.len());
+            let mut optimized_map = HashMap::with_capacity_and_hasher(filter_map.len(), BuildHasherDefault::default());
             for (key, filters) in filter_map {
                 let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
                 let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
@@ -534,36 +541,17 @@ impl NetworkFilterList {
         Ok(false)
     }
 
-    pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Option<&NetworkFilter> {
-        #[cfg(feature = "metrics")]
-        let mut filters_checked = 0;
-        #[cfg(feature = "metrics")]
-        let mut filter_buckets = 0;
-
-        #[cfg(not(feature = "metrics"))]
-        {
-            if self.filter_map.is_empty() {
-                return None;
-            }
+    pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: Hash) -> Option<&NetworkFilter> {
+        if self.filter_map.is_empty() {
+            return None;
         }
 
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
-                    #[cfg(feature = "metrics")]
-                    {
-                        filter_buckets += 1;
-                    }
-
                     for filter in filter_bucket {
-                        #[cfg(feature = "metrics")]
-                        {
-                            filters_checked += 1;
-                        }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
-                            #[cfg(feature = "metrics")]
-                            print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
+                        if filter.matches(request) && (filter.tag & active_tags == filter.tag) {
                             return Some(filter);
                         }
                     }
@@ -571,32 +559,16 @@ impl NetworkFilterList {
             }
         }
 
-        #[cfg(feature = "metrics")]
-        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
-        
         for token in request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
-                #[cfg(feature = "metrics")]
-                {
-                    filter_buckets += 1;
-                }
                 for filter in filter_bucket {
-                    #[cfg(feature = "metrics")]
-                    {
-                        filters_checked += 1;
-                    }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
-                        #[cfg(feature = "metrics")]
-                        print!("true\t{}\t{}\t", filter_buckets, filters_checked);
+                    if filter.matches(request) && (filter.tag & active_tags == filter.tag) {
                         return Some(filter);
                     }
                 }
             }
         }
-
-        #[cfg(feature = "metrics")]
-        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
 
         None
     }
@@ -830,7 +802,7 @@ mod tests {
         requests.into_iter().for_each(|(req, expected_result)| {
             let mut tokens = Vec::new();
             req.get_tokens(&mut tokens);
-            let matched_rule = filter_list.check(&req, &tokens, &HashSet::new());
+            let matched_rule = filter_list.check(&req, &tokens, 0);
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {

@@ -7,12 +7,25 @@ use seahash::reference::hash;
 #[cfg(target_pointer_width = "64")]
 use seahash::hash;
 
+pub type DefaultHashBuilder = ahash::ABuildHasher;
+use std::hash::{Hash as stdHash,Hasher,BuildHasher};
+use ahash::ABuildHasher;
+// use ahash::AHasher;
+
 pub type Hash = u64;
-static HASH_MAX: Hash = std::u64::MAX;
+pub static HASH_MAX: Hash = std::u64::MAX;
+
+
 
 #[inline]
-pub fn fast_hash(input: &str) -> Hash {
-    hash(input.as_bytes()) as Hash
+pub fn fast_hash<K: stdHash + ?Sized>(input: &K) -> Hash {
+    lazy_static! {
+        static ref HASH_BUILDER: ABuildHasher = DefaultHashBuilder::default();
+    }
+    // hash(input.as_bytes()) as Hash
+    let mut state = HASH_BUILDER.build_hasher();
+    input.hash(&mut state);
+    state.finish()
 }
 
 #[inline]
