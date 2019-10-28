@@ -4,7 +4,7 @@ extern crate reqwest;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
 use adblock::filters::network::NetworkFilter;
-use adblock::resource_assembler::assemble_web_accessible_resources;
+use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
 use serde::{Deserialize};
 use std::fs::File;

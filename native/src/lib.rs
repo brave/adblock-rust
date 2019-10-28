@@ -11,7 +11,7 @@ use std::path::Path;
 use adblock::engine::Engine;
 use adblock::filter_lists;
 use adblock::resources::Resource;
-use adblock::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
+use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
 
 #[derive(Serialize, Deserialize)]

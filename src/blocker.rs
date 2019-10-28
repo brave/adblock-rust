@@ -11,8 +11,7 @@ use crate::filters::network::{NetworkFilter, NetworkMatchable, FilterError};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
-use crate::resources::Resource;
-use crate::redirect_resources::{RedirectResourceStorage, RedirectResource};
+use crate::resources::{Resource, RedirectResourceStorage, RedirectResource};
 use crate::utils;
 
 pub struct BlockerOptions {

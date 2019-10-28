@@ -108,7 +108,7 @@ fn check_specific_rules() {
         let mut engine = Engine::from_rules_debug(&[
             String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
         ]);
-        let resources = adblock::resource_assembler::assemble_web_accessible_resources(
+        let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-engine.js")
         );
