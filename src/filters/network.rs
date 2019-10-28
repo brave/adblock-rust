@@ -1018,7 +1018,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
 }
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len());
+    let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len() - hostname.len());
     &url[start + hostname.len()..]
 }
 
@@ -3049,4 +3049,14 @@ mod match_tests {
         }
     }
 
+    #[test]
+    fn check_get_url_after_hostname_handles_bad_input() {
+        // The function requires the hostname to necessarily be there in the URL,
+        // but should fail gracefully if that is not the case.
+        // Graceful failure here is returning an empty string for the rest of the URL
+        assert_eq!(get_url_after_hostname("https://www.google.com/ad", "google.com"), "/ad");
+        assert_eq!(get_url_after_hostname("https://www.google.com/?aclksa=l&ai=DChcSEwioqMfq5", "google.com"), "/?aclksa=l&ai=DChcSEwioqMfq5");
+        assert_eq!(get_url_after_hostname("https://www.google.com/?aclksa=l&ai=DChcSEwioqMfq5", "www.google.com"), "/?aclksa=l&ai=DChcSEwioqMfq5");
+        assert_eq!(get_url_after_hostname("https://www.youtube.com/?aclksa=l&ai=DChcSEwioqMfq5", "google.com"), "");
+    }
 }
