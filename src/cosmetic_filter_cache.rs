@@ -13,21 +13,24 @@ lazy_static! {
     static ref PUBLIC_SUFFIXES: psl::List = psl::List::new();
 }
 
-fn generic_rules_to_stylesheet(rules: &[CosmeticFilter]) -> String {
-    if rules.is_empty() {
-        "".into()
-    } else {
-        let mut stylesheet = String::with_capacity(100 * rules.len());
-        stylesheet += &rules[0].selector;
-        rules.iter()
-            .skip(1)
-            .for_each(|rule| {
-                stylesheet += ",";
-                stylesheet += &rule.selector;
-            });
+fn generic_selectors_to_stylesheet<'a, I>(mut selectors: I) -> String
+where
+    I: Iterator<Item = &'a String>,
+{
+    if let Some(first_rule) = selectors.next() {
+        // Brave's generic rules in stylesheet format are about 30000 characters long
+        let mut stylesheet = String::with_capacity(32768);
+        stylesheet += &first_rule;
+
+        selectors.for_each(|rule| {
+            stylesheet += ",";
+            stylesheet += &rule;
+        });
         stylesheet += "{display:none !important;}";
 
         stylesheet
+    } else {
+        "".into()
     }
 }
 
@@ -35,7 +38,7 @@ fn generic_rules_to_stylesheet(rules: &[CosmeticFilter]) -> String {
 pub struct HostnameSpecificResources {
     pub stylesheet: String,
     pub exceptions: HashSet<String>,
-    pub script_injections: Vec<String>,
+    pub injected_script: String,
 }
 
 impl HostnameSpecificResources {
@@ -43,7 +46,7 @@ impl HostnameSpecificResources {
         Self {
             stylesheet: String::new(),
             exceptions: HashSet::new(),
-            script_injections: vec![],
+            injected_script: String::new(),
         }
     }
 }
@@ -96,7 +99,7 @@ pub struct CosmeticFilterCache {
 
     specific_rules: HostnameRuleDb,
 
-    misc_rules: Vec<CosmeticFilter>,
+    misc_generic_selectors: HashSet<String>,
     // The base stylesheet can be invalidated if a new miscellaneous rule is added. RefCell is used
     // to regenerate and cache the base stylesheet behind an immutable reference if necessary.
     // Mutex is used to ensure thread-safety in the event that multiple FFI accesses occur
@@ -114,7 +117,7 @@ impl CosmeticFilterCache {
 
             specific_rules: HostnameRuleDb::new(),
 
-            misc_rules: Vec::with_capacity(rules.len() / 30),
+            misc_generic_selectors: HashSet::with_capacity(rules.len() / 30),
             base_stylesheet: Mutex::new(RefCell::new(None)),
         };
 
@@ -133,7 +136,7 @@ impl CosmeticFilterCache {
         // `expect` should not fail unless a thread holding the locked mutex panics
         let base_stylesheet = self.base_stylesheet.lock().expect("Acquire base_stylesheet mutex");
         if base_stylesheet.borrow().is_none() {
-            let stylesheet = generic_rules_to_stylesheet(&self.misc_rules);
+            let stylesheet = generic_selectors_to_stylesheet(self.misc_generic_selectors.iter());
             base_stylesheet.replace(Some(stylesheet));
         }
     }
@@ -178,7 +181,7 @@ impl CosmeticFilterCache {
                 }
             }
         } else {
-            self.misc_rules.push(rule);
+            self.misc_generic_selectors.insert(rule.selector);
             // `expect` should not fail unless a thread holding the locked mutex panics
             self.base_stylesheet.lock().expect("acquire base_stylesheet mutex").replace(None);
         }
@@ -255,13 +258,21 @@ impl CosmeticFilterCache {
 
         // TODO some rules in the base_stylesheet could be overridden by hostname exceptions
         let (hostname_stylesheet, script_injections) = specific_rules_to_stylesheet(&rules_that_apply[..]);
-        let mut base_stylesheet = self.base_stylesheet();
+
+        let mut base_stylesheet = if exceptions.hide_exceptions.is_empty() {
+            self.base_stylesheet()
+        } else {
+            generic_selectors_to_stylesheet(self.misc_generic_selectors.difference(&exceptions.hide_exceptions))
+        };
+
         base_stylesheet += &hostname_stylesheet;
+
+        let injected_script = String::new();
 
         HostnameSpecificResources {
             stylesheet: base_stylesheet,
             exceptions: exceptions.hide_exceptions,
-            script_injections,
+            injected_script,
         }
     }
 
@@ -552,22 +563,19 @@ mod cosmetic_cache_tests {
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("test.example.com");
-        expected.script_injections = vec!["set-constant.js, atob, trueFunc".into()];
+        expected.injected_script = "set-constant.js, atob, trueFunc\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("cosmetic.net");
-        expected.script_injections = vec!["nowebrtc.js".into()];
+        expected.injected_script = "nowebrtc.js\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("g.cosmetic.net");
-        expected.script_injections = vec![
-            "nowebrtc.js".into(),
-            "window.open-defuser.js".into()
-        ];
+        expected.injected_script = "nowebrtc.js\nwindow.open-defuser.js\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("c.g.cosmetic.net");
-        expected.script_injections = vec!["window.open-defuser.js".into()];
+        expected.injected_script = "window.open-defuser.js\n".to_owned();
         assert_eq!(out, expected);
     }
 
@@ -582,7 +590,12 @@ mod cosmetic_cache_tests {
         ]);
 
         let out = cfcache.base_stylesheet();
-        assert_eq!(out, "a[href=\"https://ads.com\"],div > p.ads{display:none !important;}".to_string());
+        assert!(out.contains("div > p.ads"));
+        assert!(out.contains("a[href=\"https://ads.com\"]"));
+        assert!(!out.contains("#simple-generic"));
+        assert!(!out.contains(".complex #generic"));
+        assert!(!out.contains("[href^=\"http://malware.ru\"]"));
+        assert!(out.ends_with("{display:none !important;}"));
     }
 
     #[test]
@@ -654,5 +667,29 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.class_id_stylesheet(&vec![], &vec!["test-element".into()], &exceptions);
         assert_eq!(out, None);
+    }
+
+    #[test]
+    fn misc_generic_exceptions() {
+        let rules = vec![
+            "##a[href=\"bad.com\"]",
+            "##div > p",
+            "##a[href=\"notbad.com\"]",
+            "example.com#@#div > p",
+            "~example.com##a[href=\"notbad.com\"]",
+        ];
+        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+
+        let base_stylesheet = cfcache.hostname_cosmetic_resources("test.com").stylesheet;
+        assert!(base_stylesheet.contains("a[href=\"bad.com\"]"));
+        assert!(base_stylesheet.contains("div > p"));
+        assert!(base_stylesheet.contains("a[href=\"notbad.com\"]"));
+        assert!(base_stylesheet.ends_with("{display:none !important;}"));
+
+        let base_stylesheet = cfcache.hostname_cosmetic_resources("example.com").stylesheet;
+        assert!(base_stylesheet.contains("a[href=\"bad.com\"]"));
+        assert!(!base_stylesheet.contains("div > p"));
+        assert!(!base_stylesheet.contains("a[href=\"notbad.com\"]"));
+        assert!(base_stylesheet.ends_with("{display:none !important;}"));
     }
 }
