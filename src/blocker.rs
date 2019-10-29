@@ -396,7 +396,7 @@ impl Blocker {
         self
     }
 
-    pub fn resource_add(&mut self, resource: Resource) -> &mut Blocker {
+    pub fn resource_add(&mut self, resource: &Resource) -> &mut Blocker {
         self.resources.add_resource(resource);
         self
     }

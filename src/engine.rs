@@ -200,11 +200,13 @@ impl Engine {
 
     pub fn with_resources<'a>(&'a mut self, resources: &[Resource]) -> &'a mut Engine {
         self.blocker.with_resources(resources);
+        self.cosmetic_cache.use_resources(resources);
         self
     }
 
     pub fn resource_add<'a>(&'a mut self, resource: Resource) -> &'a mut Engine {
-        self.blocker.resource_add(resource);
+        self.blocker.resource_add(&resource);
+        self.cosmetic_cache.add_resource(&resource);
         self
     }
 
