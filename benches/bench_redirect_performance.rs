@@ -7,7 +7,7 @@ use adblock;
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
 use adblock::request::Request;
 use adblock::blocker::{Blocker, BlockerOptions};
-use adblock::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
+use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
 lazy_static! {
     static ref PSL_LIST: psl::List = psl::List::new();
