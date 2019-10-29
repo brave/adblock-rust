@@ -42,18 +42,25 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 }
 
 fn main() {
+    println!("Deserializing engine");
+    let mut engine;
+    {
+        let mut file = File::open("data/rs-ABPFilterParserData.dat").expect("Opening serialization file failed");
+        let mut serialized = Vec::<u8>::new();
+        file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
+        engine = Engine::from_rules(&[]);
+        engine.deserialize(&serialized).expect("Deserialization failed");
+        // engine = get_blocker_engine();
+    }
+    engine.with_tags(&["twitter-embeds"]);
+
+    println!("Sleeping");
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
     println!("Loading requests");
     let requests = load_requests();
     let requests_len = requests.len() as u32;
     assert!(requests_len > 0, "List of parsed request info is empty");
-
-    println!("Deserializing engine");
-    let mut file = File::open("data/rs-ABPFilterParserData.dat").expect("Opening serialization file failed");
-    let mut serialized = Vec::<u8>::new();
-    file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
-    let mut engine = Engine::from_rules(&[]);
-    engine.deserialize(&serialized).expect("Deserialization failed");
-    engine.with_tags(&["twitter-embeds"]);
 
     println!("Matching");
     let mut mismatch_expected_match = 0;
