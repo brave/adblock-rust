@@ -1,5 +1,6 @@
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::cosmetic::CosmeticFilterMask;
+use crate::resources::{Resource, ScriptletResourceStorage};
 use crate::utils::Hash;
 
 use std::collections::{HashSet, HashMap};
@@ -105,6 +106,8 @@ pub struct CosmeticFilterCache {
     // Mutex is used to ensure thread-safety in the event that multiple FFI accesses occur
     // simultaneously.
     base_stylesheet: Mutex<RefCell<Option<String>>>,
+
+    scriptlets: ScriptletResourceStorage,
 }
 
 impl CosmeticFilterCache {
@@ -119,6 +122,8 @@ impl CosmeticFilterCache {
 
             misc_generic_selectors: HashSet::with_capacity(rules.len() / 30),
             base_stylesheet: Mutex::new(RefCell::new(None)),
+
+            scriptlets: Default::default(),
         };
 
         for rule in rules {
@@ -267,7 +272,13 @@ impl CosmeticFilterCache {
 
         base_stylesheet += &hostname_stylesheet;
 
-        let injected_script = String::new();
+        let mut injected_script = String::new();
+        script_injections.iter().for_each(|s| {
+            if let Ok(filled_template) = self.scriptlets.get_scriptlet(&s) {
+                injected_script += &filled_template;
+                injected_script += "\n";
+            }
+        });
 
         HostnameSpecificResources {
             stylesheet: base_stylesheet,
@@ -287,6 +298,14 @@ impl CosmeticFilterCache {
             // Unwrap is safe because the stylesheet is regenerated above if it is None
             .unwrap()
             .clone()
+    }
+
+    pub fn use_resources(&mut self, resources: &[Resource]) {
+        self.scriptlets = ScriptletResourceStorage::from_resources(resources);
+    }
+
+    pub fn add_resource(&mut self, resource: &Resource) {
+        self.scriptlets.add_resource(resource).unwrap_or_else(|e| eprintln!("Failed to add resource: {:?}", e));
     }
 }
 
@@ -547,12 +566,39 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn script_exceptions() {
-        let cfcache = cache_from_rules(vec![
+        use crate::resources::{ResourceType, MimeType};
+
+        let mut cfcache = cache_from_rules(vec![
             "example.com,~sub.example.com##+js(set-constant.js, atob, trueFunc)",
             "sub.test.example.com#@#+js(set-constant.js, atob, trueFunc)",
             "cosmetic.net##+js(nowebrtc.js)",
             "g.cosmetic.net##+js(window.open-defuser.js)",
             "c.g.cosmetic.net#@#+js(nowebrtc.js)",
+        ]);
+
+        cfcache.use_resources(&[
+            Resource {
+                name: "set-constant.js".into(),
+                aliases: vec![],
+                kind: ResourceType::Template,
+                content: base64::encode("set-constant.js, {{1}}, {{2}}"),
+            },
+            Resource {
+                name: "nowebrtc.js".into(),
+                aliases: vec![],
+                kind: ResourceType::Mime(
+                    MimeType::ApplicationJavascript,
+                ),
+                content: base64::encode("nowebrtc.js"),
+            },
+            Resource {
+                name: "window.open-defuser.js".into(),
+                aliases: vec![],
+                kind: ResourceType::Mime(
+                    MimeType::ApplicationJavascript,
+                ),
+                content: base64::encode("window.open-defuser.js"),
+            },
         ]);
 
         let out = cfcache.hostname_cosmetic_resources("sub.example.com");
