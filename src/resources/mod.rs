@@ -115,11 +115,11 @@ impl RedirectResourceStorage {
         self.resources.get(name)
     }
 
-    pub fn add_resource(&mut self, resource: Resource) {
-        if let ResourceType::Mime(content_type) = resource.kind {
+    pub fn add_resource(&mut self, resource: &Resource) {
+        if let ResourceType::Mime(ref content_type) = resource.kind {
             let name = resource.name.to_owned();
             let redirect_resource = RedirectResource {
-                content_type: content_type.into(),
+                content_type: content_type.clone().into(),
                 data: resource.content.to_owned(),
             };
             resource.aliases.iter().for_each(|alias| {
@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn get_resource_by_name() {
         let mut storage = RedirectResourceStorage::default();
-        storage.add_resource(Resource {
+        storage.add_resource(&Resource {
             name: "name.js".to_owned(),
             aliases: vec![],
             kind: ResourceType::Mime(MimeType::ApplicationJavascript),
@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn get_resource_by_alias() {
         let mut storage = RedirectResourceStorage::default();
-        storage.add_resource(Resource {
+        storage.add_resource(&Resource {
             name: "name.js".to_owned(),
             aliases: vec!["alias.js".to_owned()],
             kind: ResourceType::Mime(MimeType::ApplicationJavascript),
