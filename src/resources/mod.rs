@@ -35,7 +35,7 @@ pub enum ResourceType {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(into = "String")]
-#[serde(from = "&str")]
+#[serde(from = "std::borrow::Cow<'static, str>")]
 pub enum MimeType {
     ImageGif,
     TextHtml,
@@ -127,9 +127,9 @@ impl RedirectResourceStorage {
     }
 }
 
-impl From<&str> for MimeType {
-    fn from(v: &str) -> Self {
-        match v {
+impl From<std::borrow::Cow<'static, str>> for MimeType {
+    fn from(v: std::borrow::Cow<'static, str>) -> Self {
+        match v.as_ref() {
             "image/gif" => MimeType::ImageGif,
             "text/html" => MimeType::TextHtml,
             "application/javascript" => MimeType::ApplicationJavascript,
