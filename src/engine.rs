@@ -72,7 +72,8 @@ impl Engine {
         match rmps::decode::from_read(&mut gz) {
             Ok(cosmetic_cache) => self.cosmetic_cache = cosmetic_cache,
             Err(ref e) if is_eof_error(e) => {
-                eprintln!("Could not deserialize cosmetic filters, ignoring: {:?}", e);
+                // Ignore if didn't find any cosmetic filters
+                ()
             }
             Err(e) => {
                 eprintln!("Error deserializing cosmetic filters: {:?}", e);
