@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate neon;
 
 extern crate neon_serde;
@@ -17,7 +16,9 @@ use adblock::resources::resource_assembler::{assemble_web_accessible_resources, 
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
     pub debug: Option<bool>,
-    pub optimize: Option<bool>
+    pub optimize: Option<bool>,
+    pub loadNetwork: Option<bool>,
+    pub loadCosmetic: Option<bool>,
 }
 
 declare_types! {
@@ -28,6 +29,8 @@ declare_types! {
 
             let debug: bool;
             let optimize: bool;
+            let load_network: bool;
+            let load_cosmetic: bool;
             match cx.argument_opt(1) {
                 Some(arg) => {
                     // Throw if the argument exist and it cannot be downcasted to a boolean
@@ -35,14 +38,20 @@ declare_types! {
                     if let Ok(config) = maybe_config {
                         debug = config.debug.unwrap_or(false);
                         optimize = config.optimize.unwrap_or(true);
+                        load_network = config.loadNetwork.unwrap_or(true);
+                        load_cosmetic = config.loadCosmetic.unwrap_or(true);
                     } else {
                         debug = arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value();
                         optimize = true;
+                        load_network = true;
+                        load_cosmetic = true;
                     }
                 }
                 None => {
                     debug = false;
                     optimize = true;
+                    load_network = true;
+                    load_cosmetic = true;
                 },
             }
             // Convert a JsArray to a Rust Vec
@@ -55,7 +64,7 @@ declare_types! {
                 rules.push(rule);
             }
 
-            Ok(Engine::from_rules_parametrised(&rules, debug, optimize))
+            Ok(Engine::from_rules_parametrised(&rules, load_network, load_cosmetic, debug, optimize))
         }
 
         method check(mut cx) {
