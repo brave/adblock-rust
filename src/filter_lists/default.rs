@@ -87,5 +87,16 @@ pub fn default_lists() -> Vec<FilterList> {
             component_id: String::from(""),
             base64_public_key: String::from(""),
         },
+        FilterList {
+            uuid: String::from("4C073EB2-B3ED-42F3-8960-96C7A9215382"),
+            url: String::from(
+                "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-notifications.txt",
+            ),
+            title: String::from("Notification List"),
+            langs: Vec::new(),
+            support_url: String::from("https://github.com/brave/adblock-lists"),
+            component_id: String::from(""),
+            base64_public_key: String::from(""),
+        },
     ].to_vec()
 }
