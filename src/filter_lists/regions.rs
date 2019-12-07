@@ -147,7 +147,7 @@ pub fn regions() -> Vec<FilterList> {
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAraHfJfoceCra3QEYhK2Njl8oUvtDOiT60o/HjpSsarfEgIgCKgqF/sUGK2PVL4c2CsF+fG+YzI4eGrJ85rXL5Z47lmP666r9lZcMVoGs2L7RT8UvsVwpyxiH868kLVxeM0NBas/jIy7jAul5/fGf0fRUF0TbSIG/tghO8nR4bloYEbSri9BWcl6ccMfAKsIalNWnP3uifjC/t7BWIkY486zq/UPXdIuJbRPWqJDTS6EZH5ZXFDkLE8tta3OrRV7n3ei2HdyTnJOVj2DSskKWwAA7fpYGVnmJouBqg++kC6YqSnaW2ElVzQIaiRigwXj4keAZzMoDbTrGh7g+LSVngwIDAQAB")
         },
         FilterList {
-            uuid: String::from("d77410e1-3ce3-4bf3-9f56-9920fb66be92"),
+            uuid: String::from("D77410E1-3CE3-4BF3-9F56-9920FB66BE92"),
             url: String::from("https://raw.githubusercontent.com/heradhis/indonesianadblockrules/master/subscriptions/abpindo.txt"),
             title: String::from("INDO: Indonesia List"),
             langs: [String::from("fa")].to_vec(),
