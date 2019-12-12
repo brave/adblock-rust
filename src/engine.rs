@@ -217,10 +217,18 @@ impl Engine {
 
     // Cosmetic filter functionality
 
-    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: HashSet<String>) -> Option<String> {
-        self.cosmetic_cache.class_id_stylesheet(classes, ids, &exceptions)
+    /// If any of the provided CSS classes or ids could cause a certain generic CSS hide rule
+    /// (i.e. `{ display: none !important; }`) to be required, this method will return a stylesheet
+    /// including it, providing that the corresponding rule does not have an exception.
+    ///
+    /// `exceptions` should be passed directly from `HostnameSpecificResources`.
+    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Option<String> {
+        self.cosmetic_cache.class_id_stylesheet(classes, ids, exceptions)
     }
 
+    /// Returns a set of cosmetic filter resources required for a particular hostname. Once this
+    /// has been called, all CSS ids and classes on a page should be passed to
+    /// `class_id_stylesheet` to obtain any stylesheets consisting of generic rules.
     pub fn hostname_cosmetic_resources(&self, hostname: &str) -> HostnameSpecificResources {
         self.cosmetic_cache.hostname_cosmetic_resources(hostname)
     }
