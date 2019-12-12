@@ -12,6 +12,19 @@ lazy_static! {
     static ref PUBLIC_SUFFIXES: psl::List = psl::List::new();
 }
 
+/// Contains cosmetic filter information intended to be injected into a particular hostname.
+///
+/// `hide_selectors` is a set of any CSS selector on the page that should be hidden, i.e. styled as
+/// `{ display: none !important; }`.
+///
+/// `style_selectors` is a map of CSS selectors on the page to respective non-hide style rules,
+/// i.e. any required styles other than `display: none`.
+///
+/// `exceptions` is a set of any class or id CSS selectors that should not have generic rules
+/// applied. In practice, these should be passed to `class_id_stylesheet` and not used otherwise.
+///
+/// `injected_script` is the Javascript code for any scriptlets that should be injected into the
+/// page.
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct HostnameSpecificResources {
     pub hide_selectors: HashSet<String>,
