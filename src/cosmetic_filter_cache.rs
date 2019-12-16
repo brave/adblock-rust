@@ -157,7 +157,7 @@ impl CosmeticFilterCache {
         }
     }
 
-    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Option<String> {
+    pub fn hidden_class_id_selectors(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Vec<String> {
         let mut simple_classes = vec![];
         let mut simple_ids = vec![];
         let mut complex_selectors = vec![];
@@ -188,16 +188,13 @@ impl CosmeticFilterCache {
         });
 
         if simple_classes.is_empty() && simple_ids.is_empty() && complex_selectors.is_empty() {
-            return None;
+            return vec![];
         }
 
-        let stylesheet = simple_classes.into_iter().map(|class| format!(".{}", class))
+        simple_classes.into_iter().map(|class| format!(".{}", class))
             .chain(simple_ids.into_iter().map(|id| format!("#{}", id)))
             .chain(complex_selectors.into_iter().cloned())
             .collect::<Vec<_>>()
-            .join(",") + "{display:none !important;}";
-
-        Some(stylesheet)
     }
 
     pub fn hostname_cosmetic_resources(&self, hostname: &str) -> HostnameSpecificResources {
@@ -575,8 +572,8 @@ mod cosmetic_cache_tests {
     }
 
     #[test]
-    fn matching_class_id_stylesheet() {
-        let rules = vec![
+    fn matching_hidden_class_id_selectors() {
+        let rules = [
             "##.a-class",
             "###simple-id",
             "##.a-class .with .children",
@@ -585,29 +582,29 @@ mod cosmetic_cache_tests {
         ];
         let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
 
-        let out = cfcache.class_id_stylesheet(&vec!["with".into()], &vec![], &HashSet::default());
-        assert_eq!(out, None);
+        let out = cfcache.hidden_class_id_selectors(&["with".into()], &[], &HashSet::default());
+        assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.class_id_stylesheet(&vec![], &vec!["with".into()], &HashSet::default());
-        assert_eq!(out, None);
+        let out = cfcache.hidden_class_id_selectors(&[], &["with".into()], &HashSet::default());
+        assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.class_id_stylesheet(&vec![], &vec!["a-class".into()], &HashSet::default());
-        assert_eq!(out, None);
+        let out = cfcache.hidden_class_id_selectors(&[], &["a-class".into()], &HashSet::default());
+        assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.class_id_stylesheet(&vec!["simple-id".into()], &vec![], &HashSet::default());
-        assert_eq!(out, None);
+        let out = cfcache.hidden_class_id_selectors(&["simple-id".into()], &[], &HashSet::default());
+        assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &HashSet::default());
-        assert_eq!(out, Some(".a-class,.a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &HashSet::default());
+        assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
-        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec![], &HashSet::default());
-        assert_eq!(out, Some(".a-class,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &[], &HashSet::default());
+        assert_eq!(out, [".a-class", ".children .including #simple-id", ".a-class .with .children"]);
 
-        let out = cfcache.class_id_stylesheet(&vec![], &vec!["simple-id".into()], &HashSet::default());
-        assert_eq!(out, Some("#simple-id{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&[], &["simple-id".into()], &HashSet::default());
+        assert_eq!(out, ["#simple-id"]);
 
-        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec!["simple-id".into()], &HashSet::default());
-        assert_eq!(out, Some(".a-class,#simple-id,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &["simple-id".into()], &HashSet::default());
+        assert_eq!(out, [".a-class", "#simple-id", ".children .including #simple-id", ".a-class .with .children"]);
     }
 
     #[test]
@@ -624,25 +621,25 @@ mod cosmetic_cache_tests {
         let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
         let exceptions = cfcache.hostname_cosmetic_resources("example.co.uk").exceptions;
 
-        let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &exceptions);
-        assert_eq!(out, Some(".a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
+        assert_eq!(out, [".a-class .with .children"]);
 
-        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec!["simple-id".into()], &exceptions);
-        assert_eq!(out, Some("#simple-id,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &["simple-id".into()], &exceptions);
+        assert_eq!(out, ["#simple-id", ".children .including #simple-id", ".a-class .with .children"]);
 
-        let out = cfcache.class_id_stylesheet(&vec![], &vec!["test-element".into()], &exceptions);
-        assert_eq!(out, Some("#test-element{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&[], &["test-element".into()], &exceptions);
+        assert_eq!(out, ["#test-element"]);
 
         let exceptions = cfcache.hostname_cosmetic_resources("a1.test.com").exceptions;
 
-        let out = cfcache.class_id_stylesheet(&vec!["a-class".into()], &vec![], &exceptions);
-        assert_eq!(out, Some(".a-class,.a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
+        assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
-        let out = cfcache.class_id_stylesheet(&vec!["children".into(), "a-class".into()], &vec!["simple-id".into()], &exceptions);
-        assert_eq!(out, Some(".a-class,#simple-id,.children .including #simple-id,.a-class .with .children{display:none !important;}".to_string()));
+        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &["simple-id".into()], &exceptions);
+        assert_eq!(out, [".a-class", "#simple-id", ".children .including #simple-id", ".a-class .with .children"]);
 
-        let out = cfcache.class_id_stylesheet(&vec![], &vec!["test-element".into()], &exceptions);
-        assert_eq!(out, None);
+        let out = cfcache.hidden_class_id_selectors(&[], &["test-element".into()], &exceptions);
+        assert_eq!(out, Vec::<String>::new());
     }
 
     #[test]
