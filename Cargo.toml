@@ -37,8 +37,8 @@ base64 = "0.10"
 rmp-serde = "0.13.7"    # rmp-serde 0.14.0 breaks deserialization by changing how enums are deserialized
 hashbrown = { version = "0.6", features = ["serde"] }
 lifeguard = { version = "0.6", optional = true }
-cssparser = "0.25"
-selectors = "0.21"
+cssparser = { version = "0.25", optional = true }
+selectors = { version = "0.21", optional = true }
 psl = "0.4.1"
 
 [dev-dependencies]
@@ -81,3 +81,4 @@ full-domain-matching = [] # feature has no explicit dependencies
 metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"]
+css-validation = ["cssparser", "selectors"]

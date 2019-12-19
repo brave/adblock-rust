@@ -20,6 +20,7 @@ pub enum CosmeticFilterError {
     GenericScriptInject,
     GenericStyle,
     DoubleNegation,
+    EmptyRule,
 }
 
 bitflags! {
@@ -207,6 +208,10 @@ impl CosmeticFilter {
             };
 
             let mut selector = &line[suffix_start_index..];
+
+            if selector.trim().len() == 0 {
+                return Err(CosmeticFilterError::EmptyRule);
+            }
             let mut style = None;
             if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") {
                 if sharp_index == 0 {
@@ -371,6 +376,18 @@ pub fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash
     get_hashes_from_labels(hostname, hostname.len(), hostname.len() - domain.len())
 }
 
+#[cfg(not(feature="css-validation"))]
+mod css_validation {
+    pub fn is_valid_css_selector(_selector: &str) -> bool {
+        true
+    }
+
+    pub fn is_valid_css_style(_style: &str) -> bool {
+        true
+    }
+}
+
+#[cfg(feature="css-validation")]
 mod css_validation {
     //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
     use cssparser::ParserInput;
