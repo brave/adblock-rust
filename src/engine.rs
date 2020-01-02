@@ -222,8 +222,8 @@ impl Engine {
     /// including it, providing that the corresponding rule does not have an exception.
     ///
     /// `exceptions` should be passed directly from `HostnameSpecificResources`.
-    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: HashSet<String>) -> Option<String> {
-        self.cosmetic_cache.class_id_stylesheet(classes, ids, &exceptions)
+    pub fn class_id_stylesheet(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Option<String> {
+        self.cosmetic_cache.class_id_stylesheet(classes, ids, exceptions)
     }
 
     /// Returns a set of cosmetic filter resources required for a particular hostname. Once this
