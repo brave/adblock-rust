@@ -52,7 +52,7 @@ fn by_classes_ids(c: &mut Criterion) {
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
             let exceptions = Default::default();
-            b.iter(|| cfcache.class_id_stylesheet(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
+            b.iter(|| cfcache.hidden_class_id_selectors(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
         }).with_function("many lists", move |b| {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
@@ -63,7 +63,7 @@ fn by_classes_ids(c: &mut Criterion) {
             let (_, cosmetic_filters) = parse_filters(&rules, false, true, false);
             let cfcache = CosmeticFilterCache::new(cosmetic_filters);
             let exceptions = Default::default();
-            b.iter(|| cfcache.class_id_stylesheet(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
+            b.iter(|| cfcache.hidden_class_id_selectors(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
         }).with_function("many matching classes and ids", move |b| {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
@@ -104,7 +104,7 @@ fn by_classes_ids(c: &mut Criterion) {
                 "header".to_owned(),
                 "advertisingModule160x600".to_owned(),
             ];
-            b.iter(|| cfcache.class_id_stylesheet(&class_list[..], &id_list[..], &exceptions))
+            b.iter(|| cfcache.hidden_class_id_selectors(&class_list[..], &id_list[..], &exceptions))
         })
         .throughput(Throughput::Elements(1))
         .sample_size(20)
