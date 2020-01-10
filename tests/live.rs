@@ -8,6 +8,8 @@ use serde::{Deserialize};
 use std::fs::File;
 use std::io::BufReader;
 
+use tokio::runtime::Runtime;
+
 use csv;
 
 #[allow(non_snake_case)]
@@ -44,20 +46,39 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-fn get_blocker_engine() -> Engine {
-    let filters: Vec<String> = adblock::filter_lists::default::default_lists()
+async fn get_all_filters() -> Vec<String> {
+    use futures::FutureExt;
+    let default_lists = adblock::filter_lists::default::default_lists();
+
+    let filters_fut: Vec<_> = default_lists
         .iter()
         .map(|list| {
-            reqwest::get(&list.url).expect("Could not request rules")
-                .text().expect("Could not get rules as text")
-                .lines()
-                .map(|s| s.to_owned())
-                .collect::<Vec<_>>()
+            reqwest::get(&list.url)
+                .then(|resp| resp
+                    .expect("Could not request rules")
+                    .text()
+                ).map(|text| text
+                    .expect("Could not get rules as text")
+                    .lines()
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<_>>()
+                )
         })
-        .flatten()
         .collect();
 
-    let mut engine = Engine::from_rules_parametrised(&filters, true, false, true, false);
+    futures::future::join_all(filters_fut)
+        .await
+        .iter()
+        .flatten()
+        .cloned()
+        .collect()
+}
+
+fn get_blocker_engine() -> Engine {
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    let filters: Vec<String> = async_runtime.block_on(get_all_filters());
+
+    let mut engine = Engine::from_rules_parametrised(&filters[..], true, false, true, false);
 
     engine.with_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -65,10 +86,16 @@ fn get_blocker_engine() -> Engine {
 }
 
 fn get_blocker_engine_deserialized() -> Engine {
+    use futures::FutureExt;
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+
     let dat_url = "https://adblock-data.s3.amazonaws.com/4/rs-ABPFilterParserData.dat";
-    let mut dat: Vec<u8> = vec![];
-    let mut resp = reqwest::get(dat_url).expect("Could not request rules");
-    resp.copy_to(&mut dat).expect("Could not copy response to byte array");
+    let resp_bytes_fut = reqwest::get(dat_url)
+        .map(|e| e.expect("Could not request rules"))
+        .then(|resp| resp.bytes());
+    let dat = async_runtime
+        .block_on(resp_bytes_fut)
+        .expect("Could not get response as bytes");
 
     let mut engine = Engine::from_rules(&[]);
     engine.deserialize(&dat).expect("Deserialization failed");
@@ -77,9 +104,16 @@ fn get_blocker_engine_deserialized() -> Engine {
 }
 
 fn get_blocker_engine_deserialized_ios() -> Engine {
+    use futures::FutureExt;
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+
     let list_url = "https://adblock-data.s3.amazonaws.com/ios/latest.txt";
-    let filters: Vec<String> = reqwest::get(list_url).expect("Could not request rules")
-        .text().expect("Could not get rules as text")
+    let resp_text_fut = reqwest::get(list_url)
+        .map(|resp| resp.expect("Could not request rules"))
+        .then(|resp| resp.text());
+    let filters: Vec<String> = async_runtime
+        .block_on(resp_text_fut)
+        .expect("Could not get rules as text")
         .lines()
         .map(|s| s.to_owned())
         .collect();
