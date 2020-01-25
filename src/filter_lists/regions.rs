@@ -84,11 +84,11 @@ pub fn regions() -> Vec<FilterList> {
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnrl1tavPfozqu7CmqNfVUtZfUlIitbWpFBRn+HVW0oEFUNqAwNlwHqy9QZP88wKvb5N3EJj6NAq6je4ii6nMkDn59teNzGA4m8QSkeOWT6pNm98FZA6HNHPnhnYSG2sT8tpQ8Uyh4ySrxj2ijVM0Hc01WKQ6zjkvZWOuZWllsCejRZmxGOLUUy5mtKhIfHiuleZ7AmKx46AiVFvrpvV5x8G2HKAlF/uDc6LmV0lfXcROt5RlY+kD/sQ6wKcatibpHbLoRHOJx3ac13+pvt85773af0MdrvdCYjxvqn3DJlKw9qqk/B59n+XdTmWcfC9k77Z0teoMM5EBy8G1nGbelwIDAQAB")
         },
         FilterList {
-            uuid: String::from("5E5C9C94-0516-45F2-9AFB-800F0EC74FCA"),
-            url: String::from("https://raw.githubusercontent.com/liamja/Prebake/master/obtrusive.txt"),
-            title: String::from("EU: Prebake - Filter Obtrusive Cookie Notices"),
+            uuid: String::from("AC023D22-AE88-4060-A978-4feEEC4221693"),
+            url: String::from("https://easylist-downloads.adblockplus.org/easylist-cookie.txt"),
+            title: String::from("EU: Easylist-Cookie List - Filter Obtrusive Cookie Notices"),
             langs: Vec::new(),
-            support_url: String::from("https://github.com/liamja/Prebake"),
+            support_url: String::from("https://forums.lanik.us/"),
             component_id: String::from("abeicfkepbhgindohkebelkkhnnijcaf"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsDGkXlpuILNJ/iPEsXXdw+ZVBPf7L11UkG2az6NaeumxKfOTBDivPCXz48lWG4d6jySR8n+eMOaqX8FUVc50AGnWfq/Ud7PJdkvYNEyTNjZw7yQUta3q1yfc5gVsc1IiG9s0GuZxzSWnI0zfwMIG6JNTZTdPeIL1VxnFySXwyYKr1QhkVcpiN5AYNA8jXmZmmZ716Cti+1kAlGLQSO0ABqFZhJvSMGUb+12z6BW20tc4spt8QgY6a8CFMasdoD3hz+gKo+rvQlgPGWQhWxuTgRJZQnyS3EKeJYBaaS11c3xfIqkK85VXuMt9x/3bu9NkXFpXcNwqBo9zs+gxodVSgwIDAQAB")
         },
