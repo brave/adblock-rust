@@ -70,4 +70,4 @@ console.log("Matching:", client.check("https://bbci.co.uk/test/analytics.js", "h
 
 - [ ] Function for extracting CSP directives
 - [ ] Generate string representation of a rule when debug mode is off (i.e. initial rule is not available)
-- [ ] Cosmetic filters
+- [x] Cosmetic filters
