@@ -91,7 +91,7 @@ pub struct Blocker {
     debug: bool,
     enable_optimizations: bool,
     _unused: bool,      // This field exists for backwards compatibility only.
-    _unused2: bool,     // This field exists for backwards compatibility only.
+    _unused2: bool,     // This field exists for backwards compatibility only, and *must* be true.
 
     #[serde(default)]
     resources: RedirectResourceStorage,
@@ -303,8 +303,8 @@ impl Blocker {
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
-            _unused: false,
-            _unused2: false,
+            _unused: true,
+            _unused2: true,
 
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
