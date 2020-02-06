@@ -2,6 +2,7 @@ data/
 target/
 adblock-rust-wasm/
 native/target/
+native/index.node
 .git/
 .DS_Store
 .travis.yml
