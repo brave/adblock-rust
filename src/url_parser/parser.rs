@@ -164,13 +164,15 @@ macro_rules! simple_enum_error {
             )+
         }
 
-        impl Error for ParseError {
-            fn description(&self) -> &str {
+        impl Error for ParseError {}
+
+        impl fmt::Display for ParseError {
+            fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
                 match *self {
                     $(
                         ParseError::$name => $description,
                     )+
-                }
+                }.fmt(fmt)
             }
         }
     }
@@ -194,12 +196,6 @@ simple_enum_error! {
 
 #[cfg(feature = "heapsize")]
 known_heap_size!(0, ParseError);
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        self.description().fmt(fmt)
-    }
-}
 
 impl From<idna::Errors> for ParseError {
     fn from(_: idna::Errors) -> ParseError { ParseError::IdnaError }
