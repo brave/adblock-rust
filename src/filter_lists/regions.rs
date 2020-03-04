@@ -278,7 +278,7 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka"),
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
-            component_id: String::from("paoecjnjjbcclkgbempaeemcbeldldlbo"),
+            component_id: String::from("paoecjnjjbcclkgbempaeemcbeldldlao"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtfvjCQIDAQAB")
         },
         FilterList {
@@ -287,7 +287,7 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka suplement"),
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
-            component_id: String::from("paoecjnjjbcclkgbempaeemcbfldldlbo"),
+            component_id: String::from("paoecjnjjbcclkgbempaeemcbfldldlco"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtgvjCQIDAQAB")
         },
         FilterList {
