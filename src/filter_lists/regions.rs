@@ -287,8 +287,8 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka suplement"),
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
-            component_id: String::from("baophminpaegfihdcekehejfhpmjimle"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApX6GHwd6ZsPNk4iomzHF6fb69FJcVyRNTQc3X/LlDuEXERJ/eZzDVMn2pCm2CTCXQHweQWqBkC/20FkjniwGb9LSjzP5jdcDCFmSwaFWdiM7xG+BfMFP+XDJtjOlqirWESi6dzwnQ5pKQDpNCblMBuuhT1WyDLtHODwbNJs/jILdSAapW8eQApQ/iCGidYPbPvPL53bq+u45UXXljillsJTbGV8vu2VVhf9/fL5McKu7uX6xR2i4WR2x1hQYMYu5rnFIrDNWGIn4CNDodO22nyBBjznGfQ8XVp558s5tC+v+12hY6HJW4CWJ3Oes+PXuLPDUwYuJKkuncfADk49oVQIDAQAB")
+            component_id: String::from("ndgeclhidhlfgmjdcapejaldbahmkgbi"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvZaLRYXrVyL6jjJF8guXpjmUFv3nJd8hfLmbldBIiJ21bMPpaypGBjQANxIU1Sfz1jpy9J+OkB1ifoDg0ScWqDCD0zpjjS87g9ANGantkh55Y+TYDe7yGq6JF2ELr618y3UJTSyfMUi2jLlmved/1Zmtuup2+nWS3Od6NfnXmV+pHJXJLTX7n397RVb1RNN8U5WIvx6vnpZPVB2H8YoNJd9JMj2olIm6yt4Y0ODMOOAXuROz02QLBwnlZC39Z+BuNVxW2fqhLqFw28MD308v2uYiY/Vc0enna8UISSvebYwJedwZFCzk1CVWaO0Y6vHOBVtH4DwHb5sVxUzx/KI3dwIDAQAB")
         },
         FilterList {
             uuid: String::from("AD3E8454-F376-11E8-8EB2-F2801F1B9FD1"),
