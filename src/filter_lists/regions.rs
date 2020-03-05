@@ -273,6 +273,24 @@ pub fn regions() -> Vec<FilterList> {
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtevjCQIDAQAB")
         },
         FilterList {
+            uuid: String::from("867EF333-8336-455C-9CC6-98749AEE69E4"),
+            url: String::from("https://raw.githubusercontent.com/olegwukr/polish-privacy-filters/master/anti-adblock.txt"),
+            title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka"),
+            langs: [String::from("pl")].to_vec(),
+            support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
+            component_id: String::from("paoecjnjjbcclkgbempaeemcbeldldlao"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtfvjCQIDAQAB")
+        },
+        FilterList {
+            uuid: String::from("CB3A9B4A-C9F3-40FA-A6B8-5219ED5FA9ED"),
+            url: String::from("https://raw.githubusercontent.com/olegwukr/polish-privacy-filters/master/anti-adblock-suplement.txt"),
+            title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka suplement"),
+            langs: [String::from("pl")].to_vec(),
+            support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
+            component_id: String::from("paoecjnjjbcclkgbempaeemcbfldldlco"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtgvjCQIDAQAB")
+        },
+        FilterList {
             uuid: String::from("AD3E8454-F376-11E8-8EB2-F2801F1B9FD1"),
             url: String::from("https://raw.githubusercontent.com/tcptomato/ROad-Block/master/road-block-filters-light.txt"),
             title: String::from("ROU: Romanian Ad (ROad) Block List Light"),
