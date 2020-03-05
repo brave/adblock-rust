@@ -278,8 +278,8 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka"),
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
-            component_id: String::from("paoecjnjjbcclkgbempaeemcbeldldlao"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtfvjCQIDAQAB")
+            component_id: String::from("baophminpaegfihdcekehejfhpmjimle"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApX6GHwd6ZsPNk4iomzHF6fb69FJcVyRNTQc3X/LlDuEXERJ/eZzDVMn2pCm2CTCXQHweQWqBkC/20FkjniwGb9LSjzP5jdcDCFmSwaFWdiM7xG+BfMFP+XDJtjOlqirWESi6dzwnQ5pKQDpNCblMBuuhT1WyDLtHODwbNJs/jILdSAapW8eQApQ/iCGidYPbPvPL53bq+u45UXXljillsJTbGV8vu2VVhf9/fL5McKu7uX6xR2i4WR2x1hQYMYu5rnFIrDNWGIn4CNDodO22nyBBjznGfQ8XVp558s5tC+v+12hY6HJW4CWJ3Oes+PXuLPDUwYuJKkuncfADk49oVQIDAQAB")
         },
         FilterList {
             uuid: String::from("CB3A9B4A-C9F3-40FA-A6B8-5219ED5FA9ED"),
@@ -287,8 +287,8 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("POL: polskie Prywatność filtry do Adblocka i uBlocka suplement"),
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
-            component_id: String::from("paoecjnjjbcclkgbempaeemcbfldldlco"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtgvjCQIDAQAB")
+            component_id: String::from("baophminpaegfihdcekehejfhpmjimle"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApX6GHwd6ZsPNk4iomzHF6fb69FJcVyRNTQc3X/LlDuEXERJ/eZzDVMn2pCm2CTCXQHweQWqBkC/20FkjniwGb9LSjzP5jdcDCFmSwaFWdiM7xG+BfMFP+XDJtjOlqirWESi6dzwnQ5pKQDpNCblMBuuhT1WyDLtHODwbNJs/jILdSAapW8eQApQ/iCGidYPbPvPL53bq+u45UXXljillsJTbGV8vu2VVhf9/fL5McKu7uX6xR2i4WR2x1hQYMYu5rnFIrDNWGIn4CNDodO22nyBBjznGfQ8XVp558s5tC+v+12hY6HJW4CWJ3Oes+PXuLPDUwYuJKkuncfADk49oVQIDAQAB")
         },
         FilterList {
             uuid: String::from("AD3E8454-F376-11E8-8EB2-F2801F1B9FD1"),
