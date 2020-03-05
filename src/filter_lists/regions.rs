@@ -290,7 +290,7 @@ pub fn regions() -> Vec<FilterList> {
             support_url: String::from("https://www.certyficate.it/adblock-ublock-polish-filters/"),
             component_id: String::from("paoecjnjjbclkgbempaeemcbeldldlbo"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsUqWP6CeMx79UyZ3GZ1XcBGexIgml00sB286wZ7dJsfqG7oI0EGRoqrDeRreYcOTl+HvXsRJvR1FfkKJzD5svdhR4mn4lI+FXUDCvgEZ9CFa0YfASuoTIrdZtG74Twu2ai52ZJzrQ9ike97bdwzuZo+uymw26S+5/+IQbriIYoxEbJd7EryZuo+W65LdSat/NOKKf1QnVTIOoqMrXiewRYywnmZATfDIi0uKXuQfF15lbNBkQllmPH1xlMkz2WnvSvqI4HKPAmEFJWVUkiNhGKFZkTk1+88CgGGPVsKllxLaDOD+j8Kb0+h44RxObHTF/vFkfh8FfzujFj3HtevjCQIDAQAB"),
-            desc: String::from("Removes advertisements from Polish websites")
+            desc: String::from("Removes advertisements from Polish websites"),
         },
         FilterList {
             uuid: String::from("867EF333-8336-455C-9CC6-98749AEE69E4"),
@@ -299,8 +299,8 @@ pub fn regions() -> Vec<FilterList> {
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
             component_id: String::from("baophminpaegfihdcekehejfhpmjimle"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApX6GHwd6ZsPNk4iomzHF6fb69FJcVyRNTQc3X/LlDuEXERJ/eZzDVMn2pCm2CTCXQHweQWqBkC/20FkjniwGb9LSjzP5jdcDCFmSwaFWdiM7xG+BfMFP+XDJtjOlqirWESi6dzwnQ5pKQDpNCblMBuuhT1WyDLtHODwbNJs/jILdSAapW8eQApQ/iCGidYPbPvPL53bq+u45UXXljillsJTbGV8vu2VVhf9/fL5McKu7uX6xR2i4WR2x1hQYMYu5rnFIrDNWGIn4CNDodO22nyBBjznGfQ8XVp558s5tC+v+12hY6HJW4CWJ3Oes+PXuLPDUwYuJKkuncfADk49oVQIDAQAB")
-            desc: String::from("Removes additional advertisements from Polish websites")
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApX6GHwd6ZsPNk4iomzHF6fb69FJcVyRNTQc3X/LlDuEXERJ/eZzDVMn2pCm2CTCXQHweQWqBkC/20FkjniwGb9LSjzP5jdcDCFmSwaFWdiM7xG+BfMFP+XDJtjOlqirWESi6dzwnQ5pKQDpNCblMBuuhT1WyDLtHODwbNJs/jILdSAapW8eQApQ/iCGidYPbPvPL53bq+u45UXXljillsJTbGV8vu2VVhf9/fL5McKu7uX6xR2i4WR2x1hQYMYu5rnFIrDNWGIn4CNDodO22nyBBjznGfQ8XVp558s5tC+v+12hY6HJW4CWJ3Oes+PXuLPDUwYuJKkuncfADk49oVQIDAQAB"),
+            desc: String::from("Removes additional advertisements from Polish websites"),
         },
         FilterList {
             uuid: String::from("CB3A9B4A-C9F3-40FA-A6B8-5219ED5FA9ED"),
@@ -308,9 +308,9 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("Polskie Prywatność filtry do Adblocka i uBlocka suplement"),
             langs: [String::from("pl")].to_vec(),
             support_url: String::from("https://github.com/olegwukr/polish-privacy-filters"),
-            component_id: String::from("baophminpaegfihdcekehejfhpmjimle"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApX6GHwd6ZsPNk4iomzHF6fb69FJcVyRNTQc3X/LlDuEXERJ/eZzDVMn2pCm2CTCXQHweQWqBkC/20FkjniwGb9LSjzP5jdcDCFmSwaFWdiM7xG+BfMFP+XDJtjOlqirWESi6dzwnQ5pKQDpNCblMBuuhT1WyDLtHODwbNJs/jILdSAapW8eQApQ/iCGidYPbPvPL53bq+u45UXXljillsJTbGV8vu2VVhf9/fL5McKu7uX6xR2i4WR2x1hQYMYu5rnFIrDNWGIn4CNDodO22nyBBjznGfQ8XVp558s5tC+v+12hY6HJW4CWJ3Oes+PXuLPDUwYuJKkuncfADk49oVQIDAQAB")
-            desc: String::from("Removes further advertisements from Polish websites")
+            component_id: String::from("ndgeclhidhlfgmjdcapejaldbahmkgbi"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvZaLRYXrVyL6jjJF8guXpjmUFv3nJd8hfLmbldBIiJ21bMPpaypGBjQANxIU1Sfz1jpy9J+OkB1ifoDg0ScWqDCD0zpjjS87g9ANGantkh55Y+TYDe7yGq6JF2ELr618y3UJTSyfMUi2jLlmved/1Zmtuup2+nWS3Od6NfnXmV+pHJXJLTX7n397RVb1RNN8U5WIvx6vnpZPVB2H8YoNJd9JMj2olIm6yt4Y0ODMOOAXuROz02QLBwnlZC39Z+BuNVxW2fqhLqFw28MD308v2uYiY/Vc0enna8UISSvebYwJedwZFCzk1CVWaO0Y6vHOBVtH4DwHb5sVxUzx/KI3dwIDAQAB"),
+            desc: String::from("Removes further advertisements from Polish websites"),
         },
         FilterList {
             uuid: String::from("AD3E8454-F376-11E8-8EB2-F2801F1B9FD1"),
@@ -320,7 +320,7 @@ pub fn regions() -> Vec<FilterList> {
             support_url: String::from("https://github.com/tcptomato/ROad-Block"),
             component_id: String::from("hojdjlebfkngledgkgecohjkjjojaekd"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnhLXi2u795hnBUJi/vS8qtMGoTYk9NRefWk+SI6fkqVdiKs/eM6Y8v3To4HgNmtYb4jAoYctcq3/CS3hzGCLEwQbDuL8Y8UP5B6PWgzuiRrAobRl1DtXO1+Q57VIrYTpJVLCqaTulclys7Fka/wD5o78Y0vAfSenBZTzRUXwTZd9Z7SRNwcJyccbi7zL8UDWnJMBnD/dnV7t2q41MHiCgdzimOSuoRZmTBrupVc0QYhqoxy6ePkHFDGL2U25omAZckkzpQbtvJEE2lmg7YqnaSvGDzsmqd+j7hVWjpm/ncArLOWBCbER3MdHwFeOI2rFJWcO7GY5etQsA5128FAv0wIDAQAB"),
-            desc: String::from("Removes advertisements from Romanian websites")
+            desc: String::from("Removes advertisements from Romanian websites"),
         },
         FilterList {
             uuid: String::from("80470EEC-970F-4F2C-BF6B-4810520C72E6"),
@@ -330,7 +330,7 @@ pub fn regions() -> Vec<FilterList> {
             support_url: String::from("https://forums.lanik.us/viewforum.php?f=102"),
             component_id: String::from("enkheaiicpeffbfgjiklngbpkilnbkoi"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArVVgKRE868yup0HfX4+HyZmJVIk33AKivwvRRfjHRxeC+lLnRjNiY0LKS/K65J6SNLgUsZGfT5u4h4F423O/pbZl6zdfs5kOyStlmLPXhFtF/bIXIsUtdJ0R3dEz+nSg0C2L/FnE5Qr8M4thdmq/DIP1C70mj8pCnX1939hXyR0ymQkYp573O+LJ0q1L41jBqHzNKWngfBc79I2Kbt1pLluBT2X7zZVbb+1ap3Ad/VMeFDB2yurRs88cYJZOal7mgTgI/Zkuzsh2Dnql5+UNOCHinYjcOvUifGgkdsJIJxL57PxRzbriLCNjShoOV3Fpc0XYL1KSWvIVuW0bYeLmrwIDAQAB"),
-            desc: String::from("Removes advertisements from Russian websites")
+            desc: String::from("Removes advertisements from Russian websites"),
         },
         FilterList {
             uuid: String::from("1088D292-2369-4D40-9BDF-C7DC03C05966"),
