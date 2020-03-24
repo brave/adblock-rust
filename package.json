@@ -13,14 +13,7 @@
   "dependencies": {
     "neon-cli": "0.4.0"
   },
-  "devDependencies": {
-    "npm-force-resolutions": "0.0.3"
-  },
   "scripts": {
-    "preinstall": "npx npm-force-resolutions",
     "install": "neon build --release"
-  },
-  "resolutions": {
-    "minimist": "1.2.5"
   }
 }
