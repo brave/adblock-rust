@@ -176,3 +176,15 @@ fn detect_filter_type(filter: &str) -> FilterType {
     // Everything else is a network filter
     FilterType::Network
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_filter_failed_fuzz_1() {
+        let input = "Ѥ";
+        let result = parse_filter(input, true, true, true);
+        assert!(result.is_err());
+    }
+}
