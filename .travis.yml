@@ -1,4 +1,6 @@
 language: rust
+rust:
+  - 1.41.0
 os:
   - linux
   - osx
@@ -9,8 +11,8 @@ cache: cargo # cache cargo-audit once installed
 matrix:
   fast_finish: true
 before_script:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cargo install --force cargo-audit  ; fi
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cargo generate-lockfile            ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cargo install --force cargo-audit  ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cargo generate-lockfile            ; fi
 script:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then cargo audit ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cargo audit ; fi
   - cargo test --verbose
