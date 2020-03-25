@@ -10,7 +10,7 @@ dependencies = [
 
 [[package]]
 name = "adblock"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "addr 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -36,9 +36,9 @@ dependencies = [
 
 [[package]]
 name = "adblock-rs"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
- "adblock 0.2.5",
+ "adblock 0.2.6",
  "neon 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "neon-build 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "neon-serde 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
