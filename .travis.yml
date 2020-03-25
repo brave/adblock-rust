@@ -1,4 +1,6 @@
 language: rust
+rust:
+  - 1.41.0
 os:
   - linux
   - osx
