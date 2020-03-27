@@ -21,6 +21,7 @@ pub struct FilterList {
     pub support_url: String,
     pub component_id: String,
     pub base64_public_key: String,
+    pub desc: String,
 }
 
 /// Successful result of parsing a single filter rule

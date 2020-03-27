@@ -1,5 +1,4 @@
 extern crate neon;
-
 extern crate neon_serde;
 extern crate adblock;
 extern crate serde;

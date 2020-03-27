@@ -1,6 +1,6 @@
 [package]
 name = "adblock-rs"
-version = "0.2.1"
+version = "0.2.6"
 authors = ["Andrius Aucinas <aaucinas@brave.com>"]
 license = "MPL-2.0"
 build = "build.rs"
@@ -16,5 +16,5 @@ neon-build = "0.3.3"
 [dependencies]
 neon-serde = "0.3"
 serde =  { version = "1.0", features = ["derive", "rc"] }
-adblock = { path = "../", default-features = false }
+adblock = { path = "../", default-features = false, features = ["css-validation"] }
 neon = "0.3.3"
