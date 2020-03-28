@@ -95,12 +95,12 @@ pub fn regions() -> Vec<FilterList> {
         FilterList {
             uuid: String::from("AC023D22-AE88-4060-A978-4FEEEC4221693"),
             url: String::from("https://easylist-downloads.adblockplus.org/easylist-cookie.txt"),
-            title: String::from("EU: Easylist-Cookie List - Filter Obtrusive Cookie Notices"),
+            title: String::from("Easylist-Cookie List - Filter Obtrusive Cookie Notices"),
             langs: Vec::new(),
             support_url: String::from("https://forums.lanik.us/"),
             component_id: String::from("lfgnenkkneohplacnfabidofpgcdpofm"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqNcRp37CBZCXe1vbmXyobycPxHyEKNIgNl6p0XBBxtcZcQOijpY70GjCRzgCL7m1+FBo4MR3FXLiF2aPn/QsUR8t7+zfw3XzBVos4Ssexkqpd4/4ciASwTXpbuyFOq4Z5dcgJ1afeT9Zj5bmh4ekLpgJ1NzVwCMhEKk6cmSKIaGVo5EEydtlor2nkUJrSFuZA6tYZ++4BOfhhCtzrvXTZjg7mTlB6ca21NL4oLwtqvJMtF8ddoumh619BB5wOqxLzntC/oWyOxf00V5HDC7e/DRj9J8jLRFLd4EQUO4Mk+kG3MNy0ph9cqdw6zFR7a2H3LGkl4ejsifM1mUDuJL0cwIDAQAB"),
-            desc: String::from("Removes obtrusive EU cookie law notices")
+            desc: String::from("Removes obtrusive cookie law notices")
         },
         FilterList {
             uuid: String::from("1C6D8556-3400-4358-B9AD-72689D7B2C46"),
