@@ -475,14 +475,14 @@ impl NetworkFilter {
         }
 
         // Remove trailing '*'
-        if filter_index_end - filter_index_start > 0
+        if filter_index_end > filter_index_start
             && line[..filter_index_end].ends_with('*')
         {
             filter_index_end -= 1;
         }
 
         // Remove leading '*' if the filter is not hostname anchored.
-        if filter_index_end - filter_index_start > 0 && line[filter_index_start..].starts_with('*')
+        if filter_index_end > filter_index_start && line[filter_index_start..].starts_with('*')
         {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
             filter_index_start += 1;
@@ -490,27 +490,27 @@ impl NetworkFilter {
 
         // Transform filters on protocol (http, https, ws)
         if mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
-            if filter_index_end - filter_index_start == 5
+            if filter_index_end == filter_index_start + 5
                 && line[filter_index_start..].starts_with("ws://")
             {
                 mask.set(NetworkFilterMask::FROM_WEBSOCKET, true);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
-            } else if filter_index_end - filter_index_start == 7
+            } else if filter_index_end == filter_index_start + 7
                 && line[filter_index_start..].starts_with("http://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTP, true);
                 mask.set(NetworkFilterMask::FROM_HTTPS, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
-            } else if filter_index_end - filter_index_start == 8
+            } else if filter_index_end == filter_index_start + 8
                 && line[filter_index_start..].starts_with("https://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTPS, true);
                 mask.set(NetworkFilterMask::FROM_HTTP, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
-            } else if filter_index_end - filter_index_start == 8
+            } else if filter_index_end == filter_index_start + 8
                 && line[filter_index_start..].starts_with("http*://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTPS, true);
@@ -520,7 +520,7 @@ impl NetworkFilter {
             }
         }
 
-        let filter: Option<String> = if filter_index_end - filter_index_start > 0 {
+        let filter: Option<String> = if filter_index_end > filter_index_start {
             mask.set(
                 NetworkFilterMask::IS_REGEX,
                 check_is_regex(&line[filter_index_start..filter_index_end]),

@@ -193,5 +193,12 @@ mod tests {
         assert!(parse_filter(r#"###\\\00DB \008D"#, true, true, true).is_ok());
         assert!(parse_filter(r#"###\Û"#, true, true, true).is_ok());
     }
+
+    #[test]
+    fn parse_filter_failed_fuzz_3() {
+        let input = "||$3p=/";
+        let result = parse_filter(input, true, true, true);
+        assert!(result.is_ok());
+    }
     
 }
