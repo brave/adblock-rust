@@ -189,6 +189,7 @@ simple_enum_error! {
     // SetHostOnCannotBeABaseUrl => "a cannot-be-a-base URL doesn’t have a host to set",
     // Overflow => "URLs more than 4 GB are not supported",
     FileUrlNotSupported => "file URLs are not supported",
+    ExpectedMoreChars => "Expected more characters",
 }
 
 #[cfg(feature = "heapsize")]
@@ -454,7 +455,7 @@ impl Parser {
         let mut has_password = false;
         let mut has_username = false;
         while userinfo_char_count > 0 {
-            let (c, utf8_c) = input.next_utf8().unwrap();
+            let (c, utf8_c) = input.next_utf8().ok_or(ParseError::ExpectedMoreChars)?;
             userinfo_char_count -= 1;
             if c == ':' && username_end.is_none() {
                 // Start parsing password

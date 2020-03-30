@@ -40,7 +40,7 @@ impl UrlParser for Request {
                     url: h.url_str().to_owned(),
                     schema_end: h.scheme_end,
                     hostname_pos: (h.host_start, h.host_end),
-                    domain: get_host_domain(&url[h.host_start..h.host_end])
+                    domain: get_host_domain(&h.url_str()[h.host_start..h.host_end])
                 }),
                 _ => None
             }

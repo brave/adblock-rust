@@ -534,4 +534,17 @@ mod tests {
             assert_eq!(parsed.is_third_party, Some(false));
         }
     }
+
+    #[test]
+    fn fuzzing_errors() {
+        {
+            let parsed = Request::from_url("https://߶");
+            assert!(parsed.is_ok());
+        }
+        {
+            let parsed = Request::from_url(
+                &format!("https://{}", std::str::from_utf8(&[9, 9, 64]).unwrap()));
+            assert!(parsed.is_err());
+        }
+    }
 }
