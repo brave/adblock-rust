@@ -504,9 +504,6 @@ mod tests {
             "document",
         );
         assert_eq!(bad_url.err(), Some(RequestError::HostnameParseError));
-
-        // let bad_source_url = Request::from_urls("https://subdomain.example.com/ad", "example.com/", "document");
-        // assert_eq!(bad_source_url.err(), Some(RequestError::SourceHostnameParseError));
     }
 
     #[test]
