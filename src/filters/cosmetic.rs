@@ -532,7 +532,7 @@ fn key_from_selector(selector: &str) -> Result<String, CosmeticFilterError> {
             beginning = location.end();
             // Unwrap is safe because there is a capture group specified in the regex
             let capture = capture.get(1).unwrap().as_str();
-            if capture.len() == 1 {
+            if capture.chars().count() == 1 {   // Check number of unicode characters rather than byte length
                 key += capture;
             } else {
                 // This u32 conversion can overflow
