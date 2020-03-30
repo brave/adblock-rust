@@ -213,7 +213,7 @@ impl CosmeticFilter {
                 return Err(CosmeticFilterError::EmptyRule);
             }
             let mut style = None;
-            if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") {
+            if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") && line.ends_with(")") {
                 if sharp_index == 0 {
                     return Err(CosmeticFilterError::GenericScriptInject);
                 }
