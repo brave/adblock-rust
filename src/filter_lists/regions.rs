@@ -93,14 +93,14 @@ pub fn regions() -> Vec<FilterList> {
             desc: String::from("Removes advertisements from Estonian websites")
         },
         FilterList {
-            uuid: String::from("5E5C9C94-0516-45F2-9AFB-800F0EC74FCA"),
-            url: String::from("https://raw.githubusercontent.com/liamja/Prebake/master/obtrusive.txt"),
-            title: String::from("Prebake - Filter Obtrusive Cookie Notices"),
+            uuid: String::from("AC023D22-AE88-4060-A978-4FEEEC4221693"),
+            url: String::from("https://easylist-downloads.adblockplus.org/easylist-cookie.txt"),
+            title: String::from("Easylist-Cookie List - Filter Obtrusive Cookie Notices"),
             langs: Vec::new(),
-            support_url: String::from("https://github.com/liamja/Prebake"),
-            component_id: String::from("abeicfkepbhgindohkebelkkhnnijcaf"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsDGkXlpuILNJ/iPEsXXdw+ZVBPf7L11UkG2az6NaeumxKfOTBDivPCXz48lWG4d6jySR8n+eMOaqX8FUVc50AGnWfq/Ud7PJdkvYNEyTNjZw7yQUta3q1yfc5gVsc1IiG9s0GuZxzSWnI0zfwMIG6JNTZTdPeIL1VxnFySXwyYKr1QhkVcpiN5AYNA8jXmZmmZ716Cti+1kAlGLQSO0ABqFZhJvSMGUb+12z6BW20tc4spt8QgY6a8CFMasdoD3hz+gKo+rvQlgPGWQhWxuTgRJZQnyS3EKeJYBaaS11c3xfIqkK85VXuMt9x/3bu9NkXFpXcNwqBo9zs+gxodVSgwIDAQAB"),
-            desc: String::from("Removes obtrusive EU cookie law notices")
+            support_url: String::from("https://forums.lanik.us/"),
+            component_id: String::from("lfgnenkkneohplacnfabidofpgcdpofm"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqNcRp37CBZCXe1vbmXyobycPxHyEKNIgNl6p0XBBxtcZcQOijpY70GjCRzgCL7m1+FBo4MR3FXLiF2aPn/QsUR8t7+zfw3XzBVos4Ssexkqpd4/4ciASwTXpbuyFOq4Z5dcgJ1afeT9Zj5bmh4ekLpgJ1NzVwCMhEKk6cmSKIaGVo5EEydtlor2nkUJrSFuZA6tYZ++4BOfhhCtzrvXTZjg7mTlB6ca21NL4oLwtqvJMtF8ddoumh619BB5wOqxLzntC/oWyOxf00V5HDC7e/DRj9J8jLRFLd4EQUO4Mk+kG3MNy0ph9cqdw6zFR7a2H3LGkl4ejsifM1mUDuJL0cwIDAQAB"),
+            desc: String::from("Removes obtrusive cookie law notices")
         },
         FilterList {
             uuid: String::from("1C6D8556-3400-4358-B9AD-72689D7B2C46"),
