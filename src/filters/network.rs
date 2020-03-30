@@ -253,7 +253,7 @@ impl NetworkFilter {
             filter_index_end = options_index;
 
             // Parse Options
-            let raw_options = &line[filter_index_end + 1..];
+            let raw_options = &line[filter_index_end + 1..];    // safe, first character after '$' will be char boundary
             let options = raw_options.split(',');
             for raw_option in options {
                 // Check for negation: ~option
@@ -393,7 +393,7 @@ impl NetworkFilter {
         }
 
         // Deal with hostname pattern
-        if filter_index_end > 0 && filter_index_end > filter_index_start && line[filter_index_end - 1..].starts_with('|') {
+        if filter_index_end > 0 && filter_index_end > filter_index_start && line[..filter_index_end].ends_with('|') {
             mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
             filter_index_end -= 1;
         }
@@ -476,7 +476,7 @@ impl NetworkFilter {
 
         // Remove trailing '*'
         if filter_index_end - filter_index_start > 0
-            && line[filter_index_end - 1..].starts_with('*')
+            && line[..filter_index_end].ends_with('*')
         {
             filter_index_end -= 1;
         }
@@ -525,7 +525,7 @@ impl NetworkFilter {
                 NetworkFilterMask::IS_REGEX,
                 check_is_regex(&line[filter_index_start..filter_index_end]),
             );
-            Some(String::from(&line[filter_index_start..filter_index_end]).to_lowercase())
+            Some(String::from(&line[filter_index_start..filter_index_end]).to_ascii_lowercase())
         } else {
             None
         };
@@ -2553,9 +2553,10 @@ mod match_tests {
 
         assert!(
             network_filter.matches(&request) == matching,
-            "Expected match={} for {} on {}",
+            "Expected match={} for {} {:?} on {}",
             matching,
             filter,
+            network_filter,
             url
         );
     }
@@ -2908,6 +2909,9 @@ mod match_tests {
 
         filter_match_url("||atđhe.net/pu/", "https://atđhe.net/pu/foo", true);
         filter_match_url("||atđhe.net/pu/", "https://xn--athe-1ua.net/pu/foo", true);
+
+        filter_match_url("foo", "https://example.com/Ѥ/foo", true);
+        filter_match_url("Ѥ", "https://example.com/Ѥ/foo", true);
     }
 
     #[test]
