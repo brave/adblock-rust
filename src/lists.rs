@@ -201,4 +201,12 @@ mod tests {
         assert!(result.is_ok());
     }
     
+    #[test]
+    fn parse_filter_failed_fuzz_4() {
+        // \\##+js(,\xdd\x8d
+        assert!(parse_filter(
+            &String::from_utf8(vec![92, 35, 35, 43, 106, 115, 40, 44, 221, 141]).unwrap(),
+            true, true, true).is_ok());
+    }
+    
 }
