@@ -7,7 +7,6 @@ os:
   - windows
 rust:
   - stable
-cache: cargo # cache cargo-audit once installed
 matrix:
   fast_finish: true
 before_script:
