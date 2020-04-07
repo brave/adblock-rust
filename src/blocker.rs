@@ -22,11 +22,39 @@ pub struct BlockerOptions {
 #[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
+    /// Normally, Brave Browser returns `200 OK` with an empty body when
+    /// `matched` is `true`, except if `explicit_cancel` is also `true`, in
+    /// which case the request is cancelled.
     pub explicit_cancel: bool,
+    /// Important is used to signal that a rule with the `important` option
+    /// matched. An `important` match means that exceptions should not apply
+    /// and no further checking is neccesary--the request should be blocked
+    /// (empty body or cancelled).
+    ///
+    /// Brave Browser keeps seperate instances of [`Blocker`] for default
+    /// lists and regional ones, so `important` here is used to correct
+    /// behaviour between them: checking should stop instead of moving to the
+    /// next instance iff an `important` rule matched.
     pub important: bool,
+    /// Iff the blocker matches a rule which has the `redirect` option, as per
+    /// [uBlock Origin's redirect syntax][1], the `redirect` is `Some`. The
+    /// `redirect` field contains the body of the redirect to be injected.
+    ///
+    /// [1]: https://github.com/gorhill/uBlock/wiki/Static-filter-syntax#redirect
     pub redirect: Option<String>,
+    /// Exception is `Some` when the blocker matched on an exception rule.
+    /// Effectively this means that there was a match, but the request should
+    /// not be blocked. It is a non-empty string if the blocker was initialized
+    /// from a list of rules with debugging enabled, otherwise the original
+    /// string representation is discarded to reduce memory use.
     pub exception: Option<String>,
+    /// Filter--similarly to exception--includes the string representation of
+    /// the rule when there is a match and debugging is enabled. Otherwise, on
+    /// a match, it is `Some`.
     pub filter: Option<String>,
+    /// The `error` field is only used to signal that there was an error in
+    /// parsing the provided URLs when using the simpler
+    /// [`crate::engine::Engine::check_network_urls`] method.
     pub error: Option<String>,
 }
 
