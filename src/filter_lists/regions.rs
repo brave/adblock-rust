@@ -213,13 +213,13 @@ pub fn regions() -> Vec<FilterList> {
             desc: String::from("Removes additional advertisements from Italian websites, may break some websites")
         },
         FilterList {
-            uuid: String::from("03F91310-9244-40FA-BCF6-DA31B832F34D"),
-            url: String::from("https://raw.githubusercontent.com/k2jp/abp-japanese-filters/master/abpjf.txt"),
-            title: String::from("ABP Japanese filters (日本用フィルタ)"),
+            uuid: String::from("843B0AB7-073C-4007-8747-A4CD88B8124D"),
+            url: String::from("https://filters.adtidy.org/extension/ublock/filters/7.txt"),
+            title: String::from("Adguard Japanese filters (日本用フィルタ)"),
             langs: [String::from("ja")].to_vec(),
-            support_url: String::from("https://github.com/k2jp/abp-japanese-filters/wiki/Support_Policy"),
-            component_id: String::from("ghnjmapememheddlfgmklijahiofgkea"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsOoGwN4i751gHi1QmHMkFZCXFPseO/Q8qKOQViZI7p6THKqF1G3uHNxh8NjwKfsdcJLyZbnWx7BvDeyUw3K9hqWw4Iq6C0Ta1YEqEJFhcltV7J7aCMPJHdjZk5rpya9eXTWX1hfIYOvujPisKuwMNUmnlpaeWThihf4twu9BUn/X6+jcaqVaQ73q5TLS5vp13A9q2qSbEa79f/uUT8oKzN4S/GorQ6faS4bOl3iHuCT9abVXdy80WSut4bBERKgbc+0aJvi1dhpbCeM4DxVViM2ZccKvxSpyx4NvWj56dNKqFLvzoA4/Chz1udxifIXUHh0701s1Y4fLpY0wWP0uXQIDAQAB"),
+            support_url: String::from("https://github.com/AdguardTeam/AdguardFilters"),
+            component_id: String::from("ebdjjmkojbakgcbhjdjdjclomdelgjnc"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAytbDtYui42mkzrPa/7uUfSb9RmgzRjBmcYRxfxKdw97b23LuuprbkvVZC3SW7TTktk58k50XLXq7z+774E7/xj+FfhnsYPCHboIWTp5lsZWDORqDAQ9VM8kAFD2/HNDINbk0VIoR1sjKsiesgROiEikIgDwFWYpW1BuMwu9Dev1ts4NHKXxjvR8F7E5gzx0Kv6oHTXdet5D9hmCIvQg5Ttb9rQ49qTpy4b/QurlrqdNmZhNdkAQNFRow8lh5wZG6XhDjYBeS03D26HyYCAXPDUIPjC69O1HJDG6N+9I/qJOp5kI4PhbwPDGJQpmsE4NHheeiuptldaDc2rkEn4lU0wIDAQAB"),
             desc: String::from("Removes advertisements from Japanese websites")
         },
         FilterList {
