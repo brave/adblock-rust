@@ -421,6 +421,16 @@ pub fn regions() -> Vec<FilterList> {
             component_id: String::from("cklgijeopkpaadeipkhdaodemoenlene"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAymFhKEG/UJ8ZyKjdx4xfRFtECXdWXixG8GoS3mrw/haeVQoB1jXmPBQTZfL2WGZqYvrAkHRRel7XEoZNYziP3bCYbS4yVqKnDUp1u5GIsMsN0Pff1O1SHEbqClb79vAVhftNq1VQkHPpXQdoSiINQ12Om8WbOIuaNxkrTToFW7XRMtbI3tluoLUSy9YTkCEGah68Dl1uL6nOzOxaMV1iQRRk5Pw4ugTzwGHHL2U2kDYDNrlywK8cUIFgtZskqQ/TF1zF6u9xTGjwjB9X319XrTg2llcojCgj/dllBuXL2aJoDsS3qAVzqbSYxIE6bQU8JX8wv+KCDMpJt/dHPQqOMwIDAQAB"),
             desc: String::from("Removes advertisements from Vietnamese websites")
+        },
+        FilterList {
+            uuid: String::from("xxxxxxxxxx"),
+            url: String::from("https://raw.githubusercontent.com/DandelionSprout/adfilt/master/NorwegianExperimentalList%20alternate%20versions/NordicFiltersBrave.txt"),
+            title: String::from("Dandelion Sprout's Nordic Filters (for Brave Browser)"),
+            langs: [String::from("nb"), String::from("nn"), String::from("no"), String::from("da"), String::from("is")].to_vec(),
+            support_url: String::from("https://github.com/DandelionSprout/adfilt/issues"),
+            component_id: String::from("xxxxxxxxxx"),
+            base64_public_key: String::from("xxxxxxxxxx"),
+            desc: String::from("Removes advertisements from Norwegian, Danish and Icelandic websites")
         }
     ].to_vec()
 }
