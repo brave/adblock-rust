@@ -214,7 +214,7 @@ pub fn regions() -> Vec<FilterList> {
         },
         FilterList {
             uuid: String::from("843B0AB7-073C-4007-8747-A4CD88B8124D"),
-            url: String::from("https://filters.adtidy.org/extension/ublock/filters/7.txt"),
+            url: String::from("https://filters.adtidy.org/ios/filters/7.txt"),
             title: String::from("Adguard Japanese filters (日本用フィルタ)"),
             langs: [String::from("ja")].to_vec(),
             support_url: String::from("https://github.com/AdguardTeam/AdguardFilters"),
