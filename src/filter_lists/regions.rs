@@ -223,16 +223,6 @@ pub fn regions() -> Vec<FilterList> {
             desc: String::from("Removes advertisements from Japanese websites")
         },
         FilterList {
-            uuid: String::from("1E6CF01B-AFC4-47D2-AE59-3E32A1ED094F"),
-            url: String::from("https://raw.githubusercontent.com/gfmaster/adblock-korea-contrib/master/filter.txt"),
-            title: String::from("Korean Adblock List"),
-            langs: [String::from("ko")].to_vec(),
-            support_url: String::from("https://github.com/gfmaster/adblock-korea-contrib"),
-            component_id: String::from("jboldinnegecjonfmaahihagfahjceoj"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArcE90V2GoQ9InvoiVqxsEnhHhdJz68yyWA+HzQBxcxitqfF5Vu6gRiKB3+W/iTJ9XNE449krWrYAjDqVt6GF8ilpieIngwCNsl7jP5RRhrcrk65as4bawSimodit+TVi7ZpIFDWoalj5RIO+rjKfwkkBHujeM7qYr/Vm1NXre57ea80TvbdoA4XgnAYHKY5VV/WstFL8FR3Do+38EyaIzKfoiRrV97BoC440oifNdi0nJQhIgULfNjUolOh9eAQKuymId+WjZeSKSckUyKMQsQ0VVDjCbm5mwRqC5D+MT9L/8sKcdXBXuGrXyaZzp3eOmc41q01VkRLXCTrx37hGQwIDAQAB"),
-            desc: String::from("Removes advertisements from Korean websites")
-        },
-        FilterList {
             uuid: String::from("45B3ED40-C607-454F-A623-195FDD084637"),
             url: String::from("https://raw.githubusercontent.com/yous/YousList/master/youslist.txt"),
             title: String::from("YousList"),
