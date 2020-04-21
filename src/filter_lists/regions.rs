@@ -213,7 +213,7 @@ pub fn regions() -> Vec<FilterList> {
             desc: String::from("Removes additional advertisements from Italian websites, may break some websites")
         },
         FilterList {
-            uuid: String::from("843B0AB7-073C-4007-8747-A4CD88B8124D"),
+            uuid: String::from("03F91310-9244-40FA-BCF6-DA31B832F34D"),
             url: String::from("https://filters.adtidy.org/ios/filters/7.txt"),
             title: String::from("Adguard Japanese filters (日本用フィルタ)"),
             langs: [String::from("ja")].to_vec(),
