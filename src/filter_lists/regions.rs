@@ -214,23 +214,13 @@ pub fn regions() -> Vec<FilterList> {
         },
         FilterList {
             uuid: String::from("03F91310-9244-40FA-BCF6-DA31B832F34D"),
-            url: String::from("https://raw.githubusercontent.com/k2jp/abp-japanese-filters/master/abpjf.txt"),
-            title: String::from("ABP Japanese filters (日本用フィルタ)"),
+            url: String::from("https://filters.adtidy.org/ios/filters/7.txt"),
+            title: String::from("Adguard Japanese filters (日本用フィルタ)"),
             langs: [String::from("ja")].to_vec(),
-            support_url: String::from("https://github.com/k2jp/abp-japanese-filters/wiki/Support_Policy"),
-            component_id: String::from("ghnjmapememheddlfgmklijahiofgkea"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsOoGwN4i751gHi1QmHMkFZCXFPseO/Q8qKOQViZI7p6THKqF1G3uHNxh8NjwKfsdcJLyZbnWx7BvDeyUw3K9hqWw4Iq6C0Ta1YEqEJFhcltV7J7aCMPJHdjZk5rpya9eXTWX1hfIYOvujPisKuwMNUmnlpaeWThihf4twu9BUn/X6+jcaqVaQ73q5TLS5vp13A9q2qSbEa79f/uUT8oKzN4S/GorQ6faS4bOl3iHuCT9abVXdy80WSut4bBERKgbc+0aJvi1dhpbCeM4DxVViM2ZccKvxSpyx4NvWj56dNKqFLvzoA4/Chz1udxifIXUHh0701s1Y4fLpY0wWP0uXQIDAQAB"),
+            support_url: String::from("https://github.com/AdguardTeam/AdguardFilters"),
+            component_id: String::from("ebdjjmkojbakgcbhjdjdjclomdelgjnc"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAytbDtYui42mkzrPa/7uUfSb9RmgzRjBmcYRxfxKdw97b23LuuprbkvVZC3SW7TTktk58k50XLXq7z+774E7/xj+FfhnsYPCHboIWTp5lsZWDORqDAQ9VM8kAFD2/HNDINbk0VIoR1sjKsiesgROiEikIgDwFWYpW1BuMwu9Dev1ts4NHKXxjvR8F7E5gzx0Kv6oHTXdet5D9hmCIvQg5Ttb9rQ49qTpy4b/QurlrqdNmZhNdkAQNFRow8lh5wZG6XhDjYBeS03D26HyYCAXPDUIPjC69O1HJDG6N+9I/qJOp5kI4PhbwPDGJQpmsE4NHheeiuptldaDc2rkEn4lU0wIDAQAB"),
             desc: String::from("Removes advertisements from Japanese websites")
-        },
-        FilterList {
-            uuid: String::from("1E6CF01B-AFC4-47D2-AE59-3E32A1ED094F"),
-            url: String::from("https://raw.githubusercontent.com/gfmaster/adblock-korea-contrib/master/filter.txt"),
-            title: String::from("Korean Adblock List"),
-            langs: [String::from("ko")].to_vec(),
-            support_url: String::from("https://github.com/gfmaster/adblock-korea-contrib"),
-            component_id: String::from("jboldinnegecjonfmaahihagfahjceoj"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArcE90V2GoQ9InvoiVqxsEnhHhdJz68yyWA+HzQBxcxitqfF5Vu6gRiKB3+W/iTJ9XNE449krWrYAjDqVt6GF8ilpieIngwCNsl7jP5RRhrcrk65as4bawSimodit+TVi7ZpIFDWoalj5RIO+rjKfwkkBHujeM7qYr/Vm1NXre57ea80TvbdoA4XgnAYHKY5VV/WstFL8FR3Do+38EyaIzKfoiRrV97BoC440oifNdi0nJQhIgULfNjUolOh9eAQKuymId+WjZeSKSckUyKMQsQ0VVDjCbm5mwRqC5D+MT9L/8sKcdXBXuGrXyaZzp3eOmc41q01VkRLXCTrx37hGQwIDAQAB"),
-            desc: String::from("Removes advertisements from Korean websites")
         },
         FilterList {
             uuid: String::from("45B3ED40-C607-454F-A623-195FDD084637"),
