@@ -244,10 +244,10 @@ pub fn regions() -> Vec<FilterList> {
         },
         FilterList {
             uuid: String::from("4E8B1A63-DEBE-4B8B-AD78-3811C632B353"),
-            url: String::from("https://margevicius.lt/easylistlithuania.txt"),
+            url: String::from("https://raw.githubusercontent.com/EasyList-Lithuania/easylist_lithuania/master/easylistlithuania.txt"),
             title: String::from("Adblock Plus Lithuania"),
             langs: [String::from("lt")].to_vec(),
-            support_url: String::from("https://margevicius.lt/easylist_lithuania/"),
+            support_url: String::from("https://github.com/EasyList-Lithuania/easylist_lithuania"),
             component_id: String::from("ekodlgldheejnlkhiceghfgdcplpeoek"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5dB+7xR4lcPQCW84V4zhLiYhAvKxgdo2/cze+C8E3+ye1AO+a1CWbdPgft36vtTm4nkDzyC3P9O/aEU8jxShKEU1DDk8YBdRnvctQ9PPvwNyeS9LCYeT5a9crE9M/Z+kaFyq0SRe5cpowOBG8x4OYTt9Y7L9whEGzZYRZlgklli1AES6e2B9XUAdHXV/wHsaf2FrdPFtDfZZEFdr60edk4f0iGppiwkaGJiOWVF1ya47NoSMl4fIF7Klw9OkfKLJHjk9YXZmXCfqxQl8FnBFe/SzbSTVCAhdaggQAwG4VmojjMrBHcQl0VJDmpoY2jFZkiO3GLmAZCYIYaN1tFA8ZwIDAQAB"),
             desc: String::from("Removes advertisements from Lithuanian websites")
