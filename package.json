@@ -11,9 +11,21 @@
   },
   "repository": "https://github.com/brave/adblock-rust.git",
   "dependencies": {
-    "neon-cli": "0.4.0"
+    "neon-cli": "^0.4.0",
+    "node-pre-gyp": "github:amilajack/node-pre-gyp#neon-compat",
+    "node-pre-gyp-github": "^1.4.3"
   },
   "scripts": {
-    "install": "neon build --release"
+    "install": "node-pre-gyp install --fallback-to-build=false || neon build --release",
+    "package": "node-pre-gyp package",
+    "upload-binary": "node-pre-gyp package && node-pre-gyp-github publish"
+  },
+  "binary": {
+    "module_name": "index",
+    "host": "https://github.com/brave/adblock-rust/releases/download/",
+    "remote_path": "{version}",
+    "package_name": "{node_abi}-{platform}-{arch}.tar.gz",
+    "module_path": "./native",
+    "pkg_path": "."
   }
 }
