@@ -98,6 +98,9 @@ pub struct Blocker {
     #[cfg(feature = "object-pooling")]
     #[serde(skip_serializing, skip_deserializing)]
     pool: TokenPool,
+
+    #[serde(default)]
+    generic_hide: NetworkFilterList,
 }
 
 impl Blocker {
@@ -107,6 +110,21 @@ impl Blocker {
      */
     pub fn check(&self, request: &Request) -> BlockerResult {
         self.check_parameterised(request, false, false)
+    }
+
+    pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
+        let mut request_tokens;
+        #[cfg(feature = "object-pooling")]
+        {
+            request_tokens = self.pool.pool.new();
+        }
+        #[cfg(not(feature = "object-pooling"))]
+        {
+            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
+        }
+        hostname_request.get_tokens(&mut request_tokens);
+
+        self.generic_hide.check(hostname_request, &request_tokens, &HashSet::new()).is_some()
     }
 
     pub fn check_parameterised(&self, request: &Request, matched_rule: bool, force_check_exceptions: bool) -> BlockerResult {
@@ -247,6 +265,8 @@ impl Blocker {
         let mut tagged_filters_all = Vec::with_capacity(200);
         // $badfilter
         let mut badfilters = Vec::with_capacity(100);
+        // $generichide
+        let mut generic_hide = Vec::with_capacity(4000);
         // All other filters
         let mut filters = Vec::with_capacity(network_filters.len());
 
@@ -268,6 +288,8 @@ impl Blocker {
                 }
                 if filter.is_csp() {
                     csp.push(filter);
+                } else if filter.is_generic_hide() {
+                    generic_hide.push(filter);
                 } else if filter.is_exception() {
                     exceptions.push(filter);
                 } else if filter.is_important() {
@@ -283,6 +305,7 @@ impl Blocker {
         }
 
         csp.shrink_to_fit();
+        generic_hide.shrink_to_fit();
         exceptions.shrink_to_fit();
         importants.shrink_to_fit();
         redirects.shrink_to_fit();
@@ -296,6 +319,7 @@ impl Blocker {
             redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
             filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
             filters: NetworkFilterList::new(filters, options.enable_optimizations),
+            generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
@@ -315,6 +339,8 @@ impl Blocker {
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
         if filter.is_csp() {
             self.csp.filter_exists(filter)
+        } else if filter.is_generic_hide() {
+            self.generic_hide.filter_exists(filter)
         } else if filter.is_exception() {
             self.exceptions.filter_exists(filter)
         } else if filter.is_important() {
@@ -335,6 +361,9 @@ impl Blocker {
             Err(BlockerError::FilterExists)
         } else if filter.is_csp() {
             self.csp.filter_add(filter);
+            Ok(self)
+        } else if filter.is_generic_hide() {
+            self.generic_hide.filter_add(filter);
             Ok(self)
         } else if filter.is_exception() {
             self.exceptions.filter_add(filter);
@@ -1327,6 +1356,20 @@ mod blocker_tests {
         assert!(!matched_rule.matched);
         assert!(matched_rule.exception.is_some());
     }
+
+    #[test]
+    fn generichide() {
+        let blocker_options: BlockerOptions = BlockerOptions {
+            debug: true,
+            enable_optimizations: true,
+        };
+
+        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+
+        blocker.filter_add(NetworkFilter::parse("@@||example.com$generichide", true).unwrap()).unwrap();
+
+        assert!(blocker.check_generic_hide(&Request::from_url("https://example.com").unwrap()));
+    }
 }
 
 #[cfg(test)]
@@ -1346,14 +1389,12 @@ mod legacy_rule_parsing_tests {
     // easyList = { 24478, 31144, 0, 5589 };
     // not handling (and not including) filters with the following options: 
     // - $popup
-    // - $generichide
-    // - $subdocument
     // - $document
     // - $elemhide
     // difference from original counts caused by not handling document/subdocument options and possibly miscounting on the blocker side.
     // Printing all non-cosmetic, non-html, non-comment/-empty rules and ones with no unsupported options yields 29142 items
     // This engine also handles 3 rules that old one does not
-    const EASY_LIST: ListCounts = ListCounts { filters: 24062+3, cosmetic_filters: 31163, exceptions: 5080 };
+    const EASY_LIST: ListCounts = ListCounts { filters: 24062+3, cosmetic_filters: 31163, exceptions: 5800 };
     // easyPrivacy = { 11817, 0, 0, 1020 };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
     const EASY_PRIVACY: ListCounts = ListCounts { filters: 11889, cosmetic_filters: 0, exceptions: 1021 };
@@ -1391,7 +1432,8 @@ mod legacy_rule_parsing_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
-        assert!(vec_hashmap_len(&blocker.exceptions.filter_map) >= expectation.exceptions, "Number of collected exceptions does not match expectation");
+        assert!(vec_hashmap_len(&blocker.exceptions.filter_map) + vec_hashmap_len(&blocker.generic_hide.filter_map)
+            >= expectation.exceptions, "Number of collected exceptions does not match expectation");
 
         assert!(vec_hashmap_len(&blocker.filters.filter_map) + 
             vec_hashmap_len(&blocker.importants.filter_map) +

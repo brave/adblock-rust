@@ -22,6 +22,8 @@ pub enum NetworkFilterError {
     NegatedExplicitCancel,
     NegatedRedirection,
     NegatedTag,
+    NegatedGenericHide,
+    GenericHideWithoutException,
     EmptyRedirection,
     UnrecognisedOption,
     NoRegex,
@@ -53,6 +55,7 @@ bitflags! {
         const FIRST_PARTY = 1 << 17;
         const EXPLICIT_CANCEL = 1 << 26;
         const BAD_FILTER = 1 << 27;
+        const GENERIC_HIDE = 1 << 30;
 
         // full document rules tend to be handled differently
         const FROM_DOCUMENT = 1 << 29;
@@ -341,6 +344,10 @@ impl NetworkFilter {
                             csp = Some(String::from(value));
                         }
                     }
+                    ("generichide", true) => return Err(NetworkFilterError::NegatedGenericHide),
+                    ("generichide", false) => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
+                    ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
+                    ("ghide", false) => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
                     (_, negation) => {
                         // Handle content type options separatly
                         let mut option_mask = NetworkFilterMask::NONE;
@@ -558,6 +565,12 @@ impl NetworkFilter {
             None
         };
 
+        if mask.contains(NetworkFilterMask::GENERIC_HIDE) {
+            if !mask.contains(NetworkFilterMask::IS_EXCEPTION) {
+                return Err(NetworkFilterError::GenericHideWithoutException);
+            }
+        }
+
         Ok(NetworkFilter {
             bug,
             csp,
@@ -738,6 +751,10 @@ impl NetworkFilter {
     
     pub fn is_badfilter(&self) -> bool {
         self.mask.contains(NetworkFilterMask::BAD_FILTER)
+    }
+
+    pub fn is_generic_hide(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::GENERIC_HIDE)
     }
     
     pub fn is_regex(&self) -> bool {
@@ -2251,10 +2268,37 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_generic_hide() {
+        {
+            let filter = NetworkFilter::parse("||foo.com$generichide", true);
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("@@||foo.com$generichide", true).unwrap();
+            assert_eq!(filter.is_exception(), true);
+            assert_eq!(filter.is_generic_hide(), true);
+        }
+        {
+            let filter = NetworkFilter::parse("@@||foo.com|$generichide", true).unwrap();
+            assert_eq!(filter.is_exception(), true);
+            assert_eq!(filter.is_generic_hide(), true);
+        }
+        {
+            let filter = NetworkFilter::parse("@@$generichide,domain=example.com", true).unwrap();
+            assert_eq!(filter.is_generic_hide(), true);
+            let breakdown = NetworkFilterBreakdown::from(&filter);
+            assert_eq!(breakdown.opt_domains, Some(vec![utils::fast_hash("example.com")]));
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com", true).unwrap();
+            assert_eq!(filter.is_generic_hide(), false);
+        }
+    }
+
+    #[test]
     fn handles_unsupported_options() {
         let options = vec![
             "genericblock",
-            "generichide",
             "inline-script",
             "popunder",
             "popup",
