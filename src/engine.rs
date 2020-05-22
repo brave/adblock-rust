@@ -1,6 +1,6 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
-use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameSpecificResources};
+use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::lists::{parse_filters, parse_filter, ParsedFilter, FilterParseError};
 use crate::request::Request;
 use crate::filters::network::NetworkFilter;
@@ -227,11 +227,19 @@ impl Engine {
         self.cosmetic_cache.hidden_class_id_selectors(classes, ids, exceptions)
     }
 
-    /// Returns a set of cosmetic filter resources required for a particular hostname. Once this
-    /// has been called, all CSS ids and classes on a page should be passed to
-    /// `hidden_class_id_selectors` to obtain any stylesheets consisting of generic rules.
-    pub fn hostname_cosmetic_resources(&self, hostname: &str) -> HostnameSpecificResources {
-        self.cosmetic_cache.hostname_cosmetic_resources(hostname)
+    /// Returns a set of cosmetic filter resources required for a particular url. Once this has
+    /// been called, all CSS ids and classes on a page should be passed to
+    /// `hidden_class_id_selectors` to obtain any stylesheets consisting of generic rules (if the
+    /// returned `generichide` value is false).
+    pub fn url_cosmetic_resources(&self, url: &str) -> UrlSpecificResources {
+        let request = Request::from_url(url);
+        if request.is_err() {
+            return UrlSpecificResources::empty();
+        }
+        let request = request.unwrap();
+
+        let generichide = self.blocker.check_generic_hide(&request);
+        self.cosmetic_cache.hostname_cosmetic_resources(&request.hostname, generichide)
     }
 }
 
@@ -529,5 +537,33 @@ mod tests {
         let resource = inserted_resource.unwrap();
         assert_eq!(resource.content_type, "application/javascript");
         assert_eq!(&resource.data, script);
+    }
+
+    #[test]
+    fn generichide() {
+        let filters = vec![
+            String::from("##.donotblock"),
+            String::from("##a[href=\"generic.com\"]"),
+
+            String::from("@@||example.com$generichide"),
+            String::from("example.com##.block"),
+
+            String::from("@@||example2.com/test.html$generichide"),
+            String::from("example2.com##.block"),
+        ];
+        let url_results = vec![
+            ("https://example.com", vec![".block"], true),
+            ("https://example.com/test.html", vec![".block"], true),
+            ("https://example2.com", vec![".block", "a[href=\"generic.com\"]"], false),
+            ("https://example2.com/test.html", vec![".block"], true),
+        ];
+
+        let engine = Engine::from_rules_parametrised(&filters, true, true, true, false);
+
+        url_results.into_iter().for_each(|(url, expected_result, expected_generichide)| {
+            let result = engine.url_cosmetic_resources(url);
+            assert_eq!(result.hide_selectors, expected_result.iter().map(|s| s.to_string()).collect::<HashSet<_>>());
+            assert_eq!(result.generichide, expected_generichide);
+        });
     }
 }
