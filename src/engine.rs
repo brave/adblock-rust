@@ -6,11 +6,6 @@ use crate::request::Request;
 use crate::filters::network::NetworkFilter;
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::resources::{Resource, RedirectResource};
-use crate::utils::is_eof_error;
-use rmps;
-use flate2::write::GzEncoder;
-use flate2::read::GzDecoder;
-use flate2::Compression;
 use std::collections::HashSet;
 
 pub struct Engine {
@@ -42,44 +37,27 @@ impl Engine {
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, BlockerError> {
-        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
-        rmps::encode::write(&mut gz, &self.blocker)
-            .or_else(|e| {
-                eprintln!("Error serializing: {:?}", e);
-                Err(BlockerError::SerializationError)
-            })?;
-        rmps::encode::write(&mut gz, &self.cosmetic_cache)
-            .or_else(|e| {
-                eprintln!("Error serializing cosmetic filters: {:?}", e);
-                Err(BlockerError::SerializationError)
-            })?;
+        use crate::data_format::SerializeFormat;
 
-        let compressed = gz.finish()
-            .or_else(|_| Err(BlockerError::SerializationError))?;
-        Ok(compressed)
+        let serialize_format = SerializeFormat::from((&self.blocker, &self.cosmetic_cache));
+
+        serialize_format.serialize().map_err(|e| {
+            eprintln!("Error serializing: {:?}", e);
+            BlockerError::SerializationError
+        })
     }
 
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), BlockerError> {
+        use crate::data_format::DeserializeFormat;
         let current_tags = self.blocker.tags_enabled();
-        let mut gz = GzDecoder::new(serialized);
-        let blocker = rmps::decode::from_read(&mut gz)
-            .or_else(|e| {
-                eprintln!("Error deserializing: {:?}", e);
-                Err(BlockerError::DeserializationError)
-            })?;
+        let deserialize_format = DeserializeFormat::deserialize(serialized).map_err(|e| {
+            eprintln!("Error deserializing: {:?}", e);
+            BlockerError::DeserializationError
+        })?;
+        let (blocker, cosmetic_cache) = deserialize_format.into();
         self.blocker = blocker;
         self.blocker.with_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
-        match rmps::decode::from_read(&mut gz) {
-            Ok(cosmetic_cache) => self.cosmetic_cache = cosmetic_cache,
-            Err(ref e) if is_eof_error(e) => {
-                // Ignore if didn't find any cosmetic filters
-                ()
-            }
-            Err(e) => {
-                eprintln!("Error deserializing cosmetic filters: {:?}", e);
-                return Err(BlockerError::DeserializationError);
-            }
-        }
+        self.cosmetic_cache = cosmetic_cache;
         Ok(())
     }
 
