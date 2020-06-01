@@ -84,17 +84,17 @@ fn hostname_specific_rules(rules: &[&SpecificFilterType]) -> (HashSet<String>, H
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct CosmeticFilterCache {
-    simple_class_rules: HashSet<String>,
-    simple_id_rules: HashSet<String>,
-    complex_class_rules: HashMap<String, Vec<String>>,
-    complex_id_rules: HashMap<String, Vec<String>>,
+pub(crate) struct CosmeticFilterCache {
+    pub(crate) simple_class_rules: HashSet<String>,
+    pub(crate) simple_id_rules: HashSet<String>,
+    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
+    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
 
-    specific_rules: HostnameRuleDb,
+    pub(crate) specific_rules: HostnameRuleDb,
 
-    misc_generic_selectors: HashSet<String>,
+    pub(crate) misc_generic_selectors: HashSet<String>,
 
-    scriptlets: ScriptletResourceStorage,
+    pub(crate) scriptlets: ScriptletResourceStorage,
 }
 
 impl CosmeticFilterCache {
@@ -311,7 +311,7 @@ impl HostnameExceptionsBuilder {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct HostnameRuleDb {
     db: HashMap<Hash, Vec<SpecificFilterType>>,
 }

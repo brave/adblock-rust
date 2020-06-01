@@ -54,7 +54,7 @@ pub enum BlockerError {
 }
 
 #[cfg(feature = "object-pooling")]
-struct TokenPool {
+pub struct TokenPool {
     pub pool: Pool<Vec<utils::Hash>>
 }
 
@@ -70,37 +70,31 @@ impl Default for TokenPool {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Blocker {
-    csp: NetworkFilterList,
-    exceptions: NetworkFilterList,
-    importants: NetworkFilterList,
-    redirects: NetworkFilterList,
-    filters_tagged: NetworkFilterList,
-    filters: NetworkFilterList,
+    pub(crate) csp: NetworkFilterList,
+    pub(crate) exceptions: NetworkFilterList,
+    pub(crate) importants: NetworkFilterList,
+    pub(crate) redirects: NetworkFilterList,
+    pub(crate) filters_tagged: NetworkFilterList,
+    pub(crate) filters: NetworkFilterList,
     
-    // Do not serialize enabled tags - when deserializing, tags of the existing
+    // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
-    #[serde(skip_serializing, skip_deserializing)]
-    tags_enabled: HashSet<String>,
-    tagged_filters_all: Vec<NetworkFilter>,
+    pub(crate) tags_enabled: HashSet<String>,
+    pub(crate) tagged_filters_all: Vec<NetworkFilter>,
 
-    #[serde(skip_serializing, skip_deserializing)]
-    hot_filters: NetworkFilterList,
+    // Not serialized
+    pub(crate) hot_filters: NetworkFilterList,
 
-    debug: bool,
-    enable_optimizations: bool,
-    _unused: bool,      // This field exists for backwards compatibility only.
-    _unused2: bool,     // This field exists for backwards compatibility only, and *must* be true.
+    pub(crate) debug: bool,
+    pub(crate) enable_optimizations: bool,
 
-    #[serde(default)]
-    resources: RedirectResourceStorage,
+    pub(crate) resources: RedirectResourceStorage,
+    // Not serialized
     #[cfg(feature = "object-pooling")]
-    #[serde(skip_serializing, skip_deserializing)]
-    pool: TokenPool,
+    pub(crate) pool: TokenPool,
 
-    #[serde(default)]
-    generic_hide: NetworkFilterList,
+    pub(crate) generic_hide: NetworkFilterList,
 }
 
 impl Blocker {
@@ -327,8 +321,6 @@ impl Blocker {
             // Options
             debug: options.debug,
             enable_optimizations: options.enable_optimizations,
-            _unused: true,
-            _unused2: true,
 
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
@@ -436,7 +428,7 @@ impl Blocker {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-struct NetworkFilterList {
+pub struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
     // optimized: Option<bool>
 }
