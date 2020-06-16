@@ -47,6 +47,18 @@ pub fn default_lists() -> Vec<FilterList> {
             desc: String::from(""),
         },
         FilterList {
+            uuid: String::from("9F1AFA33-F034-4AE9-A927-6C293867EAF1"),
+            url: String::from(
+                "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2020.txt",
+            ),
+            title: String::from("uBlockOrigin 2020 Filters"),
+            langs: Vec::new(),
+            support_url: String::from("https://github.com/uBlockOrigin/uAssets"),
+            component_id: String::from(""),
+            base64_public_key: String::from(""),
+            desc: String::from(""),
+        },
+        FilterList {
             uuid: String::from("744e5fb2-5446-4578-a097-68efd098ed5e"),
             url: String::from(
                 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt",
