@@ -68,8 +68,8 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("EasyList Germany"),
             langs: [String::from("de")].to_vec(),
             support_url: String::from("https://forums.lanik.us/viewforum.php?f=90"),
-            component_id: String::from("jmomcjcilfpbaaklkifaijjcnancamde"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1HeinhQW1+SS5Xkfxb1KGAdSQqcm8bTx3fg40xVwsSre6B/VKnBLgOD9mTnbBHBY4rfymxwhD7dTHf05Y7LAkAhTEFLyi09GYPBesJ7uO2EZMYuPEd6iKx1lKo/zF9eO0VrDtjz+vw9zwriHtFMJLxz2+QXH18tx/jcvRiM8mxKB64ma+mZO38zHDs+KPDNBigtXcMhjfKbk3vnl/bl/Adzibx44gEol+abEHkvItLwdaBb3vRTEFiiO8MoTJYFY8qMxwZK4aSr6Ox5yDKzCc7dy/eIarb+zfzbk7QJD+FsNuQ34h/7gMnUE+AX+SNxFpGKRRAJFHbBPr/ofHxorUQIDAQAB"),
+            component_id: String::from("faknfgalcghekhfggcdikddilkpjbonh"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1CpR7Asj+2wl/1vM39WGUrHQ6vT+nuo+XSL7VzTaxW7g7el5lUC2X9MaaynfK7gOblr5Wnf/mjSJJZA57mxogjOCPP8lF0c7sOEgeO5L6hnDGB7sonCEFpHnBEn8VOZDvmqEb++AiXUPBFSnAOt4Mouck5CY80N6Sqbt4cxUBSof/NsGHZiTvCN7fJpW4ajLOtbWhCAmBhdG0VHatBG+Et/Z6yQtxEYQixKQNHJljiq55MzuE2jfGOZ8MAjyQdstF+GGfF6WPqnR5fd1rECK3OsI8zV9OOLPkjKrKEnlMsaMFFFU0T7Ly1UALehlWXtunelzq1mGvVS7vV+5aVR/QIDAQAB"),
             desc: String::from("Removes advertisements from German websites")
         },
         FilterList {
@@ -158,8 +158,8 @@ pub fn regions() -> Vec<FilterList> {
             title: String::from("Fanboy's India Filters"),
             langs: [String::from("hi")].to_vec(),
             support_url: String::from("https://www.fanboy.co.nz/filters.html"),
-            component_id: String::from("fijddbnggnpidebfbejillgbopcikfpi"),
-            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAraHfJfoceCra3QEYhK2Njl8oUvtDOiT60o/HjpSsarfEgIgCKgqF/sUGK2PVL4c2CsF+fG+YzI4eGrJ85rXL5Z47lmP666r9lZcMVoGs2L7RT8UvsVwpyxiH868kLVxeM0NBas/jIy7jAul5/fGf0fRUF0TbSIG/tghO8nR4bloYEbSri9BWcl6ccMfAKsIalNWnP3uifjC/t7BWIkY486zq/UPXdIuJbRPWqJDTS6EZH5ZXFDkLE8tta3OrRV7n3ei2HdyTnJOVj2DSskKWwAA7fpYGVnmJouBqg++kC6YqSnaW2ElVzQIaiRigwXj4keAZzMoDbTrGh7g+LSVngwIDAQAB"),
+            component_id: String::from("jnnbjhbkmgggeoplhadmppaeddmeapla"),
+            base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1KcZJ8dK2ANtw8x19l0g1i2sSsg/G6AJNLORsw+Uz9g6sx7pUJo8TpjyITiwO366C6q/I2KwFpuc0NgGvWs6nLMEX6yaGO8tnrza36Dj7GFTQA9+H0TQxuZdcOfZqP8UakA6exGOl0anzAt/HQB1Gf6ipKilS0M4PAnPwlVaTRmdKxQwqHQrpfWSiKRB3MBG/OT48y9SXKToP+NAIIfVRC7TxPVJ0zIu41UDfU3Mx6zKOBcRfTnhmUT9XIEv2lAfRDyEDXTGg3nSNluZM4Bu4iQKpxj+x7oZDpQMkrpVBZdjpIRMPiD6aMKCo3GULoH15Fb7re5RZLJIxcu0+B8lPwIDAQAB"),
             desc: String::from("Removes advertisements from Hindi websites")
         },
         FilterList {
