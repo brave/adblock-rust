@@ -424,8 +424,8 @@ pub fn regions() -> Vec<FilterList> {
         },
         FilterList {
             uuid: String::from("xxxxxxxxxx"),
-            url: String::from("https://raw.githubusercontent.com/DandelionSprout/adfilt/master/NorwegianList.txt"),
-            title: String::from("Dandelion Sprout's Nordic Filters"),
+            url: String::from("https://raw.githubusercontent.com/DandelionSprout/adfilt/master/NorwegianExperimentalList%20alternate%20versions/NordicFiltersBrave.txt"),
+            title: String::from("Dandelion Sprout's Nordic Filters (for Brave Browser)"),
             langs: [String::from("nb"), String::from("nn"), String::from("no"), String::from("da"), String::from("is")].to_vec(),
             support_url: String::from("https://github.com/DandelionSprout/adfilt/issues"),
             component_id: String::from("xxxxxxxxxx"),
