@@ -9,25 +9,48 @@ use adblock::request::Request;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
+use tokio::runtime::Runtime;
+
 lazy_static! {
     static ref PSL_LIST: psl::List = psl::List::new();
 }
 
+async fn get_all_filters() -> Vec<String> {
+    use futures::FutureExt;
+    let default_lists = adblock::filter_lists::default::default_lists();
+
+    let filters_fut: Vec<_> = default_lists
+        .iter()
+        .map(|list| {
+            reqwest::get(&list.url)
+                .then(|resp| resp
+                    .expect("Could not request rules")
+                    .text()
+                ).map(|text| text
+                    .expect("Could not get rules as text")
+                    .lines()
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<_>>()
+                )
+        })
+        .collect();
+
+    futures::future::join_all(filters_fut)
+        .await
+        .iter()
+        .flatten()
+        .cloned()
+        .collect()
+}
+
 /// Gets all rules with redirects, and modifies them to apply to resources at `a{0-n}.com/bad.js`
 fn get_redirect_rules() -> Vec<NetworkFilter> {
-    adblock::filter_lists::default::default_lists()
-        .into_iter()
-        .map(|list| {
-            let filters: Vec<String> = reqwest::get(&list.url).expect("Could not request rules")
-                .text().expect("Could not get rules as text")
-                .lines()
-                .map(|s| s.to_owned())
-                .collect();
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
-            let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
-            network_filters
-        })
-        .flatten()
+    let filters = async_runtime.block_on(get_all_filters());
+    let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
+
+    network_filters.into_iter()
         .filter(|rule| {
             if let Some(ref redirect) = rule.redirect {
                 if redirect != "none" {
