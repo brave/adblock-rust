@@ -16,8 +16,10 @@ use adblock::resources::resource_assembler::{assemble_web_accessible_resources, 
 struct EngineOptions {
     pub debug: Option<bool>,
     pub optimize: Option<bool>,
-    pub loadNetwork: Option<bool>,
-    pub loadCosmetic: Option<bool>,
+    #[serde(rename = "loadNetwork")]
+    pub load_network: Option<bool>,
+    #[serde(rename = "loadCosmetic")]
+    pub load_cosmetic: Option<bool>,
 }
 
 declare_types! {
@@ -37,8 +39,8 @@ declare_types! {
                     if let Ok(config) = maybe_config {
                         debug = config.debug.unwrap_or(false);
                         optimize = config.optimize.unwrap_or(true);
-                        load_network = config.loadNetwork.unwrap_or(true);
-                        load_cosmetic = config.loadCosmetic.unwrap_or(true);
+                        load_network = config.load_network.unwrap_or(true);
+                        load_cosmetic = config.load_cosmetic.unwrap_or(true);
                     } else {
                         debug = arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value();
                         optimize = true;
