@@ -14,12 +14,14 @@ pub struct Engine {
 }
 
 impl Engine {
+    /// Loads cosmetic and network rules in optimized form without debug information.
     pub fn from_rules(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, true, false, false, true)
+        Self::from_rules_parametrised(&network_filters, true, true, false, true)
     }
 
+    /// Loads cosmetic and network rules in optimized form with debug information.
     pub fn from_rules_debug(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, true, false, true, true)
+        Self::from_rules_parametrised(&network_filters, true, true, true, true)
     }
 
     pub fn from_rules_parametrised(filter_rules: &[String], load_network: bool, load_cosmetic: bool, debug: bool, optimize: bool) -> Engine {
@@ -529,7 +531,7 @@ mod tests {
             ("https://example2.com/test.html", vec![".block"], true),
         ];
 
-        let engine = Engine::from_rules_parametrised(&filters, true, true, true, false);
+        let engine = Engine::from_rules(&filters);
 
         url_results.into_iter().for_each(|(url, expected_result, expected_generichide)| {
             let result = engine.url_cosmetic_resources(url);
