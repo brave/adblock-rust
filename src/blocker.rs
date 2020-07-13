@@ -374,65 +374,65 @@ impl Blocker {
         }
     }
 
-    pub fn filter_add(&mut self, filter: NetworkFilter) -> Result<&mut Blocker, BlockerError> {
+    pub fn add_filter(&mut self, filter: NetworkFilter) -> Result<(), BlockerError> {
         if filter.is_badfilter() {
             Err(BlockerError::BadFilterAddUnsupported)
         } else if self.filter_exists(&filter) {
             Err(BlockerError::FilterExists)
         } else if filter.is_csp() {
-            self.csp.filter_add(filter);
-            Ok(self)
+            self.csp.add_filter(filter);
+            Ok(())
         } else if filter.is_generic_hide() {
-            self.generic_hide.filter_add(filter);
-            Ok(self)
+            self.generic_hide.add_filter(filter);
+            Ok(())
         } else if filter.is_exception() {
-            self.exceptions.filter_add(filter);
-            Ok(self)
+            self.exceptions.add_filter(filter);
+            Ok(())
         } else if filter.is_important() {
-            self.importants.filter_add(filter);
-            Ok(self)
+            self.importants.add_filter(filter);
+            Ok(())
         } else if filter.is_redirect() {
-            self.redirects.filter_add(filter);
-            Ok(self)
+            self.redirects.add_filter(filter);
+            Ok(())
         } else if filter.tag.is_some() {
             self.tagged_filters_all.push(filter);
             let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
-            Ok(self.tags_with_set(tags_enabled))
+            self.tags_with_set(tags_enabled);
+            Ok(())
         } else {
-            self.filters.filter_add(filter);
-            Ok(self)
+            self.filters.add_filter(filter);
+            Ok(())
         }
     }
 
-    pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+    pub fn use_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)));
-        self.tags_with_set(tag_set)
+        self.tags_with_set(tag_set);
     }
 
-    pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+    pub fn enable_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)))
             .union(&self.tags_enabled)
             .cloned()
             .collect();
-        self.tags_with_set(tag_set)
+        self.tags_with_set(tag_set);
     }
 
-    pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+    pub fn disable_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = self.tags_enabled
             .difference(&HashSet::from_iter(tags.iter().map(|&t| String::from(t))))
             .cloned()
             .collect();
-        self.tags_with_set(tag_set)
+        self.tags_with_set(tag_set);
     }
 
-    fn tags_with_set<'a>(&'a mut self, tags_enabled: HashSet<String>) -> &'a mut Blocker {
+    fn tags_with_set(&mut self, tags_enabled: HashSet<String>) {
         self.tags_enabled = tags_enabled;
         let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
             .cloned()
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
-        self
     }
 
     pub fn tags_enabled(&self) -> Vec<String> {
@@ -539,7 +539,7 @@ impl NetworkFilterList {
         }
     }
 
-    pub fn filter_add(&mut self, filter: NetworkFilter) -> &mut NetworkFilterList {
+    pub fn add_filter(&mut self, filter: NetworkFilter) {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
@@ -563,8 +563,6 @@ impl NetworkFilterList {
 
             insert_dup(&mut self.filter_map, best_token, Arc::clone(&filter_pointer));
         }
-
-        self
     }
 
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
@@ -1184,7 +1182,7 @@ mod blocker_tests {
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.tags_enable(&["stuff"]);
+        blocker.enable_tags(&["stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
@@ -1221,8 +1219,8 @@ mod blocker_tests {
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.tags_enable(&["stuff"]);
-        blocker.tags_enable(&["brian"]);
+        blocker.enable_tags(&["stuff"]);
+        blocker.enable_tags(&["brian"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
 
@@ -1259,10 +1257,10 @@ mod blocker_tests {
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.tags_enable(&["brian", "stuff"]);
+        blocker.enable_tags(&["brian", "stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
-        blocker.tags_disable(&["stuff"]);
+        blocker.disable_tags(&["stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
@@ -1286,7 +1284,7 @@ mod blocker_tests {
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
         let filter = NetworkFilter::parse("adv$badfilter", true).unwrap();
-        let added = blocker.filter_add(filter);
+        let added = blocker.add_filter(filter);
         assert!(added.is_err());
         assert_eq!(added.err().unwrap(), BlockerError::BadFilterAddUnsupported);
     }
@@ -1304,9 +1302,9 @@ mod blocker_tests {
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
             let filter = NetworkFilter::parse("adv", true).unwrap();
-            let blocker = blocker.filter_add(filter.clone()).unwrap();
+            blocker.add_filter(filter.clone()).unwrap();
             assert!(blocker.filter_exists(&filter), "Expected filter to be inserted");
-            let added = blocker.filter_add(filter);
+            let added = blocker.add_filter(filter);
             assert!(added.is_err(), "Expected repeated insertion to fail");
             assert_eq!(added.err().unwrap(), BlockerError::FilterExists, "Expected specific error on repeated insertion fail");
         }
@@ -1320,8 +1318,8 @@ mod blocker_tests {
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
             let filter = NetworkFilter::parse("adv", true).unwrap();
-            blocker.filter_add(filter.clone()).unwrap();
-            let added = blocker.filter_add(filter);
+            blocker.add_filter(filter.clone()).unwrap();
+            let added = blocker.add_filter(filter);
             assert!(added.is_ok());
         }
     }
@@ -1335,12 +1333,12 @@ mod blocker_tests {
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-        blocker.tags_enable(&["brian"]);
+        blocker.enable_tags(&["brian"]);
 
-        blocker.filter_add(NetworkFilter::parse("adv$tag=stuff", true).unwrap()).unwrap();
-        blocker.filter_add(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
-        blocker.filter_add(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
-        blocker.filter_add(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("adv$tag=stuff", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
         
         let url_results = vec![
             (Request::from_url("http://example.com/advert.html").unwrap(), false),
@@ -1368,7 +1366,7 @@ mod blocker_tests {
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        blocker.filter_add(NetworkFilter::parse("@@*ad_banner.png", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("@@*ad_banner.png", true).unwrap()).unwrap();
 
         let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
 
@@ -1386,7 +1384,7 @@ mod blocker_tests {
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        blocker.filter_add(NetworkFilter::parse("@@||example.com$generichide", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("@@||example.com$generichide", true).unwrap()).unwrap();
 
         assert!(blocker.check_generic_hide(&Request::from_url("https://example.com").unwrap()));
     }

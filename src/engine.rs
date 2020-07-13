@@ -56,7 +56,7 @@ impl Engine {
         })?;
         let (blocker, cosmetic_cache) = deserialize_format.into();
         self.blocker = blocker;
-        self.blocker.with_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
+        self.blocker.use_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
         self.cosmetic_cache = cosmetic_cache;
         Ok(())
     }
@@ -117,7 +117,7 @@ impl Engine {
         }
     }
 
-    pub fn add_filter_list<'a>(&'a mut self, filter_list: &str) -> &'a mut Engine {
+    pub fn add_filter_list(&mut self, filter_list: &str) {
         let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
         let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&rules, true, true, true);
 
@@ -128,11 +128,9 @@ impl Engine {
         for rule in parsed_cosmetic_filters {
             self.add_cosmetic_filter(rule);
         }
-
-        self
     }
 
-    pub fn filter_add<'a>(&'a mut self, filter: &str) -> &'a mut Engine {
+    pub fn filter_add(&mut self, filter: &str) {
         let filter_parsed = parse_filter(filter, true, true, true);
         match filter_parsed {
             Ok(ParsedFilter::Network(filter)) => self.add_network_filter(filter),
@@ -143,12 +141,10 @@ impl Engine {
             Err(FilterParseError::Unused) => (),
             Err(FilterParseError::Empty) => (),
         }
-
-        self
     }
 
     fn add_network_filter(&mut self, filter: NetworkFilter) {
-        match self.blocker.filter_add(filter) {
+        match self.blocker.add_filter(filter) {
             Ok(_) => (),
             Err(BlockerError::BadFilterAddUnsupported) => eprintln!("Adding filters with `badfilter` option dynamically is not supported"),
             Err(BlockerError::FilterExists) => eprintln!("Filter already exists"),
@@ -160,33 +156,30 @@ impl Engine {
         self.cosmetic_cache.add_filter(filter);
     }
 
-    pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Engine {
-        self.blocker.with_tags(tags);
-        self
+    pub fn with_tags(&mut self, tags: &[&str]) {
+        self.blocker.use_tags(tags);
     }
 
-    pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) {
-        self.blocker.tags_enable(tags);
+    pub fn tags_enable(&mut self, tags: &[&str]) {
+        self.blocker.enable_tags(tags);
     }
 
-    pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) {
-        self.blocker.tags_disable(tags);
+    pub fn tags_disable(&mut self, tags: &[&str]) {
+        self.blocker.disable_tags(tags);
     }
     
     pub fn tag_exists(&self, tag: &str) -> bool {
         self.blocker.tags_enabled().contains(&tag.to_owned())
     }
 
-    pub fn with_resources<'a>(&'a mut self, resources: &[Resource]) -> &'a mut Engine {
+    pub fn with_resources(&mut self, resources: &[Resource]) {
         self.blocker.with_resources(resources);
         self.cosmetic_cache.use_resources(resources);
-        self
     }
 
-    pub fn resource_add<'a>(&'a mut self, resource: Resource) -> &'a mut Engine {
+    pub fn resource_add(&mut self, resource: Resource) {
         self.blocker.resource_add(&resource);
         self.cosmetic_cache.add_resource(&resource);
-        self
     }
 
     pub fn resource_get(&self, key: &str) -> Option<RedirectResource> {
