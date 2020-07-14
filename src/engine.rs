@@ -197,17 +197,17 @@ impl Engine {
     }
 
     pub fn with_resources(&mut self, resources: &[Resource]) {
-        self.blocker.with_resources(resources);
+        self.blocker.use_resources(resources);
         self.cosmetic_cache.use_resources(resources);
     }
 
     pub fn resource_add(&mut self, resource: Resource) {
-        self.blocker.resource_add(&resource);
+        self.blocker.add_resource(&resource);
         self.cosmetic_cache.add_resource(&resource);
     }
 
     pub fn resource_get(&self, key: &str) -> Option<RedirectResource> {
-        self.blocker.resource_get(key).cloned()
+        self.blocker.get_resource(key).cloned()
     }
 
     // Cosmetic filter functionality

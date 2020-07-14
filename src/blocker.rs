@@ -439,18 +439,16 @@ impl Blocker {
         self.tags_enabled.iter().cloned().collect()
     }
     
-    pub fn with_resources(&mut self, resources: &[Resource]) -> &mut Blocker {
+    pub fn use_resources(&mut self, resources: &[Resource]) {
         let resources = RedirectResourceStorage::from_resources(resources);
         self.resources = resources;
-        self
     }
 
-    pub fn resource_add(&mut self, resource: &Resource) -> &mut Blocker {
+    pub fn add_resource(&mut self, resource: &Resource) {
         self.resources.add_resource(resource);
-        self
     }
 
-    pub fn resource_get(&self, key: &str) -> Option<&RedirectResource> {
+    pub fn get_resource(&self, key: &str) -> Option<&RedirectResource> {
         self.resources.get_resource(key)
     }
 }
