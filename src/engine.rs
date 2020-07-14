@@ -13,6 +13,28 @@ pub struct Engine {
     cosmetic_cache: CosmeticFilterCache,
 }
 
+impl Default for Engine {
+    /// Equivalent to `Engine::from_rules`, or `Engine::from_rules_debug` when compiled in test
+    /// configuration, with an empty list of rules.
+    fn default() -> Self {
+        #[cfg(not(test))]
+        let debug = false;
+
+        #[cfg(test)]
+        let debug = true;
+
+        let blocker_options = BlockerOptions {
+            debug,
+            enable_optimizations: true,
+        };
+
+        Engine {
+            blocker: Blocker::new(vec![], &blocker_options),
+            cosmetic_cache: CosmeticFilterCache::new(vec![]),
+        }
+    }
+}
+
 impl Engine {
     /// Loads cosmetic and network rules in optimized form without debug information.
     pub fn from_rules(network_filters: &[String]) -> Engine {
@@ -350,7 +372,7 @@ mod tests {
         engine.tags_enable(&["stuff"]);
         engine.tags_enable(&["brian"]);
         let serialized = engine.serialize().unwrap();
-        let mut deserialized_engine = Engine::from_rules(&[]);
+        let mut deserialized_engine = Engine::default();
         deserialized_engine.tags_enable(&["stuff"]);
         deserialized_engine.deserialize(&serialized).unwrap();
 
@@ -374,7 +396,7 @@ mod tests {
             207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 192, 144, 194, 195, 194, 195, 207, 77, 26, 78, 68, 0,
             0, 0];
 
-        let mut deserialized_engine = Engine::from_rules(&[]);
+        let mut deserialized_engine = Engine::default();
         deserialized_engine.deserialize(&serialized).unwrap();
 
         let url = "http://example.com/ad-banner.gif";
@@ -391,7 +413,7 @@ mod tests {
             160, 139, 197, 105, 218, 166, 233, 5, 250, 125, 219, 203, 123, 43, 14, 238, 163, 124, 206, 228, 79, 11, 184,
             113, 195, 55, 136, 98, 181, 132, 120, 65, 157, 17, 160, 180, 233, 152, 221, 1, 164, 98, 178, 255, 242, 178,
             221, 231, 201, 0, 19, 122, 216, 92, 112, 161, 1, 58, 213, 199, 143, 114, 0, 0, 0];
-        let mut deserialized_engine = Engine::from_rules(&[]);
+        let mut deserialized_engine = Engine::default();
         
         deserialized_engine.tags_enable(&[]);
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -418,7 +440,7 @@ mod tests {
             101, 186, 42, 121, 86, 73, 189, 42, 95, 103, 255, 102, 219, 183, 29, 170, 127, 68, 102, 150, 86, 28, 162,
             0, 247, 3, 163, 110, 154, 146, 145, 195, 175, 245, 47, 101, 250, 113, 201, 119, 0, 0, 0];
 
-        let mut deserialized_engine = Engine::from_rules(&[]);
+        let mut deserialized_engine = Engine::default();
         deserialized_engine.deserialize(&serialized).unwrap();
 
         let url = "http://example.com/ad-banner.gif";
@@ -497,7 +519,7 @@ mod tests {
 
         "#;
 
-        let mut engine = Engine::from_rules(&[]);
+        let mut engine = Engine::default();
 
         engine.resource_add(Resource {
             name: "noopjs".to_owned(),

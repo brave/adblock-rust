@@ -5,7 +5,7 @@ use adblock::request::Request;
 use adblock::url_parser::UrlParser;
 use adblock::utils::rules_from_lists;
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::fs::File;
 use std::path::Path;
 use std::io::BufReader;
@@ -143,7 +143,7 @@ fn check_specifics_default() {
 fn check_basic_works_after_deserialization() {
     let engine = get_blocker_engine();
     let serialized = engine.serialize().unwrap();
-    let mut deserialized_engine = Engine::from_rules(&[]);
+    let mut deserialized_engine = Engine::default();
     deserialized_engine.deserialize(&serialized).unwrap();
 
     {

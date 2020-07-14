@@ -307,7 +307,7 @@ mod legacy_check_match {
         let mut engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
         engine.with_tags(tags);
             
-        let mut engine_deserialized = Engine::from_rules(&vec![]);          // second empty
+        let mut engine_deserialized = Engine::default();                    // second empty
         engine_deserialized.with_tags(tags);
         {
             let engine_serialized = engine.serialize().unwrap();
@@ -378,7 +378,7 @@ mod legacy_check_match {
         let engine = Engine::from_rules(&[
             String::from("/ads/freewheel/*"),
             String::from("@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com")]);
-        let mut engine_deserialized = Engine::from_rules(&vec![]);          // second empty
+        let mut engine_deserialized = Engine::default();                    // second empty
         {
             let engine_serialized = engine.serialize().unwrap();
             engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy

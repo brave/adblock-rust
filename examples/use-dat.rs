@@ -6,7 +6,7 @@ use std::io::prelude::*;
 
 fn main() {
     // Empty engine
-    let mut engine = Engine::from_rules(&[]);
+    let mut engine = Engine::default();
 
     // Read serialized version
     let mut file = File::open("engine.dat").unwrap();

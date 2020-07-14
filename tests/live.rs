@@ -97,7 +97,7 @@ fn get_blocker_engine_deserialized() -> Engine {
         .block_on(resp_bytes_fut)
         .expect("Could not get response as bytes");
 
-    let mut engine = Engine::from_rules(&[]);
+    let mut engine = Engine::default();
     engine.deserialize(&dat).expect("Deserialization failed");
     engine.with_tags(&["fb-embeds", "twitter-embeds"]);
     engine

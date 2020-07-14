@@ -48,7 +48,7 @@ fn main() {
         let mut file = File::open("data/rs-ABPFilterParserData.dat").expect("Opening serialization file failed");
         let mut serialized = Vec::<u8>::new();
         file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
-        engine = Engine::from_rules(&[]);
+        engine = Engine::default();
         engine.deserialize(&serialized).expect("Deserialization failed");
         // engine = get_blocker_engine();
     }
