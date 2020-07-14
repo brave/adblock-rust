@@ -46,7 +46,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-async fn get_all_filters() -> Vec<String> {
+async fn get_all_lists() -> Vec<(adblock::lists::FilterFormat, String)> {
     use futures::FutureExt;
     let default_lists = adblock::filter_lists::default::default_lists();
 
@@ -57,28 +57,29 @@ async fn get_all_filters() -> Vec<String> {
                 .then(|resp| resp
                     .expect("Could not request rules")
                     .text()
-                ).map(|text| text
-                    .expect("Could not get rules as text")
-                    .lines()
-                    .map(|s| s.to_owned())
-                    .collect::<Vec<_>>()
+                ).map(move |text| (
+                        list.format,
+                        text.expect("Could not get rules as text")
+                    )
                 )
         })
         .collect();
 
     futures::future::join_all(filters_fut)
         .await
-        .iter()
-        .flatten()
-        .cloned()
+        .into_iter()
         .collect()
 }
 
 fn get_blocker_engine() -> Engine {
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-    let filters: Vec<String> = async_runtime.block_on(get_all_filters());
+    let filters = async_runtime.block_on(get_all_lists());
 
-    let mut engine = Engine::from_rules_parametrised(&filters[..], true, false);
+    let mut filter_set = adblock::lists::FilterSet::default();
+    filters.into_iter().for_each(|(format, rules)| {
+        filter_set.add_filter_list(&rules, format);
+    });
+    let mut engine = Engine::from_filter_set(filter_set, true);
 
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -118,7 +119,7 @@ fn get_blocker_engine_deserialized_ios() -> Engine {
         .map(|s| s.to_owned())
         .collect();
     
-    let engine = Engine::from_rules_parametrised(&filters, true, false);
+    let engine = Engine::from_rules_parametrised(&filters, adblock::lists::FilterFormat::Standard, true, false);
     engine
 }
 

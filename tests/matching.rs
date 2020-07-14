@@ -88,7 +88,7 @@ fn check_engine_matching() {
             continue;
         }
         for filter in req.filters {
-            let mut engine = Engine::from_rules_debug(&[filter.clone()]);
+            let mut engine = Engine::from_rules_debug(&[filter.clone()], adblock::lists::FilterFormat::Standard);
             let resources = build_resources_from_filters(&[filter.clone()]);
             engine.use_resources(&resources);
 

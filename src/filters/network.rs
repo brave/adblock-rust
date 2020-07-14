@@ -210,7 +210,7 @@ pub struct NetworkFilter {
 
 impl NetworkFilter {
     #[allow(clippy::cognitive_complexity)]
-    pub fn parse(line: &str, debug: bool) -> Result<NetworkFilter, NetworkFilterError> {
+    pub fn parse(line: &str, debug: bool) -> Result<Self, NetworkFilterError> {
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
             | NetworkFilterMask::FIRST_PARTY
@@ -557,7 +557,7 @@ impl NetworkFilter {
                 }
             }
             Ok(hostname)
-        });
+        }).transpose();
 
         let maybe_fuzzy_signature = if mask.contains(NetworkFilterMask::FUZZY_MATCH) {
             filter.as_ref().map(|f| utils::create_fuzzy_signature(f))
@@ -579,7 +579,7 @@ impl NetworkFilter {
             } else {
                 FilterPart::Empty
             },
-            hostname: hostname_decoded.map_or(Ok(None), |r| r.map(Some))?,
+            hostname: hostname_decoded?,
             mask,
             opt_domains,
             opt_not_domains,
@@ -596,6 +596,40 @@ impl NetworkFilter {
             opt_not_domains_union,
             regex: Rc::new(RefCell::new(None))
         })
+    }
+
+    /// Given a hostname, produces an equivalent filter parsed from the form `"||hostname^"`, to
+    /// emulate the behavior of hosts-style blocking.
+    pub fn parse_hosts_style(hostname: &str, debug: bool) -> Result<Self, NetworkFilterError> {
+        // Make sure the hostname doesn't contain any invalid characters
+        lazy_static! {
+            static ref INVALID_CHARS: Regex = Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap();
+        }
+        if INVALID_CHARS.is_match(hostname) {
+            return Err(NetworkFilterError::FilterParseError);
+        }
+
+        // This shouldn't be used to block an entire TLD, and the hostname shouldn't end with a dot
+        if hostname.find('.').is_none() || (hostname.starts_with('.') && hostname[1..].find('.').is_none()) || hostname.ends_with('.') {
+            return Err(NetworkFilterError::FilterParseError);
+        }
+
+        // Normalize the hostname to punycode and parse it as a `||hostname^` rule.
+        let normalized_host = hostname.to_lowercase();
+        let normalized_host = normalized_host.trim_start_matches("www.");
+
+        let mut hostname = "||".to_string();
+        if normalized_host.is_ascii() {
+            hostname.push_str(&normalized_host);
+        } else {
+            match idna::domain_to_ascii(&normalized_host) {
+                Ok(x) => hostname.push_str(&x),
+                Err(_) => return Err(NetworkFilterError::PunycodeError),
+            }
+        }
+        hostname.push_str("^");
+
+        NetworkFilter::parse(&hostname, debug)
     }
 
     pub fn to_string(&self) -> String {
@@ -2296,6 +2330,40 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_hosts_style() {
+        {
+            let filter = NetworkFilter::parse_hosts_style("example.com", true).unwrap();
+            assert_eq!(filter.raw_line, Some("||example.com^".to_string()));
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("example.com".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        {
+            let filter = NetworkFilter::parse_hosts_style("www.example.com", true).unwrap();
+            assert_eq!(filter.raw_line, Some("||example.com^".to_string()));
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("example.com".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        {
+            let filter = NetworkFilter::parse_hosts_style("malware.example.com", true).unwrap();
+            assert_eq!(filter.raw_line, Some("||malware.example.com^".to_string()));
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("malware.example.com".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+    }
+
+    #[test]
     fn handles_unsupported_options() {
         let options = vec![
             "genericblock",
@@ -2605,6 +2673,20 @@ mod match_tests {
         );
     }
 
+    fn hosts_filter_match_url(filter: &str, url: &str, matching: bool) {
+        let network_filter = NetworkFilter::parse_hosts_style(filter, true).unwrap();
+        let request = request::Request::from_url(url).unwrap();
+
+        assert!(
+            network_filter.matches(&request) == matching,
+            "Expected match={} for {} {:?} on {}",
+            matching,
+            filter,
+            network_filter,
+            url
+        );
+    }
+
     #[test]
     // pattern
     fn check_pattern_plain_filter_filter_works() {
@@ -2657,6 +2739,23 @@ mod match_tests {
         filter_match_url("||foo", "https://foo-bar.baz.com/bar", false);
         filter_match_url("||foo.com", "https://foo.de", false);
         filter_match_url("||foo.com", "https://bar.foo.de", false);
+    }
+
+    #[test]
+    fn check_hosts_style_works() {
+        hosts_filter_match_url("foo.com", "https://foo.com/bar", true);
+        hosts_filter_match_url("foo.foo.com", "https://foo.com/bar", false);
+        hosts_filter_match_url("www.foo.com", "https://foo.com/bar", true);
+        hosts_filter_match_url("com.foo", "https://foo.baz.com/bar", false);
+        hosts_filter_match_url("foo.baz", "https://foo.baz.com/bar", false);
+
+        hosts_filter_match_url("foo.baz.com", "https://foo.baz.com/bar", true);
+        hosts_filter_match_url("foo.baz", "https://foo.baz.com/bar", false);
+
+        hosts_filter_match_url("foo.com", "https://baz.com", false);
+        hosts_filter_match_url("bar.baz.com", "https://foo-bar.baz.com/bar", false);
+        hosts_filter_match_url("foo.com", "https://foo.de", false);
+        hosts_filter_match_url("foo.com", "https://bar.foo.de", false);
     }
 
     #[test]

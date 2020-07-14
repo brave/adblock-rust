@@ -1,8 +1,8 @@
 use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
-use itertools::Either;
 
-use itertools::Itertools;
+use itertools::{Either, Itertools};
+use serde::{Deserialize, Serialize};
 
 /// Manages a set of rules to be added to an `Engine`.
 ///
@@ -44,28 +44,46 @@ impl FilterSet {
 
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored.
-    pub fn add_filter_list(&mut self, filter_list: &str) {
+    pub fn add_filter_list(&mut self, filter_list: &str, format: FilterFormat) {
         let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
-        self.add_filters(&rules);
+        self.add_filters(&rules, format);
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
     /// successfully are ignored.
-    pub fn add_filters(&mut self, filters: &[String]) {
-        let (mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters(&filters, self.debug);
+    pub fn add_filters(&mut self, filters: &[String], format: FilterFormat) {
+        let (mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters(&filters, self.debug, format);
         self.network_filters.append(&mut parsed_network_filters);
         self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
     }
 
     /// Adds the string representation of a single filter rule to this `FilterSet`.
-    pub fn add_filter(&mut self, filter: &str) -> Result<(), FilterParseError> {
-        let filter_parsed = parse_filter(filter, self.debug);
+    pub fn add_filter(&mut self, filter: &str, format: FilterFormat) -> Result<(), FilterParseError> {
+        let filter_parsed = parse_filter(filter, self.debug, format);
         match filter_parsed? {
             ParsedFilter::Network(filter) => self.network_filters.push(filter),
             ParsedFilter::Cosmetic(filter) => self.cosmetic_filters.push(filter),
         }
         Ok(())
     }
+}
+
+/// Denotes the format of a particular list resource, which affects how its rules should be parsed.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum FilterFormat {
+    /// Rules should be parsed in ABP/uBO-style format.
+    Standard,
+    /// Each line consists of an IP address (usually 127.0.0.1 or 0.0.0.0), some whitespace, and a
+    /// single hostname. This syntax is normally used directly for HOSTS-based adblockers. These
+    /// rules will be treated equivalently to `"||hostname^"` rules in `Standard` format; the IP
+    /// addresses will not be used.
+    ///
+    /// Note that some sources provide a more raw format, where each line consists of just a
+    /// hostname. This option will also accept that format.
+    ///
+    /// For this option, `!` is accepted as a comment character at the beginning of a line, and `#`
+    /// is accepted as a comment character anywhere in a line.
+    Hosts,
 }
 
 #[derive(Debug, PartialEq)]
@@ -116,7 +134,8 @@ impl From<CosmeticFilterError> for FilterParseError {
 /// Parse a single filter rule
 pub fn parse_filter(
     line: &str,
-    debug: bool
+    debug: bool,
+    format: FilterFormat,
 ) -> Result<ParsedFilter, FilterParseError> {
 
     let filter = line.trim();
@@ -125,14 +144,57 @@ pub fn parse_filter(
         return Err(FilterParseError::Empty);
     }
 
-    match detect_filter_type(filter) {
-        FilterType::Network => NetworkFilter::parse(filter, debug)
-            .map(|f| f.into())
-            .map_err(|e| e.into()),
-        FilterType::Cosmetic => CosmeticFilter::parse(filter, debug)
-            .map(|f| f.into())
-            .map_err(|e| e.into()),
-        _ => Err(FilterParseError::Unsupported),
+    match format {
+        FilterFormat::Standard => {
+            match detect_filter_type(filter) {
+                FilterType::Network => NetworkFilter::parse(filter, debug)
+                    .map(|f| f.into())
+                    .map_err(|e| e.into()),
+                FilterType::Cosmetic => CosmeticFilter::parse(filter, debug)
+                    .map(|f| f.into())
+                    .map_err(|e| e.into()),
+                _ => Err(FilterParseError::Unsupported),
+            }
+        }
+        FilterFormat::Hosts => {
+            if filter.starts_with('!') {
+                return Err(FilterParseError::Unsupported);
+            }
+            // Discard contents after first `#` character
+            let filter = if let Some(hash_loc) = filter.find("#") {
+                let filter = &filter[..hash_loc];
+                let filter = filter.trim();
+
+                if filter.is_empty() {
+                    return Err(FilterParseError::Unsupported);
+                }
+
+                filter
+            } else {
+                &filter[..]
+            };
+
+            // Take the last of at most 2 whitespace separated fields
+            let mut filter_parts = filter.split_whitespace();
+            let hostname = match (filter_parts.next(), filter_parts.next(), filter_parts.next()) {
+                (None, None, None) => return Err(FilterParseError::Unsupported),
+                (Some(hostname), None, None) => hostname,
+                (Some(_ip), Some(hostname), None) => hostname,
+                (Some(_), Some(_), Some(_)) => return Err(FilterParseError::Unsupported),
+                _ => unreachable!(),
+            };
+
+            // Matches in hosts lists are usually redirected to localhost. For that reason, some
+            // lists include an entry for "localhost", which should be explicitly ignored when
+            // performing request-level adblocking.
+            if hostname == "localhost" {
+                return Err(FilterParseError::Unsupported);
+            }
+
+            NetworkFilter::parse_hosts_style(hostname, debug)
+                .map(|f| f.into())
+                .map_err(|e| e.into())
+        }
     }
 }
 
@@ -140,12 +202,13 @@ pub fn parse_filter(
 pub fn parse_filters(
     list: &[String],
     debug: bool,
+    format: FilterFormat,
 ) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
 
     let list_iter = list.iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
-        .map(|line| parse_filter(line, debug))
+        .map(|line| parse_filter(line, debug, format))
         .filter_map(Result::ok)
         .partition_map(|filter| match filter {
             ParsedFilter::Network(f) => Either::Left(f),
@@ -214,22 +277,86 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parse_hosts_style() {
+        {
+            let input = "www.malware.com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_ok());
+        }
+        {
+            let input = "www.malware.com/virus.txt";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+        {
+            let input = "127.0.0.1 www.malware.com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_ok());
+        }
+        {
+            let input = "127.0.0.1\t\twww.malware.com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_ok());
+        }
+        {
+            let input = "0.0.0.0    www.malware.com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_ok());
+        }
+        {
+            let input = "0.0.0.0    www.malware.com     # replace after issue #289336 is addressed";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_ok());
+        }
+        {
+            let input = "! Title: list.txt";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+        {
+            let input = "127.0.0.1 localhost";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+        {
+            let input = "127.0.0.1 com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+        {
+            let input = ".com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+        {
+            let input = "*.com";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+        {
+            let input = "www.";
+            let result = parse_filter(input, true, FilterFormat::Hosts);
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
     fn parse_filter_failed_fuzz_1() {
         let input = "Ѥ";
-        let result = parse_filter(input, true);
+        let result = parse_filter(input, true, FilterFormat::Standard);
         assert!(result.is_ok());
     }
 
     #[test]
     fn parse_filter_failed_fuzz_2() {
-        assert!(parse_filter(r#"###\\\00DB \008D"#, true).is_ok());
-        assert!(parse_filter(r#"###\Û"#, true).is_ok());
+        assert!(parse_filter(r#"###\\\00DB \008D"#, true, FilterFormat::Standard).is_ok());
+        assert!(parse_filter(r#"###\Û"#, true, FilterFormat::Standard).is_ok());
     }
 
     #[test]
     fn parse_filter_failed_fuzz_3() {
         let input = "||$3p=/";
-        let result = parse_filter(input, true);
+        let result = parse_filter(input, true, FilterFormat::Standard);
         assert!(result.is_ok());
     }
     
@@ -239,6 +366,7 @@ mod tests {
         assert!(parse_filter(
             &String::from_utf8(vec![92, 35, 35, 43, 106, 115, 40, 44, 221, 141]).unwrap(),
             true,
+            FilterFormat::Standard,
         ).is_ok());
     }
     

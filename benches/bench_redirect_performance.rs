@@ -48,7 +48,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
     let filters = async_runtime.block_on(get_all_filters());
-    let (network_filters, _) = adblock::lists::parse_filters(&filters, true);
+    let (network_filters, _) = adblock::lists::parse_filters(&filters, true, adblock::lists::FilterFormat::Standard);
 
     network_filters.into_iter()
         .filter(|rule| {

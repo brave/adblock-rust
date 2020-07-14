@@ -3,7 +3,7 @@ extern crate criterion;
 use criterion::*;
 
 use adblock::utils::rules_from_lists;
-use adblock::lists::parse_filters;
+use adblock::lists::{parse_filters, FilterFormat};
 use adblock::cosmetic_filter_cache::CosmeticFilterCache;
 
 fn by_hostname(c: &mut Criterion) {
@@ -13,8 +13,8 @@ fn by_hostname(c: &mut Criterion) {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
             ]);
-            let (_, cosmetic_filters) = parse_filters(&rules, false);
-            let cfcache = CosmeticFilterCache::new(cosmetic_filters);
+            let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
+            let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
             b.iter(|| cfcache.hostname_cosmetic_resources("google.com"))
         }).with_function("many lists", move |b| {
             let rules = rules_from_lists(&vec![
@@ -23,8 +23,8 @@ fn by_hostname(c: &mut Criterion) {
                 "data/uBlockOrigin/filters.txt".to_owned(),
                 "data/uBlockOrigin/unbreak.txt".to_owned(),
             ]);
-            let (_, cosmetic_filters) = parse_filters(&rules, false);
-            let cfcache = CosmeticFilterCache::new(cosmetic_filters);
+            let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
+            let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
             b.iter(|| cfcache.hostname_cosmetic_resources("google.com"))
         }).with_function("complex_hostname", move |b| {
             let rules = rules_from_lists(&vec![
@@ -33,8 +33,8 @@ fn by_hostname(c: &mut Criterion) {
                 "data/uBlockOrigin/filters.txt".to_owned(),
                 "data/uBlockOrigin/unbreak.txt".to_owned(),
             ]);
-            let (_, cosmetic_filters) = parse_filters(&rules, false);
-            let cfcache = CosmeticFilterCache::new(cosmetic_filters);
+            let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
+            let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
             b.iter(|| cfcache.hostname_cosmetic_resources("ads.serve.1.domain.google.com"))
         })
         .throughput(Throughput::Elements(1))
@@ -49,8 +49,8 @@ fn by_classes_ids(c: &mut Criterion) {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
             ]);
-            let (_, cosmetic_filters) = parse_filters(&rules, false);
-            let cfcache = CosmeticFilterCache::new(cosmetic_filters);
+            let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
+            let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
             let exceptions = Default::default();
             b.iter(|| cfcache.hidden_class_id_selectors(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
         }).with_function("many lists", move |b| {
@@ -60,8 +60,8 @@ fn by_classes_ids(c: &mut Criterion) {
                 "data/uBlockOrigin/filters.txt".to_owned(),
                 "data/uBlockOrigin/unbreak.txt".to_owned(),
             ]);
-            let (_, cosmetic_filters) = parse_filters(&rules, false);
-            let cfcache = CosmeticFilterCache::new(cosmetic_filters);
+            let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
+            let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
             let exceptions = Default::default();
             b.iter(|| cfcache.hidden_class_id_selectors(&vec!["ad".to_owned()][..], &vec!["ad".to_owned()][..], &exceptions))
         }).with_function("many matching classes and ids", move |b| {
@@ -71,8 +71,8 @@ fn by_classes_ids(c: &mut Criterion) {
                 "data/uBlockOrigin/filters.txt".to_owned(),
                 "data/uBlockOrigin/unbreak.txt".to_owned(),
             ]);
-            let (_, cosmetic_filters) = parse_filters(&rules, false);
-            let cfcache = CosmeticFilterCache::new(cosmetic_filters);
+            let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
+            let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
             let exceptions = Default::default();
             let class_list = vec![
                 "block-bg-advertisement-region-1".to_owned(),

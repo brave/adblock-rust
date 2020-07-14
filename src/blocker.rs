@@ -1074,13 +1074,13 @@ mod tests {
 mod blocker_tests {
 
     use super::*;
-    use crate::lists::parse_filters;
+    use crate::lists::{parse_filters, FilterFormat};
     use crate::request::Request;
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
     fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
-        let (network_filters, _) = parse_filters(filters, true);
+        let (network_filters, _) = parse_filters(filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1176,7 +1176,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), false),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true);
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1212,7 +1212,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true);
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1249,7 +1249,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
         
-        let (network_filters, _) = parse_filters(&filters, true);
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1386,7 +1386,7 @@ mod blocker_tests {
 #[cfg(test)]
 mod legacy_rule_parsing_tests {
     use crate::utils::rules_from_lists;
-    use crate::lists::parse_filters;
+    use crate::lists::{parse_filters, FilterFormat};
     use crate::blocker::{Blocker, BlockerOptions};
     use crate::blocker::vec_hashmap_len;
 
@@ -1394,6 +1394,18 @@ mod legacy_rule_parsing_tests {
         pub filters: usize,
         pub cosmetic_filters: usize,
         pub exceptions: usize
+    }
+
+    impl std::ops::Add<ListCounts> for ListCounts {
+        type Output = ListCounts;
+
+        fn add(self, other: ListCounts) -> Self::Output {
+            ListCounts {
+                filters: self.filters + other.filters,
+                cosmetic_filters: self.cosmetic_filters + other.cosmetic_filters,
+                exceptions: self.exceptions + other.exceptions,
+            }
+        }
     }
 
     // number of expected EasyList cosmetic rules from old engine is 31144, but is incorrect as it skips a few particularly long rules that are nevertheless valid
@@ -1419,11 +1431,13 @@ mod legacy_rule_parsing_tests {
     const DISCONNECT_SIMPLE_MALWARE: ListCounts = ListCounts { filters: 2450, cosmetic_filters: 0, exceptions: 0 };
     // spam404MainBlacklist = { 5629, 166, 0, 0 };
     const SPAM_404_MAIN_BLACKLIST: ListCounts = ListCounts { filters: 5629, cosmetic_filters: 166, exceptions: 0 };
+    const MALWARE_DOMAIN_LIST: ListCounts = ListCounts { filters: 1104, cosmetic_filters: 0, exceptions: 0 };
+    const MALWARE_DOMAINS: ListCounts = ListCounts { filters: 26853, cosmetic_filters: 0, exceptions: 0 };
 
-    fn check_list_counts(rule_lists: &[String], expectation: ListCounts) {
+    fn check_list_counts(rule_lists: &[String], format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
         
-        let (network_filters, cosmetic_filters) = parse_filters(&rules, true);
+        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, format);
 
         assert_eq!(
             (network_filters.len(),
@@ -1453,59 +1467,87 @@ mod legacy_rule_parsing_tests {
 
     #[test]
     fn parse_easylist() {
-        check_list_counts(&vec![String::from("./data/test/easylist.txt")], EASY_LIST);
+        check_list_counts(&vec![String::from("./data/test/easylist.txt")], FilterFormat::Standard, EASY_LIST);
     }
 
     #[test]
     fn parse_easyprivacy() {
-        check_list_counts(&vec![String::from("./data/test/easyprivacy.txt")], EASY_PRIVACY);
+        check_list_counts(&vec![String::from("./data/test/easyprivacy.txt")], FilterFormat::Standard, EASY_PRIVACY);
     }
 
     #[test]
     fn parse_ublock_unbreak() {
-        check_list_counts(&vec![String::from("./data/test/ublock-unbreak.txt")], UBLOCK_UNBREAK);
+        check_list_counts(&vec![String::from("./data/test/ublock-unbreak.txt")], FilterFormat::Standard, UBLOCK_UNBREAK);
     }
 
     #[test]
     fn parse_brave_unbreak() {
-        check_list_counts(&vec![String::from("./data/test/brave-unbreak.txt")], BRAVE_UNBREAK);
+        check_list_counts(&vec![String::from("./data/test/brave-unbreak.txt")], FilterFormat::Standard, BRAVE_UNBREAK);
     }
 
     #[test]
     fn parse_brave_disconnect_simple_malware() {
-        check_list_counts(&vec![String::from("./data/test/disconnect-simple-malware.txt")], DISCONNECT_SIMPLE_MALWARE);
+        check_list_counts(&vec![String::from("./data/test/disconnect-simple-malware.txt")], FilterFormat::Standard, DISCONNECT_SIMPLE_MALWARE);
     }
 
     #[test]
     fn parse_spam404_main_blacklist() {
-        check_list_counts(&vec![String::from("./data/test/spam404-main-blacklist.txt")], SPAM_404_MAIN_BLACKLIST);
+        check_list_counts(&vec![String::from("./data/test/spam404-main-blacklist.txt")], FilterFormat::Standard, SPAM_404_MAIN_BLACKLIST);
+    }
+
+    #[test]
+    fn parse_malware_domain_list() {
+        check_list_counts(&vec![String::from("./data/test/malwaredomainlist.txt")], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
+    }
+
+    #[test]
+    fn parse_malware_domain_list_just_hosts() {
+        check_list_counts(&vec![String::from("./data/test/malwaredomainlist_justhosts.txt")], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
+    }
+
+    #[test]
+    fn parse_malware_domains() {
+        check_list_counts(&vec![String::from("./data/test/malwaredomains.txt")], FilterFormat::Hosts, MALWARE_DOMAINS);
     }
 
     #[test]
     fn parse_multilist() {
-        let expectation = ListCounts {
-            filters: EASY_LIST.filters + EASY_PRIVACY.filters + UBLOCK_UNBREAK.filters + BRAVE_UNBREAK.filters,
-            cosmetic_filters: EASY_LIST.cosmetic_filters + EASY_PRIVACY.cosmetic_filters + UBLOCK_UNBREAK.cosmetic_filters + BRAVE_UNBREAK.cosmetic_filters,
-            exceptions: EASY_LIST.exceptions + EASY_PRIVACY.exceptions + UBLOCK_UNBREAK.exceptions + BRAVE_UNBREAK.exceptions
-        };
-        check_list_counts(&vec![
-            String::from("./data/test/easylist.txt"),
-            String::from("./data/test/easyprivacy.txt"),
-            String::from("./data/test/ublock-unbreak.txt"),
-            String::from("./data/test/brave-unbreak.txt"),
-        ], expectation)
+        let expectation = EASY_LIST + EASY_PRIVACY + UBLOCK_UNBREAK + BRAVE_UNBREAK;
+        check_list_counts(
+            &vec![
+                String::from("./data/test/easylist.txt"),
+                String::from("./data/test/easyprivacy.txt"),
+                String::from("./data/test/ublock-unbreak.txt"),
+                String::from("./data/test/brave-unbreak.txt"),
+            ],
+            FilterFormat::Standard,
+            expectation,
+        )
     }
 
     #[test]
     fn parse_malware_multilist() {
-        let expectation = ListCounts {
-            filters: SPAM_404_MAIN_BLACKLIST.filters + DISCONNECT_SIMPLE_MALWARE.filters,
-            cosmetic_filters: SPAM_404_MAIN_BLACKLIST.cosmetic_filters + DISCONNECT_SIMPLE_MALWARE.cosmetic_filters,
-            exceptions: SPAM_404_MAIN_BLACKLIST.exceptions + DISCONNECT_SIMPLE_MALWARE.exceptions,
-        };
-        check_list_counts(&vec![
-            String::from("./data/test/spam404-main-blacklist.txt"),
-            String::from("./data/test/disconnect-simple-malware.txt"),
-        ], expectation)
+        let expectation = SPAM_404_MAIN_BLACKLIST + DISCONNECT_SIMPLE_MALWARE;
+        check_list_counts(
+            &vec![
+                String::from("./data/test/spam404-main-blacklist.txt"),
+                String::from("./data/test/disconnect-simple-malware.txt"),
+            ],
+            FilterFormat::Standard,
+            expectation,
+        )
+    }
+
+    #[test]
+    fn parse_hosts_formats() {
+        let expectation = MALWARE_DOMAIN_LIST + MALWARE_DOMAINS;
+        check_list_counts(
+            &vec![
+                String::from("./data/test/malwaredomainlist.txt"),
+                String::from("./data/test/malwaredomains.txt"),
+            ],
+            FilterFormat::Hosts,
+            expectation,
+        )
     }
 }
