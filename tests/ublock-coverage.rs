@@ -89,7 +89,7 @@ fn check_specific_rules() {
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-engine.js")
         );
-        engine.with_resources(&resources);
+        engine.use_resources(&resources);
 
         let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
         assert_eq!(checked.matched, true);
@@ -105,14 +105,14 @@ fn check_specifics_default() {
         assert_eq!(checked.matched, true);
     }
     {
-        engine.filter_add("@@||www.google.*/aclk?$first-party");
+        engine.add_filter("@@||www.google.*/aclk?$first-party");
         let checked = engine.check_network_urls("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "main_frame");
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        engine.filter_add("@@||www.googleadservices.*/aclk?$first-party");
+        engine.add_filter("@@||www.googleadservices.*/aclk?$first-party");
         let checked = engine.check_network_urls("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
             "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
             "main_frame");
@@ -131,7 +131,7 @@ fn check_specifics_default() {
             assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+        engine.use_tags(&["fb-embeds", "twitter-embeds"]);
         let checked = engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script");
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");

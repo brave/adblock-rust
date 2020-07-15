@@ -123,12 +123,12 @@ declare_types! {
             let guard = cx.lock();
             let _result = {
                 let mut engine = this.borrow_mut(&guard);
-                engine.tags_enable(&[&tag])
+                engine.enable_tags(&[&tag])
             };
             Ok(JsNull::new().upcast())
         }
 
-        method updateResources(mut cx) {
+        method useResources(mut cx) {
             let resources_arg = cx.argument::<JsValue>(0)?;
             let resources: Vec<Resource> = neon_serde::from_value(&mut cx, resources_arg)?;
 
@@ -136,7 +136,7 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                engine.with_resources(&resources);
+                engine.use_resources(&resources);
             }
             Ok(JsNull::new().upcast())
 
@@ -158,8 +158,8 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                // enabling an empty list of tags disables all tags
-                engine.tags_enable(&[]);
+                // using an empty list of tags disables all tags
+                engine.use_tags(&[]);
             }
             Ok(JsNull::new().upcast())
         }
@@ -171,7 +171,7 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                engine.filter_add(&filter);
+                engine.add_filter(&filter);
             }
             Ok(JsNull::new().upcast())
         }
@@ -184,7 +184,7 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                engine.resource_add(resource);
+                engine.add_resource(resource);
             }
             Ok(JsNull::new().upcast())
         }
@@ -196,7 +196,7 @@ declare_types! {
             let result = {
                 let guard = cx.lock();
                 let engine = this.borrow(&guard);
-                engine.resource_get(&name)
+                engine.get_resource(&name)
             };
             let js_value = neon_serde::to_value(&mut cx, &result)?;
             Ok(js_value)

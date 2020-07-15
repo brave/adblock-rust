@@ -54,7 +54,7 @@ fn check_works_same_after_deserialization() {
     file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
     let mut engine = Engine::default();
     engine.deserialize(&serialized).expect("Deserialization failed");
-    engine.with_tags(&["twitter-embeds"]);
+    engine.use_tags(&["twitter-embeds"]);
 
     println!("Matching");
     let mut mismatch_expected_match = 0;

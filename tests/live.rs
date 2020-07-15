@@ -80,7 +80,7 @@ fn get_blocker_engine() -> Engine {
 
     let mut engine = Engine::from_rules_parametrised(&filters[..], true, false);
 
-    engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+    engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
     engine
 }
@@ -99,7 +99,7 @@ fn get_blocker_engine_deserialized() -> Engine {
 
     let mut engine = Engine::default();
     engine.deserialize(&dat).expect("Deserialization failed");
-    engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+    engine.use_tags(&["fb-embeds", "twitter-embeds"]);
     engine
 }
 
@@ -135,7 +135,7 @@ fn check_live_specific_urls() {
             checked.filter, checked.exception);
     }
     {
-        engine.tags_disable(&["twitter-embeds"]);
+        engine.disable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
@@ -143,10 +143,10 @@ fn check_live_specific_urls() {
         assert_eq!(checked.matched, true,
             "Expected no match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception);
-        engine.tags_enable(&["twitter-embeds"]);
+        engine.enable_tags(&["twitter-embeds"]);
     }
     {
-        engine.tags_disable(&["twitter-embeds"]);
+        engine.disable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://imagesrv.adition.com/banners/1337/files/00/0e/6f/09/000000945929.jpg?PQgSgs13hf1fw.jpg",
             "https://spiegel.de",
@@ -154,7 +154,7 @@ fn check_live_specific_urls() {
         assert_eq!(checked.matched, true,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception);
-        engine.tags_enable(&["twitter-embeds"]);
+        engine.enable_tags(&["twitter-embeds"]);
     }
 }
 
@@ -162,7 +162,7 @@ fn check_live_specific_urls() {
 fn check_live_deserialized_specific_urls() {
     let mut engine = get_blocker_engine_deserialized();
     {
-        engine.tags_disable(&["twitter-embeds"]);
+        engine.disable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
@@ -172,7 +172,7 @@ fn check_live_deserialized_specific_urls() {
             checked.filter, checked.exception);
     }
     {
-        engine.tags_enable(&["twitter-embeds"]);
+        engine.enable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
@@ -231,7 +231,7 @@ fn check_live_redirects() {
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
     let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path);
 
-    engine.with_resources(&resources);
+    engine.use_resources(&resources);
     { 
         let checked = engine.check_network_urls(
             "https://c.amazon-adsystem.com/aax2/amzn_ads.js",

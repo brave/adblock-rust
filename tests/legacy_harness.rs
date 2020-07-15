@@ -305,10 +305,10 @@ mod legacy_check_match {
     fn check_match<'a>(rules: &[&'a str], blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
         let mut engine = Engine::from_rules(&rules_owned);                      // first one with the provided rules
-        engine.with_tags(tags);
+        engine.use_tags(tags);
             
         let mut engine_deserialized = Engine::default();                    // second empty
-        engine_deserialized.with_tags(tags);
+        engine_deserialized.use_tags(tags);
         {
             let engine_serialized = engine.serialize().unwrap();
             engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy

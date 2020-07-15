@@ -13,7 +13,7 @@ fn main() {
 
     // Serialize
     let mut engine = Engine::from_rules_debug(&rules);
-    engine.with_tags(&["twitter-embeds"]);    
+    engine.use_tags(&["twitter-embeds"]);
     assert!(engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script").exception.is_some());
     let serialized = engine.serialize().expect("Could not serialize!");
 

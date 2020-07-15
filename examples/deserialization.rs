@@ -2,7 +2,7 @@ extern crate adblock;
 
 use adblock::engine::Engine;
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -52,7 +52,7 @@ fn main() {
         engine.deserialize(&serialized).expect("Deserialization failed");
         // engine = get_blocker_engine();
     }
-    engine.with_tags(&["twitter-embeds"]);
+    engine.use_tags(&["twitter-embeds"]);
 
     println!("Sleeping");
     std::thread::sleep(std::time::Duration::from_secs(5));
