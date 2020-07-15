@@ -326,13 +326,7 @@ impl Blocker {
             }
         }
 
-        csp.shrink_to_fit();
-        generic_hide.shrink_to_fit();
-        exceptions.shrink_to_fit();
-        importants.shrink_to_fit();
-        redirects.shrink_to_fit();
         tagged_filters_all.shrink_to_fit();
-        filters.shrink_to_fit();
         
         Blocker {
             csp: NetworkFilterList::new(csp, options.enable_optimizations),
@@ -354,6 +348,20 @@ impl Blocker {
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
         }
+    }
+
+    /// If optimizations are enabled, the `Blocker` will be configured to automatically optimize
+    /// its filters after batch updates. However, even if they are disabled, it is possible to
+    /// manually call `optimize()`. It may be useful to have finer-grained control over
+    /// optimization scheduling when frequently updating filters.
+    pub fn optimize(&mut self) {
+        self.csp.optimize();
+        self.exceptions.optimize();
+        self.importants.optimize();
+        self.redirects.optimize();
+        self.filters_tagged.optimize();
+        self.filters.optimize();
+        self.generic_hide.optimize();
     }
 
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
@@ -456,11 +464,10 @@ impl Blocker {
 #[derive(Serialize, Deserialize, Default)]
 pub struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
-    // optimized: Option<bool>
 }
 
 impl NetworkFilterList {
-    pub fn new(filters: Vec<NetworkFilter>, enable_optimizations: bool) -> NetworkFilterList {
+    pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -497,44 +504,46 @@ impl NetworkFilterList {
             }
         }
 
-        // Update all values
-        if enable_optimizations {
-            let mut optimized_map = HashMap::with_capacity(filter_map.len());
-            for (key, filters) in filter_map {
-                let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
-                let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
-                for f in filters {
-                    match Arc::try_unwrap(f) {
-                        Ok(f) => unoptimized.push(f),
-                        Err(af) => unoptimizable.push(af)
-                    }
-                }
+        let mut self_ = NetworkFilterList {
+            filter_map,
+        };
 
-                let mut optimized: Vec<_> = if unoptimized.len() > 1 {
-                    optimizer::optimize(unoptimized).into_iter().map(Arc::new).collect()
-                } else {
-                    // nothing to optimize
-                    unoptimized.into_iter().map(Arc::new).collect()
-                };
-                
-                optimized.append(&mut unoptimizable);
-                optimized_map.insert(key, optimized);
-            }
-
-            // won't mutate anymore, shrink to fit items
-            optimized_map.shrink_to_fit();
-
-            NetworkFilterList {
-                filter_map: optimized_map,
-                // optimized: Some(enable_optimizations)
-            }
+        if optimize {
+            self_.optimize();
         } else {
-            filter_map.shrink_to_fit();
-            NetworkFilterList { 
-                filter_map,
-                // optimized: Some(enable_optimizations)
-            }
+            self_.filter_map.shrink_to_fit();
         }
+
+        self_
+    }
+
+    pub fn optimize(&mut self) {
+        let mut optimized_map = HashMap::with_capacity(self.filter_map.len());
+        for (key, filters) in self.filter_map.drain() {
+            let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
+            let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
+            for f in filters {
+                match Arc::try_unwrap(f) {
+                    Ok(f) => unoptimized.push(f),
+                    Err(af) => unoptimizable.push(af)
+                }
+            }
+
+            let mut optimized: Vec<_> = if unoptimized.len() > 1 {
+                optimizer::optimize(unoptimized).into_iter().map(Arc::new).collect()
+            } else {
+                // nothing to optimize
+                unoptimized.into_iter().map(Arc::new).collect()
+            };
+
+            optimized.append(&mut unoptimizable);
+            optimized_map.insert(key, optimized);
+        }
+
+        // won't mutate anymore, shrink to fit items
+        optimized_map.shrink_to_fit();
+
+        self.filter_map = optimized_map;
     }
 
     pub fn add_filter(&mut self, filter: NetworkFilter) {

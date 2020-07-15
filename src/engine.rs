@@ -14,8 +14,8 @@ pub struct Engine {
 }
 
 impl Default for Engine {
-    /// Equivalent to `Engine::from_rules`, or `Engine::from_rules_debug` when compiled in test
-    /// configuration, with an empty list of rules.
+    /// Equivalent to `Engine::new(false, true)`, or `Engine::new(true, true)` when compiled in
+    /// test configuration.
     fn default() -> Self {
         #[cfg(not(test))]
         let debug = false;
@@ -28,6 +28,13 @@ impl Default for Engine {
 }
 
 impl Engine {
+    /// Creates a new adblocking `Engine`.
+    /// - `debug` specifies whether or not to save information about the original raw filter rules
+    /// alongside the more compact internal representation.
+    /// - `optimize` specifies whether or not to automatically attempt to compress the internal
+    /// representation when adding batches of rules, like with the `add_filter_list` method. If
+    /// disabled, it is still possible to manually schedule rule optimization using the
+    /// `Engine::optimize` method.
     pub fn new(debug: bool, optimize: bool) -> Engine {
         let blocker_options = BlockerOptions {
             debug,
@@ -152,6 +159,9 @@ impl Engine {
         for rule in parsed_network_filters {
             self.add_network_filter(rule);
         }
+        if self.blocker.enable_optimizations {
+            self.blocker.optimize();
+        }
 
         for rule in parsed_cosmetic_filters {
             self.add_cosmetic_filter(rule);
@@ -181,6 +191,10 @@ impl Engine {
 
     fn add_cosmetic_filter(&mut self, filter: CosmeticFilter) {
         self.cosmetic_cache.add_filter(filter);
+    }
+
+    pub fn optimize(&mut self) {
+        self.blocker.optimize();
     }
 
     pub fn with_tags(&mut self, tags: &[&str]) {
