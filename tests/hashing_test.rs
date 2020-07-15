@@ -13,7 +13,7 @@ fn get_network_filters() -> Vec<NetworkFilter> {
         String::from("data/easylist.to/easylist/easyprivacy.txt"),
     ]);
 
-    let (network_filters, _) = parse_filters(&rules_lists, true, false, true);
+    let (network_filters, _) = parse_filters(&rules_lists, true);
     network_filters
 }
 

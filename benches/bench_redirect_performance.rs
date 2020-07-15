@@ -48,7 +48,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
     let filters = async_runtime.block_on(get_all_filters());
-    let (network_filters, _) = adblock::lists::parse_filters(&filters, true, false, true);
+    let (network_filters, _) = adblock::lists::parse_filters(&filters, true);
 
     network_filters.into_iter()
         .filter(|rule| {
@@ -94,7 +94,7 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
         Path::new("data/test/fake-uBO-files/scriptlets.js"),
     ));
 
-    blocker.with_resources(&resources);
+    blocker.use_resources(&resources);
 
     blocker
 }

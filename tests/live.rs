@@ -78,7 +78,7 @@ fn get_blocker_engine() -> Engine {
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
     let filters: Vec<String> = async_runtime.block_on(get_all_filters());
 
-    let mut engine = Engine::from_rules_parametrised(&filters[..], true, false, true, false);
+    let mut engine = Engine::from_rules_parametrised(&filters[..], true, false);
 
     engine.with_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -118,7 +118,7 @@ fn get_blocker_engine_deserialized_ios() -> Engine {
         .map(|s| s.to_owned())
         .collect();
     
-    let engine = Engine::from_rules_parametrised(&filters, true, false, true, false);
+    let engine = Engine::from_rules_parametrised(&filters, true, false);
     engine
 }
 

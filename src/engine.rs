@@ -23,31 +23,35 @@ impl Default for Engine {
         #[cfg(test)]
         let debug = true;
 
-        let blocker_options = BlockerOptions {
-            debug,
-            enable_optimizations: true,
-        };
-
-        Engine {
-            blocker: Blocker::new(vec![], &blocker_options),
-            cosmetic_cache: CosmeticFilterCache::new(vec![]),
-        }
+        Self::new(debug, true)
     }
 }
 
 impl Engine {
-    /// Loads cosmetic and network rules in optimized form without debug information.
+    pub fn new(debug: bool, optimize: bool) -> Engine {
+        let blocker_options = BlockerOptions {
+            debug,
+            enable_optimizations: optimize,
+        };
+
+        Self {
+            blocker: Blocker::new(vec![], &blocker_options),
+            cosmetic_cache: CosmeticFilterCache::new(vec![]),
+        }
+    }
+
+    /// Loads rules, enabling optimizations and discarding debug information.
     pub fn from_rules(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, true, true, false, true)
+        Self::from_rules_parametrised(&network_filters, false, true)
     }
 
-    /// Loads cosmetic and network rules in optimized form with debug information.
+    /// Loads rules, enabling optimizations and including debug information.
     pub fn from_rules_debug(network_filters: &[String]) -> Engine {
-        Self::from_rules_parametrised(&network_filters, true, true, true, true)
+        Self::from_rules_parametrised(&network_filters, true, true)
     }
 
-    pub fn from_rules_parametrised(filter_rules: &[String], load_network: bool, load_cosmetic: bool, debug: bool, optimize: bool) -> Engine {
-        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filter_rules, load_network, load_cosmetic, debug);
+    pub fn from_rules_parametrised(filter_rules: &[String], debug: bool, optimize: bool) -> Engine {
+        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filter_rules, debug);
 
         let blocker_options = BlockerOptions {
             debug,
@@ -143,7 +147,7 @@ impl Engine {
 
     pub fn add_filter_list(&mut self, filter_list: &str) {
         let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
-        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&rules, true, true, true);
+        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&rules, true);
 
         for rule in parsed_network_filters {
             self.add_network_filter(rule);
@@ -155,14 +159,13 @@ impl Engine {
     }
 
     pub fn filter_add(&mut self, filter: &str) {
-        let filter_parsed = parse_filter(filter, true, true, true);
+        let filter_parsed = parse_filter(filter, true);
         match filter_parsed {
             Ok(ParsedFilter::Network(filter)) => self.add_network_filter(filter),
             Ok(ParsedFilter::Cosmetic(filter)) => self.add_cosmetic_filter(filter),
             Err(FilterParseError::Network(e)) => eprintln!("Encountered filter error {:?} when adding network filter", e),
             Err(FilterParseError::Cosmetic(e)) => eprintln!("Encountered filter error {:?} when adding cosmetic filter", e),
             Err(FilterParseError::Unsupported) => (),
-            Err(FilterParseError::Unused) => (),
             Err(FilterParseError::Empty) => (),
         }
     }

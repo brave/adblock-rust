@@ -1075,7 +1075,7 @@ mod blocker_tests {
     use std::iter::FromIterator;
 
     fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
-        let (network_filters, _) = parse_filters(filters, true, true, true); 
+        let (network_filters, _) = parse_filters(filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
@@ -1172,7 +1172,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), false),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+        let (network_filters, _) = parse_filters(&filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
@@ -1209,7 +1209,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+        let (network_filters, _) = parse_filters(&filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
@@ -1247,7 +1247,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
         
-        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+        let (network_filters, _) = parse_filters(&filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             debug: false,
@@ -1428,8 +1428,7 @@ mod legacy_rule_parsing_tests {
     fn check_list_counts(rule_lists: &[String], expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
         
-        // load_network_filters = true, load)cosmetic_filters = true, debug = true
-        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, true, true); 
+        let (network_filters, cosmetic_filters) = parse_filters(&rules, true);
 
         assert_eq!(
             (network_filters.len(),

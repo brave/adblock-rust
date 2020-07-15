@@ -50,7 +50,7 @@ fn get_blocker_engine() -> Engine {
         String::from("data/regression-testing/easyprivacy.txt"),
     ]);
 
-    Engine::from_rules_parametrised(&rules, true, false, true, false)
+    Engine::from_rules_parametrised(&rules, true, false)
 }
 
 fn get_blocker_engine_default() -> Engine {
@@ -64,7 +64,7 @@ fn get_blocker_engine_default() -> Engine {
         // String::from("data/test/abpjf.txt"),
     ]);
 
-    Engine::from_rules_parametrised(&rules, true, false, true, false)
+    Engine::from_rules_parametrised(&rules, true, false)
 }
 
 #[test]

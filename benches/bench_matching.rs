@@ -27,7 +27,7 @@ fn load_requests() -> Vec<TestRequest> {
 }
 
 fn get_blocker(rules: &Vec<String>) -> Blocker {
-    let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
+    let (network_filters, _) = adblock::lists::parse_filters(rules, false);
 
     let blocker_options = BlockerOptions {
         debug: false,
@@ -325,21 +325,21 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
                 "data/easylist.to/easylist/easyprivacy.txt".to_owned()
             ]);
-            let engine = Engine::from_rules_parametrised(&rules, true, false, false, true);
+            let engine = Engine::from_rules_parametrised(&rules, false, true);
             b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
         },)
         .with_function("el", move |b| {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
             ]);
-            let engine = Engine::from_rules_parametrised(&rules, true, false, false, true);
+            let engine = Engine::from_rules_parametrised(&rules, false, true);
             b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
         },)
         .with_function("slimlist", move |b| {
             let rules = rules_from_lists(&vec![
                 "data/slim-list.txt".to_owned()
             ]);
-            let engine = Engine::from_rules_parametrised(&rules, true, false, false, true);
+            let engine = Engine::from_rules_parametrised(&rules, false, true);
             b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
         },)
         .throughput(Throughput::Elements(requests_len))

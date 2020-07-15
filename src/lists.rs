@@ -43,13 +43,10 @@ impl From<CosmeticFilter> for ParsedFilter {
 }
 
 /// Unsuccessful result of parsing a single filter rule.
-/// Unused means that e.g. only network filters were requested, but a cosmetic filter was
-/// specified.
 pub enum FilterParseError {
     Network(NetworkFilterError),
     Cosmetic(CosmeticFilterError),
     Unsupported,
-    Unused,
     Empty,
 }
 
@@ -68,8 +65,6 @@ impl From<CosmeticFilterError> for FilterParseError {
 /// Parse a single filter rule
 pub fn parse_filter(
     line: &str,
-    load_network_filters: bool,
-    load_cosmetic_filters: bool,
     debug: bool
 ) -> Result<ParsedFilter, FilterParseError> {
 
@@ -80,24 +75,12 @@ pub fn parse_filter(
     }
 
     match detect_filter_type(filter) {
-        FilterType::Network => {
-            if load_network_filters {
-                NetworkFilter::parse(filter, debug)
-                    .map(|f| f.into())
-                    .map_err(|e| e.into())
-            } else {
-                Err(FilterParseError::Unused)
-            }
-        }
-        FilterType::Cosmetic => {
-            if load_cosmetic_filters {
-                CosmeticFilter::parse(filter, debug)
-                    .map(|f| f.into())
-                    .map_err(|e| e.into())
-            } else {
-                Err(FilterParseError::Unused)
-            }
-        }
+        FilterType::Network => NetworkFilter::parse(filter, debug)
+            .map(|f| f.into())
+            .map_err(|e| e.into()),
+        FilterType::Cosmetic => CosmeticFilter::parse(filter, debug)
+            .map(|f| f.into())
+            .map_err(|e| e.into()),
         _ => Err(FilterParseError::Unsupported),
     }
 }
@@ -105,15 +88,13 @@ pub fn parse_filter(
 /// Parse an entire list of filters, ignoring any errors
 pub fn parse_filters(
     list: &[String],
-    load_network_filters: bool,
-    load_cosmetic_filters: bool,
     debug: bool,
 ) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
 
     let list_iter = list.iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
-        .map(|line| parse_filter(line, load_network_filters, load_cosmetic_filters, debug))
+        .map(|line| parse_filter(line, debug))
         .filter_map(Result::ok)
         .partition_map(|filter| match filter {
             ParsedFilter::Network(f) => Either::Left(f),
@@ -184,20 +165,20 @@ mod tests {
     #[test]
     fn parse_filter_failed_fuzz_1() {
         let input = "Ѥ";
-        let result = parse_filter(input, true, true, true);
+        let result = parse_filter(input, true);
         assert!(result.is_ok());
     }
 
     #[test]
     fn parse_filter_failed_fuzz_2() {
-        assert!(parse_filter(r#"###\\\00DB \008D"#, true, true, true).is_ok());
-        assert!(parse_filter(r#"###\Û"#, true, true, true).is_ok());
+        assert!(parse_filter(r#"###\\\00DB \008D"#, true).is_ok());
+        assert!(parse_filter(r#"###\Û"#, true).is_ok());
     }
 
     #[test]
     fn parse_filter_failed_fuzz_3() {
         let input = "||$3p=/";
-        let result = parse_filter(input, true, true, true);
+        let result = parse_filter(input, true);
         assert!(result.is_ok());
     }
     
@@ -206,7 +187,8 @@ mod tests {
         // \\##+js(,\xdd\x8d
         assert!(parse_filter(
             &String::from_utf8(vec![92, 35, 35, 43, 106, 115, 40, 44, 221, 141]).unwrap(),
-            true, true, true).is_ok());
+            true,
+        ).is_ok());
     }
     
 }
