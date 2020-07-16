@@ -169,7 +169,8 @@ impl Engine {
     /// Adds a collection of filter rules to this `Engine`. Filters that cannot be parsed
     /// successfully are ignored.
     pub fn add_filters(&mut self, filters: &[String]) {
-        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filters, true);
+        let debug = self.blocker.debug;
+        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filters, debug);
 
         for rule in parsed_network_filters {
             self.add_network_filter(rule);
@@ -185,7 +186,8 @@ impl Engine {
 
     /// Adds the string representation of a filter rule to this `Engine`.
     pub fn add_filter(&mut self, filter: &str) {
-        let filter_parsed = parse_filter(filter, true);
+        let debug = self.blocker.debug;
+        let filter_parsed = parse_filter(filter, debug);
         match filter_parsed {
             Ok(ParsedFilter::Network(filter)) => self.add_network_filter(filter),
             Ok(ParsedFilter::Cosmetic(filter)) => self.add_cosmetic_filter(filter),

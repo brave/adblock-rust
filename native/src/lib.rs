@@ -38,7 +38,7 @@ declare_types! {
             }
         }
 
-        method add_filters(mut cx) {
+        method addFilters(mut cx) {
             // Take the first argument, which must be an array
             let rules_handle: Handle<JsArray> = cx.argument(0)?;
 
