@@ -21,28 +21,27 @@ struct EngineOptions {
 declare_types! {
     pub class JsEngine for Engine {
         init(mut cx) {
-            // Take the first argument, which must be an array
-            let rules_handle: Handle<JsArray> = cx.argument(0)?;
-
-            let debug: bool;
-            let optimize: bool;
-            match cx.argument_opt(1) {
+            match cx.argument_opt(0) {
                 Some(arg) => {
                     // Throw if the argument exist and it cannot be downcasted to a boolean
                     let maybe_config: Result<EngineOptions, _> = neon_serde::from_value(&mut cx, arg);
-                    if let Ok(config) = maybe_config {
-                        debug = config.debug.unwrap_or(false);
-                        optimize = config.optimize.unwrap_or(true);
+                    let (debug, optimize) = if let Ok(config) = maybe_config {
+                        (config.debug.unwrap_or(false), config.optimize.unwrap_or(true))
                     } else {
-                        debug = arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value();
-                        optimize = true;
-                    }
+                        (arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value(), true)
+                    };
+                    Ok(Engine::new(debug, optimize))
                 }
                 None => {
-                    debug = false;
-                    optimize = true;
+                    Ok(Engine::default())
                 },
             }
+        }
+
+        method add_filters(mut cx) {
+            // Take the first argument, which must be an array
+            let rules_handle: Handle<JsArray> = cx.argument(0)?;
+
             // Convert a JsArray to a Rust Vec
             let rules_wrapped: Vec<_> = rules_handle.to_vec(&mut cx)?;
 
@@ -53,7 +52,25 @@ declare_types! {
                 rules.push(rule);
             }
 
-            Ok(Engine::from_rules_parametrised(&rules, debug, optimize))
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                engine.add_filters(&rules);
+            }
+
+            Ok(JsNull::new().upcast())
+        }
+
+        method optimize(mut cx) {
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut engine = this.borrow_mut(&guard);
+                engine.optimize();
+            }
+
+            Ok(JsNull::new().upcast())
         }
 
         method check(mut cx) {

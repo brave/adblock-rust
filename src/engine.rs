@@ -163,7 +163,13 @@ impl Engine {
     /// successfully are ignored.
     pub fn add_filter_list(&mut self, filter_list: &str) {
         let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
-        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&rules, true);
+        self.add_filters(&rules);
+    }
+
+    /// Adds a collection of filter rules to this `Engine`. Filters that cannot be parsed
+    /// successfully are ignored.
+    pub fn add_filters(&mut self, filters: &[String]) {
+        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filters, true);
 
         for rule in parsed_network_filters {
             self.add_network_filter(rule);
