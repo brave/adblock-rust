@@ -1,4 +1,7 @@
-use serde::{Deserialize, Serialize};
+//! Contains data types used to describe remote lists of filters.
+
+use crate::lists::FilterFormat;
+use serde::{Serialize, Deserialize};
 
 pub mod default;
 pub mod regions;
@@ -9,6 +12,7 @@ pub struct RemoteFilterSource {
     pub uuid: String,
     pub url: String,
     pub title: String,
+    pub format: FilterFormat,
     pub langs: Vec<String>,
     pub support_url: String,
     pub component_id: String,

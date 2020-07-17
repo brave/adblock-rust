@@ -1,6 +1,7 @@
 extern crate adblock;
 
 use adblock::engine::Engine;
+use adblock::lists::FilterFormat;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -12,7 +13,7 @@ fn main() {
     ];
 
     // Serialize
-    let mut engine = Engine::from_rules_debug(&rules);
+    let mut engine = Engine::from_rules_debug(&rules, FilterFormat::Standard);
     engine.use_tags(&["twitter-embeds"]);
     assert!(engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script").exception.is_some());
     let serialized = engine.serialize().expect("Could not serialize!");

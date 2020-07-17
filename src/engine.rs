@@ -1,7 +1,7 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::lists::FilterSet;
+use crate::lists::{FilterFormat, FilterSet};
 use crate::request::Request;
 use crate::resources::{Resource, RedirectResource};
 use std::collections::HashSet;
@@ -34,21 +34,21 @@ impl Engine {
         }
     }
 
-    /// Loads rules, enabling optimizations and discarding debug information.
-    pub fn from_rules(rules: &[String]) -> Self {
+    /// Loads rules in a single format, enabling optimizations and discarding debug information.
+    pub fn from_rules(rules: &[String], format: FilterFormat) -> Self {
         let mut filter_set = FilterSet::new(false);
-        filter_set.add_filters(rules);
+        filter_set.add_filters(rules, format);
         Self::from_filter_set(filter_set, true)
     }
 
     /// Loads rules, enabling optimizations and including debug information.
-    pub fn from_rules_debug(rules: &[String]) -> Self {
-        Self::from_rules_parametrised(&rules, true, true)
+    pub fn from_rules_debug(rules: &[String], format: FilterFormat) -> Self {
+        Self::from_rules_parametrised(&rules, format, true, true)
     }
 
-    pub fn from_rules_parametrised(filter_rules: &[String], debug: bool, optimize: bool) -> Self {
+    pub fn from_rules_parametrised(filter_rules: &[String], format: FilterFormat, debug: bool, optimize: bool) -> Self {
         let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filters(filter_rules);
+        filter_set.add_filters(filter_rules, format);
         Self::from_filter_set(filter_set, optimize)
     }
 
@@ -254,7 +254,7 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_rules(&filters);
+        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
 
@@ -283,7 +283,7 @@ mod tests {
             ("https://brave.com/about", true),
         ];
         
-        let mut engine = Engine::from_rules(&filters);
+        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
         engine.enable_tags(&["brian", "stuff"]);
         engine.disable_tags(&["stuff"]);
 
@@ -310,7 +310,7 @@ mod tests {
             ("https://brianbondy.com/advert", true),
         ];
         
-        let engine = Engine::from_rules(&filters);
+        let engine = Engine::from_rules(&filters, FilterFormat::Standard);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
             let matched_rule = engine.check_network_urls(&url, "", "");
@@ -335,7 +335,7 @@ mod tests {
             ("https://brianbondy.com/advert", false),
         ];
         
-        let mut engine = Engine::from_rules(&filters);
+        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
         engine.enable_tags(&["brian", "stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
@@ -363,7 +363,7 @@ mod tests {
             ("https://brave.com/about", false),
         ];
 
-        let mut engine = Engine::from_rules(&filters);
+        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
         let serialized = engine.serialize().unwrap();
@@ -447,7 +447,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let engine = Engine::from_rules(&[
             "ad-banner".to_owned()
-        ]);
+        ], FilterFormat::Standard);
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
     }
@@ -455,7 +455,7 @@ mod tests {
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$tag=abc".to_owned()
-        ]);
+        ], FilterFormat::Standard);
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
@@ -464,7 +464,7 @@ mod tests {
     fn deserialization_generate_resources() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext".to_owned()
-        ]);
+        ], FilterFormat::Standard);
 
         let resources = vec![
             Resource {
@@ -490,7 +490,7 @@ mod tests {
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext".to_owned()
-        ]);
+        ], FilterFormat::Standard);
 
         engine.add_resource(Resource {
             name: "nooptext".to_owned(),
@@ -548,7 +548,7 @@ mod tests {
             ("https://example2.com/test.html", vec![".block"], true),
         ];
 
-        let engine = Engine::from_rules(&filters);
+        let engine = Engine::from_rules(&filters, FilterFormat::Standard);
 
         url_results.into_iter().for_each(|(url, expected_result, expected_generichide)| {
             let result = engine.url_cosmetic_resources(url);

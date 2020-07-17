@@ -1,6 +1,7 @@
 extern crate adblock;
 
 use adblock::engine::Engine;
+use adblock::lists::FilterFormat;
 use adblock::request::Request;
 use adblock::url_parser::UrlParser;
 use adblock::utils::rules_from_lists;
@@ -50,7 +51,7 @@ fn get_blocker_engine() -> Engine {
         String::from("data/regression-testing/easyprivacy.txt"),
     ]);
 
-    Engine::from_rules_parametrised(&rules, true, false)
+    Engine::from_rules_parametrised(&rules, FilterFormat::Standard, true, false)
 }
 
 fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
@@ -66,16 +67,19 @@ fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
 
     extra_rules.iter().for_each(|rule| rules.push(rule.to_string()));
 
-    Engine::from_rules_parametrised(&rules, true, false)
+    Engine::from_rules_parametrised(&rules, FilterFormat::Standard, true, false)
 }
 
 #[test]
 fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
-        let engine = Engine::from_rules_debug(&[
-            String::from("||www.facebook.com/*/plugin"),
-        ]);
+        let engine = Engine::from_rules_debug(
+            &[
+                String::from("||www.facebook.com/*/plugin"),
+            ],
+            FilterFormat::Standard,
+        );
 
         let checked = engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
 
@@ -84,9 +88,12 @@ fn check_specific_rules() {
 
     {
         // exceptions have not effect if important filter matches
-        let mut engine = Engine::from_rules_debug(&[
-            String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
-        ]);
+        let mut engine = Engine::from_rules_debug(
+            &[
+                String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
+            ],
+            FilterFormat::Standard,
+        );
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-engine.js")

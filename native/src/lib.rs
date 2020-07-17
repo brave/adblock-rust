@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use adblock::engine::Engine;
 use adblock::filter_lists;
-use adblock::lists::FilterSet;
+use adblock::lists::{FilterFormat, FilterSet};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
@@ -30,6 +30,12 @@ declare_types! {
         method addFilters(mut cx) {
             // Take the first argument, which must be an array
             let rules_handle: Handle<JsArray> = cx.argument(0)?;
+            // Second argument is the optional format of the rules, defaulting to
+            // FilterFormat::Standard
+            let format = match cx.argument_opt(1) {
+                Some(format_arg) => neon_serde::from_value(&mut cx, format_arg)?,
+                None => FilterFormat::Standard,
+            };
 
             // Convert a JsArray to a Rust Vec
             let rules_wrapped: Vec<_> = rules_handle.to_vec(&mut cx)?;
@@ -45,7 +51,7 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut filter_set = this.borrow_mut(&guard);
-                filter_set.add_filters(&rules);
+                filter_set.add_filters(&rules, format);
             }
 
             Ok(JsNull::new().upcast())
@@ -53,12 +59,16 @@ declare_types! {
 
         method addFilter(mut cx) {
             let filter: String = cx.argument::<JsString>(0)?.value();
+            let format = match cx.argument_opt(1) {
+                Some(format_arg) => neon_serde::from_value(&mut cx, format_arg)?,
+                None => FilterFormat::Standard,
+            };
 
             let mut this = cx.this();
             let guard = cx.lock();
             let ok = {
                 let mut filter_set = this.borrow_mut(&guard);
-                filter_set.add_filter(&filter).is_ok()
+                filter_set.add_filter(&filter, format).is_ok()
             };
             // Return true/false depending on whether or not the filter could be added
             Ok(JsBoolean::new(&mut cx, ok).upcast())
@@ -266,11 +276,28 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(js_resources)
 }
 
+fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
+    let filter_format_enum = JsObject::new(cx);
+
+    let standard = neon_serde::to_value(cx, &FilterFormat::Standard)?;
+    filter_format_enum.set(cx, "STANDARD", standard)?;
+
+    let hosts = neon_serde::to_value(cx, &FilterFormat::Hosts)?;
+    filter_format_enum.set(cx, "HOSTS", hosts)?;
+
+    Ok(filter_format_enum)
+}
+
 register_module!(mut m, {
     m.export_class::<JsFilterSet>("FilterSet")?;
     m.export_class::<JsEngine>("Engine")?;
+
     m.export_function("lists", lists)?;
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;
+
+    let filter_format_enum = build_filter_format_enum(&mut m)?;
+    m.export_value("FilterFormat", filter_format_enum)?;
+
     Ok(())
 });
