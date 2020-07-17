@@ -1,5 +1,20 @@
+use serde::{Deserialize, Serialize};
+
 pub mod default;
 pub mod regions;
+
+/// Describes an online source of adblock rules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteFilterSource {
+    pub uuid: String,
+    pub url: String,
+    pub title: String,
+    pub langs: Vec<String>,
+    pub support_url: String,
+    pub component_id: String,
+    pub base64_public_key: String,
+    pub desc: String,
+}
 
 #[cfg(test)]
 pub async fn get_all_filters() -> Vec<String> {

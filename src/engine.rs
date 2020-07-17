@@ -1,10 +1,8 @@
 
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::lists::{parse_filters, parse_filter, ParsedFilter, FilterParseError};
+use crate::lists::FilterSet;
 use crate::request::Request;
-use crate::filters::network::NetworkFilter;
-use crate::filters::cosmetic::CosmeticFilter;
 use crate::resources::{Resource, RedirectResource};
 use std::collections::HashSet;
 
@@ -14,30 +12,19 @@ pub struct Engine {
 }
 
 impl Default for Engine {
-    /// Equivalent to `Engine::new(false, true)`, or `Engine::new(true, true)` when compiled in
-    /// test configuration.
+    /// Equivalent to `Engine::new(true)`.
     fn default() -> Self {
-        #[cfg(not(test))]
-        let debug = false;
-
-        #[cfg(test)]
-        let debug = true;
-
-        Self::new(debug, true)
+        Self::new(true)
     }
 }
 
 impl Engine {
-    /// Creates a new adblocking `Engine`.
-    /// - `debug` specifies whether or not to save information about the original raw filter rules
-    /// alongside the more compact internal representation.
-    /// - `optimize` specifies whether or not to automatically attempt to compress the internal
-    /// representation when adding batches of rules, like with the `add_filter_list` method. If
-    /// disabled, it is still possible to manually schedule rule optimization using the
-    /// `Engine::optimize` method.
-    pub fn new(debug: bool, optimize: bool) -> Engine {
+    /// Creates a new adblocking `Engine`. `Engine`s created without rules should generally only be
+    /// used with deserialization.
+    /// - `optimize` specifies whether or not to attempt to compress the internal representation by
+    /// combining similar rules.
+    pub fn new(optimize: bool) -> Self {
         let blocker_options = BlockerOptions {
-            debug,
             enable_optimizations: optimize,
         };
 
@@ -48,26 +35,35 @@ impl Engine {
     }
 
     /// Loads rules, enabling optimizations and discarding debug information.
-    pub fn from_rules(rules: &[String]) -> Engine {
-        Self::from_rules_parametrised(&rules, false, true)
+    pub fn from_rules(rules: &[String]) -> Self {
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(rules);
+        Self::from_filter_set(filter_set, true)
     }
 
     /// Loads rules, enabling optimizations and including debug information.
-    pub fn from_rules_debug(rules: &[String]) -> Engine {
+    pub fn from_rules_debug(rules: &[String]) -> Self {
         Self::from_rules_parametrised(&rules, true, true)
     }
 
-    pub fn from_rules_parametrised(filter_rules: &[String], debug: bool, optimize: bool) -> Engine {
-        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filter_rules, debug);
+    pub fn from_rules_parametrised(filter_rules: &[String], debug: bool, optimize: bool) -> Self {
+        let mut filter_set = FilterSet::new(debug);
+        filter_set.add_filters(filter_rules);
+        Self::from_filter_set(filter_set, optimize)
+    }
+
+    /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
+    /// rules from multiple sources.
+    pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
+        let FilterSet { network_filters, cosmetic_filters, .. } = set;
 
         let blocker_options = BlockerOptions {
-            debug,
             enable_optimizations: optimize,
         };
 
-        Engine {
-            blocker: Blocker::new(parsed_network_filters, &blocker_options),
-            cosmetic_cache: CosmeticFilterCache::from_rules(parsed_cosmetic_filters),
+        Self {
+            blocker: Blocker::new(network_filters, &blocker_options),
+            cosmetic_cache: CosmeticFilterCache::from_rules(cosmetic_filters),
         }
     }
 
@@ -149,7 +145,8 @@ impl Engine {
     ///
     /// Note that only network filters are currently supported by this method.
     pub fn filter_exists(&self, filter: &str) -> bool {
-        let filter_parsed = NetworkFilter::parse(filter, true);
+        use crate::filters::network::NetworkFilter;
+        let filter_parsed = NetworkFilter::parse(filter, false);
         match filter_parsed.map(|f| self.blocker.filter_exists(&f)) {
             Ok(exists) => exists,
             Err(e) => {
@@ -157,68 +154,6 @@ impl Engine {
                 false
             }
         }
-    }
-
-    /// Adds the contents of an entire filter list to this `Engine`. Filters that cannot be parsed
-    /// successfully are ignored.
-    pub fn add_filter_list(&mut self, filter_list: &str) {
-        let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
-        self.add_filters(&rules);
-    }
-
-    /// Adds a collection of filter rules to this `Engine`. Filters that cannot be parsed
-    /// successfully are ignored.
-    pub fn add_filters(&mut self, filters: &[String]) {
-        let debug = self.blocker.debug;
-        let (parsed_network_filters, parsed_cosmetic_filters) = parse_filters(&filters, debug);
-
-        for rule in parsed_network_filters {
-            self.add_network_filter(rule);
-        }
-        if self.blocker.enable_optimizations {
-            self.blocker.optimize();
-        }
-
-        for rule in parsed_cosmetic_filters {
-            self.add_cosmetic_filter(rule);
-        }
-    }
-
-    /// Adds the string representation of a filter rule to this `Engine`.
-    pub fn add_filter(&mut self, filter: &str) {
-        let debug = self.blocker.debug;
-        let filter_parsed = parse_filter(filter, debug);
-        match filter_parsed {
-            Ok(ParsedFilter::Network(filter)) => self.add_network_filter(filter),
-            Ok(ParsedFilter::Cosmetic(filter)) => self.add_cosmetic_filter(filter),
-            Err(FilterParseError::Network(e)) => eprintln!("Encountered filter error {:?} when adding network filter", e),
-            Err(FilterParseError::Cosmetic(e)) => eprintln!("Encountered filter error {:?} when adding cosmetic filter", e),
-            Err(FilterParseError::Unsupported) => (),
-            Err(FilterParseError::Empty) => (),
-        }
-    }
-
-    /// Adds a network filter rule to this `Engine`.
-    fn add_network_filter(&mut self, filter: NetworkFilter) {
-        match self.blocker.add_filter(filter) {
-            Ok(_) => (),
-            Err(BlockerError::BadFilterAddUnsupported) => eprintln!("Adding filters with `badfilter` option dynamically is not supported"),
-            Err(BlockerError::FilterExists) => eprintln!("Filter already exists"),
-            Err(e) => eprintln!("Encountered unexpected error {:?} when adding network filter", e),
-        }
-    }
-
-    /// Adds a cosmetic filter rule to this `Engine`.
-    fn add_cosmetic_filter(&mut self, filter: CosmeticFilter) {
-        self.cosmetic_cache.add_filter(filter);
-    }
-
-    /// Optimizes the `Engine`'s internal filter storage. This is an expensive operation, but it
-    /// can improve the performance of subsequent queries.
-    ///
-    /// Note that this is currently only operates on network filter rules.
-    pub fn optimize(&mut self) {
-        self.blocker.optimize();
     }
 
     /// Sets this engine's tags to be _only_ the ones provided in `tags`.

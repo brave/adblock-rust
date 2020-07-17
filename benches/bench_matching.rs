@@ -30,7 +30,6 @@ fn get_blocker(rules: &Vec<String>) -> Blocker {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false);
 
     let blocker_options = BlockerOptions {
-        debug: false,
         enable_optimizations: true,
     };
   

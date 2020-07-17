@@ -80,7 +80,6 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
 /// Loads the supplied rules, and the test set of resources, into a Blocker
 fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
     let blocker_options = BlockerOptions {
-        debug: false,
         enable_optimizations: true,
     };
 

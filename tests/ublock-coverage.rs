@@ -53,8 +53,8 @@ fn get_blocker_engine() -> Engine {
     Engine::from_rules_parametrised(&rules, true, false)
 }
 
-fn get_blocker_engine_default() -> Engine {
-    let rules = rules_from_lists(&vec![
+fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
+    let mut rules = rules_from_lists(&vec![
         String::from("data/easylist.to/easylist/easylist.txt"),
         String::from("data/easylist.to/easylist/easyprivacy.txt"),
         String::from("data/uBlockOrigin/unbreak.txt"),
@@ -63,6 +63,8 @@ fn get_blocker_engine_default() -> Engine {
         String::from("data/brave/coin-miners.txt"),
         // String::from("data/test/abpjf.txt"),
     ]);
+
+    extra_rules.iter().for_each(|rule| rules.push(rule.to_string()));
 
     Engine::from_rules_parametrised(&rules, true, false)
 }
@@ -99,20 +101,21 @@ fn check_specific_rules() {
 
 #[test]
 fn check_specifics_default() {
-    let mut engine = get_blocker_engine_default();
+    let mut engine = get_blocker_engine_default(&[
+        "@@||www.google.*/aclk?$first-party",
+        "@@||www.googleadservices.*/aclk?$first-party",
+    ]);
     {
         let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
     }
     {
-        engine.add_filter("@@||www.google.*/aclk?$first-party");
         let checked = engine.check_network_urls("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "main_frame");
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        engine.add_filter("@@||www.googleadservices.*/aclk?$first-party");
         let checked = engine.check_network_urls("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
             "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
             "main_frame");

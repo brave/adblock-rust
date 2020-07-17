@@ -88,7 +88,6 @@ fn get_blocker(rules: &Vec<String>) -> Blocker {
     println!("Got {} network filters", network_filters.len());
 
     let blocker_options = BlockerOptions {
-        debug: false,
         enable_optimizations: true,
     };
   

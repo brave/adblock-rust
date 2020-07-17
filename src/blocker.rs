@@ -15,7 +15,6 @@ use crate::resources::{Resource, RedirectResourceStorage, RedirectResource};
 use crate::utils;
 
 pub struct BlockerOptions {
-    pub debug: bool,
     pub enable_optimizations: bool,
 }
 
@@ -114,7 +113,6 @@ pub struct Blocker {
     // Not serialized
     pub(crate) hot_filters: NetworkFilterList,
 
-    pub(crate) debug: bool,
     pub(crate) enable_optimizations: bool,
 
     pub(crate) resources: RedirectResourceStorage,
@@ -240,10 +238,9 @@ impl Blocker {
                     let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
                     Some(data_url.trim().to_owned())
                 } else {
-                    // TOOD: handle error - throw?
-                    if self.debug {
-                        eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
-                    }
+                    // TODO: handle error - throw?
+                    #[cfg(test)]
+                    eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
                     None
                 }
             } else {
@@ -341,7 +338,6 @@ impl Blocker {
             tagged_filters_all,
             hot_filters: NetworkFilterList::default(),
             // Options
-            debug: options.debug,
             enable_optimizations: options.enable_optimizations,
 
             resources: RedirectResourceStorage::default(),
@@ -1087,7 +1083,6 @@ mod blocker_tests {
         let (network_filters, _) = parse_filters(filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1184,7 +1179,6 @@ mod blocker_tests {
         let (network_filters, _) = parse_filters(&filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1221,7 +1215,6 @@ mod blocker_tests {
         let (network_filters, _) = parse_filters(&filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1259,7 +1252,6 @@ mod blocker_tests {
         let (network_filters, _) = parse_filters(&filters, true);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1284,7 +1276,6 @@ mod blocker_tests {
     #[test]
     fn filter_add_badfilter_error() {
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,
         };
 
@@ -1302,7 +1293,6 @@ mod blocker_tests {
         {
             // Not allow filter to be added twice hwn the engine is not optimised
             let blocker_options: BlockerOptions = BlockerOptions {
-                debug: false,
                 enable_optimizations: false,
             };
 
@@ -1318,7 +1308,6 @@ mod blocker_tests {
         {
             // Allow filter to be added twice when the engine is optimised
             let blocker_options: BlockerOptions = BlockerOptions {
-                debug: false,
                 enable_optimizations: true,
             };
 
@@ -1335,7 +1324,6 @@ mod blocker_tests {
     fn filter_add_tagged() {
         // Allow filter to be added twice when the engine is optimised
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: true,
         };
 
@@ -1367,7 +1355,6 @@ mod blocker_tests {
     #[test]
     fn exception_force_check() {
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: true,
         };
 
@@ -1385,7 +1372,6 @@ mod blocker_tests {
     #[test]
     fn generichide() {
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: true,
             enable_optimizations: true,
         };
 
@@ -1449,7 +1435,6 @@ mod legacy_rule_parsing_tests {
             "Number of collected filters does not match expectation");
         
         let blocker_options = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 

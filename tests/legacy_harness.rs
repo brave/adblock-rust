@@ -634,7 +634,7 @@ mod legacy_misc_tests {
         ], true, false);    // enable debugging and disable optimizations
 
         let serialized = engine.serialize().unwrap();
-        let mut engine2 = Engine::new(true, false);
+        let mut engine2 = Engine::new(false);
         engine2.deserialize(&serialized).unwrap();
 
         assert!(engine.filter_exists("||googlesyndication.com$third-party"));

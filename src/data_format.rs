@@ -63,7 +63,7 @@ struct SerializeFormatPt1<'a> {
 
     tagged_filters_all: &'a Vec<NetworkFilter>,
 
-    debug: bool,
+    _debug: bool,
     enable_optimizations: bool,
 
     // This field exists for backwards compatibility only.
@@ -186,7 +186,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
                 tagged_filters_all: &blocker.tagged_filters_all,
 
-                debug: blocker.debug,
+                _debug: true,
                 enable_optimizations: blocker.enable_optimizations,
                 _unused: true,
                 _unused2: true,
@@ -226,7 +226,6 @@ impl Into<(Blocker, CosmeticFilterCache)> for DeserializeFormat {
 
             hot_filters: Default::default(),
 
-            debug: self.part1.debug,
             enable_optimizations: self.part1.enable_optimizations,
 
             resources: self.part1.resources,

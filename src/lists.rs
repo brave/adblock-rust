@@ -1,27 +1,78 @@
 use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 use itertools::Either;
-use serde::{Serialize, Deserialize};
 
 use itertools::Itertools;
+
+/// Manages a set of rules to be added to an `Engine`.
+///
+/// To be able to efficiently handle special options like `$badfilter`, and to allow optimizations,
+/// all rules must be available when the `Engine` is first created. `FilterSet` allows assembling a
+/// compound list from multiple different sources before compiling the rules into an `Engine`.
+#[derive(Clone)]
+pub struct FilterSet {
+    debug: bool,
+    pub(crate) network_filters: Vec<NetworkFilter>,
+    pub(crate) cosmetic_filters: Vec<CosmeticFilter>,
+}
+
+impl Default for FilterSet {
+    /// Equivalent to `FilterSet::new(false)`, or `FilterSet::new(true)` when compiled in test
+    /// configuration.
+    fn default() -> Self {
+        #[cfg(not(test))]
+        let debug = false;
+
+        #[cfg(test)]
+        let debug = true;
+
+        Self::new(debug)
+    }
+}
+
+impl FilterSet {
+    /// Creates a new `FilterSet`. `debug` specifies whether or not to save information about the
+    /// original raw filter rules alongside the more compact internal representation. If enabled,
+    /// this information will be passed to the corresponding `Engine`.
+    pub fn new(debug: bool) -> Self {
+        Self {
+            debug,
+            network_filters: Vec::new(),
+            cosmetic_filters: Vec::new(),
+        }
+    }
+
+    /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
+    /// parsed successfully are ignored.
+    pub fn add_filter_list(&mut self, filter_list: &str) {
+        let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
+        self.add_filters(&rules);
+    }
+
+    /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
+    /// successfully are ignored.
+    pub fn add_filters(&mut self, filters: &[String]) {
+        let (mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters(&filters, self.debug);
+        self.network_filters.append(&mut parsed_network_filters);
+        self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
+    }
+
+    /// Adds the string representation of a single filter rule to this `FilterSet`.
+    pub fn add_filter(&mut self, filter: &str) -> Result<(), FilterParseError> {
+        let filter_parsed = parse_filter(filter, self.debug);
+        match filter_parsed? {
+            ParsedFilter::Network(filter) => self.network_filters.push(filter),
+            ParsedFilter::Cosmetic(filter) => self.cosmetic_filters.push(filter),
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum FilterType {
     Network,
     Cosmetic,
     NotSupported,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FilterList {
-    pub uuid: String,
-    pub url: String,
-    pub title: String,
-    pub langs: Vec<String>,
-    pub support_url: String,
-    pub component_id: String,
-    pub base64_public_key: String,
-    pub desc: String,
 }
 
 /// Successful result of parsing a single filter rule
