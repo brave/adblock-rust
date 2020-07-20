@@ -17,9 +17,8 @@ Somewhat graphical explanation of the algorithm:
 Demo use in Rust:
 
 ```rust
-extern crate adblock;
-
 use adblock::engine::Engine;
+use adblock::lists::{FilterFormat, FilterSet};
 
 fn main() {
     let rules = vec![
@@ -29,7 +28,10 @@ fn main() {
         String::from("-advertisement/script."),
     ];
 
-    let blocker = Engine::from_rules_debug(&rules);
+    let mut filter_set = FilterSet::new(true);
+    filter_set.add_filters(&rules, FilterFormat::Standard);
+
+    let blocker = Engine::from_filter_set(&filter_set, true);
     let blocker_result = blocker.check_network_urls("http://example.com/-advertisement-icon.", "http://example.com/helloworld", "image");
 
     println!("Blocker result: {:?}", blocker_result);
@@ -48,8 +50,9 @@ let ubo_unbreak_rules = fs.readFileSync('./data/uBlockOrigin/unbreak.txt', { enc
 let rules = el_rules.concat(ubo_unbreak_rules);
 let resources = AdBlockClient.uBlockResources('uBlockOrigin/src/web_accessible_resources', 'uBlockOrigin/src/js/redirect-engine.js', 'uBlockOrigin/assets/resources/scriptlets.js');
 
-// create client with debug = true
-const client = new AdBlockClient.Engine(rules, true);
+const filterSet = new AdBlockClient.FilterSet(true);
+filterSet.addFilters(rules);
+const client = new AdBlockClient.Engine(filterSet, true);
 client.updateResources(resources);
 
 const serializedArrayBuffer = client.serialize(); // Serialize the engine to an ArrayBuffer
