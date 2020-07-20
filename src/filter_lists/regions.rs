@@ -126,11 +126,11 @@ pub fn regions() -> Vec<RemoteFilterSource> {
         },
         RemoteFilterSource {
             uuid: String::from("9852EFC4-99E4-4F2D-A915-9C3196C7A1DE"),
-            url: String::from("https://easylist-downloads.adblockplus.org/liste_fr.txt"),
-            title: String::from("EasyList Liste FR"),
+            url: String::from("https://filters.adtidy.org/extension/ublock/filters/16.txt"),
+            title: String::from("AdGuard Français"),
             format: FilterFormat::Standard,
             langs: [String::from("fr")].to_vec(),
-            support_url: String::from("https://forums.lanik.us/viewforum.php?f=91"),
+            support_url: String::from("https://github.com/AdguardTeam/AdguardFilters#adguard-filters"),
             component_id: String::from("emaecjinaegfkoklcdafkiocjhoeilao"),
             base64_public_key: String::from("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsbqIWuMS7r2OPXCsIPbbLG1H/d3NM9uzCMscw7R9ZV3TwhygvMOpZrNp4Y4hImy2H+HE0OniCqzuOAaq7+SHXcdHwItvLKtnRmeWgdqxgEdzJ8rZMWnfi+dODTbA4QvxI6itU5of8trDFbLzFqgnEOBk8ZxtjM/M5v3UeYh+EYHSEyHnDSJKbKevlXC931xlbdca0q0Ps3Ln6w/pJFByGbOh212mD/PvwS6jIH3LYjrMVUMefKC/ywn/AAdnwM5mGirm1NflQCJQOpTjIhbRIXBlACfV/hwI1lqfKbFnyr4aPOdg3JcOZZVoyi+ko3rKG3vH9JPWEy24Ys9A3SYpTwIDAQAB"),
             desc: String::from("Removes advertisements from French websites")
