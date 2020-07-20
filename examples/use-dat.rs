@@ -6,7 +6,7 @@ use std::io::prelude::*;
 
 fn main() {
     // Empty engine
-    let mut engine = Engine::from_rules(&[]);
+    let mut engine = Engine::default();
 
     // Read serialized version
     let mut file = File::open("engine.dat").unwrap();
@@ -15,7 +15,7 @@ fn main() {
     
     // Deserialize
     engine.deserialize(&buffer).unwrap();
-    engine.with_tags(&["twitter-embeds"]);
+    engine.use_tags(&["twitter-embeds"]);
     let checked = engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script");
     assert!(checked.filter.is_some());
     assert!(checked.exception.is_some());

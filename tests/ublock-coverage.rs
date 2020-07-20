@@ -1,11 +1,12 @@
 extern crate adblock;
 
 use adblock::engine::Engine;
+use adblock::lists::FilterFormat;
 use adblock::request::Request;
 use adblock::url_parser::UrlParser;
 use adblock::utils::rules_from_lists;
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::fs::File;
 use std::path::Path;
 use std::io::BufReader;
@@ -50,11 +51,11 @@ fn get_blocker_engine() -> Engine {
         String::from("data/regression-testing/easyprivacy.txt"),
     ]);
 
-    Engine::from_rules_parametrised(&rules, true, false, true, false)
+    Engine::from_rules_parametrised(&rules, FilterFormat::Standard, true, false)
 }
 
-fn get_blocker_engine_default() -> Engine {
-    let rules = rules_from_lists(&vec![
+fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
+    let mut rules = rules_from_lists(&vec![
         String::from("data/easylist.to/easylist/easylist.txt"),
         String::from("data/easylist.to/easylist/easyprivacy.txt"),
         String::from("data/uBlockOrigin/unbreak.txt"),
@@ -64,16 +65,21 @@ fn get_blocker_engine_default() -> Engine {
         // String::from("data/test/abpjf.txt"),
     ]);
 
-    Engine::from_rules_parametrised(&rules, true, false, true, false)
+    extra_rules.iter().for_each(|rule| rules.push(rule.to_string()));
+
+    Engine::from_rules_parametrised(&rules, FilterFormat::Standard, true, false)
 }
 
 #[test]
 fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
-        let engine = Engine::from_rules_debug(&[
-            String::from("||www.facebook.com/*/plugin"),
-        ]);
+        let engine = Engine::from_rules_debug(
+            &[
+                String::from("||www.facebook.com/*/plugin"),
+            ],
+            FilterFormat::Standard,
+        );
 
         let checked = engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
 
@@ -82,14 +88,17 @@ fn check_specific_rules() {
 
     {
         // exceptions have not effect if important filter matches
-        let mut engine = Engine::from_rules_debug(&[
-            String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
-        ]);
+        let mut engine = Engine::from_rules_debug(
+            &[
+                String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
+            ],
+            FilterFormat::Standard,
+        );
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-engine.js")
         );
-        engine.with_resources(&resources);
+        engine.use_resources(&resources);
 
         let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
         assert_eq!(checked.matched, true);
@@ -99,20 +108,21 @@ fn check_specific_rules() {
 
 #[test]
 fn check_specifics_default() {
-    let mut engine = get_blocker_engine_default();
+    let mut engine = get_blocker_engine_default(&[
+        "@@||www.google.*/aclk?$first-party",
+        "@@||www.googleadservices.*/aclk?$first-party",
+    ]);
     {
         let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
         assert_eq!(checked.matched, true);
     }
     {
-        engine.filter_add("@@||www.google.*/aclk?$first-party");
         let checked = engine.check_network_urls("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
             "main_frame");
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        engine.filter_add("@@||www.googleadservices.*/aclk?$first-party");
         let checked = engine.check_network_urls("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
             "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
             "main_frame");
@@ -131,7 +141,7 @@ fn check_specifics_default() {
             assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+        engine.use_tags(&["fb-embeds", "twitter-embeds"]);
         let checked = engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script");
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");
@@ -143,7 +153,7 @@ fn check_specifics_default() {
 fn check_basic_works_after_deserialization() {
     let engine = get_blocker_engine();
     let serialized = engine.serialize().unwrap();
-    let mut deserialized_engine = Engine::from_rules(&[]);
+    let mut deserialized_engine = Engine::default();
     deserialized_engine.deserialize(&serialized).unwrap();
 
     {

@@ -4,6 +4,7 @@ use criterion::*;
 use lazy_static::lazy_static;
 
 use adblock;
+use adblock::lists::FilterFormat;
 use adblock::utils::{read_file_lines, rules_from_lists};
 use adblock::blocker::{Blocker, BlockerOptions};
 
@@ -55,11 +56,11 @@ fn string_tokenize(c: &mut Criterion) {
     );
 }
 
-fn bench_parsing_impl(lists: &Vec<Vec<String>>, load_network_filters: bool, load_cosmetic_filters: bool) -> usize {
+fn bench_parsing_impl(lists: &Vec<Vec<String>>) -> usize {
   let mut dummy = 0;
 
   for list in lists {
-      let (network_filters, _) = adblock::lists::parse_filters(list, load_network_filters, load_cosmetic_filters, false);
+      let (network_filters, _) = adblock::lists::parse_filters(list, false, FilterFormat::Standard);
       dummy = dummy + network_filters.len() % 1000000;
   }
   
@@ -71,10 +72,10 @@ fn list_parse(c: &mut Criterion) {
         "parse-filters",
         Benchmark::new(
             "network filters",
-            |b| b.iter(|| bench_parsing_impl(&DEFAULT_RULES_LISTS, true, false)),
+            |b| b.iter(|| bench_parsing_impl(&DEFAULT_RULES_LISTS)),
         ).with_function(
             "all filters",
-            |b| b.iter(|| bench_parsing_impl(&DEFAULT_RULES_LISTS, true, true)),
+            |b| b.iter(|| bench_parsing_impl(&DEFAULT_RULES_LISTS)),
         )
         .throughput(Throughput::Elements(1))
         .sample_size(10)
@@ -83,12 +84,11 @@ fn list_parse(c: &mut Criterion) {
 
 
 fn get_blocker(rules: &Vec<String>) -> Blocker {
-    let (network_filters, _) = adblock::lists::parse_filters(rules, true, false, false);
+    let (network_filters, _) = adblock::lists::parse_filters(rules, false, FilterFormat::Standard);
 
     println!("Got {} network filters", network_filters.len());
 
     let blocker_options = BlockerOptions {
-        debug: false,
         enable_optimizations: true,
     };
   

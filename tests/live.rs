@@ -8,6 +8,8 @@ use serde::{Deserialize};
 use std::fs::File;
 use std::io::BufReader;
 
+use tokio::runtime::Runtime;
+
 use csv;
 
 #[allow(non_snake_case)]
@@ -44,47 +46,80 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-fn get_blocker_engine() -> Engine {
-    let filters: Vec<String> = adblock::filter_lists::default::default_lists()
+async fn get_all_lists() -> Vec<(adblock::lists::FilterFormat, String)> {
+    use futures::FutureExt;
+    let default_lists = adblock::filter_lists::default::default_lists();
+
+    let filters_fut: Vec<_> = default_lists
         .iter()
         .map(|list| {
-            reqwest::get(&list.url).expect("Could not request rules")
-                .text().expect("Could not get rules as text")
-                .lines()
-                .map(|s| s.to_owned())
-                .collect::<Vec<_>>()
+            reqwest::get(&list.url)
+                .then(|resp| resp
+                    .expect("Could not request rules")
+                    .text()
+                ).map(move |text| (
+                        list.format,
+                        text.expect("Could not get rules as text")
+                    )
+                )
         })
-        .flatten()
         .collect();
 
-    let mut engine = Engine::from_rules_parametrised(&filters, true, false, true, false);
+    futures::future::join_all(filters_fut)
+        .await
+        .into_iter()
+        .collect()
+}
 
-    engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+fn get_blocker_engine() -> Engine {
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    let filters = async_runtime.block_on(get_all_lists());
+
+    let mut filter_set = adblock::lists::FilterSet::default();
+    filters.into_iter().for_each(|(format, rules)| {
+        filter_set.add_filter_list(&rules, format);
+    });
+    let mut engine = Engine::from_filter_set(filter_set, true);
+
+    engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
     engine
 }
 
 fn get_blocker_engine_deserialized() -> Engine {
-    let dat_url = "https://adblock-data.s3.amazonaws.com/4/rs-ABPFilterParserData.dat";
-    let mut dat: Vec<u8> = vec![];
-    let mut resp = reqwest::get(dat_url).expect("Could not request rules");
-    resp.copy_to(&mut dat).expect("Could not copy response to byte array");
+    use futures::FutureExt;
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
-    let mut engine = Engine::from_rules(&[]);
+    let dat_url = "https://adblock-data.s3.amazonaws.com/4/rs-ABPFilterParserData.dat";
+    let resp_bytes_fut = reqwest::get(dat_url)
+        .map(|e| e.expect("Could not request rules"))
+        .then(|resp| resp.bytes());
+    let dat = async_runtime
+        .block_on(resp_bytes_fut)
+        .expect("Could not get response as bytes");
+
+    let mut engine = Engine::default();
     engine.deserialize(&dat).expect("Deserialization failed");
-    engine.with_tags(&["fb-embeds", "twitter-embeds"]);
+    engine.use_tags(&["fb-embeds", "twitter-embeds"]);
     engine
 }
 
 fn get_blocker_engine_deserialized_ios() -> Engine {
+    use futures::FutureExt;
+    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+
     let list_url = "https://adblock-data.s3.amazonaws.com/ios/latest.txt";
-    let filters: Vec<String> = reqwest::get(list_url).expect("Could not request rules")
-        .text().expect("Could not get rules as text")
+    let resp_text_fut = reqwest::get(list_url)
+        .map(|resp| resp.expect("Could not request rules"))
+        .then(|resp| resp.text());
+    let filters: Vec<String> = async_runtime
+        .block_on(resp_text_fut)
+        .expect("Could not get rules as text")
         .lines()
         .map(|s| s.to_owned())
         .collect();
     
-    let engine = Engine::from_rules_parametrised(&filters, true, false, true, false);
+    let engine = Engine::from_rules_parametrised(&filters, adblock::lists::FilterFormat::Standard, true, false);
     engine
 }
 
@@ -101,7 +136,7 @@ fn check_live_specific_urls() {
             checked.filter, checked.exception);
     }
     {
-        engine.tags_disable(&["twitter-embeds"]);
+        engine.disable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
@@ -109,10 +144,10 @@ fn check_live_specific_urls() {
         assert_eq!(checked.matched, true,
             "Expected no match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception);
-        engine.tags_enable(&["twitter-embeds"]);
+        engine.enable_tags(&["twitter-embeds"]);
     }
     {
-        engine.tags_disable(&["twitter-embeds"]);
+        engine.disable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://imagesrv.adition.com/banners/1337/files/00/0e/6f/09/000000945929.jpg?PQgSgs13hf1fw.jpg",
             "https://spiegel.de",
@@ -120,7 +155,7 @@ fn check_live_specific_urls() {
         assert_eq!(checked.matched, true,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception);
-        engine.tags_enable(&["twitter-embeds"]);
+        engine.enable_tags(&["twitter-embeds"]);
     }
 }
 
@@ -128,7 +163,7 @@ fn check_live_specific_urls() {
 fn check_live_deserialized_specific_urls() {
     let mut engine = get_blocker_engine_deserialized();
     {
-        engine.tags_disable(&["twitter-embeds"]);
+        engine.disable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
@@ -138,7 +173,7 @@ fn check_live_deserialized_specific_urls() {
             checked.filter, checked.exception);
     }
     {
-        engine.tags_enable(&["twitter-embeds"]);
+        engine.enable_tags(&["twitter-embeds"]);
         let checked = engine.check_network_urls(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
@@ -197,7 +232,7 @@ fn check_live_redirects() {
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
     let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path);
 
-    engine.with_resources(&resources);
+    engine.use_resources(&resources);
     { 
         let checked = engine.check_network_urls(
             "https://c.amazon-adsystem.com/aax2/amzn_ads.js",

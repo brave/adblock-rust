@@ -2,7 +2,7 @@ extern crate adblock;
 
 use adblock::engine::Engine;
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -52,9 +52,9 @@ fn check_works_same_after_deserialization() {
     let mut file = File::open("data/rs-ABPFilterParserData.dat").expect("Opening serialization file failed");
     let mut serialized = Vec::<u8>::new();
     file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
-    let mut engine = Engine::from_rules(&[]);
+    let mut engine = Engine::default();
     engine.deserialize(&serialized).expect("Deserialization failed");
-    engine.with_tags(&["twitter-embeds"]);
+    engine.use_tags(&["twitter-embeds"]);
 
     println!("Matching");
     let mut mismatch_expected_match = 0;

@@ -8,51 +8,35 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use adblock::engine::Engine;
 use adblock::filter_lists;
+use adblock::lists::{FilterFormat, FilterSet};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
 
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
-    pub debug: Option<bool>,
     pub optimize: Option<bool>,
-    pub loadNetwork: Option<bool>,
-    pub loadCosmetic: Option<bool>,
 }
 
 declare_types! {
-    pub class JsEngine for Engine {
+    pub class JsFilterSet for FilterSet {
         init(mut cx) {
+            match cx.argument_opt(0) {
+                Some(arg) => Ok(FilterSet::new(arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value())),
+                None => Ok(FilterSet::default()),
+            }
+        }
+
+        method addFilters(mut cx) {
             // Take the first argument, which must be an array
             let rules_handle: Handle<JsArray> = cx.argument(0)?;
+            // Second argument is the optional format of the rules, defaulting to
+            // FilterFormat::Standard
+            let format = match cx.argument_opt(1) {
+                Some(format_arg) => neon_serde::from_value(&mut cx, format_arg)?,
+                None => FilterFormat::Standard,
+            };
 
-            let debug: bool;
-            let optimize: bool;
-            let load_network: bool;
-            let load_cosmetic: bool;
-            match cx.argument_opt(1) {
-                Some(arg) => {
-                    // Throw if the argument exist and it cannot be downcasted to a boolean
-                    let maybe_config: Result<EngineOptions, _> = neon_serde::from_value(&mut cx, arg);
-                    if let Ok(config) = maybe_config {
-                        debug = config.debug.unwrap_or(false);
-                        optimize = config.optimize.unwrap_or(true);
-                        load_network = config.loadNetwork.unwrap_or(true);
-                        load_cosmetic = config.loadCosmetic.unwrap_or(true);
-                    } else {
-                        debug = arg.downcast::<JsBoolean>().or_throw(&mut cx)?.value();
-                        optimize = true;
-                        load_network = true;
-                        load_cosmetic = true;
-                    }
-                }
-                None => {
-                    debug = false;
-                    optimize = true;
-                    load_network = true;
-                    load_cosmetic = true;
-                },
-            }
             // Convert a JsArray to a Rust Vec
             let rules_wrapped: Vec<_> = rules_handle.to_vec(&mut cx)?;
 
@@ -63,7 +47,61 @@ declare_types! {
                 rules.push(rule);
             }
 
-            Ok(Engine::from_rules_parametrised(&rules, load_network, load_cosmetic, debug, optimize))
+            let mut this = cx.this();
+            let guard = cx.lock();
+            {
+                let mut filter_set = this.borrow_mut(&guard);
+                filter_set.add_filters(&rules, format);
+            }
+
+            Ok(JsNull::new().upcast())
+        }
+
+        method addFilter(mut cx) {
+            let filter: String = cx.argument::<JsString>(0)?.value();
+            let format = match cx.argument_opt(1) {
+                Some(format_arg) => neon_serde::from_value(&mut cx, format_arg)?,
+                None => FilterFormat::Standard,
+            };
+
+            let mut this = cx.this();
+            let guard = cx.lock();
+            let ok = {
+                let mut filter_set = this.borrow_mut(&guard);
+                filter_set.add_filter(&filter, format).is_ok()
+            };
+            // Return true/false depending on whether or not the filter could be added
+            Ok(JsBoolean::new(&mut cx, ok).upcast())
+        }
+    }
+}
+
+declare_types! {
+    pub class JsEngine for Engine {
+        init(mut cx) {
+            // Take the first argument, which must be a JsFilterSet
+            let rules_handle: Handle<JsFilterSet> = cx.argument(0)?;
+            let rules: FilterSet = {
+                let guard = cx.lock();
+                let rules = rules_handle.borrow(&guard);
+                rules.to_owned()
+            };
+
+            match cx.argument_opt(1) {
+                Some(arg) => {
+                    // Throw if the argument exist and it cannot be downcasted to a boolean
+                    let maybe_config: Result<EngineOptions, _> = neon_serde::from_value(&mut cx, arg);
+                    let optimize = if let Ok(config) = maybe_config {
+                        config.optimize.unwrap_or(true)
+                    } else {
+                        true
+                    };
+                    Ok(Engine::from_filter_set(rules, optimize))
+                }
+                None => {
+                    Ok(Engine::from_filter_set(rules, true))
+                },
+            }
         }
 
         method check(mut cx) {
@@ -133,12 +171,12 @@ declare_types! {
             let guard = cx.lock();
             let _result = {
                 let mut engine = this.borrow_mut(&guard);
-                engine.tags_enable(&[&tag])
+                engine.enable_tags(&[&tag])
             };
             Ok(JsNull::new().upcast())
         }
 
-        method updateResources(mut cx) {
+        method useResources(mut cx) {
             let resources_arg = cx.argument::<JsValue>(0)?;
             let resources: Vec<Resource> = neon_serde::from_value(&mut cx, resources_arg)?;
 
@@ -146,7 +184,7 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                engine.with_resources(&resources);
+                engine.use_resources(&resources);
             }
             Ok(JsNull::new().upcast())
 
@@ -168,20 +206,8 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                // enabling an empty list of tags disables all tags
-                engine.tags_enable(&[]);
-            }
-            Ok(JsNull::new().upcast())
-        }
-
-        method addFilter(mut cx) {
-            let filter: String = cx.argument::<JsString>(0)?.value();
-
-            let mut this = cx.this();
-            let guard = cx.lock();
-            {
-                let mut engine = this.borrow_mut(&guard);
-                engine.filter_add(&filter);
+                // using an empty list of tags disables all tags
+                engine.use_tags(&[]);
             }
             Ok(JsNull::new().upcast())
         }
@@ -194,7 +220,7 @@ declare_types! {
             let guard = cx.lock();
             {
                 let mut engine = this.borrow_mut(&guard);
-                engine.resource_add(resource);
+                engine.add_resource(resource);
             }
             Ok(JsNull::new().upcast())
         }
@@ -206,7 +232,7 @@ declare_types! {
             let result = {
                 let guard = cx.lock();
                 let engine = this.borrow(&guard);
-                engine.resource_get(&name)
+                engine.get_resource(&name)
             };
             let js_value = neon_serde::to_value(&mut cx, &result)?;
             Ok(js_value)
@@ -216,7 +242,7 @@ declare_types! {
 
 fn lists(mut cx: FunctionContext) -> JsResult<JsValue> {
     let category: String = cx.argument::<JsString>(0)?.value();
-    let filter_list: Vec<adblock::lists::FilterList>;
+    let filter_list: Vec<adblock::filter_lists::RemoteFilterSource>;
     if category == "regions" {
         filter_list = filter_lists::regions::regions();
     } else {
@@ -250,11 +276,28 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(js_resources)
 }
 
+fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
+    let filter_format_enum = JsObject::new(cx);
+
+    let standard = neon_serde::to_value(cx, &FilterFormat::Standard)?;
+    filter_format_enum.set(cx, "STANDARD", standard)?;
+
+    let hosts = neon_serde::to_value(cx, &FilterFormat::Hosts)?;
+    filter_format_enum.set(cx, "HOSTS", hosts)?;
+
+    Ok(filter_format_enum)
+}
+
 register_module!(mut m, {
-    // Export the `JsEngine` class
+    m.export_class::<JsFilterSet>("FilterSet")?;
     m.export_class::<JsEngine>("Engine")?;
+
     m.export_function("lists", lists)?;
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;
+
+    let filter_format_enum = build_filter_format_enum(&mut m)?;
+    m.export_value("FilterFormat", filter_format_enum)?;
+
     Ok(())
 });

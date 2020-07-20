@@ -15,18 +15,45 @@ use crate::resources::{Resource, RedirectResourceStorage, RedirectResource};
 use crate::utils;
 
 pub struct BlockerOptions {
-    pub debug: bool,
     pub enable_optimizations: bool,
 }
 
 #[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
+    /// Normally, Brave Browser returns `200 OK` with an empty body when
+    /// `matched` is `true`, except if `explicit_cancel` is also `true`, in
+    /// which case the request is cancelled.
     pub explicit_cancel: bool,
+    /// Important is used to signal that a rule with the `important` option
+    /// matched. An `important` match means that exceptions should not apply
+    /// and no further checking is neccesary--the request should be blocked
+    /// (empty body or cancelled).
+    ///
+    /// Brave Browser keeps seperate instances of [`Blocker`] for default
+    /// lists and regional ones, so `important` here is used to correct
+    /// behaviour between them: checking should stop instead of moving to the
+    /// next instance iff an `important` rule matched.
     pub important: bool,
+    /// Iff the blocker matches a rule which has the `redirect` option, as per
+    /// [uBlock Origin's redirect syntax][1], the `redirect` is `Some`. The
+    /// `redirect` field contains the body of the redirect to be injected.
+    ///
+    /// [1]: https://github.com/gorhill/uBlock/wiki/Static-filter-syntax#redirect
     pub redirect: Option<String>,
+    /// Exception is `Some` when the blocker matched on an exception rule.
+    /// Effectively this means that there was a match, but the request should
+    /// not be blocked. It is a non-empty string if the blocker was initialized
+    /// from a list of rules with debugging enabled, otherwise the original
+    /// string representation is discarded to reduce memory use.
     pub exception: Option<String>,
+    /// Filter--similarly to exception--includes the string representation of
+    /// the rule when there is a match and debugging is enabled. Otherwise, on
+    /// a match, it is `Some`.
     pub filter: Option<String>,
+    /// The `error` field is only used to signal that there was an error in
+    /// parsing the provided URLs when using the simpler
+    /// [`crate::engine::Engine::check_network_urls`] method.
     pub error: Option<String>,
 }
 
@@ -54,7 +81,7 @@ pub enum BlockerError {
 }
 
 #[cfg(feature = "object-pooling")]
-struct TokenPool {
+pub struct TokenPool {
     pub pool: Pool<Vec<utils::Hash>>
 }
 
@@ -70,37 +97,30 @@ impl Default for TokenPool {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Blocker {
-    csp: NetworkFilterList,
-    exceptions: NetworkFilterList,
-    importants: NetworkFilterList,
-    redirects: NetworkFilterList,
-    filters_tagged: NetworkFilterList,
-    filters: NetworkFilterList,
+    pub(crate) csp: NetworkFilterList,
+    pub(crate) exceptions: NetworkFilterList,
+    pub(crate) importants: NetworkFilterList,
+    pub(crate) redirects: NetworkFilterList,
+    pub(crate) filters_tagged: NetworkFilterList,
+    pub(crate) filters: NetworkFilterList,
     
-    // Do not serialize enabled tags - when deserializing, tags of the existing
+    // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
-    #[serde(skip_serializing, skip_deserializing)]
-    tags_enabled: HashSet<String>,
-    tagged_filters_all: Vec<NetworkFilter>,
+    pub(crate) tags_enabled: HashSet<String>,
+    pub(crate) tagged_filters_all: Vec<NetworkFilter>,
 
-    #[serde(skip_serializing, skip_deserializing)]
-    hot_filters: NetworkFilterList,
+    // Not serialized
+    pub(crate) hot_filters: NetworkFilterList,
 
-    debug: bool,
-    enable_optimizations: bool,
-    _unused: bool,      // This field exists for backwards compatibility only.
-    _unused2: bool,     // This field exists for backwards compatibility only, and *must* be true.
+    pub(crate) enable_optimizations: bool,
 
-    #[serde(default)]
-    resources: RedirectResourceStorage,
+    pub(crate) resources: RedirectResourceStorage,
+    // Not serialized
     #[cfg(feature = "object-pooling")]
-    #[serde(skip_serializing, skip_deserializing)]
-    pool: TokenPool,
+    pub(crate) pool: TokenPool,
 
-    #[serde(default)]
-    generic_hide: NetworkFilterList,
+    pub(crate) generic_hide: NetworkFilterList,
 }
 
 impl Blocker {
@@ -218,10 +238,9 @@ impl Blocker {
                     let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
                     Some(data_url.trim().to_owned())
                 } else {
-                    // TOOD: handle error - throw?
-                    if self.debug {
-                        eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
-                    }
+                    // TODO: handle error - throw?
+                    #[cfg(test)]
+                    eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
                     None
                 }
             } else {
@@ -304,13 +323,7 @@ impl Blocker {
             }
         }
 
-        csp.shrink_to_fit();
-        generic_hide.shrink_to_fit();
-        exceptions.shrink_to_fit();
-        importants.shrink_to_fit();
-        redirects.shrink_to_fit();
         tagged_filters_all.shrink_to_fit();
-        filters.shrink_to_fit();
         
         Blocker {
             csp: NetworkFilterList::new(csp, options.enable_optimizations),
@@ -325,15 +338,26 @@ impl Blocker {
             tagged_filters_all,
             hot_filters: NetworkFilterList::default(),
             // Options
-            debug: options.debug,
             enable_optimizations: options.enable_optimizations,
-            _unused: true,
-            _unused2: true,
 
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
         }
+    }
+
+    /// If optimizations are enabled, the `Blocker` will be configured to automatically optimize
+    /// its filters after batch updates. However, even if they are disabled, it is possible to
+    /// manually call `optimize()`. It may be useful to have finer-grained control over
+    /// optimization scheduling when frequently updating filters.
+    pub fn optimize(&mut self) {
+        self.csp.optimize();
+        self.exceptions.optimize();
+        self.importants.optimize();
+        self.redirects.optimize();
+        self.filters_tagged.optimize();
+        self.filters.optimize();
+        self.generic_hide.optimize();
     }
 
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
@@ -354,95 +378,92 @@ impl Blocker {
         }
     }
 
-    pub fn filter_add(&mut self, filter: NetworkFilter) -> Result<&mut Blocker, BlockerError> {
+    pub fn add_filter(&mut self, filter: NetworkFilter) -> Result<(), BlockerError> {
         if filter.is_badfilter() {
             Err(BlockerError::BadFilterAddUnsupported)
         } else if self.filter_exists(&filter) {
             Err(BlockerError::FilterExists)
         } else if filter.is_csp() {
-            self.csp.filter_add(filter);
-            Ok(self)
+            self.csp.add_filter(filter);
+            Ok(())
         } else if filter.is_generic_hide() {
-            self.generic_hide.filter_add(filter);
-            Ok(self)
+            self.generic_hide.add_filter(filter);
+            Ok(())
         } else if filter.is_exception() {
-            self.exceptions.filter_add(filter);
-            Ok(self)
+            self.exceptions.add_filter(filter);
+            Ok(())
         } else if filter.is_important() {
-            self.importants.filter_add(filter);
-            Ok(self)
+            self.importants.add_filter(filter);
+            Ok(())
         } else if filter.is_redirect() {
-            self.redirects.filter_add(filter);
-            Ok(self)
+            self.redirects.add_filter(filter);
+            Ok(())
         } else if filter.tag.is_some() {
             self.tagged_filters_all.push(filter);
             let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
-            Ok(self.tags_with_set(tags_enabled))
+            self.tags_with_set(tags_enabled);
+            Ok(())
         } else {
-            self.filters.filter_add(filter);
-            Ok(self)
+            self.filters.add_filter(filter);
+            Ok(())
         }
     }
 
-    pub fn with_tags<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+    pub fn use_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)));
-        self.tags_with_set(tag_set)
+        self.tags_with_set(tag_set);
     }
 
-    pub fn tags_enable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+    pub fn enable_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)))
             .union(&self.tags_enabled)
             .cloned()
             .collect();
-        self.tags_with_set(tag_set)
+        self.tags_with_set(tag_set);
     }
 
-    pub fn tags_disable<'a>(&'a mut self, tags: &[&str]) -> &'a mut Blocker {
+    pub fn disable_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = self.tags_enabled
             .difference(&HashSet::from_iter(tags.iter().map(|&t| String::from(t))))
             .cloned()
             .collect();
-        self.tags_with_set(tag_set)
+        self.tags_with_set(tag_set);
     }
 
-    fn tags_with_set<'a>(&'a mut self, tags_enabled: HashSet<String>) -> &'a mut Blocker {
+    fn tags_with_set(&mut self, tags_enabled: HashSet<String>) {
         self.tags_enabled = tags_enabled;
         let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
             .cloned()
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
-        self
     }
 
     pub fn tags_enabled(&self) -> Vec<String> {
         self.tags_enabled.iter().cloned().collect()
     }
     
-    pub fn with_resources(&mut self, resources: &[Resource]) -> &mut Blocker {
+    pub fn use_resources(&mut self, resources: &[Resource]) {
         let resources = RedirectResourceStorage::from_resources(resources);
         self.resources = resources;
-        self
     }
 
-    pub fn resource_add(&mut self, resource: &Resource) -> &mut Blocker {
+    pub fn add_resource(&mut self, resource: &Resource) {
         self.resources.add_resource(resource);
-        self
     }
 
-    pub fn resource_get(&self, key: &str) -> Option<&RedirectResource> {
+    pub fn get_resource(&self, key: &str) -> Option<&RedirectResource> {
         self.resources.get_resource(key)
     }
 }
 
 #[derive(Serialize, Deserialize, Default)]
-struct NetworkFilterList {
+pub struct NetworkFilterList {
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
-    // optimized: Option<bool>
 }
 
 impl NetworkFilterList {
-    pub fn new(filters: Vec<NetworkFilter>, enable_optimizations: bool) -> NetworkFilterList {
+    pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -479,47 +500,49 @@ impl NetworkFilterList {
             }
         }
 
-        // Update all values
-        if enable_optimizations {
-            let mut optimized_map = HashMap::with_capacity(filter_map.len());
-            for (key, filters) in filter_map {
-                let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
-                let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
-                for f in filters {
-                    match Arc::try_unwrap(f) {
-                        Ok(f) => unoptimized.push(f),
-                        Err(af) => unoptimizable.push(af)
-                    }
-                }
+        let mut self_ = NetworkFilterList {
+            filter_map,
+        };
 
-                let mut optimized: Vec<_> = if unoptimized.len() > 1 {
-                    optimizer::optimize(unoptimized).into_iter().map(Arc::new).collect()
-                } else {
-                    // nothing to optimize
-                    unoptimized.into_iter().map(Arc::new).collect()
-                };
-                
-                optimized.append(&mut unoptimizable);
-                optimized_map.insert(key, optimized);
-            }
-
-            // won't mutate anymore, shrink to fit items
-            optimized_map.shrink_to_fit();
-
-            NetworkFilterList {
-                filter_map: optimized_map,
-                // optimized: Some(enable_optimizations)
-            }
+        if optimize {
+            self_.optimize();
         } else {
-            filter_map.shrink_to_fit();
-            NetworkFilterList { 
-                filter_map,
-                // optimized: Some(enable_optimizations)
-            }
+            self_.filter_map.shrink_to_fit();
         }
+
+        self_
     }
 
-    pub fn filter_add(&mut self, filter: NetworkFilter) -> &mut NetworkFilterList {
+    pub fn optimize(&mut self) {
+        let mut optimized_map = HashMap::with_capacity(self.filter_map.len());
+        for (key, filters) in self.filter_map.drain() {
+            let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
+            let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
+            for f in filters {
+                match Arc::try_unwrap(f) {
+                    Ok(f) => unoptimized.push(f),
+                    Err(af) => unoptimizable.push(af)
+                }
+            }
+
+            let mut optimized: Vec<_> = if unoptimized.len() > 1 {
+                optimizer::optimize(unoptimized).into_iter().map(Arc::new).collect()
+            } else {
+                // nothing to optimize
+                unoptimized.into_iter().map(Arc::new).collect()
+            };
+
+            optimized.append(&mut unoptimizable);
+            optimized_map.insert(key, optimized);
+        }
+
+        // won't mutate anymore, shrink to fit items
+        optimized_map.shrink_to_fit();
+
+        self.filter_map = optimized_map;
+    }
+
+    pub fn add_filter(&mut self, filter: NetworkFilter) {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
@@ -543,8 +566,6 @@ impl NetworkFilterList {
 
             insert_dup(&mut self.filter_map, best_token, Arc::clone(&filter_pointer));
         }
-
-        self
     }
 
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
@@ -1053,16 +1074,15 @@ mod tests {
 mod blocker_tests {
 
     use super::*;
-    use crate::lists::parse_filters;
+    use crate::lists::{parse_filters, FilterFormat};
     use crate::request::Request;
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
     fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
-        let (network_filters, _) = parse_filters(filters, true, true, true); 
+        let (network_filters, _) = parse_filters(filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1156,15 +1176,14 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), false),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.tags_enable(&["stuff"]);
+        blocker.enable_tags(&["stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
@@ -1193,16 +1212,15 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.tags_enable(&["stuff"]);
-        blocker.tags_enable(&["brian"]);
+        blocker.enable_tags(&["stuff"]);
+        blocker.enable_tags(&["brian"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
 
@@ -1231,18 +1249,17 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
         
-        let (network_filters, _) = parse_filters(&filters, true, true, true); 
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.tags_enable(&["brian", "stuff"]);
+        blocker.enable_tags(&["brian", "stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
-        blocker.tags_disable(&["stuff"]);
+        blocker.disable_tags(&["stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
@@ -1259,14 +1276,13 @@ mod blocker_tests {
     #[test]
     fn filter_add_badfilter_error() {
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: false,
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
         let filter = NetworkFilter::parse("adv$badfilter", true).unwrap();
-        let added = blocker.filter_add(filter);
+        let added = blocker.add_filter(filter);
         assert!(added.is_err());
         assert_eq!(added.err().unwrap(), BlockerError::BadFilterAddUnsupported);
     }
@@ -1277,31 +1293,29 @@ mod blocker_tests {
         {
             // Not allow filter to be added twice hwn the engine is not optimised
             let blocker_options: BlockerOptions = BlockerOptions {
-                debug: false,
                 enable_optimizations: false,
             };
 
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
             let filter = NetworkFilter::parse("adv", true).unwrap();
-            let blocker = blocker.filter_add(filter.clone()).unwrap();
+            blocker.add_filter(filter.clone()).unwrap();
             assert!(blocker.filter_exists(&filter), "Expected filter to be inserted");
-            let added = blocker.filter_add(filter);
+            let added = blocker.add_filter(filter);
             assert!(added.is_err(), "Expected repeated insertion to fail");
             assert_eq!(added.err().unwrap(), BlockerError::FilterExists, "Expected specific error on repeated insertion fail");
         }
         {
             // Allow filter to be added twice when the engine is optimised
             let blocker_options: BlockerOptions = BlockerOptions {
-                debug: false,
                 enable_optimizations: true,
             };
 
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
             let filter = NetworkFilter::parse("adv", true).unwrap();
-            blocker.filter_add(filter.clone()).unwrap();
-            let added = blocker.filter_add(filter);
+            blocker.add_filter(filter.clone()).unwrap();
+            let added = blocker.add_filter(filter);
             assert!(added.is_ok());
         }
     }
@@ -1310,17 +1324,16 @@ mod blocker_tests {
     fn filter_add_tagged() {
         // Allow filter to be added twice when the engine is optimised
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: true,
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-        blocker.tags_enable(&["brian"]);
+        blocker.enable_tags(&["brian"]);
 
-        blocker.filter_add(NetworkFilter::parse("adv$tag=stuff", true).unwrap()).unwrap();
-        blocker.filter_add(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
-        blocker.filter_add(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
-        blocker.filter_add(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("adv$tag=stuff", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
         
         let url_results = vec![
             (Request::from_url("http://example.com/advert.html").unwrap(), false),
@@ -1342,13 +1355,12 @@ mod blocker_tests {
     #[test]
     fn exception_force_check() {
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: false,
             enable_optimizations: true,
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        blocker.filter_add(NetworkFilter::parse("@@*ad_banner.png", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("@@*ad_banner.png", true).unwrap()).unwrap();
 
         let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
 
@@ -1360,13 +1372,12 @@ mod blocker_tests {
     #[test]
     fn generichide() {
         let blocker_options: BlockerOptions = BlockerOptions {
-            debug: true,
             enable_optimizations: true,
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        blocker.filter_add(NetworkFilter::parse("@@||example.com$generichide", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("@@||example.com$generichide", true).unwrap()).unwrap();
 
         assert!(blocker.check_generic_hide(&Request::from_url("https://example.com").unwrap()));
     }
@@ -1375,7 +1386,7 @@ mod blocker_tests {
 #[cfg(test)]
 mod legacy_rule_parsing_tests {
     use crate::utils::rules_from_lists;
-    use crate::lists::parse_filters;
+    use crate::lists::{parse_filters, FilterFormat};
     use crate::blocker::{Blocker, BlockerOptions};
     use crate::blocker::vec_hashmap_len;
 
@@ -1383,6 +1394,18 @@ mod legacy_rule_parsing_tests {
         pub filters: usize,
         pub cosmetic_filters: usize,
         pub exceptions: usize
+    }
+
+    impl std::ops::Add<ListCounts> for ListCounts {
+        type Output = ListCounts;
+
+        fn add(self, other: ListCounts) -> Self::Output {
+            ListCounts {
+                filters: self.filters + other.filters,
+                cosmetic_filters: self.cosmetic_filters + other.cosmetic_filters,
+                exceptions: self.exceptions + other.exceptions,
+            }
+        }
     }
 
     // number of expected EasyList cosmetic rules from old engine is 31144, but is incorrect as it skips a few particularly long rules that are nevertheless valid
@@ -1408,12 +1431,13 @@ mod legacy_rule_parsing_tests {
     const DISCONNECT_SIMPLE_MALWARE: ListCounts = ListCounts { filters: 2450, cosmetic_filters: 0, exceptions: 0 };
     // spam404MainBlacklist = { 5629, 166, 0, 0 };
     const SPAM_404_MAIN_BLACKLIST: ListCounts = ListCounts { filters: 5629, cosmetic_filters: 166, exceptions: 0 };
+    const MALWARE_DOMAIN_LIST: ListCounts = ListCounts { filters: 1104, cosmetic_filters: 0, exceptions: 0 };
+    const MALWARE_DOMAINS: ListCounts = ListCounts { filters: 26853, cosmetic_filters: 0, exceptions: 0 };
 
-    fn check_list_counts(rule_lists: &[String], expectation: ListCounts) {
+    fn check_list_counts(rule_lists: &[String], format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
         
-        // load_network_filters = true, load)cosmetic_filters = true, debug = true
-        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, true, true); 
+        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, format);
 
         assert_eq!(
             (network_filters.len(),
@@ -1425,7 +1449,6 @@ mod legacy_rule_parsing_tests {
             "Number of collected filters does not match expectation");
         
         let blocker_options = BlockerOptions {
-            debug: false,
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1444,59 +1467,87 @@ mod legacy_rule_parsing_tests {
 
     #[test]
     fn parse_easylist() {
-        check_list_counts(&vec![String::from("./data/test/easylist.txt")], EASY_LIST);
+        check_list_counts(&vec![String::from("./data/test/easylist.txt")], FilterFormat::Standard, EASY_LIST);
     }
 
     #[test]
     fn parse_easyprivacy() {
-        check_list_counts(&vec![String::from("./data/test/easyprivacy.txt")], EASY_PRIVACY);
+        check_list_counts(&vec![String::from("./data/test/easyprivacy.txt")], FilterFormat::Standard, EASY_PRIVACY);
     }
 
     #[test]
     fn parse_ublock_unbreak() {
-        check_list_counts(&vec![String::from("./data/test/ublock-unbreak.txt")], UBLOCK_UNBREAK);
+        check_list_counts(&vec![String::from("./data/test/ublock-unbreak.txt")], FilterFormat::Standard, UBLOCK_UNBREAK);
     }
 
     #[test]
     fn parse_brave_unbreak() {
-        check_list_counts(&vec![String::from("./data/test/brave-unbreak.txt")], BRAVE_UNBREAK);
+        check_list_counts(&vec![String::from("./data/test/brave-unbreak.txt")], FilterFormat::Standard, BRAVE_UNBREAK);
     }
 
     #[test]
     fn parse_brave_disconnect_simple_malware() {
-        check_list_counts(&vec![String::from("./data/test/disconnect-simple-malware.txt")], DISCONNECT_SIMPLE_MALWARE);
+        check_list_counts(&vec![String::from("./data/test/disconnect-simple-malware.txt")], FilterFormat::Standard, DISCONNECT_SIMPLE_MALWARE);
     }
 
     #[test]
     fn parse_spam404_main_blacklist() {
-        check_list_counts(&vec![String::from("./data/test/spam404-main-blacklist.txt")], SPAM_404_MAIN_BLACKLIST);
+        check_list_counts(&vec![String::from("./data/test/spam404-main-blacklist.txt")], FilterFormat::Standard, SPAM_404_MAIN_BLACKLIST);
+    }
+
+    #[test]
+    fn parse_malware_domain_list() {
+        check_list_counts(&vec![String::from("./data/test/malwaredomainlist.txt")], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
+    }
+
+    #[test]
+    fn parse_malware_domain_list_just_hosts() {
+        check_list_counts(&vec![String::from("./data/test/malwaredomainlist_justhosts.txt")], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
+    }
+
+    #[test]
+    fn parse_malware_domains() {
+        check_list_counts(&vec![String::from("./data/test/malwaredomains.txt")], FilterFormat::Hosts, MALWARE_DOMAINS);
     }
 
     #[test]
     fn parse_multilist() {
-        let expectation = ListCounts {
-            filters: EASY_LIST.filters + EASY_PRIVACY.filters + UBLOCK_UNBREAK.filters + BRAVE_UNBREAK.filters,
-            cosmetic_filters: EASY_LIST.cosmetic_filters + EASY_PRIVACY.cosmetic_filters + UBLOCK_UNBREAK.cosmetic_filters + BRAVE_UNBREAK.cosmetic_filters,
-            exceptions: EASY_LIST.exceptions + EASY_PRIVACY.exceptions + UBLOCK_UNBREAK.exceptions + BRAVE_UNBREAK.exceptions
-        };
-        check_list_counts(&vec![
-            String::from("./data/test/easylist.txt"),
-            String::from("./data/test/easyprivacy.txt"),
-            String::from("./data/test/ublock-unbreak.txt"),
-            String::from("./data/test/brave-unbreak.txt"),
-        ], expectation)
+        let expectation = EASY_LIST + EASY_PRIVACY + UBLOCK_UNBREAK + BRAVE_UNBREAK;
+        check_list_counts(
+            &vec![
+                String::from("./data/test/easylist.txt"),
+                String::from("./data/test/easyprivacy.txt"),
+                String::from("./data/test/ublock-unbreak.txt"),
+                String::from("./data/test/brave-unbreak.txt"),
+            ],
+            FilterFormat::Standard,
+            expectation,
+        )
     }
 
     #[test]
     fn parse_malware_multilist() {
-        let expectation = ListCounts {
-            filters: SPAM_404_MAIN_BLACKLIST.filters + DISCONNECT_SIMPLE_MALWARE.filters,
-            cosmetic_filters: SPAM_404_MAIN_BLACKLIST.cosmetic_filters + DISCONNECT_SIMPLE_MALWARE.cosmetic_filters,
-            exceptions: SPAM_404_MAIN_BLACKLIST.exceptions + DISCONNECT_SIMPLE_MALWARE.exceptions,
-        };
-        check_list_counts(&vec![
-            String::from("./data/test/spam404-main-blacklist.txt"),
-            String::from("./data/test/disconnect-simple-malware.txt"),
-        ], expectation)
+        let expectation = SPAM_404_MAIN_BLACKLIST + DISCONNECT_SIMPLE_MALWARE;
+        check_list_counts(
+            &vec![
+                String::from("./data/test/spam404-main-blacklist.txt"),
+                String::from("./data/test/disconnect-simple-malware.txt"),
+            ],
+            FilterFormat::Standard,
+            expectation,
+        )
+    }
+
+    #[test]
+    fn parse_hosts_formats() {
+        let expectation = MALWARE_DOMAIN_LIST + MALWARE_DOMAINS;
+        check_list_counts(
+            &vec![
+                String::from("./data/test/malwaredomainlist.txt"),
+                String::from("./data/test/malwaredomains.txt"),
+            ],
+            FilterFormat::Hosts,
+            expectation,
+        )
     }
 }

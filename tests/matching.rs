@@ -88,9 +88,9 @@ fn check_engine_matching() {
             continue;
         }
         for filter in req.filters {
-            let mut engine = Engine::from_rules_debug(&[filter.clone()]);
+            let mut engine = Engine::from_rules_debug(&[filter.clone()], adblock::lists::FilterFormat::Standard);
             let resources = build_resources_from_filters(&[filter.clone()]);
-            engine.with_resources(&resources);
+            engine.use_resources(&resources);
 
             let nework_filter_res = NetworkFilter::parse(&filter, true);
             assert!(nework_filter_res.is_ok(), "Could not parse filter {}", filter);

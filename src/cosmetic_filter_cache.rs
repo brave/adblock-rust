@@ -84,22 +84,37 @@ fn hostname_specific_rules(rules: &[&SpecificFilterType]) -> (HashSet<String>, H
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct CosmeticFilterCache {
-    simple_class_rules: HashSet<String>,
-    simple_id_rules: HashSet<String>,
-    complex_class_rules: HashMap<String, Vec<String>>,
-    complex_id_rules: HashMap<String, Vec<String>>,
+pub(crate) struct CosmeticFilterCache {
+    pub(crate) simple_class_rules: HashSet<String>,
+    pub(crate) simple_id_rules: HashSet<String>,
+    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
+    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
 
-    specific_rules: HostnameRuleDb,
+    pub(crate) specific_rules: HostnameRuleDb,
 
-    misc_generic_selectors: HashSet<String>,
+    pub(crate) misc_generic_selectors: HashSet<String>,
 
-    scriptlets: ScriptletResourceStorage,
+    pub(crate) scriptlets: ScriptletResourceStorage,
 }
 
 impl CosmeticFilterCache {
-    pub fn new(rules: Vec<CosmeticFilter>) -> Self {
-        let mut self_ = CosmeticFilterCache {
+    pub fn new() -> Self {
+        Self {
+            simple_class_rules: HashSet::new(),
+            simple_id_rules: HashSet::new(),
+            complex_class_rules: HashMap::new(),
+            complex_id_rules: HashMap::new(),
+
+            specific_rules: HostnameRuleDb::new(),
+
+            misc_generic_selectors: HashSet::new(),
+
+            scriptlets: Default::default(),
+        }
+    }
+
+    pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
+        let mut self_ = Self {
             simple_class_rules: HashSet::with_capacity(rules.len() / 2),
             simple_id_rules: HashSet::with_capacity(rules.len() / 2),
             complex_class_rules: HashMap::with_capacity(rules.len() / 2),
@@ -311,7 +326,7 @@ impl HostnameExceptionsBuilder {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct HostnameRuleDb {
     db: HashMap<Hash, Vec<SpecificFilterType>>,
 }
@@ -448,7 +463,7 @@ mod cosmetic_cache_tests {
             .map(|r| CosmeticFilter::parse(r, false).unwrap())
             .collect::<Vec<_>>();
 
-        CosmeticFilterCache::new(parsed_rules)
+        CosmeticFilterCache::from_rules(parsed_rules)
     }
 
     #[test]
@@ -592,7 +607,7 @@ mod cosmetic_cache_tests {
             "##.children .including #simple-id",
             "##a.a-class",
         ];
-        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        let cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
 
         let out = cfcache.hidden_class_id_selectors(&["with".into()], &[], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
@@ -630,7 +645,7 @@ mod cosmetic_cache_tests {
             "example.*#@#.a-class",
             "~test.com###test-element",
         ];
-        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        let cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
         let exceptions = cfcache.hostname_cosmetic_resources("example.co.uk", false).exceptions;
 
         let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
@@ -663,7 +678,7 @@ mod cosmetic_cache_tests {
             "example.com#@#div > p",
             "~example.com##a[href=\"notbad.com\"]",
         ];
-        let cfcache = CosmeticFilterCache::new(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        let cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
 
         let hide_selectors = cfcache.hostname_cosmetic_resources("test.com", false).hide_selectors;
         let mut expected_hides = HashSet::new();

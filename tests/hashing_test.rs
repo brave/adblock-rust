@@ -1,7 +1,7 @@
 extern crate adblock;
 
 use adblock::utils;
-use adblock::lists::parse_filters;
+use adblock::lists::{parse_filters, FilterFormat};
 use adblock::filters::network::NetworkFilter;
 
 #[cfg(feature="full-domain-matching")]
@@ -13,7 +13,7 @@ fn get_network_filters() -> Vec<NetworkFilter> {
         String::from("data/easylist.to/easylist/easyprivacy.txt"),
     ]);
 
-    let (network_filters, _) = parse_filters(&rules_lists, true, false, true);
+    let (network_filters, _) = parse_filters(&rules_lists, true, FilterFormat::Standard);
     network_filters
 }
 

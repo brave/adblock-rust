@@ -169,6 +169,8 @@ impl CosmeticFilter {
             || content_after_colon.starts_with("subject")
             || content_after_colon.starts_with("xpath")
             || content_after_colon.starts_with("nth-ancestor")
+            || content_after_colon.starts_with("upward")
+            || content_after_colon.starts_with("remove")
             {
                 return Err(CosmeticFilterError::UnsupportedSyntax);
             }

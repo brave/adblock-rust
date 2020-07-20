@@ -1,93 +1,115 @@
-use crate::lists::FilterList;
+use super::RemoteFilterSource;
+use crate::lists::FilterFormat;
 
-pub fn default_lists() -> Vec<FilterList> {
+pub fn default_lists() -> Vec<RemoteFilterSource> {
     [
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("67F880F5-7602-4042-8A3D-01481FD7437A"),
             url: String::from("https://easylist.to/easylist/easylist.txt"),
             title: String::from("EasyList"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://easylist.to/"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("48010209-AD34-4DF5-A80C-3D2A7C3920C0"),
             url: String::from("https://easylist.to/easylist/easyprivacy.txt"),
             title: String::from("EasyPrivacy"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://easylist.to/"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("200392E7-9A0F-40DF-86EB-6AF7E4071322"),
             url: String::from(
                 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/unbreak.txt",
             ),
             title: String::from("uBlock Unbreak"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://github.com/gorhill/uBlock"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("AAB94120-6CD9-4A96-9480-D6D323C73909"),
             url: String::from(
                 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt",
             ),
             title: String::from("uBlockOrigin Filters"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://github.com/uBlockOrigin/uAssets"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
+            uuid: String::from("9F1AFA33-F034-4AE9-A927-6C293867EAF1"),
+            url: String::from(
+                "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters-2020.txt",
+            ),
+            title: String::from("uBlockOrigin 2020 Filters"),
+            format: FilterFormat::Standard,
+            langs: Vec::new(),
+            support_url: String::from("https://github.com/uBlockOrigin/uAssets"),
+            component_id: String::from(""),
+            base64_public_key: String::from(""),
+            desc: String::from(""),
+        },
+        RemoteFilterSource {
             uuid: String::from("744e5fb2-5446-4578-a097-68efd098ed5e"),
             url: String::from(
                 "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy.txt",
             ),
             title: String::from("uBlock filters – Privacy"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://github.com/uBlockOrigin/uAssets"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("2FBEB0BC-E2E1-4170-BAA9-05E76AAB5BA5"),
             url: String::from(
                 "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt",
             ),
             title: String::from("Brave Unbreak"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://github.com/brave/adblock-lists"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("BCDF774A-7845-4121-B7EB-77EB66CEDF84"),
             url: String::from(
                 "https://raw.githubusercontent.com/brave/adblock-lists/master/coin-miners.txt",
             ),
             title: String::from("NoCoin Filter List"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://github.com/brave/adblock-lists"),
             component_id: String::from(""),
             base64_public_key: String::from(""),
             desc: String::from(""),
         },
-        FilterList {
+        RemoteFilterSource {
             uuid: String::from("9FA0665A-8FC0-4590-A80A-3FF6117A1258"),
             url: String::from(
                 "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-disconnect.txt",
             ),
             title: String::from("Disconnect rules"),
+            format: FilterFormat::Standard,
             langs: Vec::new(),
             support_url: String::from("https://github.com/brave/adblock-lists"),
             component_id: String::from(""),

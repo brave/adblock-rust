@@ -198,7 +198,7 @@ impl Optimization for UnionDomainGroup {
 #[cfg(test)]
 mod optimization_tests_pattern_group {
     use super::*;
-    use crate::lists;
+    use crate::lists::{self, FilterFormat};
     use crate::request::Request;
     use regex::RegexSet;
     use crate::filters::network::CompiledRegex;
@@ -248,7 +248,7 @@ mod optimization_tests_pattern_group {
             String::from("/static/adv/*"),
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let (filters, _) = lists::parse_filters(&rules, true, FilterFormat::Standard);
 
         let optimization = SimplePatternGroup {};
 
@@ -293,7 +293,7 @@ mod optimization_tests_pattern_group {
             String::from("/v1/ads/*"),
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let (filters, _) = lists::parse_filters(&rules, true, FilterFormat::Standard);
 
         let optimization = SimplePatternGroup {};
 
@@ -324,7 +324,7 @@ mod optimization_tests_pattern_group {
 #[cfg(test)]
 mod optimization_tests_union_domain {
     use super::*;
-    use crate::lists;
+    use crate::lists::{self, FilterFormat};
     use crate::request::Request;
     use crate::filters::network::NetworkMatchable;
     use crate::utils;
@@ -336,7 +336,7 @@ mod optimization_tests_union_domain {
             String::from("/analytics-v1$domain=example.com"),
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let (filters, _) = lists::parse_filters(&rules, true, FilterFormat::Standard);
         let optimization = UnionDomainGroup {};
         let (fused, _) = apply_optimisation(&optimization, filters);
 
@@ -366,7 +366,7 @@ mod optimization_tests_union_domain {
             String::from("/analytics-v1"),
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let (filters, _) = lists::parse_filters(&rules, true, FilterFormat::Standard);
         let optimization = UnionDomainGroup {};
         let (_, skipped) = apply_optimisation(&optimization, filters);
 
@@ -387,7 +387,7 @@ mod optimization_tests_union_domain {
             String::from("/analytics-v1"),
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, false, true);
+        let (filters, _) = lists::parse_filters(&rules, true, FilterFormat::Standard);
 
         let optimization = UnionDomainGroup {};
 
