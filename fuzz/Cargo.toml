@@ -24,5 +24,9 @@ name = "parse_filter"
 path = "fuzz_targets/parse_filter.rs"
 
 [[bin]]
+name = "parse_filter_hosts"
+path = "fuzz_targets/parse_filter_hosts.rs"
+
+[[bin]]
 name = "parse_request"
 path = "fuzz_targets/parse_request.rs"
