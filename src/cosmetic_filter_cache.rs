@@ -6,8 +6,10 @@ use crate::utils::Hash;
 use std::collections::{HashSet, HashMap};
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "docs-rs-incompatible")]
 use psl::Psl;
 
+#[cfg(feature = "docs-rs-incompatible")]
 lazy_static! {
     static ref PUBLIC_SUFFIXES: psl::List = psl::List::new();
 }
@@ -219,10 +221,14 @@ impl CosmeticFilterCache {
     }
 
     pub fn hostname_cosmetic_resources(&self, hostname: &str, generichide: bool) -> UrlSpecificResources {
+        #[cfg(feature = "docs-rs-incompatible")]
         let domain = match PUBLIC_SUFFIXES.domain(hostname) {
             Some(domain) => domain,
             None => return UrlSpecificResources::empty(),
         };
+        #[cfg(not(feature = "docs-rs-incompatible"))]
+        let domain = panic!("The `docs-rs-incompatible` feature should only be disabled for docs.rs builds.");
+
         let domain_str = domain.to_str();
 
         let (request_entities, request_hostnames) = hostname_domain_hashes(hostname, domain_str);

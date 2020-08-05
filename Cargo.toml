@@ -17,6 +17,9 @@ exclude = [
     "data/easylist-parse-errors.log",
 ]
 
+[package.metadata.docs.rs]
+no-default-features = true
+features = ["default-not-docs-rs"]
 
 [dependencies]
 addr = "0.2"
@@ -39,7 +42,7 @@ hashbrown = { version = "0.6", features = ["serde"] }
 lifeguard = { version = "0.6", optional = true }
 cssparser = { version = "0.25", optional = true }
 selectors = { version = "0.21", optional = true }
-psl = "0.4.1"
+psl = { version = "0.4.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.2"
@@ -78,9 +81,13 @@ name = "bench_cosmetic_matching"
 harness = false
 
 [features]
-default = ["full-regex-handling", "object-pooling"]
-full-domain-matching = [] # feature has no explicit dependencies
+# If disabling default features, be sure to explicitly re-enable the
+# "docs-rs-incompatible" feature, or else the library will not work correctly.
+default = ["default-not-docs-rs", "docs-rs-incompatible"]
+default-not-docs-rs = ["full-regex-handling", "object-pooling"]
+full-domain-matching = []
 metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"]
 css-validation = ["cssparser", "selectors"]
+docs-rs-incompatible = ["psl"] # psl prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904
