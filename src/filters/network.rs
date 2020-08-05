@@ -2739,6 +2739,8 @@ mod match_tests {
         filter_match_url("||foo", "https://foo-bar.baz.com/bar", false);
         filter_match_url("||foo.com", "https://foo.de", false);
         filter_match_url("||foo.com", "https://bar.foo.de", false);
+        filter_match_url("||s.foo.com", "https://substring.s.foo.com", true);
+        filter_match_url("||s.foo.com", "https://substrings.foo.com", false);
     }
 
     #[test]
