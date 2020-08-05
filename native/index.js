@@ -1,4 +1,4 @@
-const blocker = require('../native');
+const blocker = require('./index.node');
 
 exports.FilterFormat = blocker.FilterFormat;
 exports.FilterSet = blocker.FilterSet;

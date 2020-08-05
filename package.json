@@ -13,7 +13,7 @@
     "blocking",
     "rust"
   ],
-  "main": "lib/index.js",
+  "main": "native/index.js",
   "author": "Andrius Aucinas <aaucinas@brave.com>",
   "contributors": [
     "Anton Lazarev <alazarev@brave.com"
