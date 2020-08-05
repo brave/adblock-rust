@@ -24,10 +24,9 @@ impl RequestUrl {
 
 pub trait UrlParser {
     /// Return the string representation of the host (domain or IP address) for this URL, if any together with the URL.
-    /// 
+    ///
     /// As part of hostname parsing, punycode decoding is used to convert URLs with UTF characters to plain ASCII ones.
     /// Serialisation then contains this decoded URL that is used for further matching.
-    /// 
     fn parse_url(url: &str) -> Option<RequestUrl>;
 }
 
@@ -65,4 +64,3 @@ pub fn get_host_domain(host: &str) -> (usize, usize) {
         }
     }
 }
-

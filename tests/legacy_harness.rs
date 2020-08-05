@@ -159,7 +159,7 @@ mod legacy_test_filters {
     fn check_hostname_anchor() {
         test_filter(
             "||example.com/banner.gif",
-            NetworkFilterMask::DEFAULT_OPTIONS 
+            NetworkFilterMask::DEFAULT_OPTIONS
             | NetworkFilterMask::IS_LEFT_ANCHOR                 // filter part of the rule is left-anchored (to hostname)
             | NetworkFilterMask::IS_HOSTNAME_ANCHOR,            // FTHostAnchored, FONoFilterOption
             Some("/banner.gif"),
@@ -246,7 +246,7 @@ mod legacy_test_filters {
     fn check_hostname_exact_match() {
         test_filter(
             "||static.tumblr.com/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg",
-            NetworkFilterMask::DEFAULT_OPTIONS 
+            NetworkFilterMask::DEFAULT_OPTIONS
             | NetworkFilterMask::IS_LEFT_ANCHOR         // filter part left-anchored to hostname
             | NetworkFilterMask::IS_HOSTNAME_ANCHOR,    // FTHostAnchored, FONoFilterOption
             Some(&"/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg".to_lowercase()),        // by default rules are case-insensitive, everything gets lowercased
@@ -296,7 +296,6 @@ mod legacy_test_filters {
         let request = Request::from_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "", "script").unwrap();
         assert!(filter.matches(&request));
     }
-
 }
 
 mod legacy_check_match {
@@ -307,7 +306,7 @@ mod legacy_check_match {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
         let mut engine = Engine::from_rules(&rules_owned, format);          // first one with the provided rules
         engine.use_tags(tags);
-            
+
         let mut engine_deserialized = Engine::default();                    // second empty
         engine_deserialized.use_tags(tags);
         {
@@ -373,7 +372,7 @@ mod legacy_check_match {
             "http://example.com/advert.html",
             "http://examples.com/advice.html",
             "http://examples.com/#!foo",
-        ], 
+        ],
         &[]);
 
         {
@@ -395,7 +394,7 @@ mod legacy_check_match {
         assert_eq!(engine.check_network_urls("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").matched, false);
         assert_eq!(engine_deserialized.check_network_urls("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").matched, false);
         }
-        
+
         check_match(
             &["^promotion^"],
             FilterFormat::Standard,
@@ -461,7 +460,7 @@ mod legacy_check_match {
             &[],
             &["stuff", "brian"]
         );
-  
+
         // A tag which doesn't match shouldn't match
         check_match(
             &[
@@ -481,7 +480,6 @@ mod legacy_check_match {
             &["filtertag1", "filtertag2"]
         );
     }
-    
 }
 
 mod legacy_check_options {
@@ -633,7 +631,7 @@ mod legacy_check_options {
         check_option_rule(&["||s1.wp.com^$subdocument,third-party"], FilterFormat::Standard, &[
             ("http://s1.wp.com/_static", "http://windsorstar.com", "", false),
         ]);
-        
+
         // Third party flags work correctly
         check_option_rule(&["/scripts/ad."], FilterFormat::Standard, &[
             ("http://a.fsdn.com/sd/js/scripts/ad.js?release_20160112", "http://slashdot.org", "script", true),

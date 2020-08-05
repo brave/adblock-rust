@@ -135,7 +135,7 @@ struct DeserializeFormatPart1 {
 
     debug: bool,
     enable_optimizations: bool,
-  
+
     // This field exists for backwards compatibility only.
     _unused: bool,
     // This field exists for backwards compatibility only, and *must* be true.
@@ -220,7 +220,7 @@ impl Into<(Blocker, CosmeticFilterCache)> for DeserializeFormat {
             redirects: self.part1.redirects,
             filters_tagged: self.part1.filters_tagged,
             filters: self.part1.filters,
-            
+
             tags_enabled: Default::default(),
             tagged_filters_all: self.part1.tagged_filters_all,
 

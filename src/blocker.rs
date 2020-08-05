@@ -104,7 +104,7 @@ pub struct Blocker {
     pub(crate) redirects: NetworkFilterList,
     pub(crate) filters_tagged: NetworkFilterList,
     pub(crate) filters: NetworkFilterList,
-    
+
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
     pub(crate) tags_enabled: HashSet<String>,
@@ -174,14 +174,14 @@ impl Blocker {
         // 2. redirection ($redirect=resource)
         // 3. normal filters - if no match by then
         // 4. exceptions - if any non-important match of forced
-        
+
         #[cfg(feature = "metrics")]
         print!("importants\t");
         // Always check important filters
         let important_filter = self
             .importants
             .check(request, &request_tokens, &NO_TAGS);
-        
+
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             #[cfg(feature = "metrics")]
@@ -194,7 +194,7 @@ impl Blocker {
                 })
                 .or_else(|| {
                     #[cfg(feature = "metrics")]
-                    print!("filters\t"); 
+                    print!("filters\t");
                     self.filters.check(request, &request_tokens, &NO_TAGS)
                 })
         } else {
@@ -324,7 +324,7 @@ impl Blocker {
         }
 
         tagged_filters_all.shrink_to_fit();
-        
+
         Blocker {
             csp: NetworkFilterList::new(csp, options.enable_optimizations),
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
@@ -442,7 +442,7 @@ impl Blocker {
     pub fn tags_enabled(&self) -> Vec<String> {
         self.tags_enabled.iter().cloned().collect()
     }
-    
+
     pub fn use_resources(&mut self, resources: &[Resource]) {
         let resources = RedirectResourceStorage::from_resources(resources);
         self.resources = resources;
@@ -630,7 +630,7 @@ impl NetworkFilterList {
 
         #[cfg(feature = "metrics")]
         print!("false\t{}\t{}\t", filter_buckets, filters_checked);
-        
+
         for token in request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 #[cfg(feature = "metrics")]
@@ -1248,7 +1248,7 @@ mod blocker_tests {
             (Request::from_url("https://brianbondy.com/about").unwrap(), true),
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
-        
+
         let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
         let blocker_options: BlockerOptions = BlockerOptions {
@@ -1334,14 +1334,14 @@ mod blocker_tests {
         blocker.add_filter(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
         blocker.add_filter(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
         blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
-        
+
         let url_results = vec![
             (Request::from_url("http://example.com/advert.html").unwrap(), false),
             (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), false),
             (Request::from_url("https://brianbondy.com/about").unwrap(), true),
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
-        
+
         url_results.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
@@ -1410,7 +1410,7 @@ mod legacy_rule_parsing_tests {
 
     // number of expected EasyList cosmetic rules from old engine is 31144, but is incorrect as it skips a few particularly long rules that are nevertheless valid
     // easyList = { 24478, 31144, 0, 5589 };
-    // not handling (and not including) filters with the following options: 
+    // not handling (and not including) filters with the following options:
     // - $popup
     // - $document
     // - $elemhide
@@ -1436,7 +1436,7 @@ mod legacy_rule_parsing_tests {
 
     fn check_list_counts(rule_lists: &[String], format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
-        
+
         let (network_filters, cosmetic_filters) = parse_filters(&rules, true, format);
 
         assert_eq!(
@@ -1447,7 +1447,7 @@ mod legacy_rule_parsing_tests {
             expectation.exceptions,
             expectation.cosmetic_filters),
             "Number of collected filters does not match expectation");
-        
+
         let blocker_options = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
@@ -1458,7 +1458,7 @@ mod legacy_rule_parsing_tests {
         assert!(vec_hashmap_len(&blocker.exceptions.filter_map) + vec_hashmap_len(&blocker.generic_hide.filter_map)
             >= expectation.exceptions, "Number of collected exceptions does not match expectation");
 
-        assert!(vec_hashmap_len(&blocker.filters.filter_map) + 
+        assert!(vec_hashmap_len(&blocker.filters.filter_map) +
             vec_hashmap_len(&blocker.importants.filter_map) +
             vec_hashmap_len(&blocker.redirects.filter_map) +
             vec_hashmap_len(&blocker.csp.filter_map) >=

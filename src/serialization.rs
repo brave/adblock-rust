@@ -42,7 +42,7 @@ impl<'a> serde::Serialize for Wrapper<'a> {
             .or_else(|e| {
                 Err(D::Error::invalid_value(::serde::de::Unexpected::Other("Failed to serialize to bincode"), &e.to_string().as_str()))
             })?;
-        
+
         let compressed = gz.finish().unwrap();
             .or_else(|e| {
                 Err(D::Error::invalid_value(::serde::de::Unexpected::Other("Failed to finish Gzip encoding"), &e.to_string().as_str()))

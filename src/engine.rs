@@ -112,7 +112,6 @@ impl Engine {
                 error: Some("Error parsing request".to_owned())
             }
         })
-        
     }
 
     pub fn check_network_urls_with_hostnames(
@@ -179,7 +178,7 @@ impl Engine {
     pub fn disable_tags(&mut self, tags: &[&str]) {
         self.blocker.disable_tags(tags);
     }
-    
+
     /// Checks if a given tag exists in this engine.
     ///
     /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
@@ -238,7 +237,7 @@ impl Engine {
 mod tests {
     use super::*;
     use crate::resources::{ResourceType, MimeType};
-    
+
     #[test]
     fn tags_enable_adds_tags() {
         let filters = vec![
@@ -282,7 +281,7 @@ mod tests {
             ("https://brianbondy.com/about", true),
             ("https://brave.com/about", true),
         ];
-        
+
         let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
         engine.enable_tags(&["brian", "stuff"]);
         engine.disable_tags(&["stuff"]);
@@ -309,7 +308,7 @@ mod tests {
             ("https://brianbondy.com/about", false),
             ("https://brianbondy.com/advert", true),
         ];
-        
+
         let engine = Engine::from_rules(&filters, FilterFormat::Standard);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
@@ -334,7 +333,7 @@ mod tests {
             ("https://brianbondy.com/about", false),
             ("https://brianbondy.com/advert", false),
         ];
-        
+
         let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
         engine.enable_tags(&["brian", "stuff"]);
 
@@ -409,7 +408,7 @@ mod tests {
             113, 195, 55, 136, 98, 181, 132, 120, 65, 157, 17, 160, 180, 233, 152, 221, 1, 164, 98, 178, 255, 242, 178,
             221, 231, 201, 0, 19, 122, 216, 92, 112, 161, 1, 58, 213, 199, 143, 114, 0, 0, 0];
         let mut deserialized_engine = Engine::default();
-        
+
         deserialized_engine.enable_tags(&[]);
         deserialized_engine.deserialize(&serialized).unwrap();
         let url = "http://example.com/ad-banner.gif";
@@ -481,7 +480,7 @@ mod tests {
             },
         ];
         engine.use_resources(&resources);
-        
+
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
     }

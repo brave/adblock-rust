@@ -742,47 +742,47 @@ impl NetworkFilter {
         }
     }
 
-    
+
     fn get_cpt_mask(&self) -> NetworkFilterMask {
         self.mask & NetworkFilterMask::FROM_ANY
     }
-    
+
     pub fn is_fuzzy(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FUZZY_MATCH)
     }
-    
+
     pub fn is_exception(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
     }
-    
+
     pub fn is_hostname_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
     }
-    
+
     pub fn is_right_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
     }
-    
+
     pub fn is_left_anchor(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR)
     }
-    
+
     fn match_case(&self) -> bool {
         self.mask.contains(NetworkFilterMask::MATCH_CASE)
     }
-    
+
     pub fn is_important(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_IMPORTANT)
     }
-    
+
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
     }
-    
+
     pub fn is_explicit_cancel(&self) -> bool {
         self.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL)
     }
-    
+
     pub fn is_badfilter(&self) -> bool {
         self.mask.contains(NetworkFilterMask::BAD_FILTER)
     }
@@ -790,43 +790,43 @@ impl NetworkFilter {
     pub fn is_generic_hide(&self) -> bool {
         self.mask.contains(NetworkFilterMask::GENERIC_HIDE)
     }
-    
+
     pub fn is_regex(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_REGEX)
     }
-    
+
     pub fn is_complete_regex(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
     }
-    
+
     fn is_plain(&self) -> bool {
         !self.is_regex()
     }
-    
+
     pub fn is_csp(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_CSP)
     }
-    
+
     pub fn has_bug(&self) -> bool {
         self.bug.is_some()
     }
-    
+
     fn cpt_any(&self) -> bool {
         self.get_cpt_mask().contains(NetworkFilterMask::FROM_ANY)
     }
-    
+
     fn third_party(&self) -> bool {
         self.mask.contains(NetworkFilterMask::THIRD_PARTY)
     }
-    
+
     fn first_party(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FIRST_PARTY)
     }
-    
+
     fn for_http(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FROM_HTTP)
     }
-    
+
     fn for_https(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FROM_HTTPS)
     }
@@ -838,7 +838,6 @@ pub trait NetworkMatchable {
 }
 
 impl NetworkMatchable for NetworkFilter {
-    
     fn matches(&self, request: &request::Request) -> bool {
         check_options(&self, request) && check_pattern(&self, request)
     }
@@ -855,7 +854,7 @@ impl NetworkMatchable for NetworkFilter {
             if cache.is_some() {
                 return cache.as_ref().unwrap().clone(); // Only clones the Arc, not the entire regex
             }
-        
+
             let regex = compile_regex(
                 &self.filter,
                 self.is_right_anchor(),
@@ -1029,7 +1028,6 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
     }
     let hostname_len = hostname.len();
 
-    
     if filter_hostname_len > hostname_len {
         // `filterHostname` cannot be longer than actual hostname
         false
@@ -1419,7 +1417,6 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         return false;
     }
 
-    
     // Source URL must be among these domains to match
     if let Some(included_domains) = filter.opt_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
@@ -1450,7 +1447,7 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         }
     }
 
-    true   
+    true
 }
 
 #[cfg(test)]
@@ -3031,7 +3028,6 @@ mod match_tests {
             assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
             assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
         }
-        
     }
 
     #[test]

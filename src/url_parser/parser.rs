@@ -230,7 +230,6 @@ pub struct Input<'i> {
 impl<'i> Input<'i> {
     pub fn new(input: &'i str) -> Self {
         let input = input.trim_matches(c0_control_or_space);
-        
         Input { chars: input.chars() }
     }
 
@@ -345,7 +344,7 @@ impl Parser {
                 }
             }
         }
-        
+
         Err(())
     }
 
@@ -391,7 +390,7 @@ impl Parser {
             s.make_ascii_lowercase();
             &*s
         });
-        
+
         Ok(Hostname {
             serialization: self.serialization,
             scheme_end,

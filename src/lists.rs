@@ -359,7 +359,7 @@ mod tests {
         let result = parse_filter(input, true, FilterFormat::Standard);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn parse_filter_failed_fuzz_4() {
         // \\##+js(,\xdd\x8d
@@ -369,5 +369,4 @@ mod tests {
             FilterFormat::Standard,
         ).is_ok());
     }
-    
 }

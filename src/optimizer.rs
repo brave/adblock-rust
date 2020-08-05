@@ -18,11 +18,11 @@ pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     // let union_domain_group = UnionDomainGroup {};
     // let (mut fused, unfused) = apply_optimisation(&union_domain_group, filters);
     // optimized.append(&mut fused);
-    
+
     let simple_pattern_group = SimplePatternGroup {};
     let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
     optimized.append(&mut fused);
-    
+
     // Append whatever is still left unfused
     optimized.append(&mut unfused);
     optimized
@@ -89,7 +89,7 @@ impl Optimization for SimplePatternGroup {
                     FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s)
                 }
             }
-            
+
             if flat_patterns.is_empty() {
                 filter.filter = FilterPart::Empty;
             } else if flat_patterns.len() == 1 {
@@ -113,7 +113,6 @@ impl Optimization for SimplePatternGroup {
                     .join(" <+> "),
             )
         }
-        
 
         filter
     }
@@ -377,7 +376,7 @@ mod optimization_tests_union_domain {
             "/analytics-v1"
         );
     }
-    
+
     #[test]
     fn optimises_domains() {
         let rules = vec![

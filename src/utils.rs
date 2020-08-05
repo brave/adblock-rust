@@ -65,7 +65,6 @@ fn fast_tokenizer_no_regex(
         } else {
             preceding_ch = Some(c);
         }
-        
     }
 
     if !skip_last_token
@@ -149,7 +148,7 @@ pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
     for p in patterns {
         fast_tokenizer(p, &is_allowed_filter, false, false, &mut tokens);
     }
-    
+
     compact_tokens(&mut tokens);
     tokens
 }
