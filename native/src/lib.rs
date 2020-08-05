@@ -7,7 +7,6 @@ use neon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use adblock::engine::Engine;
-use adblock::filter_lists;
 use adblock::lists::{FilterFormat, FilterSet};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
@@ -240,20 +239,6 @@ declare_types! {
     }
 }
 
-fn lists(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let category: String = cx.argument::<JsString>(0)?.value();
-    let filter_list: Vec<adblock::filter_lists::RemoteFilterSource>;
-    if category == "regions" {
-        filter_list = filter_lists::regions::regions();
-    } else {
-        filter_list = filter_lists::default::default_lists();
-    }
-
-    let js_list = neon_serde::to_value(&mut cx, &filter_list)?;
-
-    Ok(js_list)
-}
-
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let url: String = cx.argument::<JsString>(0)?.value();
     let source_url: String = cx.argument::<JsString>(1)?.value();
@@ -292,7 +277,6 @@ register_module!(mut m, {
     m.export_class::<JsFilterSet>("FilterSet")?;
     m.export_class::<JsEngine>("Engine")?;
 
-    m.export_function("lists", lists)?;
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;
 
