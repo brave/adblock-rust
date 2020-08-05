@@ -46,9 +46,25 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-async fn get_all_lists() -> Vec<(adblock::lists::FilterFormat, String)> {
+/// Describes an online source of adblock rules.
+#[derive(serde::Deserialize)]
+pub struct RemoteFilterSource {
+    pub uuid: String,
+    pub url: String,
+    pub title: String,
+    pub format: adblock::lists::FilterFormat,
+    pub support_url: String,
+}
+
+pub async fn get_all_filters() -> adblock::lists::FilterSet {
     use futures::FutureExt;
-    let default_lists = adblock::filter_lists::default::default_lists();
+
+    const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
+
+    let default_lists: Vec<RemoteFilterSource> = async {
+        let body = reqwest::get(DEFAULT_LISTS_URL).await.unwrap().text().await.unwrap();
+        serde_json::from_str(&body).unwrap()
+    }.await;
 
     let filters_fut: Vec<_> = default_lists
         .iter()
@@ -65,20 +81,22 @@ async fn get_all_lists() -> Vec<(adblock::lists::FilterFormat, String)> {
         })
         .collect();
 
+    let mut filter_set = adblock::lists::FilterSet::default();
+
     futures::future::join_all(filters_fut)
         .await
-        .into_iter()
-        .collect()
+        .iter()
+        .for_each(|(format, list)| {
+            filter_set.add_filters(&list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(), *format);
+        });
+
+    filter_set
 }
 
 fn get_blocker_engine() -> Engine {
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-    let filters = async_runtime.block_on(get_all_lists());
+    let filter_set = async_runtime.block_on(get_all_filters());
 
-    let mut filter_set = adblock::lists::FilterSet::default();
-    filters.into_iter().for_each(|(format, rules)| {
-        filter_set.add_filter_list(&rules, format);
-    });
     let mut engine = Engine::from_filter_set(filter_set, true);
 
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
