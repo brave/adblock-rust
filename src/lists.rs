@@ -4,6 +4,43 @@ use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 
+/// iOS and macOS limit the number of content blocking rules that can be loaded. To better
+/// fine-tune content-blocking behavior, the types of rules converted can be restricted using this
+/// type.
+#[cfg(feature = "content-blocking")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum RuleTypes {
+    All,
+    NetworkOnly,
+    CosmeticOnly,
+}
+
+#[cfg(feature = "content-blocking")]
+impl Default for RuleTypes {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+#[cfg(feature = "content-blocking")]
+impl RuleTypes {
+    fn loads_network_rules(&self) -> bool {
+        match self {
+            Self::All => true,
+            Self::NetworkOnly => true,
+            _ => false,
+        }
+    }
+
+    fn loads_cosmetic_rules(&self) -> bool {
+        match self {
+            Self::All => true,
+            Self::CosmeticOnly => true,
+            _ => false,
+        }
+    }
+}
+
 /// Manages a set of rules to be added to an `Engine`.
 ///
 /// To be able to efficiently handle special options like `$badfilter`, and to allow optimizations,
@@ -66,6 +103,61 @@ impl FilterSet {
         }
         Ok(())
     }
+
+    /// Consumes this `FilterSet`, returning an equivalent list of content blocking rules and a
+    /// corresponding new list containing the `String` representation of all filters that were
+    /// successfully converted (as `FilterFormat::Standard` rules).
+    ///
+    /// The list of content blocking rules will be properly ordered to ensure correct behavior of
+    /// `ignore-previous-rules`-typed rules.
+    ///
+    /// This function will fail if the `FilterSet` was not created in debug mode.
+    #[cfg(feature = "content-blocking")]
+    pub fn into_content_blocking(self, rule_types: RuleTypes) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {
+        use std::convert::TryInto;
+        use crate::content_blocking;
+
+        if !self.debug {
+            return Err(())
+        }
+
+        let mut ignore_previous_rules = vec![];
+        let mut other_rules = vec![];
+
+        let mut filters_used = vec![];
+
+        if rule_types.loads_network_rules() {
+            self.network_filters.into_iter().for_each(|filter| {
+                let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
+                if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter) {
+                    filters_used.push(original_rule);
+                    equivalent.into_iter().for_each(|cb_rule| {
+                        match &cb_rule.action.typ {
+                            content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
+                            _ => other_rules.push(cb_rule),
+                        }
+                    });
+                }
+            });
+        }
+
+        if rule_types.loads_cosmetic_rules() {
+            self.cosmetic_filters.into_iter().for_each(|filter| {
+                let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
+                if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
+                    filters_used.push(original_rule);
+                    match &cb_rule.action.typ {
+                        content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
+                        _ => other_rules.push(cb_rule),
+                    }
+                }
+            });
+        }
+
+        other_rules.append(&mut ignore_previous_rules);
+
+        Ok((other_rules, filters_used))
+    }
 }
 
 /// Denotes the format of a particular list resource, which affects how its rules should be parsed.
@@ -112,6 +204,7 @@ impl From<CosmeticFilter> for ParsedFilter {
 }
 
 /// Unsuccessful result of parsing a single filter rule.
+#[derive(Debug)]
 pub enum FilterParseError {
     Network(NetworkFilterError),
     Cosmetic(CosmeticFilterError),
