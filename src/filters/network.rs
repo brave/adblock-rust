@@ -501,6 +501,8 @@ impl NetworkFilter {
                 && line[filter_index_start..].starts_with("ws://")
             {
                 mask.set(NetworkFilterMask::FROM_WEBSOCKET, true);
+                mask.set(NetworkFilterMask::FROM_HTTP, false);
+                mask.set(NetworkFilterMask::FROM_HTTPS, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end == filter_index_start + 7
@@ -2911,6 +2913,22 @@ mod match_tests {
                 url
             );
         }
+    }
+
+    #[test]
+    fn check_ws_vs_http_matching() {
+        let network_filter = NetworkFilter::parse("|ws://$domain=4shared.com", true).unwrap();
+
+        assert!(network_filter.matches(&request::Request::from_urls("ws://example.com", "4shared.com", "websocket").unwrap()));
+        assert!(network_filter.matches(&request::Request::from_urls("wss://example.com", "4shared.com", "websocket").unwrap()));
+        assert!(!network_filter.matches(&request::Request::from_urls("http://example.com", "4shared.com", "script").unwrap()));
+        assert!(!network_filter.matches(&request::Request::from_urls("https://example.com", "4shared.com", "script").unwrap()));
+
+        // The `ws://` and `wss://` protocols should be used, rather than the resource type.
+        assert!(network_filter.matches(&request::Request::from_urls("ws://example.com", "4shared.com", "script").unwrap()));
+        assert!(network_filter.matches(&request::Request::from_urls("wss://example.com", "4shared.com", "script").unwrap()));
+        assert!(!network_filter.matches(&request::Request::from_urls("http://example.com", "4shared.com", "websocket").unwrap()));
+        assert!(!network_filter.matches(&request::Request::from_urls("https://example.com", "4shared.com", "websocket").unwrap()));
     }
 
     #[test]
