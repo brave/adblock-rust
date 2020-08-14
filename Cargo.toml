@@ -42,14 +42,12 @@ hashbrown = { version = "0.6", features = ["serde"] }
 lifeguard = { version = "0.6", optional = true }
 cssparser = { version = "0.25", optional = true }
 selectors = { version = "0.21", optional = true }
-psl = { version = "0.4.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.2"
 csv = "1"
 serde_json = "1.0"
 reqwest = "0.10"
-psl = "0.4.1"
 futures = "0.3"
 tokio = "0.2"
 
@@ -90,4 +88,4 @@ metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"]
 css-validation = ["cssparser", "selectors"]
-docs-rs-incompatible = ["psl"] # psl prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904
+docs-rs-incompatible = [] # psl prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904
