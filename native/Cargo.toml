@@ -16,5 +16,5 @@ neon-build = "0.3.3"
 [dependencies]
 neon-serde = "0.3"
 serde =  { version = "1.0", features = ["derive", "rc"] }
-adblock = { path = "../", default-features = false, features = ["css-validation", "docs-rs-incompatible"] }
+adblock = { path = "../", default-features = false, features = ["css-validation", "embedded-domain-resolver"] }
 neon = "0.3.3"
