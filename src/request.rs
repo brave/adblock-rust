@@ -1,4 +1,4 @@
-use crate::url_parser::{get_host_domain, UrlParser};
+use crate::url_parser;
 use crate::utils;
 
 use idna;
@@ -217,8 +217,8 @@ impl<'a> Request {
         source_url: &str,
         request_type: &str,
     ) -> Result<Request, RequestError> {
-        if let Some(parsed_url) = Request::parse_url(&url) {
-            if let Some(parsed_source) = Request::parse_url(&source_url) {
+        if let Some(parsed_url) = url_parser::parse_url(&url) {
+            if let Some(parsed_source) = url_parser::parse_url(&source_url) {
                 let source_domain = parsed_source.domain();
 
                 let third_party = if source_domain.is_empty() {
@@ -263,14 +263,14 @@ impl<'a> Request {
     ) -> Request {
         let url_norm = url.to_ascii_lowercase();
 
-        let (source_domain_start, source_domain_end) = get_host_domain(&source_hostname);
+        let (source_domain_start, source_domain_end) = url_parser::get_host_domain(&source_hostname);
         let source_domain = &source_hostname[source_domain_start..source_domain_end];
 
         let splitter = url_norm.find(':').unwrap_or(0);
         let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {
-            let (domain_start, domain_end) = get_host_domain(&hostname);
+            let (domain_start, domain_end) = url_parser::get_host_domain(&hostname);
             let domain = &hostname[domain_start..domain_end];
             if source_domain.is_empty() {
                 None

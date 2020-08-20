@@ -19,15 +19,15 @@ exclude = [
 
 [package.metadata.docs.rs]
 no-default-features = true
-features = ["default-not-docs-rs"]
+features = ["default-docs-rs"]
 
 [dependencies]
-addr = "0.2"
+addr = { version = "0.2", optional = true }
 url = "2.1"
 percent-encoding = "2.1"
 matches = "0.1"
 lazy_static = "1.4"
-once_cell = "1.2"
+once_cell = "1.4"
 regex = "1"
 bitflags = "1.2"
 itertools = "0.8"
@@ -79,13 +79,14 @@ name = "bench_cosmetic_matching"
 harness = false
 
 [features]
-# If disabling default features, be sure to explicitly re-enable the
-# "docs-rs-incompatible" feature, or else the library will not work correctly.
-default = ["default-not-docs-rs", "docs-rs-incompatible"]
-default-not-docs-rs = ["full-regex-handling", "object-pooling"]
+# If disabling default features, consider explicitly re-enabling the
+# "embedded-domain-resolver" feature.
+default = ["default-docs-rs", "docs-rs-incompatible"]
+default-docs-rs = ["full-regex-handling", "object-pooling"]
 full-domain-matching = []
 metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"]
 css-validation = ["cssparser", "selectors"]
-docs-rs-incompatible = [] # psl prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904
+embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
+docs-rs-incompatible = ["embedded-domain-resolver"] # addr prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904

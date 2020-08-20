@@ -2,8 +2,6 @@ extern crate adblock;
 
 use adblock::engine::Engine;
 use adblock::lists::FilterFormat;
-use adblock::request::Request;
-use adblock::url_parser::UrlParser;
 use adblock::utils::rules_from_lists;
 
 use serde::Deserialize;
@@ -220,8 +218,8 @@ fn check_matching_hostnames() {
     let engine = get_blocker_engine();
 
     for req in requests {
-        let url_host = Request::parse_url(&req.url).unwrap();
-        let source_host = Request::parse_url(&req.sourceUrl).unwrap();
+        let url_host = adblock::url_parser::parse_url(&req.url).unwrap();
+        let source_host = adblock::url_parser::parse_url(&req.sourceUrl).unwrap();
         let domain = url_host.domain();
         let source_domain = source_host.domain();
         let third_party = if source_domain.is_empty() {

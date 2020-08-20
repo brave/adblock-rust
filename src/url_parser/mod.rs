@@ -1,7 +1,72 @@
 mod parser;
-use crate::request::Request;
-use addr::DomainName;
 // mod parser_regex;
+
+#[cfg(not(feature = "embedded-domain-resolver"))]
+static DOMAIN_RESOLVER: once_cell::sync::OnceCell<Box<dyn ResolvesDomain>> = once_cell::sync::OnceCell::new();
+
+/// Sets the library's domain resolver implementation.
+///
+/// If the library is used without this having been set, panics may occur!
+///
+/// Will return the resolver if it has already been previously set.
+#[cfg(not(feature = "embedded-domain-resolver"))]
+pub fn set_domain_resolver(resolver: Box<dyn ResolvesDomain>) -> Result<(), Box<dyn ResolvesDomain>> {
+    DOMAIN_RESOLVER.set(resolver)
+}
+
+#[cfg(feature = "embedded-domain-resolver")]
+struct DefaultResolver;
+
+#[cfg(feature = "embedded-domain-resolver")]
+impl ResolvesDomain for DefaultResolver {
+    fn get_host_domain(&self, host: &str) -> (usize, usize) {
+        if host.is_empty() {
+            (0, 0)
+        } else {
+            match host.parse::<addr::DomainName>() {
+                Err(_e) => (0, host.len()),
+                Ok(domain) => {
+                    let root = domain.root();
+                    let domain_str = root.to_str();
+                    let domain_len = domain_str.len();
+                    let host_len = host.len();
+                    (host_len - domain_len, host_len)
+                }
+            }
+        }
+    }
+}
+
+pub trait ResolvesDomain: Send + Sync {
+    /// Return the start and end indices of the domain (eTLD+1) of the given hostname.
+    ///
+    /// If there isn't a valid domain, `(0, host.len())` should be returned.
+    ///
+    /// ```
+    /// # use adblock::url_parser::ResolvesDomain;
+    /// # /// I'd use DefaultResolver here, but I can't use private structs in doctests.
+    /// # /// Enjoy this mock implementation instead :(
+    /// # struct Resolver;
+    /// # impl ResolvesDomain for Resolver {
+    /// #     fn get_host_domain(&self, host: &str) -> (usize, usize) {
+    /// #         match host {
+    /// #             "api.m.example.com" => (6, 17),
+    /// #             "a.b.co.uk" => (2, 9),
+    /// #             _ => unreachable!()
+    /// #         }
+    /// #     }
+    /// # }
+    /// # let resolver = Resolver;
+    /// let host = "api.m.example.com";
+    /// let (start, end) = resolver.get_host_domain(host);
+    /// assert_eq!(&host[start..end], "example.com");
+    ///
+    /// let host = "a.b.co.uk";
+    /// let (start, end) = resolver.get_host_domain(host);
+    /// assert_eq!(&host[start..end], "b.co.uk");
+    /// ```
+    fn get_host_domain(&self, host: &str) -> (usize, usize);
+}
 
 pub struct RequestUrl {
     pub url: String,
@@ -22,45 +87,50 @@ impl RequestUrl {
     }
 }
 
-pub trait UrlParser {
-    /// Return the string representation of the host (domain or IP address) for this URL, if any together with the URL.
-    ///
-    /// As part of hostname parsing, punycode decoding is used to convert URLs with UTF characters to plain ASCII ones.
-    /// Serialisation then contains this decoded URL that is used for further matching.
-    fn parse_url(url: &str) -> Option<RequestUrl>;
+/// Return the start and end indices of the domain of the given hostname.
+pub(crate) fn get_host_domain(host: &str) -> (usize, usize) {
+    #[cfg(not(feature = "embedded-domain-resolver"))]
+    let domain_resolver = DOMAIN_RESOLVER.get().expect("An external domain resolver must be set when the `embedded-domain-resolver` feature is disabled.");
+    #[cfg(feature = "embedded-domain-resolver")]
+    let domain_resolver = DefaultResolver;
+
+    domain_resolver.get_host_domain(host)
 }
 
-impl UrlParser for Request {
-    fn parse_url(url: &str) -> Option<RequestUrl> {
-        let parsed = parser::Hostname::parse(&url).ok();
-        parsed.and_then(|h| {
-            match h.host_str() {
-                Some(_host) => Some(RequestUrl {
-                    url: h.url_str().to_owned(),
-                    schema_end: h.scheme_end,
-                    hostname_pos: (h.host_start, h.host_end),
-                    domain: get_host_domain(&h.url_str()[h.host_start..h.host_end])
-                }),
-                _ => None
-            }
-        })
-
-    }
-}
-
-pub fn get_host_domain(host: &str) -> (usize, usize) {
-    if host.is_empty() {
-        (0, 0)
-    } else {
-        match host.parse::<DomainName>() {
-            Err(_e) => (0, host.len()),
-            Ok(domain) => {
-                let root = domain.root();
-                let domain_str = root.to_str();
-                let domain_len = domain_str.len();
-                let host_len = host.len();
-                (host_len - domain_len, host_len)
-            }
+/// Return the string representation of the host (domain or IP address) for this URL, if any together with the URL.
+///
+/// As part of hostname parsing, punycode decoding is used to convert URLs with UTF characters to plain ASCII ones.
+/// Serialisation then contains this decoded URL that is used for further matching.
+pub fn parse_url(url: &str) -> Option<RequestUrl> {
+    let parsed = parser::Hostname::parse(&url).ok();
+    parsed.and_then(|h| {
+        match h.host_str() {
+            Some(_host) => Some(RequestUrl {
+                url: h.url_str().to_owned(),
+                schema_end: h.scheme_end,
+                hostname_pos: (h.host_start, h.host_end),
+                domain: get_host_domain(&h.url_str()[h.host_start..h.host_end])
+            }),
+            _ => None
         }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(feature = "embedded-domain-resolver")]
+    fn test_get_host_domain() {
+        fn domain(host: &str) -> &str {
+            let resolver = DefaultResolver;
+            let (a, b) = resolver.get_host_domain(host);
+            &host[a..b]
+        }
+        assert_eq!(domain("www.google.com"), "google.com");
+        assert_eq!(domain("google.com."), "google.com.");
+        assert_eq!(domain("a.b.co.uk"), "b.co.uk");
+        assert_eq!(domain("foo.bar"), "foo.bar");
     }
 }
