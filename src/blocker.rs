@@ -1160,6 +1160,37 @@ mod blocker_tests {
         test_requests_filters(&filters, &request_expectations);
     }
 
+    #[test]
+    fn hostname_regex_filter_works() {
+        let filters = vec![
+            String::from("||alimc*.top^$domain=letv.com"),
+            String::from("||aa*.top^$domain=letv.com")
+        ];
+        let url_results = vec![
+            (Request::from_urls("https://r.alimc1.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
+            (Request::from_urls("https://www.baidu.com/test.js", "https://minisite.letv.com/", "script").unwrap(), false),
+            (Request::from_urls("https://r.aabb.top/test.js", "https://example.com/", "script").unwrap(), false),
+            (Request::from_urls("https://r.aabb.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
+        ];
+
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,    // optimizations will reduce number of rules
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        url_results.into_iter().for_each(|(req, expected_result)| {
+            let matched_rule = blocker.check(&req);
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", req.url);
+            } else {
+                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
+            }
+        });
+    }
+
 
     #[test]
     fn tags_enable_works() {

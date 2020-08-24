@@ -718,9 +718,11 @@ impl NetworkFilter {
         }
 
         // Append tokens from hostname, if any
-        if let Some(hostname) = self.hostname.as_ref() {
-            let mut hostname_tokens = utils::tokenize(&hostname);
-            tokens.append(&mut hostname_tokens);
+        if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
+            if let Some(hostname) = self.hostname.as_ref()  {
+                let mut hostname_tokens = utils::tokenize(&hostname);
+                tokens.append(&mut hostname_tokens);
+            }
         }
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
