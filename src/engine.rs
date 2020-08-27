@@ -555,4 +555,37 @@ mod tests {
             assert_eq!(result.generichide, expected_generichide);
         });
     }
+
+    #[test]
+    fn redirect_precedence() {
+        let filters = vec![
+            String::from("||addthis.com^$important,3p,domain=~missingkids.com|~missingkids.org|~sainsburys.jobs|~sitecore.com|~amd.com"),
+            String::from("||addthis.com/*/addthis_widget.js$script,redirect=addthis.com/addthis_widget.js"),
+        ];
+        let requests = vec![
+            (
+                "https://s7.addthis.com/js/250/addthis_widget.js?pub=resto",
+                "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028",
+                "script",
+                true,
+            ),
+        ];
+
+        let mut filterset = FilterSet::new(true);
+        filterset.add_filters(&filters, FilterFormat::Standard);
+
+        let mut engine = Engine::from_filter_set(filterset, false);
+        engine.add_resource(crate::resources::Resource {
+            name: "addthis_widget.js".to_string(),
+            aliases: vec!["addthis.com/addthis_widget.js".to_string()],
+            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::ApplicationJavascript),
+            content: "".to_string(),
+        });
+
+        requests.into_iter().for_each(|(url, source_url, resource_type, expected_redirect)| {
+            let block_result = engine.check_network_urls(url, source_url, resource_type);
+            dbg!(&block_result);
+            assert_eq!(block_result.redirect.is_some(), expected_redirect);
+        });
+    }
 }
