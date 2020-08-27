@@ -14,4 +14,4 @@ before_script:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cargo generate-lockfile            ; fi
 script:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then cargo audit ; fi
-  - cargo test --verbose
+  - cargo test --verbose --features "content-blocking"

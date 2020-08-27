@@ -31,3 +31,5 @@ pub mod engine;
 pub mod resources;
 pub mod cosmetic_filter_cache;
 pub mod data_format;
+#[cfg(feature = "content-blocking")]
+pub mod content_blocking;

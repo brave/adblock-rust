@@ -7,7 +7,7 @@ use neon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use adblock::engine::Engine;
-use adblock::lists::{FilterFormat, FilterSet};
+use adblock::lists::{RuleTypes, FilterFormat, FilterSet};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
@@ -71,6 +71,33 @@ declare_types! {
             };
             // Return true/false depending on whether or not the filter could be added
             Ok(JsBoolean::new(&mut cx, ok).upcast())
+        }
+
+        method intoContentBlocking(mut cx) {
+            let rule_types = match cx.argument_opt(0) {
+                Some(rule_types) => neon_serde::from_value(&mut cx, rule_types)?,
+                None => RuleTypes::default(),
+            };
+
+            let this = cx.this();
+            let guard = cx.lock();
+
+            let cloned = {
+                let filter_set = this.borrow(&guard);
+                filter_set.clone()
+            };
+
+            match cloned.into_content_blocking(rule_types) {
+                Ok((cb_rules, filters_used)) => {
+                    let cb_rules = neon_serde::to_value(&mut cx, &cb_rules)?;
+                    let filters_used = neon_serde::to_value(&mut cx, &filters_used)?;
+                    let js_result = JsObject::new(&mut cx);
+                    js_result.set(&mut cx, "contentBlockingRules", cb_rules)?;
+                    js_result.set(&mut cx, "filtersUsed", filters_used)?;
+                    Ok(js_result.upcast())
+                }
+                Err(_) => return Ok(JsUndefined::new().upcast()),
+            }
         }
     }
 }
@@ -273,6 +300,21 @@ fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsOb
     Ok(filter_format_enum)
 }
 
+fn build_rule_types_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
+    let rule_types_enum = JsObject::new(cx);
+
+    let all = neon_serde::to_value(cx, &RuleTypes::All)?;
+    rule_types_enum.set(cx, "ALL", all)?;
+
+    let network_only = neon_serde::to_value(cx, &RuleTypes::NetworkOnly)?;
+    rule_types_enum.set(cx, "NETWORK_ONLY", network_only)?;
+
+    let cosmetic_only = neon_serde::to_value(cx, &RuleTypes::CosmeticOnly)?;
+    rule_types_enum.set(cx, "COSMETIC_ONLY", cosmetic_only)?;
+
+    Ok(rule_types_enum)
+}
+
 register_module!(mut m, {
     m.export_class::<JsFilterSet>("FilterSet")?;
     m.export_class::<JsEngine>("Engine")?;
@@ -282,6 +324,9 @@ register_module!(mut m, {
 
     let filter_format_enum = build_filter_format_enum(&mut m)?;
     m.export_value("FilterFormat", filter_format_enum)?;
+
+    let rule_types_enum = build_rule_types_enum(&mut m)?;
+    m.export_value("RuleTypes", rule_types_enum)?;
 
     Ok(())
 });
