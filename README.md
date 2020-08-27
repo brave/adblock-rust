@@ -1,5 +1,7 @@
 # Ad Block engine in Rust
 
+[![crates.io](https://img.shields.io/crates/v/adblock.svg)](https://crates.io/crates/adblock)
+[![npmjs.com](https://img.shields.io/npm/v/adblock-rs.svg)](https://www.npmjs.com/package/adblock-rs)
 [![Build Status](https://travis-ci.org/brave/adblock-rust.svg?branch=master)](https://travis-ci.org/brave/adblock-rust)
 
 Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching.
