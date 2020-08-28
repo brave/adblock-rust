@@ -916,11 +916,9 @@ fn compute_filter_id(
     hash
 }
 
-/**
- * Compiles a filter pattern to a regex. This is only performed *lazily* for
- * filters containing at least a * or ^ symbol. Because Regexes are expansive,
- * we try to convert some patterns to plain filters.
- */
+/// Compiles a filter pattern to a regex. This is only performed *lazily* for
+/// filters containing at least a * or ^ symbol. Because Regexes are expansive,
+/// we try to convert some patterns to plain filters.
 #[allow(clippy::trivial_regex)]
 pub fn compile_regex(
     filter: &FilterPart,
@@ -992,25 +990,21 @@ pub fn compile_regex(
     }
 }
 
-/**
- * Check if the sub-string contained between the indices start and end is a
- * regex filter (it contains a '*' or '^' char). Here we are limited by the
- * capability of javascript to check the presence of a pattern between two
- * indices (same for Regex...).
- * // TODO - we could use sticky regex here
- */
+/// Check if the sub-string contained between the indices start and end is a
+/// regex filter (it contains a '*' or '^' char). Here we are limited by the
+/// capability of javascript to check the presence of a pattern between two
+/// indices (same for Regex...).
 fn check_is_regex(filter: &str) -> bool {
+    // TODO - we could use sticky regex here
     let start_index = filter.find('*');
     let separator_index = filter.find('^');
     start_index.is_some() || separator_index.is_some()
 }
 
-/**
- * Handle hostname anchored filters, given 'hostname' from ||hostname and
- * request's hostname, check if there is a match. This is tricky because filters
- * authors rely and different assumption. We can have prefix of suffix matches
- * of anchor.
- */
+/// Handle hostname anchored filters, given 'hostname' from ||hostname and
+/// request's hostname, check if there is a match. This is tricky because
+/// filters authors rely and different assumption. We can have prefix of suffix
+/// matches of anchor.
 fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filter_hostname: bool) -> bool {
     let filter_hostname_len = filter_hostname.len();
     // Corner-case, if `filterHostname` is empty, then it's a match
@@ -1345,10 +1339,8 @@ fn check_pattern_hostname_anchor_fuzzy_filter(
         .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
-/**
- * Specialize a network filter depending on its type. It allows for more
- * efficient matching function.
- */
+/// Efficiently checks if a certain network filter matches against a network
+/// request.
 fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
     if filter.is_hostname_anchor() {
         if filter.is_regex() {

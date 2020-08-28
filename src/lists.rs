@@ -1,3 +1,5 @@
+//! Parsing functions and collections for handling with multiple filter rules.
+
 use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 
@@ -311,12 +313,10 @@ pub fn parse_filters(
     (network_filters, cosmetic_filters)
 }
 
-/**
- * Given a single line (string), checks if this would likely be a cosmetic
- * filter, a network filter or something that is not supported. This check is
- * performed before calling a more specific parser to create an instance of
- * `NetworkFilter` or `CosmeticFilter`.
- */
+/// Given a single line, checks if this would likely be a cosmetic filter, a
+/// network filter or something that is not supported. This check is performed
+/// before calling a more specific parser to create an instance of
+/// `NetworkFilter` or `CosmeticFilter`.
 fn detect_filter_type(filter: &str) -> FilterType {
     // Ignore comments
     if filter.len() == 1

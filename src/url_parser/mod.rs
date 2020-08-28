@@ -1,3 +1,6 @@
+//! Simplified URL parsing infrastructure, including the domain resolver
+//! implementation if the `embedded-domain-resolver` feature is disabled.
+
 mod parser;
 // mod parser_regex;
 
@@ -6,7 +9,8 @@ static DOMAIN_RESOLVER: once_cell::sync::OnceCell<Box<dyn ResolvesDomain>> = onc
 
 /// Sets the library's domain resolver implementation.
 ///
-/// If the library is used without this having been set, panics may occur!
+/// If the `embedded-domain-resolver` feature is disabled and the library is
+/// used without this having been set, panics may occur!
 ///
 /// Will return the resolver if it has already been previously set.
 #[cfg(not(feature = "embedded-domain-resolver"))]
@@ -14,6 +18,8 @@ pub fn set_domain_resolver(resolver: Box<dyn ResolvesDomain>) -> Result<(), Box<
     DOMAIN_RESOLVER.set(resolver)
 }
 
+/// Default `addr`-based domain resolution implementation used when the
+/// `embedded-domain-resolver` feature is enabled.
 #[cfg(feature = "embedded-domain-resolver")]
 struct DefaultResolver;
 
@@ -37,6 +43,8 @@ impl ResolvesDomain for DefaultResolver {
     }
 }
 
+/// Required trait for any domain resolution implementation used with this
+/// crate.
 pub trait ResolvesDomain: Send + Sync {
     /// Return the start and end indices of the domain (eTLD+1) of the given hostname.
     ///
@@ -68,6 +76,7 @@ pub trait ResolvesDomain: Send + Sync {
     fn get_host_domain(&self, host: &str) -> (usize, usize);
 }
 
+/// Parsed URL representation.
 pub struct RequestUrl {
     pub url: String,
     schema_end: usize,
@@ -97,10 +106,12 @@ pub(crate) fn get_host_domain(host: &str) -> (usize, usize) {
     domain_resolver.get_host_domain(host)
 }
 
-/// Return the string representation of the host (domain or IP address) for this URL, if any together with the URL.
+/// Return the string representation of the host (domain or IP address) for
+/// this URL, if any together with the URL.
 ///
-/// As part of hostname parsing, punycode decoding is used to convert URLs with UTF characters to plain ASCII ones.
-/// Serialisation then contains this decoded URL that is used for further matching.
+/// As part of hostname parsing, punycode decoding is used to convert URLs with
+/// UTF characters to plain ASCII ones.  Serialisation then contains this
+/// decoded URL that is used for further matching.
 pub fn parse_url(url: &str) -> Option<RequestUrl> {
     let parsed = parser::Hostname::parse(&url).ok();
     parsed.and_then(|h| {

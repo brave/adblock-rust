@@ -1,3 +1,8 @@
+//! In adblocking terms, resources are special placeholder scripts, images,
+//! video files, etc. that can be returned as drop-in replacements for harmful
+//! equivalents from remote servers. Resources also encompass scriptlets, which
+//! can be injected into pages to inhibit malicious behavior.
+
 pub mod resource_assembler;
 
 mod scriptlet_resource_storage;

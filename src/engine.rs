@@ -1,11 +1,12 @@
-
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::lists::{FilterFormat, FilterSet};
 use crate::request::Request;
 use crate::resources::{Resource, RedirectResource};
+
 use std::collections::HashSet;
 
+/// Main adblocking engine that allows efficient querying of resources to block.
 pub struct Engine {
     pub blocker: Blocker,
     cosmetic_cache: CosmeticFilterCache,

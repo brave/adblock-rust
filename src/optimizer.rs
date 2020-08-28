@@ -9,9 +9,7 @@ trait Optimization {
     fn select(&self, filter: &NetworkFilter) -> bool;
 }
 
-/**
- * Fusion a set of `filters` by applying optimizations sequentially.
- */
+/// Fuse `NetworkFilter`s together by applying optimizations sequentially.
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let mut optimized: Vec<NetworkFilter> = Vec::new();
 

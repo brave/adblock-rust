@@ -1,3 +1,5 @@
+//! Holds `Blocker`, which handles all network-based adblocking queries.
+
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -97,6 +99,7 @@ impl Default for TokenPool {
     }
 }
 
+/// Stores network filters for efficient querying.
 pub struct Blocker {
     pub(crate) csp: NetworkFilterList,
     pub(crate) exceptions: NetworkFilterList,
@@ -124,10 +127,8 @@ pub struct Blocker {
 }
 
 impl Blocker {
-    /**
-     * Decide if a network request (usually from WebRequest API) should be
-     * blocked, redirected or allowed.
-     */
+    /// Decide if a network request (usually from WebRequest API) should be
+    /// blocked, redirected or allowed.
     pub fn check(&self, request: &Request) -> BlockerResult {
         self.check_parameterised(request, false, false)
     }
@@ -259,10 +260,8 @@ impl Blocker {
         }
     }
 
-    /**
-     * Given a "main_frame" request, check if some content security policies
-     * should be injected in the page.
-     */
+    /// Given a "main_frame" request, check if some content security policies
+    /// should be injected in the page.
     pub fn get_csp_directives(&self, _request: Request) -> Option<String> {
         unimplemented!()
     }
