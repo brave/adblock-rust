@@ -1,19 +1,16 @@
 use criterion::*;
-use std::path::Path;
+use once_cell::sync::Lazy;
 use psl::Psl;
-use lazy_static::lazy_static;
+use tokio::runtime::Runtime;
 
-use adblock;
+use std::path::Path;
+
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
 use adblock::request::Request;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
-use tokio::runtime::Runtime;
-
-lazy_static! {
-    static ref PSL_LIST: psl::List = psl::List::new();
-}
+static PSL_LIST: Lazy<psl::List> = Lazy::new(|| psl::List::new());
 
 async fn get_all_filters() -> Vec<String> {
     use futures::FutureExt;

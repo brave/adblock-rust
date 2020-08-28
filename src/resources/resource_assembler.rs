@@ -1,27 +1,26 @@
 //! Contains methods useful for building `Resource` descriptors from resources directly from files
 //! in the uBlock Origin repository.
 
-use std::io::Read;
 use regex::Regex;
+use once_cell::sync::Lazy;
+use std::io::Read;
 use std::fs::File;
 use std::path::Path;
 use crate::resources::{Resource, ResourceType, MimeType};
 
-lazy_static! {
-    //    [ '1x1.gif', {
-    static ref MAP_NAME_KEY_RE: Regex = Regex::new(r#"^\s*\[\s*'([a-zA-Z0-9\-_\.]+)',\s*\{"#).unwrap();
-    //      alias: '1x1-transparent.gif',
-    static ref MAP_PROPERTY_KEY_RE: Regex = Regex::new(r#"^\s*([a-zA-Z0-9_]+):\s*'([a-zA-Z0-9\-_\./\*]+)',"#).unwrap();
-    //    } ],
-    static ref MAP_END_KEY_RE: Regex = Regex::new(r#"^\s*\}\s*\]"#).unwrap();
-    //  ]);
-    static ref MAP_END_RE: Regex = Regex::new(r#"^\s*\]\s*\)"#).unwrap();
+//    [ '1x1.gif', {
+static MAP_NAME_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\[\s*'([a-zA-Z0-9\-_\.]+)',\s*\{"#).unwrap());
+//      alias: '1x1-transparent.gif',
+static MAP_PROPERTY_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*([a-zA-Z0-9_]+):\s*'([a-zA-Z0-9\-_\./\*]+)',"#).unwrap());
+//    } ],
+static MAP_END_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\}\s*\]"#).unwrap());
+//  ]);
+static MAP_END_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\]\s*\)"#).unwrap());
 
-    static ref TEMPLATE_ARGUMENT_RE: Regex = Regex::new(r"\{\{\d\}\}").unwrap();
-    static ref ESCAPE_SCRIPTLET_ARG_RE: Regex = Regex::new(r#"[\\'"]"#).unwrap();
-    static ref TOP_COMMENT_RE: Regex = Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap();
-    static ref NON_EMPTY_LINE_RE: Regex = Regex::new(r#"\S"#).unwrap();
-}
+static TEMPLATE_ARGUMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{\d\}\}").unwrap());
+static ESCAPE_SCRIPTLET_ARG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[\\'"]"#).unwrap());
+static TOP_COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap());
+static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap());
 
 /// Represents a single entry of the `redirectableResources` map from uBlock Origin's
 /// `redirect-engine.js`.

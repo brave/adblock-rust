@@ -1,16 +1,11 @@
-extern crate adblock;
-extern crate reqwest;
-
 use adblock::engine::Engine;
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
-use serde::{Deserialize};
-use std::fs::File;
-use std::io::BufReader;
-
+use serde::Deserialize;
 use tokio::runtime::Runtime;
 
-use csv;
+use std::fs::File;
+use std::io::BufReader;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]

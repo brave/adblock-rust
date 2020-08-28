@@ -1,5 +1,3 @@
-extern crate adblock;
-
 use adblock::utils;
 use adblock::lists::{parse_filters, FilterFormat};
 use adblock::filters::network::NetworkFilter;

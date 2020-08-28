@@ -1,10 +1,11 @@
 //! Tools for blocking at a page-content level, including CSS selector-based filtering and content
 //! script injection.
-use serde::{Deserialize, Serialize};
-use crate::utils::{ Hash };
 
+use once_cell::sync::Lazy;
 use regex::Regex;
-use lazy_static::lazy_static;
+use serde::{Deserialize, Serialize};
+
+use crate::utils::Hash;
 
 use css_validation::{is_valid_css_selector, is_valid_css_style};
 
@@ -23,7 +24,7 @@ pub enum CosmeticFilterError {
     EmptyRule,
 }
 
-bitflags! {
+bitflags::bitflags! {
     /// Boolean flags for cosmetic filter rules.
     #[derive(Serialize, Deserialize)]
     pub struct CosmeticFilterMask: u8 {
@@ -522,11 +523,9 @@ mod css_validation {
     }
 }
 
-lazy_static! {
-    static ref RE_PLAIN_SELECTOR: Regex = Regex::new(r"^[#.][\w\\-]+").unwrap();
-    static ref RE_PLAIN_SELECTOR_ESCAPED: Regex = Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap();
-    static ref RE_ESCAPE_SEQUENCE: Regex = Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap();
-}
+static RE_PLAIN_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.][\w\\-]+").unwrap());
+static RE_PLAIN_SELECTOR_ESCAPED: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap());
+static RE_ESCAPE_SEQUENCE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap());
 
 /// Returns the first token of a CSS selector.
 ///

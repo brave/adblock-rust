@@ -1,10 +1,6 @@
-extern crate criterion;
-
 use criterion::*;
 
-use regex::Regex;
-use regex::bytes::{Regex as BytesRegex};
-use regex::RegexSet;
+use regex::{bytes::Regex as BytesRegex, Regex, RegexSet};
 
 fn bench_simple_regexes(c: &mut Criterion) {
   let pattern = "?/static/adv/foobar/asd?q=1";

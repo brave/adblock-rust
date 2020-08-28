@@ -3,8 +3,10 @@
 use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::lists::ParsedFilter;
-use serde::{Deserialize, Serialize};
+
+use once_cell::sync::Lazy;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
 use std::convert::{TryFrom, TryInto};
 
@@ -212,11 +214,9 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: NetworkFilter) -> Result<Self, Self::Error> {
-        lazy_static! {
-            static ref SPECIAL_CHARS: Regex = Regex::new(r##"([.+?^${}()|\[\]])"##).unwrap();
-            static ref REPLACE_WILDCARDS: Regex = Regex::new(r##"\*"##).unwrap();
-            static ref TRAILING_SEPARATOR: Regex = Regex::new(r##"\^$"##).unwrap();
-        }
+        static SPECIAL_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]])"##).unwrap());
+        static REPLACE_WILDCARDS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\*"##).unwrap());
+        static TRAILING_SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\^$"##).unwrap());
         if let Some(raw_line) = v.raw_line {
             if v.redirect.is_some() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);

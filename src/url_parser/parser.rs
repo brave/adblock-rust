@@ -6,14 +6,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[allow(unused_imports, deprecated)]
-use std::ascii::AsciiExt;
-
 use std::error::Error;
 use std::fmt::{self, Formatter, Write};
-use std::str;
 
-use idna;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use std::ops::{Range, RangeFrom, RangeTo};
 
@@ -224,7 +219,7 @@ impl SchemeType {
 
 #[derive(Clone)]
 pub struct Input<'i> {
-    chars: str::Chars<'i>,
+    chars: std::str::Chars<'i>,
 }
 
 impl<'i> Input<'i> {

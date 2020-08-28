@@ -1,5 +1,3 @@
-extern crate criterion;
-
 use criterion::*;
 
 use adblock::utils::rules_from_lists;

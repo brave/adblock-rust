@@ -1,22 +1,17 @@
-extern crate criterion;
-
 use criterion::*;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
-use adblock;
 use adblock::lists::FilterFormat;
 use adblock::utils::{read_file_lines, rules_from_lists};
 use adblock::blocker::{Blocker, BlockerOptions};
 
 
-lazy_static! {
-    static ref DEFAULT_LISTS: Vec<String> = rules_from_lists(&vec![
-        String::from("data/easylist.to/easylist/easylist.txt"),
-    ]);
-    static ref DEFAULT_RULES_LISTS: Vec<Vec<String>> = vec![
-        read_file_lines("data/easylist.to/easylist/easylist.txt"),
-    ];
-}
+static DEFAULT_LISTS: Lazy<Vec<String>> = Lazy::new(|| rules_from_lists(&vec![
+    String::from("data/easylist.to/easylist/easylist.txt"),
+]));
+static DEFAULT_RULES_LISTS: Lazy<Vec<Vec<String>>> = Lazy::new(|| vec![
+    read_file_lines("data/easylist.to/easylist/easylist.txt"),
+]);
 
 
 fn bench_string_hashing(filters: &Vec<String>) -> adblock::utils::Hash {

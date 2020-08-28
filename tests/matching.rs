@@ -1,5 +1,3 @@
-extern crate adblock;
-
 use adblock::request::Request;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
@@ -7,7 +5,7 @@ use adblock::engine::Engine;
 use adblock::resources::{Resource, ResourceType, MimeType};
 
 use serde::{Deserialize, Serialize};
-use serde_json;
+
 use std::fs::File;
 use std::io::prelude::*;
 

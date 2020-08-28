@@ -1,7 +1,7 @@
-use hashbrown::HashMap;
-use std::sync::Arc;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::sync::Arc;
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
 #[cfg(feature = "object-pooling")]
@@ -152,11 +152,9 @@ impl Blocker {
             return BlockerResult::default();
         }
 
-        lazy_static! {
-            // only check for tags in tagged and exception rule buckets,
-            // pass empty set for the rest
-            static ref NO_TAGS: HashSet<String> = HashSet::new();
-        }
+        // only check for tags in tagged and exception rule buckets,
+        // pass empty set for the rest
+        static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
         let mut request_tokens;
         #[cfg(feature = "object-pooling")]

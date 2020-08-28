@@ -1,11 +1,7 @@
-use serde;
-use serde::{Serialize, Deserialize};
-
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use flate2::Compression;
-
-use bincode;
+use serde::{Serialize, Deserialize};
 
 use crate::blocker::Blocker;
 

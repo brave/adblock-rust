@@ -1,7 +1,6 @@
-extern crate adblock;
-
 use adblock::engine::Engine;
 use adblock::lists::FilterFormat;
+
 use std::fs::File;
 use std::io::prelude::*;
 

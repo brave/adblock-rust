@@ -1,13 +1,9 @@
-extern crate criterion;
-
 use criterion::*;
 
 use serde::{Deserialize, Serialize};
-use serde_json;
 
-use adblock;
-use adblock::url_parser::UrlParser;
 use adblock::request::Request;
+use adblock::url_parser::parse_url;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone)]
@@ -56,10 +52,10 @@ fn request_extract_hostname(c: &mut Criterion) {
             b.iter(|| {
                 let mut successful = 0;
                 requests.iter().for_each(|r| {
-                    if Request::parse_url(&r.url).is_some() {
+                    if parse_url(&r.url).is_some() {
                         successful += 1;
                     }
-                    if Request::parse_url(&r.frameUrl).is_some() {
+                    if parse_url(&r.frameUrl).is_some() {
                         successful += 1;
                     }
                 });
@@ -77,13 +73,13 @@ fn request_new_throughput(c: &mut Criterion) {
         let url_norm = r.url.to_ascii_lowercase();
         let source_url_norm = r.frameUrl.to_ascii_lowercase();
 
-        let maybe_parsed_url = Request::parse_url(&url_norm);
+        let maybe_parsed_url = parse_url(&url_norm);
         if maybe_parsed_url.is_none() {
             return Err("bad url");
         }
         let parsed_url = maybe_parsed_url.unwrap();
 
-        let maybe_parsed_source = Request::parse_url(&source_url_norm);
+        let maybe_parsed_source = parse_url(&source_url_norm);
 
         if maybe_parsed_source.is_none() {
             Ok((

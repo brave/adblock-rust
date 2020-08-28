@@ -1,14 +1,13 @@
-use idna;
-use regex::Regex;
-use regex::RegexSet;
+use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
+use once_cell::sync::Lazy;
+
 use std::fmt;
+use std::sync::{Arc, RwLock};
 
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use std::sync::{Arc, RwLock};
-use twoway;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -31,7 +30,7 @@ pub enum NetworkFilterError {
     PunycodeError,
 }
 
-bitflags! {
+bitflags::bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct NetworkFilterMask: u32 {
         const FROM_IMAGE = 1; // 1 << 0;
@@ -427,9 +426,7 @@ impl NetworkFilter {
                 // and then the pattern.
                 // TODO - this could be made more efficient if we could match between two
                 // indices. Once again, we have to do more work than is really needed.
-                lazy_static! {
-                    static ref SEPARATOR: Regex = Regex::new("[/^*]").unwrap();
-                }
+                static SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new("[/^*]").unwrap());
                 if let Some(first_separator) = SEPARATOR.find(line) {
                     let first_separator_start = first_separator.start();
                     // NOTE: `first_separator` shall never be -1 here since `IS_REGEX` is true.
@@ -603,9 +600,7 @@ impl NetworkFilter {
     /// emulate the behavior of hosts-style blocking.
     pub fn parse_hosts_style(hostname: &str, debug: bool) -> Result<Self, NetworkFilterError> {
         // Make sure the hostname doesn't contain any invalid characters
-        lazy_static! {
-            static ref INVALID_CHARS: Regex = Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap();
-        }
+        static INVALID_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap());
         if INVALID_CHARS.is_match(hostname) {
             return Err(NetworkFilterError::FilterParseError);
         }
@@ -933,16 +928,14 @@ pub fn compile_regex(
     is_left_anchor: bool,
     is_complete_regex: bool,
 ) -> CompiledRegex {
-    lazy_static! {
-      // Escape special regex characters: |.$+?{}()[]\
-      static ref SPECIAL_RE: Regex = Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap();
-      // * can match anything
-      static ref WILDCARD_RE: Regex = Regex::new(r"\*").unwrap();
-      // ^ can match any separator or the end of the pattern
-      static ref ANCHOR_RE: Regex = Regex::new(r"\^(.)").unwrap();
-      // ^ can match any separator or the end of the pattern
-      static ref ANCHOR_RE_EOL: Regex = Regex::new(r"\^$").unwrap();
-    }
+    // Escape special regex characters: |.$+?{}()[]\
+    static SPECIAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap());
+    // * can match anything
+    static WILDCARD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*").unwrap());
+    // ^ can match any separator or the end of the pattern
+    static ANCHOR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\^(.)").unwrap());
+    // ^ can match any separator or the end of the pattern
+    static ANCHOR_RE_EOL: Lazy<Regex> = Lazy::new(|| Regex::new(r"\^$").unwrap());
 
     let filters: Vec<String> = match filter {
         FilterPart::Empty => vec![],
@@ -2508,9 +2501,9 @@ mod parse_tests {
         }
     }
 
-    use rmps::{Deserializer, Serializer};
     #[test]
     fn binary_serialization_works() {
+        use rmp_serde::{Deserializer, Serializer};
         {
             let filter = NetworkFilter::parse("||foo.com/bar/baz$important", true).unwrap();
 

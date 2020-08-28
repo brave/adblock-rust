@@ -1,8 +1,3 @@
-extern crate neon;
-extern crate neon_serde;
-extern crate adblock;
-extern crate serde;
-
 use neon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -10,7 +5,6 @@ use adblock::engine::Engine;
 use adblock::lists::{RuleTypes, FilterFormat, FilterSet};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
-
 
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {

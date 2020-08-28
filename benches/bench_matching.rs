@@ -1,16 +1,12 @@
-extern crate criterion;
-
 use criterion::*;
 
 use serde::{Deserialize, Serialize};
-use serde_json;
 
-use adblock;
 use adblock::utils::rules_from_lists;
 use adblock::lists::FilterFormat;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
-use adblock::url_parser::UrlParser;
+use adblock::url_parser::parse_url;
 use adblock::engine::Engine;
 
 #[allow(non_snake_case)]
@@ -283,13 +279,13 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
         let url_norm = r.url.to_ascii_lowercase();
         let source_url_norm = r.frameUrl.to_ascii_lowercase();
 
-        let maybe_parsed_url = Request::parse_url(&url_norm);
+        let maybe_parsed_url = parse_url(&url_norm);
         if maybe_parsed_url.is_none() {
             return Err("bad url");
         }
         let parsed_url = maybe_parsed_url.unwrap();
 
-        let maybe_parsed_source = Request::parse_url(&source_url_norm);
+        let maybe_parsed_source = parse_url(&source_url_norm);
 
         if maybe_parsed_source.is_none() {
             Ok((

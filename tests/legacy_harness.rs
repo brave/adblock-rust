@@ -1,5 +1,3 @@
-extern crate adblock;
-
 mod legacy_test_filters {
     use adblock::filters::network::NetworkFilter;
     use adblock::filters::network::NetworkMatchable;

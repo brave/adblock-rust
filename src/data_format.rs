@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use flate2::Compression;
-use rmps;
+use rmp_serde as rmps;
 
 use crate::blocker::{Blocker, NetworkFilterList};
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};

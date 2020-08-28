@@ -1,4 +1,3 @@
-
 [package]
 name = "adblock"
 version = "0.3.2"
@@ -25,8 +24,6 @@ features = ["default-docs-rs"]
 addr = { version = "0.2", optional = true }
 url = "2.1"
 percent-encoding = "2.1"
-matches = "0.1"
-lazy_static = "1.4"
 once_cell = "1.4"
 regex = "1"
 bitflags = "1.2"
@@ -38,7 +35,6 @@ seahash = "3"
 twoway = "0.2"
 base64 = "0.10"
 rmp-serde = "0.13.7"    # rmp-serde 0.14.0 breaks deserialization by changing how enums are deserialized
-hashbrown = { version = "0.6", features = ["serde"] }
 lifeguard = { version = "0.6", optional = true }
 cssparser = { version = "0.25", optional = true }
 selectors = { version = "0.21", optional = true }

@@ -1,17 +1,13 @@
-extern crate adblock;
-
 use adblock::engine::Engine;
 use adblock::lists::FilterFormat;
 use adblock::utils::rules_from_lists;
 
 use serde::Deserialize;
+
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 use std::io::BufReader;
-
-use std::collections::HashMap;
-
-use csv;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]

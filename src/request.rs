@@ -1,7 +1,6 @@
 use crate::url_parser;
 use crate::utils;
 
-use idna;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, PartialEq, Debug)]
