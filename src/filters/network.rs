@@ -1000,7 +1000,10 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
             // Examples (filter_hostname, hostname):
             //   * (foo, foo.com)
             //   * (sub.foo, sub.foo.com)
-            wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.')
+            wildcard_filter_hostname
+                || filter_hostname.ends_with('.')
+                || hostname[filter_hostname_len..].starts_with('.')
+                || hostname[filter_hostname_len..].starts_with(':')
         } else if match_index == hostname_len - filter_hostname_len {
             // `filter_hostname` is a suffix of `hostname`.
             //
@@ -1010,8 +1013,12 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
             filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
         } else {
             // `filter_hostname` is infix of `hostname` and needs match full labels
-            (wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
-                && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
+            (wildcard_filter_hostname
+                || filter_hostname.ends_with('.')
+                || hostname[filter_hostname_len..].starts_with('.')
+                || hostname[match_index + filter_hostname_len..].starts_with(':'))
+                && (filter_hostname.starts_with('.')
+                    || hostname[match_index - 1..].starts_with('.'))
         }
     }
     else {
@@ -1148,6 +1155,15 @@ fn check_pattern_hostname_right_anchor_filter(
                     // positive like ||foo.bar which would match https://foo.bar.baz where
                     // ||foo.bar^ would not.
                     FilterPart::Empty => {
+                        // If the filter has a port number, we should check if the request exactly matches.
+                        // If the filter has no port number, we should check whether the host name part of the request matches.
+                        if !twoway::find_str(&hostname, ":").is_some() {
+                            if let Some(request_colon_index) = twoway::find_str(&request.hostname, ":") {
+                                return request.hostname[..request_colon_index].len() == hostname.len()        
+                                    || request.hostname[..request_colon_index].ends_with(hostname)
+                            } 
+                        }
+                        
                         request.hostname.len() == hostname.len()        // if lengths are equal, hostname equality is implied by anchoring check
                             || request.hostname.ends_with(hostname)
                     }
@@ -2723,6 +2739,55 @@ mod match_tests {
         filter_match_url("||*com/bar", "https://foo.com/bar", true);
         filter_match_url("||*com*/bar", "https://foo.com/bar", true);
         filter_match_url("||*com*^bar", "https://foo.com/bar", true);
+    }
+
+    #[test]
+    fn check_host_with_port_works() {
+        filter_match_url(
+            "||2008xxx.com:888",
+            "https://www.2008xxx.com:888/a/a.html",
+            true,
+        );
+        filter_match_url(
+            "||test.com:8080/test",
+            "https://test.com:8080/test/1.jpg",
+            true,
+        );
+        filter_match_url(
+            "||test.com:8081/test",
+            "https://test.com:8080/test/1.jpg",
+            false,
+        );
+        filter_match_url(
+            "||2008xxx.com^",
+            "https://www.2008xxx.com:888/a/a.html",
+            true,
+        );
+        filter_match_url(
+            "||2008xxx.com:8^",
+            "https://www.2008xxx.com:888/a/a.html",
+            false,
+        );
+        filter_match_url(
+            "||2008xxx.com:8^",
+            "https://www.2008xxx.com:8/a/a.html",
+            true,
+        );
+        filter_match_url(
+            "||2008xxx.com",
+            "https://www.2008xxx.com.cn:888/a/a.html",
+            true,
+        );
+        filter_match_url(
+            "||2008xxx.com.cn:8",
+            "https://www.2008xxx.com.cn:8/a/a.html",
+            true,
+        );
+        filter_match_url(
+            "||2008xxx.com.cn:8/",
+            "https://www.2008xxx.com.cn:88/a/a.html",
+            false,
+        );
     }
 
     #[test]
