@@ -463,15 +463,41 @@ impl NetworkFilter {
                 let slash_index = twoway::find_str(&line[filter_index_start..], "/");
                 slash_index
                     .map(|i| {
-                        hostname = Some(String::from(
-                            &line[filter_index_start..filter_index_start + i],
-                        ));
-                        filter_index_start += i;
-                        mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
+                        // Handle filters with port number
+                        let colon_index = twoway::find_str(&line[filter_index_start..i], ":");
+                        colon_index
+                            .map(|c| {
+                                hostname = Some(String::from(
+                                    &line[filter_index_start..filter_index_start + c],
+                                ));
+                                filter_index_start += c;
+                            })
+                            .or_else(|| {
+                                hostname = Some(String::from(
+                                    &line[filter_index_start..filter_index_start + i],
+                                ));
+                                filter_index_start += i;
+                                mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
+                                None
+                            });
                     })
                     .or_else(|| {
-                        hostname = Some(String::from(&line[filter_index_start..filter_index_end]));
-                        filter_index_start = filter_index_end;
+                        // Handle filters with port number
+                        let colon_index =
+                            twoway::find_str(&line[filter_index_start..filter_index_end], ":");
+                        colon_index
+                            .map(|c| {
+                                hostname = Some(String::from(
+                                    &line[filter_index_start..filter_index_start + c],
+                                ));
+                                filter_index_start += c;
+                            })
+                            .or_else(|| {
+                                hostname =
+                                    Some(String::from(&line[filter_index_start..filter_index_end]));
+                                filter_index_start = filter_index_end;
+                                None
+                            });
                         None
                     });
             }
@@ -2840,6 +2866,20 @@ mod match_tests {
         filter_match_url("||*com/bar", "https://foo.com/bar", true);
         filter_match_url("||*com*/bar", "https://foo.com/bar", true);
         filter_match_url("||*com*^bar", "https://foo.com/bar", true);
+    }
+
+    #[test]
+    fn check_host_with_port_works() {
+        filter_match_url(
+            "||2008xxx.com:888",
+            "https://www.2008xxx.com:888/a/a.html",
+            true,
+        );
+        filter_match_url(
+            "||test.com:8080/test",
+            "https://test.com:8080/test/1.jpg",
+            true,
+        );
     }
 
     #[test]
