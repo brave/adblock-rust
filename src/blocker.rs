@@ -181,16 +181,13 @@ impl Blocker {
             .importants
             .check(request, &request_tokens, &NO_TAGS);
 
+        let redirect_filter = self.redirects.check(request, &request_tokens, &NO_TAGS);
+
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             #[cfg(feature = "metrics")]
             print!("tagged\t");
             self.filters_tagged.check(request, &request_tokens, &self.tags_enabled)
-                .or_else(|| {
-                    #[cfg(feature = "metrics")]
-                    print!("redirects\t");
-                    self.redirects.check(request, &request_tokens, &NO_TAGS)
-                })
                 .or_else(|| {
                     #[cfg(feature = "metrics")]
                     print!("filters\t");
@@ -229,7 +226,7 @@ impl Blocker {
         println!();
 
         // only match redirects if we have them set up
-        let redirect: Option<String> = filter.as_ref().and_then(|f| {
+        let redirect: Option<String> = redirect_filter.as_ref().and_then(|f| {
             // Filter redirect option is set
             if let Some(redirect) = f.redirect.as_ref() {
                 // And we have a matching redirect resource
@@ -248,7 +245,7 @@ impl Blocker {
         });
 
         // If something has already matched before but we don't know what, still return a match
-        let matched = exception.is_none() && (filter.is_some() || matched_rule);
+        let matched = exception.is_none() && (filter.is_some() || redirect_filter.is_some() || matched_rule);
         BlockerResult {
             matched,
             explicit_cancel: matched && filter.is_some() && filter.as_ref().map(|f| f.is_explicit_cancel()).unwrap_or_else(|| false),
