@@ -119,8 +119,7 @@ impl Optimization for SimplePatternGroup {
         format!("{:b}:{:?}", filter.mask, filter.is_complete_regex())
     }
     fn select(&self, filter: &NetworkFilter) -> bool {
-        !filter.is_fuzzy()
-            && filter.opt_domains.is_none()
+        filter.opt_domains.is_none()
             && filter.opt_not_domains.is_none()
             && !filter.is_hostname_anchor()
             && !filter.is_redirect()
@@ -185,8 +184,7 @@ impl Optimization for UnionDomainGroup {
     }
 
     fn select(&self, filter: &NetworkFilter) -> bool {
-        !filter.is_fuzzy()
-            && !filter.is_csp()
+        !filter.is_csp()
             && !filter.has_bug()
             && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
     }
