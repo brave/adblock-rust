@@ -158,6 +158,10 @@ impl FilterSet {
 
         other_rules.append(&mut ignore_previous_rules);
 
+        if rule_types.loads_network_rules() {
+            other_rules.push(content_blocking::ignore_previous_fp_documents());
+        }
+
         Ok((other_rules, filters_used))
     }
 }
