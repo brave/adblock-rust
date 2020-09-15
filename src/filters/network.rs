@@ -95,38 +95,6 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum CompiledRegex {
-    Compiled(Regex),
-    CompiledSet(RegexSet),
-    MatchAll,
-    RegexParsingError(regex::Error),
-}
-
-impl CompiledRegex {
-    pub fn is_match(&self, pattern: &str) -> bool {
-        match &self {
-            CompiledRegex::MatchAll => true, // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => false, // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => r.is_match(pattern),
-            CompiledRegex::CompiledSet(r) => {
-                // let matches: Vec<_> = r.matches(pattern).into_iter().collect();
-                // println!("Matching {} against RegexSet: {:?}", pattern, matches);
-                r.is_match(pattern)
-            }
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        match &self {
-            CompiledRegex::MatchAll => String::from(".*"), // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => String::from("ERROR"), // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => String::from(r.as_str()),
-            CompiledRegex::CompiledSet(r) => r.patterns().join(" | "),
-        }
-    }
-}
-
 impl fmt::Display for NetworkFilterMask {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:b}", &self)
@@ -153,6 +121,40 @@ impl From<&request::RequestType> for NetworkFilterMask {
             request::RequestType::Websocket => NetworkFilterMask::FROM_WEBSOCKET,
             request::RequestType::Xlst => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Xmlhttprequest => NetworkFilterMask::FROM_XMLHTTPREQUEST,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum CompiledRegex {
+    Compiled(Regex),
+    CompiledSet(RegexSet),
+    MatchAll,
+    RegexParsingError(regex::Error),
+}
+
+impl CompiledRegex {
+    pub fn is_match(&self, pattern: &str) -> bool {
+        match &self {
+            CompiledRegex::MatchAll => true, // simple case for matching everything, e.g. for empty filter
+            CompiledRegex::RegexParsingError(_e) => false, // no match if regex didn't even compile
+            CompiledRegex::Compiled(r) => r.is_match(pattern),
+            CompiledRegex::CompiledSet(r) => {
+                // let matches: Vec<_> = r.matches(pattern).into_iter().collect();
+                // println!("Matching {} against RegexSet: {:?}", pattern, matches);
+                r.is_match(pattern)
+            }
+        }
+    }
+}
+
+impl fmt::Display for CompiledRegex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            CompiledRegex::MatchAll => write!(f, ".*"), // simple case for matching everything, e.g. for empty filter
+            CompiledRegex::RegexParsingError(_e) => write!(f, "ERROR"), // no match if regex didn't even compile
+            CompiledRegex::Compiled(r) => write!(f, "{}", r.as_str()),
+            CompiledRegex::CompiledSet(r) => write!(f, "{}", r.patterns().join(" | ")),
         }
     }
 }
@@ -274,7 +276,7 @@ impl NetworkFilter {
                         let mut option_values: Vec<&str> = value.split('|').collect();
                         // Some rules have duplicate domain options - avoid including duplicates
                         // Benchmarking doesn't indicate signficant performance degradation across the entire easylist
-                        option_values.sort();
+                        option_values.sort_unstable();
                         option_values.dedup();
                         let mut opt_domains_array: Vec<Hash> = vec![];
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
@@ -291,12 +293,12 @@ impl NetworkFilter {
                         }
 
                         if !opt_domains_array.is_empty() {
-                            opt_domains_array.sort();
+                            opt_domains_array.sort_unstable();
                             opt_domains_union = Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
-                            opt_not_domains_array.sort();
+                            opt_not_domains_array.sort_unstable();
                             opt_not_domains_union = Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_not_domains = Some(opt_not_domains_array);
                         }
@@ -557,10 +559,8 @@ impl NetworkFilter {
             Ok(hostname)
         }).transpose();
 
-        if mask.contains(NetworkFilterMask::GENERIC_HIDE) {
-            if !mask.contains(NetworkFilterMask::IS_EXCEPTION) {
-                return Err(NetworkFilterError::GenericHideWithoutException);
-            }
+        if mask.contains(NetworkFilterMask::GENERIC_HIDE) && !mask.contains(NetworkFilterMask::IS_EXCEPTION) {
+            return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
         Ok(NetworkFilter {
@@ -622,21 +622,14 @@ impl NetworkFilter {
         NetworkFilter::parse(&hostname, debug)
     }
 
-    pub fn to_string(&self) -> String {
-        match self.raw_line.as_ref() {
-            Some(r) => r.clone(),
-            None => String::from(""),
-        }
-    }
-
     pub fn get_id_without_badfilter(&self) -> Hash {
         let mut mask = self.mask;
         mask.set(NetworkFilterMask::BAD_FILTER, false);
         compute_filter_id(
-            self.csp.as_ref().map(String::as_str),
+            self.csp.as_deref(),
             mask,
-            self.filter.string_view().as_ref().map(|s| s.as_str()),
-            self.hostname.as_ref().map(String::as_str),
+            self.filter.string_view().as_deref(),
+            self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
         )
@@ -644,10 +637,10 @@ impl NetworkFilter {
 
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.csp.as_ref().map(String::as_str),
+            self.csp.as_deref(),
             self.mask,
-            self.filter.string_view().as_ref().map(|s| s.as_str()),
-            self.hostname.as_ref().map(String::as_str),
+            self.filter.string_view().as_deref(),
+            self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
         )
@@ -799,6 +792,15 @@ impl NetworkFilter {
 
     fn for_https(&self) -> bool {
         self.mask.contains(NetworkFilterMask::FROM_HTTPS)
+    }
+}
+
+impl fmt::Display for NetworkFilter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self.raw_line.as_ref() {
+            Some(r) => write!(f, "{}", r.clone()),
+            None => write!(f, "NetworkFilter"),
+        }
     }
 }
 

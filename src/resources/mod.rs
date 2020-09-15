@@ -85,7 +85,7 @@ impl MimeType {
                 }
             }
         } else {
-            return MimeType::Unknown
+            MimeType::Unknown
         }
     }
 }

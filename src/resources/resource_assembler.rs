@@ -38,7 +38,7 @@ struct ResourceProperties {
     data: Option<String>,
 }
 
-const REDIRECTABLE_RESOURCES_DECLARATION: &'static str = "const redirectableResources = new Map([";
+const REDIRECTABLE_RESOURCES_DECLARATION: &str = "const redirectableResources = new Map([";
 
 /// Reads data from a a file in the format of uBlock Origin's `redirect-engine.js` file to
 /// determine the files in the `web_accessible_resources` directory, as well as any of their

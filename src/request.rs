@@ -232,7 +232,7 @@ impl<'a> Request {
                 ))
             }
         } else {
-            return Err(RequestError::HostnameParseError);
+            Err(RequestError::HostnameParseError)
         }
     }
 

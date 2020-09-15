@@ -256,7 +256,7 @@ pub fn parse_filter(
                 return Err(FilterParseError::Unsupported);
             }
             // Discard contents after first `#` character
-            let filter = if let Some(hash_loc) = filter.find("#") {
+            let filter = if let Some(hash_loc) = filter.find('#') {
                 let filter = &filter[..hash_loc];
                 let filter = filter.trim();
 

@@ -54,7 +54,7 @@ impl ScriptletResource {
     /// Omit the 0th element of `args` (the scriptlet name) when calling this method.
     fn patch<'a>(&self, args: &[Cow<'a, str>]) -> String {
         let mut scriptlet = self.scriptlet.to_owned();
-        args.into_iter().enumerate().for_each(|(i, arg)| {
+        args.iter().enumerate().for_each(|(i, arg)| {
             scriptlet = TEMPLATE_ARGUMENT_RE[i].replace(&scriptlet, arg as &str).to_string();
         });
         scriptlet
@@ -86,17 +86,17 @@ impl ScriptletResourceStorage {
             _ => None
         };
 
-        scriptlet.map(|(name, res_aliases, resource)| {
+        if let Some((name, res_aliases, resource)) = scriptlet {
             res_aliases.iter().for_each(|alias| {
                 self.resources.insert(without_js_extension(alias).to_owned(), resource.clone());
             });
             self.resources.insert(without_js_extension(&name).to_owned(), resource);
-        });
+        };
 
         Ok(())
     }
 
-    pub fn get_scriptlet<'a>(&self, scriptlet_args: &str) -> Result<String, ScriptletResourceError> {
+    pub fn get_scriptlet(&self, scriptlet_args: &str) -> Result<String, ScriptletResourceError> {
         let scriptlet_args = parse_scriptlet_args(scriptlet_args);
         if scriptlet_args.is_empty() {
             return Err(ScriptletResourceError::MissingScriptletName);

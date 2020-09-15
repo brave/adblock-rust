@@ -63,7 +63,7 @@ pub enum CosmeticFilterLocationType {
 
 impl CosmeticFilter {
     #[inline]
-    pub fn locations_before_sharp<'a>(line: &'a str, sharp_index: usize) -> impl Iterator<Item=(CosmeticFilterLocationType, &'a str)> {
+    pub fn locations_before_sharp(line: &str, sharp_index: usize) -> impl Iterator<Item=(CosmeticFilterLocationType, &str)> {
         line[0..sharp_index].split(',').filter_map(|part| {
             if part.is_empty() {
                 return None;
@@ -210,7 +210,7 @@ impl CosmeticFilter {
             let after_sharp_index = sharp_index + 1;
             let mut suffix_start_index = after_sharp_index + 1;
 
-            if line[after_sharp_index..].starts_with("@") {
+            if line[after_sharp_index..].starts_with('@') {
                 if sharp_index == 0 {
                     return Err(CosmeticFilterError::GenericUnhide);
                 }
@@ -236,11 +236,11 @@ impl CosmeticFilter {
 
             let mut selector = &line[suffix_start_index..];
 
-            if selector.trim().len() == 0 {
+            if selector.trim().is_empty() {
                 return Err(CosmeticFilterError::EmptyRule);
             }
             let mut style = None;
-            if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") && line.ends_with(")") {
+            if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") && line.ends_with(')') {
                 if sharp_index == 0 {
                     return Err(CosmeticFilterError::GenericScriptInject);
                 }
@@ -536,7 +536,7 @@ fn key_from_selector(selector: &str) -> Result<String, CosmeticFilterError> {
     let mat = RE_PLAIN_SELECTOR.find(selector);
     if let Some(location) = mat {
         let key = &location.as_str();
-        if key.find("\\").is_none() {
+        if key.find('\\').is_none() {
             return Ok((*key).into());
         }
     } else {
@@ -570,7 +570,7 @@ fn key_from_selector(selector: &str) -> Result<String, CosmeticFilterError> {
                     .to_string();
             }
         }
-        Ok(String::from(key) + &escaped[beginning..])
+        Ok(key + &escaped[beginning..])
     } else {
         Err(CosmeticFilterError::InvalidCssSelector)
     }

@@ -179,10 +179,8 @@ impl CosmeticFilterCache {
         let mut complex_selectors = vec![];
 
         classes.iter().for_each(|class| {
-            if self.simple_class_rules.contains(class) {
-                if !exceptions.contains(&format!(".{}", class)) {
-                    simple_classes.push(class);
-                }
+            if self.simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
+                simple_classes.push(class);
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
                 complex_selectors.extend(bucket.iter().filter(|sel| {
@@ -191,10 +189,8 @@ impl CosmeticFilterCache {
             }
         });
         ids.iter().for_each(|id| {
-            if self.simple_id_rules.contains(id) {
-                if !exceptions.contains(&format!("#{}", id)) {
-                    simple_ids.push(id);
-                }
+            if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
+                simple_ids.push(id);
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
                 complex_selectors.extend(bucket.iter().filter(|sel| {
@@ -370,7 +366,7 @@ impl HostnameRuleDb {
         if let Some(bucket) = self.db.get_mut(hostname) {
             bucket.push(kind);
         } else {
-            self.db.insert(hostname.clone(), vec![kind]);
+            self.db.insert(*hostname, vec![kind]);
         }
     }
 
