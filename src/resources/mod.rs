@@ -6,7 +6,7 @@
 pub mod resource_assembler;
 
 mod scriptlet_resource_storage;
-pub use scriptlet_resource_storage::ScriptletResourceStorage;
+pub(crate) use scriptlet_resource_storage::ScriptletResourceStorage;
 
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;

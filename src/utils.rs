@@ -1,3 +1,6 @@
+//! Common utilities used by the library. Some tests and benchmarks rely on this module having
+//! public visibility.
+
 #[cfg(not(target_arch = "wasm32"))]
 use std::io::{BufRead, BufReader};
 #[cfg(not(target_arch = "wasm32"))]
@@ -19,8 +22,8 @@ fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
-pub const TOKENS_BUFFER_SIZE: usize = 128;
-pub const TOKENS_BUFFER_RESERVED: usize = 1;
+pub(crate) const TOKENS_BUFFER_SIZE: usize = 128;
+pub(crate) const TOKENS_BUFFER_RESERVED: usize = 1;
 const TOKENS_MAX: usize = TOKENS_BUFFER_SIZE - TOKENS_BUFFER_RESERVED;
 
 fn fast_tokenizer_no_regex(
@@ -106,7 +109,7 @@ fn fast_tokenizer(
     }
 }
 
-pub fn tokenize_pooled(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
+pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }
 
@@ -117,7 +120,7 @@ pub fn tokenize(pattern: &str) -> Vec<Hash> {
 }
 
 
-pub fn tokenize_filter(pattern: &str, skip_first_token: bool, skip_last_token: bool) -> Vec<Hash> {
+pub(crate) fn tokenize_filter(pattern: &str, skip_first_token: bool, skip_last_token: bool) -> Vec<Hash> {
     let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, skip_first_token, skip_last_token, &mut tokens_buffer);
     tokens_buffer
@@ -128,7 +131,7 @@ fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
     tokens.dedup();
 }
 
-pub fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
+pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
 
@@ -156,7 +159,7 @@ pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
     rules
 }
 
-pub fn is_eof_error(e: &rmp_serde::decode::Error) -> bool {
+pub(crate) fn is_eof_error(e: &rmp_serde::decode::Error) -> bool {
     if let rmp_serde::decode::Error::InvalidMarkerRead(e) = e {
         if e.kind() == std::io::ErrorKind::UnexpectedEof {
             if let Some(e) = e.get_ref() {

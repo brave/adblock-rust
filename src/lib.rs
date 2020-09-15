@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 // Own modules, currently everything is exposed, will need to limit
+#[doc(hidden)]
 pub mod utils;
 pub mod request;
 pub mod lists;
