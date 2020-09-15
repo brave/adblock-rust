@@ -556,4 +556,25 @@ mod tests {
             assert_eq!(result.generichide, expected_generichide);
         });
     }
+
+    #[test]
+    fn important_redirect() {
+        let mut filter_set = FilterSet::new(true);
+        filter_set.add_filters(&vec![
+            "||addthis.com^$important,3p,domain=~missingkids.com|~missingkids.org|~sainsburys.jobs|~sitecore.com|~amd.com".to_string(),
+            "||addthis.com/*/addthis_widget.js$script,redirect=addthis.com/addthis_widget.js".to_string(),
+        ], FilterFormat::Standard);
+        let mut engine = Engine::from_filter_set(filter_set, false);
+
+        engine.add_resource(Resource {
+            name: "addthis.com/addthis_widget.js".to_owned(),
+            aliases: vec![],
+            kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+            content: "window.addthis = undefined".to_string(),
+        });
+
+        let result = engine.check_network_urls("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script");
+
+        assert!(result.redirect.is_some());
+    }
 }
