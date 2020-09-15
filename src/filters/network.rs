@@ -48,7 +48,7 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const FUZZY_MATCH = 1 << 15;
+        const _FUZZY_MATCH = 1 << 15;    // Unused
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const EXPLICIT_CANCEL = 1 << 26;
@@ -189,7 +189,8 @@ pub struct NetworkFilter {
     pub raw_line: Option<String>,
 
     pub id: Hash,
-    pub fuzzy_signature: Option<Vec<Hash>>,
+    // Unused, kept to retain backwards-compatibility
+    _fuzzy_signature: Option<Vec<Hash>>,
 
     // All domain option values (their hashes) OR'ed together to quickly dismiss mis-matches
     pub opt_domains_union: Option<Hash>,
@@ -319,7 +320,6 @@ impl NetworkFilter {
                     ("first-party", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     ("1p", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
                     ("1p", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
-                    ("fuzzy", _) => mask.set(NetworkFilterMask::FUZZY_MATCH, true),
                     ("collapse", _) => {}
                     ("bug", _) => bug = value.parse::<u32>().ok(),
                     ("tag", false) => tag = Some(String::from(value)),
@@ -557,12 +557,6 @@ impl NetworkFilter {
             Ok(hostname)
         }).transpose();
 
-        let maybe_fuzzy_signature = if mask.contains(NetworkFilterMask::FUZZY_MATCH) {
-            filter.as_ref().map(|f| utils::create_fuzzy_signature(f))
-        } else {
-            None
-        };
-
         if mask.contains(NetworkFilterMask::GENERIC_HIDE) {
             if !mask.contains(NetworkFilterMask::IS_EXCEPTION) {
                 return Err(NetworkFilterError::GenericHideWithoutException);
@@ -589,7 +583,7 @@ impl NetworkFilter {
             },
             redirect,
             id: utils::fast_hash(&line),
-            fuzzy_signature: maybe_fuzzy_signature,
+            _fuzzy_signature: None,
             opt_domains_union,
             opt_not_domains_union,
             regex: Arc::new(RwLock::new(None))
@@ -659,24 +653,6 @@ impl NetworkFilter {
         )
     }
 
-    pub fn get_fuzzy_signature(&mut self) -> &Vec<Hash> {
-        if self.fuzzy_signature.is_none() {
-            if !self.is_fuzzy() {
-                self.fuzzy_signature = Some(vec![]);
-            } else {
-
-            }
-            self.fuzzy_signature = match &self.filter {
-                FilterPart::Empty => Some(vec![]),
-                FilterPart::Simple(filter) => Some(utils::create_fuzzy_signature(&filter)),
-                FilterPart::AnyOf(filters) => {
-                    Some(utils::create_combined_fuzzy_signature(&filters))
-                }
-            }
-        }
-        self.fuzzy_signature.as_ref().unwrap()
-    }
-
     pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
         let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
 
@@ -698,7 +674,7 @@ impl NetworkFilter {
             FilterPart::Simple(f) => {
                 if !self.is_complete_regex() {
                     let skip_last_token =
-                        (self.is_plain() || self.is_regex()) && !self.is_right_anchor() && !self.is_fuzzy();
+                        (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
                     let skip_first_token = self.is_right_anchor();
 
                     let mut filter_tokens =
@@ -743,10 +719,6 @@ impl NetworkFilter {
 
     fn get_cpt_mask(&self) -> NetworkFilterMask {
         self.mask & NetworkFilterMask::FROM_ANY
-    }
-
-    pub fn is_fuzzy(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::FUZZY_MATCH)
     }
 
     pub fn is_exception(&self) -> bool {
@@ -1055,31 +1027,6 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 // Filter matching
 // ---------------------------------------------------------------------------
 
-// pattern$fuzzy
-fn check_pattern_fuzzy_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    filter
-        .fuzzy_signature
-        .as_ref()
-        .map(|signature| {
-            let request_signature = request.get_fuzzy_signature();
-
-            if signature.len() > request_signature.len() {
-                return false;
-            }
-
-            for filter_token in signature {
-                // Find the occurrence of `c` in `request_signature`
-                // Can assume fuzzy signatures are sorted
-                if request_signature.binary_search(filter_token).is_err() {
-                    return false;
-                }
-            }
-
-            true
-        })
-        .unwrap_or(true) // corner case of rulle having fuzzy option but no filter
-}
-
 // pattern
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
@@ -1321,24 +1268,6 @@ fn check_pattern_hostname_anchor_filter(
         .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
 }
 
-// ||pattern$fuzzy
-fn check_pattern_hostname_anchor_fuzzy_filter(
-    filter: &NetworkFilter,
-    request: &request::Request,
-) -> bool {
-    filter
-        .hostname
-        .as_ref()
-        .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
-                check_pattern_fuzzy_filter(filter, request)
-            } else {
-                false
-            }
-        })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
-}
-
 /// Efficiently checks if a certain network filter matches against a network
 /// request.
 fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
@@ -1349,8 +1278,6 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
             check_pattern_hostname_left_right_anchor_filter(filter, request)
         } else if filter.is_right_anchor() {
             check_pattern_hostname_right_anchor_filter(filter, request)
-        } else if filter.is_fuzzy() {
-            check_pattern_hostname_anchor_fuzzy_filter(filter, request)
         } else if filter.is_left_anchor() {
             check_pattern_hostname_left_anchor_filter(filter, request)
         } else {
@@ -1364,8 +1291,6 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
         check_pattern_left_anchor_filter(filter, request)
     } else if filter.is_right_anchor() {
         check_pattern_right_anchor_filter(filter, request)
-    } else if filter.is_fuzzy() {
-        check_pattern_fuzzy_filter(filter, request)
     } else {
         check_pattern_plain_filter_filter(filter, request)
     }
@@ -1448,7 +1373,6 @@ mod parse_tests {
         redirect: Option<String>,
 
         // filter type
-        is_fuzzy: bool,
         is_exception: bool,
         is_hostname_anchor: bool,
         is_right_anchor: bool,
@@ -1489,7 +1413,6 @@ mod parse_tests {
                 redirect: filter.redirect.as_ref().cloned(),
 
                 // filter type
-                is_fuzzy: filter.is_fuzzy(),
                 is_exception: filter.is_exception(),
                 is_hostname_anchor: filter.is_hostname_anchor(),
                 is_right_anchor: filter.is_right_anchor(),
@@ -1531,7 +1454,6 @@ mod parse_tests {
             redirect: None,
 
             // filter type
-            is_fuzzy: false,
             is_exception: false,
             is_hostname_anchor: false,
             is_right_anchor: false,
@@ -2682,26 +2604,6 @@ mod match_tests {
     }
 
     #[test]
-    // pattern$fuzzy
-    fn check_pattern_fuzzy_filter_works() {
-        filter_match_url("f$fuzzy", "https://bar.com/f", true);
-        filter_match_url("foo$fuzzy", "https://bar.com/foo", true);
-        filter_match_url("foo$fuzzy", "https://bar.com/foo/baz", true);
-        filter_match_url("foo/bar$fuzzy", "https://bar.com/foo/baz", true);
-        filter_match_url("foo bar$fuzzy", "https://bar.com/foo/baz", true);
-        filter_match_url("foo bar baz$fuzzy", "http://bar.foo.baz", true);
-
-        filter_match_url("foo bar baz 42$fuzzy", "http://bar.foo.baz", false);
-
-        // Fast-path for when pattern is longer than the URL
-        filter_match_url("foo bar baz 42 43$fuzzy", "http://bar.foo.baz", false);
-
-        // No fuzzy signature, matches every URL?
-        filter_match_url("+$fuzzy", "http://bar.foo.baz", true);
-        filter_match_url("$fuzzy", "http://bar.foo.baz", true);
-    }
-
-    #[test]
     // ||pattern
     fn check_pattern_hostname_anchor_filter_works() {
         filter_match_url("||foo.com", "https://foo.com/bar", true);
@@ -2738,27 +2640,6 @@ mod match_tests {
         hosts_filter_match_url("bar.baz.com", "https://foo-bar.baz.com/bar", false);
         hosts_filter_match_url("foo.com", "https://foo.de", false);
         hosts_filter_match_url("foo.com", "https://bar.foo.de", false);
-    }
-
-    #[test]
-    // ||pattern$fuzzy
-    fn check_pattern_hostname_anchor_fuzzy_filter_works() {
-        let network_filter = NetworkFilter::parse("||bar.foo/baz$fuzzy", true).unwrap();
-        let request = request::Request::from_url("http://bar.foo/baz").unwrap();
-        assert_eq!(network_filter.matches(&request), true);
-        // Same result when fuzzy signature is cached
-        assert_eq!(network_filter.matches(&request), true);
-
-        filter_match_url("||bar.foo/baz$fuzzy", "http://bar.foo/id/baz", true);
-        filter_match_url("||bar.foo/baz$fuzzy", "http://bar.foo?id=42&baz=1", true);
-        filter_match_url("||foo.com/id bar$fuzzy", "http://foo.com?bar&id=42", true);
-
-        filter_match_url("||bar.com/id bar$fuzzy", "http://foo.com?bar&id=42", false);
-        filter_match_url(
-            "||bar.com/id bar baz foo 42 id$fuzzy",
-            "http://foo.com?bar&id=42",
-            false,
-        );
     }
 
     #[test]

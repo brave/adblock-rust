@@ -67,7 +67,6 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
             rule.mask.remove(NetworkFilterMask::IS_HOSTNAME_REGEX);
             rule.mask.remove(NetworkFilterMask::IS_REGEX);
             rule.mask.remove(NetworkFilterMask::IS_COMPLETE_REGEX);
-            rule.mask.remove(NetworkFilterMask::FUZZY_MATCH);
 
             rule
         })

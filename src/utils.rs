@@ -134,25 +134,6 @@ fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
     tokens.dedup();
 }
 
-
-pub fn create_fuzzy_signature(pattern: &str) -> Vec<Hash> {
-    let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
-    fast_tokenizer(pattern, &is_allowed_filter, false, false, &mut tokens);
-    compact_tokens(&mut tokens);
-    tokens
-}
-
-
-pub fn create_combined_fuzzy_signature(patterns: &[String]) -> Vec<Hash> {
-    let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
-    for p in patterns {
-        fast_tokenizer(p, &is_allowed_filter, false, false, &mut tokens);
-    }
-
-    compact_tokens(&mut tokens);
-    tokens
-}
-
 pub fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
@@ -299,16 +280,6 @@ mod tests {
             tokenize("*foo.barƬ*").as_slice(),
             t(&vec![]).as_slice()
         );
-    }
-
-    #[test]
-    fn create_fuzzy_signature_works() {
-        assert_eq!(create_fuzzy_signature("").as_slice(), t(&vec![]).as_slice());
-        let mut tokens = t(&vec!["bar", "foo"]);
-        tokens.sort_unstable();
-        assert_eq!(create_fuzzy_signature("foo bar").as_slice(), tokens.as_slice());
-        assert_eq!(create_fuzzy_signature("bar foo").as_slice(), tokens.as_slice());
-        assert_eq!(create_fuzzy_signature("foo bar foo foo").as_slice(), tokens.as_slice());
     }
 
     #[test]

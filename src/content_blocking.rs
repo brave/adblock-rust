@@ -126,8 +126,6 @@ pub enum CbRuleCreationFailure {
     NoSupportedNetworkOptions(NetworkFilterMask),
     /// Network rules with redirect options cannot be represented in content blocking syntax.
     NetworkRedirectUnsupported,
-    /// Network rules with fuzzy matching options cannot be represented in content blocking syntax.
-    NetworkFuzzyMatchUnsupported,
     /// Network rules with generichide options cannot be supported in content blocking syntax.
     NetworkGenerichideUnsupported,
     /// Network rules with explicitcancel options cannot be supported in content blocking syntax.
@@ -220,9 +218,6 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
         if let Some(raw_line) = v.raw_line {
             if v.redirect.is_some() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
-            }
-            if v.mask.contains(NetworkFilterMask::FUZZY_MATCH) {
-                return Err(CbRuleCreationFailure::NetworkFuzzyMatchUnsupported);
             }
             if v.mask.contains(NetworkFilterMask::GENERIC_HIDE) {
                 return Err(CbRuleCreationFailure::NetworkGenerichideUnsupported);

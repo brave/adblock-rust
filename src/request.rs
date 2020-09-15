@@ -3,8 +3,6 @@
 use crate::url_parser;
 use crate::utils;
 
-use std::sync::{Arc, RwLock};
-
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
     Beacon,
@@ -85,7 +83,6 @@ pub struct Request {
 
     // mutable fields, set later
     pub bug: Option<u32>,
-    fuzzy_signature: Arc<RwLock<Option<Vec<utils::Hash>>>>, // evaluated lazily
     hostname_end: usize
 }
 
@@ -99,21 +96,6 @@ impl<'a> Request {
 
     pub fn url_after_hostname(&self) -> &str {
         &self.url[self.hostname_end..]
-    }
-
-    pub fn get_fuzzy_signature(&self) -> Vec<utils::Hash> {
-        {
-            let signature_cache = self.fuzzy_signature.read().unwrap();
-            if signature_cache.is_some() {
-                return signature_cache.as_ref().unwrap().clone();
-            }
-        }
-        {
-            let mut signature_cache = self.fuzzy_signature.write().unwrap();
-            let signature = utils::create_fuzzy_signature(&self.url);
-            *signature_cache = Some(signature);
-        }
-        self.get_fuzzy_signature()
     }
 
     pub fn new(
@@ -208,7 +190,6 @@ impl<'a> Request {
             is_https,
             is_supported,
             bug: None,
-            fuzzy_signature: Arc::new(RwLock::new(None)),
             hostname_end
         }
     }
@@ -410,25 +391,6 @@ mod tests {
         let mut tokens: Vec<_> = tokens.into_iter().map(|t| utils::fast_hash(&t)).collect();
         tokens.extend(extra_tokens);
         tokens
-    }
-
-    #[test]
-    fn get_fuzzy_signature_works() {
-        let simple_example = Request::new(
-            "document",
-            "https://example.com/ad",
-            "https",
-            "example.com",
-            "example.com",
-            "example.com",
-            "example.com",
-        );
-        let mut tokens = tokenize(&["ad", "https", "com", "example"], &[]);
-        tokens.sort_unstable();
-        assert_eq!(
-            simple_example.get_fuzzy_signature().as_slice(),
-            tokens.as_slice()
-        )
     }
 
     #[test]

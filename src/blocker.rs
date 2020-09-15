@@ -932,36 +932,6 @@ mod tests {
     }
 
     #[test]
-    fn network_filter_list_check_works_fuzzy_filter() {
-        let filters = vec![
-            "f$fuzzy",
-            "foo$fuzzy",
-            "foo/bar$fuzzy",
-            "foo bar$fuzzy",
-            "foo bar baz$fuzzy",
-            "coo car caz 42$fuzzy",
-        ];
-
-        let url_results = vec![
-            ("https://bar.com/f", true),
-            ("https://bar.com/foo", true),
-            ("https://bar.com/foo/baz", true),
-            ("http://bar.foo.baz", true),
-            ("http://car.coo.caz.43", false),
-        ];
-
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .map(|(url, expected_result)| {
-                let request = Request::from_url(url).unwrap();
-                (request, expected_result)
-            })
-            .collect();
-
-        test_requests_filters(&filters, &request_expectations);
-    }
-
-    #[test]
     fn network_filter_list_check_works_hostname_anchor() {
         let filters = vec![
             "||foo.com",
