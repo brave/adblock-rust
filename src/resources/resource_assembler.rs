@@ -17,8 +17,6 @@ static MAP_END_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\}\s*\]"#).u
 //  ]);
 static MAP_END_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\]\s*\)"#).unwrap());
 
-static TEMPLATE_ARGUMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{\d\}\}").unwrap());
-static ESCAPE_SCRIPTLET_ARG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[\\'"]"#).unwrap());
 static TOP_COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap());
 static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap());
 

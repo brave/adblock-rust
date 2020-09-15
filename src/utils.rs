@@ -8,7 +8,6 @@ use seahash::reference::hash;
 use seahash::hash;
 
 pub type Hash = u64;
-static HASH_MAX: Hash = std::u64::MAX;
 
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
@@ -18,11 +17,6 @@ pub fn fast_hash(input: &str) -> Hash {
 #[inline]
 fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
-}
-
-#[inline]
-fn is_allowed_hostname(ch: char) -> bool {
-    is_allowed_filter(ch) || ch == '_' /* '_' */ || ch == '-' /* '-' */
 }
 
 pub const TOKENS_BUFFER_SIZE: usize = 128;
