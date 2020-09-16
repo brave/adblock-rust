@@ -2910,6 +2910,14 @@ mod match_tests {
             assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
             assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
         }
+        {
+            let network_filter = NetworkFilter::parse("adv$domain=com|~foo.com", true).unwrap();
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://foo.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.com", "").unwrap()) == false);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://bar.com", "").unwrap()) == true);
+            assert!(network_filter.matches(&request::Request::from_urls("http://example.net/adv", "http://co.uk", "").unwrap()) == false);
+        }
     }
 
     #[test]
