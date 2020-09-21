@@ -483,9 +483,17 @@ impl Parser {
         let mut has_ignored_chars = false;
         let mut non_ignored_chars = 0;
         let mut bytes = 0;
+        let mut has_port_number = false;
         for c in input_str.chars() {
             match c {
-                ':' if !inside_square_brackets => break,
+                ':' => {
+                    if !inside_square_brackets && has_port_number {
+                        break;
+                    }
+                    if !has_port_number {
+                        has_port_number = true;
+                    }
+                }
                 '\\' if scheme_type.is_special() => break,
                 '/' | '?' | '#' => break,
                 '\t' | '\n' | '\r' => {
