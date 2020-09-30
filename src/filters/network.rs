@@ -81,7 +81,8 @@ bitflags::bitflags! {
             Self::FROM_STYLESHEET.bits |
             Self::FROM_SUBDOCUMENT.bits |
             Self::FROM_WEBSOCKET.bits |
-            Self::FROM_XMLHTTPREQUEST.bits;
+            Self::FROM_XMLHTTPREQUEST.bits | 
+            Self::FROM_DOCUMENT.bits;
 
         // Unless filter specifies otherwise, all these options are set by default
         const DEFAULT_OPTIONS = Self::FROM_ANY.bits |
@@ -2943,6 +2944,23 @@ mod match_tests {
 
         filter_match_url("foo", "https://example.com/Ѥ/foo", true);
         filter_match_url("Ѥ", "https://example.com/Ѥ/foo", true);
+    }
+
+    #[test]
+    fn check_document_filter_works() {
+        {
+            let filter = "||abc.com$document";
+                let network_filter = NetworkFilter::parse(filter, true).unwrap();
+                let url = "https://abc.com/";
+                let source = "";
+                let request = request::Request::from_urls(url, source, "document").unwrap();
+                assert!(
+                    network_filter.matches(&request) == true,
+                    "Expected match for {} on {}",
+                    filter,
+                    url
+                );
+        }
     }
 
     #[test]
