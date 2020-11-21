@@ -35,7 +35,7 @@ seahash = "3"
 twoway = "0.2"
 base64 = "0.10"
 rmp-serde = "0.13.7"    # rmp-serde 0.14.0 breaks deserialization by changing how enums are deserialized
-lifeguard = { version = "0.6", optional = true }
+lifeguard = { version = "^ 0.6.1", optional = true }
 cssparser = { version = "0.25", optional = true }
 selectors = { version = "0.21", optional = true }
 serde_json = { version = "1.0", optional = true }
