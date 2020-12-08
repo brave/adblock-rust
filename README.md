@@ -83,3 +83,8 @@ Enabling the `content-blocking` feature gives `adblock-rust` support for convers
 ### External domain resolution
 
 By default, `adblock-rust` ships with a built-in domain resolution implementation (through the [addr](https://crates.io/crates/addr) crate) that will generally suffice for standalone use-cases. For more advanced use-cases, disabling the `embedded-domain-resolver` feature will allow `adblock-rust` to use an external domain resolution implementation instead. This is extremely useful to reduce binary bloat and improve consistency when embedding `adblock-rust` within a browser.
+
+### Parsing resources from uBlock Origin's formats
+
+`adblock-rust` uses uBlock Origin-compatible resources for scriptlet injection and redirect rules.
+The `resource-assembler` feature allows `adblock-rust` to parse these resources directly from the file formats used by the uBlock Origin repository.

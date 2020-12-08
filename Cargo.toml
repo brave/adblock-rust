@@ -87,4 +87,5 @@ object-pooling = ["lifeguard"]
 css-validation = ["cssparser", "selectors"]
 content-blocking = ["serde_json"]
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
+resource-assembler = []
 docs-rs-incompatible = ["embedded-domain-resolver"] # addr prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904

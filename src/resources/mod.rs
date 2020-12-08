@@ -3,6 +3,7 @@
 //! equivalents from remote servers. Resources also encompass scriptlets, which
 //! can be injected into pages to inhibit malicious behavior.
 
+#[cfg(feature = "resource-assembler")]
 pub mod resource_assembler;
 
 mod scriptlet_resource_storage;

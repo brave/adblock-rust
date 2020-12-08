@@ -80,8 +80,9 @@ fn check_specific_rules() {
         assert_eq!(checked.matched, true);
     }
 
+    #[cfg(feature = "resource-assembler")]
     {
-        // exceptions have not effect if important filter matches
+        // exceptions have no effect if important filter matches
         let mut engine = Engine::from_rules_debug(
             &[
                 String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),

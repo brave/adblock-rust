@@ -1,5 +1,4 @@
 use adblock::engine::Engine;
-use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
 use serde::Deserialize;
 use tokio::runtime::Runtime;
@@ -238,8 +237,11 @@ fn check_live_deserialized_ios() {
     }
 }
 
+#[cfg(feature = "resource_assembler")]
 #[test]
 fn check_live_redirects() {
+    use adblock::resources::resource_assembler::assemble_web_accessible_resources;
+
     let mut engine = get_blocker_engine();
     let redirect_engine_path = std::path::Path::new("data/test/fake-uBO-files/redirect-engine.js");
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
