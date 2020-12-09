@@ -151,8 +151,6 @@ pub enum CbRuleCreationFailure {
     NetworkRedirectUnsupported,
     /// Network rules with generichide options cannot be supported in content blocking syntax.
     NetworkGenerichideUnsupported,
-    /// Network rules with explicitcancel options cannot be supported in content blocking syntax.
-    NetworkExplicitCancelUnsupported,
     /// Network rules with badfilter options cannot be supported in content blocking syntax.
     NetworkBadFilterUnsupported,
     /// Network rules with csp options cannot be supported in content blocking syntax.
@@ -244,9 +242,6 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             }
             if v.mask.contains(NetworkFilterMask::GENERIC_HIDE) {
                 return Err(CbRuleCreationFailure::NetworkGenerichideUnsupported);
-            }
-            if v.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL) {
-                return Err(CbRuleCreationFailure::NetworkExplicitCancelUnsupported);
             }
             if v.mask.contains(NetworkFilterMask::BAD_FILTER) {
                 return Err(CbRuleCreationFailure::NetworkBadFilterUnsupported);
