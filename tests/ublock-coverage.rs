@@ -6,7 +6,6 @@ use serde::Deserialize;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::Path;
 use std::io::BufReader;
 
 #[allow(non_snake_case)]
@@ -82,6 +81,8 @@ fn check_specific_rules() {
 
     #[cfg(feature = "resource-assembler")]
     {
+        use std::path::Path;
+
         // exceptions have no effect if important filter matches
         let mut engine = Engine::from_rules_debug(
             &[

@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::resources::{MimeType, Resource, ResourceType};
+use crate::resources::{MimeType, Resource, ResourceType, AddResourceError};
 
 static ESCAPE_SCRIPTLET_ARG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[\\'"]"#).unwrap());
 
@@ -29,20 +29,6 @@ fn template_argument_regex(i: usize) -> Regex {
 pub enum ScriptletResourceError {
     NoMatchingScriptlet,
     MissingScriptletName,
-    InvalidBase64Content,
-    InvalidUtf8Content,
-}
-
-impl From<base64::DecodeError> for ScriptletResourceError {
-    fn from(_: base64::DecodeError) -> Self {
-        ScriptletResourceError::InvalidBase64Content
-    }
-}
-
-impl From<std::string::FromUtf8Error> for ScriptletResourceError {
-    fn from(_: std::string::FromUtf8Error) -> Self {
-        ScriptletResourceError::InvalidUtf8Content
-    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -67,15 +53,22 @@ pub struct ScriptletResourceStorage {
 }
 
 impl ScriptletResourceStorage {
+    /// Convenience constructor that allows building storage for many resources at once, printing
+    /// any errors that occur.
+    #[cfg(test)]
     pub fn from_resources(resources: &[Resource]) -> Self {
         let mut self_ = Self::default();
 
-        resources.iter().for_each(|resource| self_.add_resource(&resource).unwrap_or_else(|e| eprintln!("Failed to add resource: {:?}", e)));
+        resources.iter().for_each(|resource| self_.add_resource(&resource).unwrap_or_else(|_e| {
+            eprintln!("Failed to add resource: {:?}", _e)
+        }));
 
         self_
     }
 
-    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), ScriptletResourceError> {
+    /// Adds a resource. Only has an effect for application/javascript mimetypes and template
+    /// scriptlets.
+    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), AddResourceError> {
         let scriptlet = match resource.kind {
             ResourceType::Mime(MimeType::ApplicationJavascript) | ResourceType::Template => {
                 let scriptlet = ScriptletResource {

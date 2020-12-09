@@ -449,8 +449,8 @@ impl Blocker {
         self.resources = resources;
     }
 
-    pub fn add_resource(&mut self, resource: &Resource) {
-        self.resources.add_resource(resource);
+    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), crate::resources::AddResourceError> {
+        self.resources.add_resource(resource)
     }
 
     pub fn get_resource(&self, key: &str) -> Option<&RedirectResource> {
@@ -1091,7 +1091,7 @@ mod blocker_tests {
             aliases: vec![],
             kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
             content: base64::encode("mp3"),
-        });
+        }).unwrap();
 
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, false);

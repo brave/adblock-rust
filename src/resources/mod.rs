@@ -56,6 +56,24 @@ pub enum MimeType {
     Unknown,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum AddResourceError {
+    InvalidBase64Content,
+    InvalidUtf8Content,
+}
+
+impl From<base64::DecodeError> for AddResourceError {
+    fn from(_: base64::DecodeError) -> Self {
+        AddResourceError::InvalidBase64Content
+    }
+}
+
+impl From<std::string::FromUtf8Error> for AddResourceError {
+    fn from(_: std::string::FromUtf8Error) -> Self {
+        AddResourceError::InvalidUtf8Content
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RedirectResource {
     pub content_type: String,
@@ -81,6 +99,7 @@ impl MimeType {
                 "png" => MimeType::ImagePng,
                 "txt" => MimeType::TextPlain,
                 _ => {
+                    #[cfg(test)]
                     eprintln!("Unrecognized file extension on: {:?}", resource_path);
                     MimeType::Unknown
                 }
@@ -121,8 +140,19 @@ impl RedirectResourceStorage {
         self.resources.get(name)
     }
 
-    pub fn add_resource(&mut self, resource: &Resource) {
+    /// Adds a resource. Only has an effect for mimetyped scriptlets.
+    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), AddResourceError> {
         if let ResourceType::Mime(ref content_type) = resource.kind {
+            // Ensure the resource contents are valid base64
+            let decoded = base64::decode(&resource.content)?;
+            match content_type {
+                // Ensure any text contents are also valid utf8
+                MimeType::ApplicationJavascript | MimeType::TextPlain | MimeType::TextHtml => {
+                    let _ = String::from_utf8(decoded)?;
+                }
+                _ => (),
+            }
+
             let name = resource.name.to_owned();
             let redirect_resource = RedirectResource {
                 content_type: content_type.clone().into(),
@@ -133,6 +163,7 @@ impl RedirectResourceStorage {
             });
             self.resources.insert(name, redirect_resource);
         }
+        Ok(())
     }
 }
 
@@ -178,7 +209,7 @@ mod tests {
             aliases: vec![],
             kind: ResourceType::Mime(MimeType::ApplicationJavascript),
             content: base64::encode("resource data"),
-        });
+        }).unwrap();
 
         assert_eq!(storage.get_resource("name.js"), Some(&RedirectResource {
             content_type: "application/javascript".to_owned(),
@@ -194,7 +225,7 @@ mod tests {
             aliases: vec!["alias.js".to_owned()],
             kind: ResourceType::Mime(MimeType::ApplicationJavascript),
             content: base64::encode("resource data"),
-        });
+        }).unwrap();
 
         assert_eq!(storage.get_resource("alias.js"), Some(&RedirectResource {
             content_type: "application/javascript".to_owned(),

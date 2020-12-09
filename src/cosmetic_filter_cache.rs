@@ -261,12 +261,22 @@ impl CosmeticFilterCache {
         }
     }
 
+    /// Sets the internal resources to be those provided, silently discarding errors.
+    ///
+    /// Use `add_resource` if error information is required.
     pub fn use_resources(&mut self, resources: &[Resource]) {
-        self.scriptlets = ScriptletResourceStorage::from_resources(resources);
+        let mut scriptlets = ScriptletResourceStorage::default();
+
+        resources.iter().for_each(|resource| {
+            let _result = scriptlets.add_resource(&resource);
+        });
+
+        self.scriptlets = scriptlets;
     }
 
-    pub fn add_resource(&mut self, resource: &Resource) {
-        self.scriptlets.add_resource(resource).unwrap_or_else(|e| eprintln!("Failed to add resource: {:?}", e));
+    /// Adds a single scriptlet resource.
+    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), crate::resources::AddResourceError> {
+        self.scriptlets.add_resource(resource)
     }
 }
 
