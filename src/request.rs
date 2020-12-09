@@ -121,7 +121,6 @@ impl<'a> Request {
             schema,
             hostname,
             source_hostname,
-            source_domain,
             third_party,
             hostname_end
         )
@@ -134,7 +133,6 @@ impl<'a> Request {
         schema: &str,
         hostname: &str,
         source_hostname: &str,
-        source_domain: &str,
         third_party: Option<bool>,
         hostname_end: usize
     ) -> Request {
@@ -215,7 +213,6 @@ impl<'a> Request {
                     parsed_url.schema(),
                     parsed_url.hostname(),
                     parsed_source.hostname(),
-                    source_domain,
                     third_party,
                     parsed_url.hostname_pos.1
                 ))
@@ -225,7 +222,6 @@ impl<'a> Request {
                     &parsed_url.url,
                     parsed_url.schema(),
                     parsed_url.hostname(),
-                    "",
                     "",
                     None,
                     parsed_url.hostname_pos.1
@@ -269,7 +265,6 @@ impl<'a> Request {
             &schema,
             &hostname,
             &source_hostname,
-            &source_domain,
             third_party,
             splitter + 2 + hostname.len()
         )
