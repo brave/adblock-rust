@@ -89,7 +89,7 @@ fn rule_match(c: &mut Criterion) {
   let elep_req = requests.clone();
   let el_req = requests.clone();
   let slim_req = requests.clone();
-  let requests_len = requests.len() as u32;
+  let requests_len = requests.len() as u64;
 
   c.bench(
         "rule-match",
@@ -127,7 +127,7 @@ fn rule_match_parsed_el(c: &mut Criterion) {
   ]);
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
-  let requests_len = requests_parsed.len() as u32;
+  let requests_len = requests_parsed.len() as u64;
   let blocker = get_blocker(&rules);
   c.bench(
         "rule-match-parsed",
@@ -151,7 +151,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
   
   let requests = load_requests();
   let requests_parsed: Vec<_> = requests.into_iter().map(|r| { Request::from_urls(&r.url, &r.frameUrl, &r.cpt) }).filter_map(Result::ok).collect();
-  let requests_len = requests_parsed.len() as u32;
+  let requests_len = requests_parsed.len() as u64;
 
   let slim_rules = rules_from_lists(&vec![
     String::from("data/slim-list.txt"),
@@ -272,7 +272,7 @@ fn deserialization(c: &mut Criterion) {
 
 fn rule_match_browserlike_comparable(c: &mut Criterion) {
   let requests = load_requests();
-  let requests_len = requests.len() as u32;
+  let requests_len = requests.len() as u64;
 
   fn requests_parsed(requests: &[TestRequest]) -> Vec<(String, String, String, String, Option<bool>)> {
     requests.iter().map(|r| {

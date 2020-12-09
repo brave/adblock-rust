@@ -174,7 +174,7 @@ fn redirect_performance(c: &mut Criterion) {
 
     let blocker = get_preloaded_blocker(rules.clone());
     let requests = build_custom_requests(rules.clone());
-    let requests_len = requests.len() as u32;
+    let requests_len = requests.len() as u64;
 
     c.bench(
         "redirect_performance",

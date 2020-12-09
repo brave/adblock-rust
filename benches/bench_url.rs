@@ -23,7 +23,7 @@ fn load_requests() -> Vec<TestRequest> {
 
 fn request_parsing_throughput(c: &mut Criterion) {
     let requests = load_requests();
-    let requests_len = requests.len();
+    let requests_len = requests.len() as u64;
     c.bench(
         "throughput-request",
         Benchmark::new("create", move |b| {
@@ -38,14 +38,14 @@ fn request_parsing_throughput(c: &mut Criterion) {
                 })
             })
         })
-        .throughput(Throughput::Elements(requests_len as u32))
+        .throughput(Throughput::Elements(requests_len))
         .sample_size(10),
     );
 }
 
 fn request_extract_hostname(c: &mut Criterion) {
     let requests = load_requests();
-    let requests_len = requests.len();
+    let requests_len = requests.len() as u64;
     c.bench(
         "throughput-request",
         Benchmark::new("hostname+domain extract", move |b| {
@@ -61,14 +61,14 @@ fn request_extract_hostname(c: &mut Criterion) {
                 });
             })
         })
-        .throughput(Throughput::Elements(requests_len as u32))
+        .throughput(Throughput::Elements(requests_len))
         .sample_size(10),
     );
 }
 
 fn request_new_throughput(c: &mut Criterion) {
     let requests = load_requests();
-    let requests_len = requests.len();
+    let requests_len = requests.len() as u64;
     let requests_parsed: Vec<_> = requests.iter().map(|r| {
         let url_norm = r.url.to_ascii_lowercase();
         let source_url_norm = r.frameUrl.to_ascii_lowercase();
@@ -119,7 +119,7 @@ fn request_new_throughput(c: &mut Criterion) {
                 
             })
         })
-        .throughput(Throughput::Elements(requests_len as u32))
+        .throughput(Throughput::Elements(requests_len))
         .sample_size(10),
     );
 }
