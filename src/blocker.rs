@@ -199,7 +199,7 @@ impl Blocker {
 
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
-            None if matched_rule || force_check_exceptions => {
+            None if matched_rule || force_check_exceptions || redirect_filter.is_some() => {
                 #[cfg(feature = "metrics")]
                 print!("exceptions\t");
                 self.exceptions.check(request, &request_tokens, &self.tags_enabled)
@@ -1067,6 +1067,39 @@ mod blocker_tests {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
             }
         });
+    }
+
+    #[test]
+    fn redirect_exception() {
+        let filters = vec![
+            String::from("||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3"),
+            String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
+        ];
+
+        let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
+
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let mut blocker = Blocker::new(network_filters, &blocker_options);
+
+        blocker.add_resource(&Resource {
+            name: "noop-0.1s.mp3".to_string(),
+            aliases: vec![],
+            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
+            content: base64::encode("mp3"),
+        });
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, false);
+        assert_eq!(matched_rule.explicit_cancel, false);
+        assert_eq!(matched_rule.important, false);
+        assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
+        assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
+        assert_eq!(matched_rule.error, None);
     }
 
     #[test]
