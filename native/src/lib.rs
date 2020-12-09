@@ -238,11 +238,12 @@ declare_types! {
 
             let mut this = cx.this();
             let guard = cx.lock();
-            {
+            let success = {
                 let mut engine = this.borrow_mut(&guard);
-                engine.add_resource(resource);
-            }
-            Ok(JsNull::new().upcast())
+                engine.add_resource(resource).is_ok()
+            };
+            let js_value = neon_serde::to_value(&mut cx, &success)?;
+            Ok(js_value)
         }
 
         method getResource(mut cx) {
