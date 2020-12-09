@@ -51,7 +51,7 @@ bitflags::bitflags! {
         const _FUZZY_MATCH = 1 << 15;    // Unused
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
-        const EXPLICIT_CANCEL = 1 << 26;
+        const _EXPLICIT_CANCEL = 1 << 26;   // Unused
         const BAD_FILTER = 1 << 27;
         const GENERIC_HIDE = 1 << 30;
 
@@ -336,8 +336,6 @@ impl NetworkFilter {
 
                         redirect = Some(String::from(value));
                     }
-                    ("explicitcancel", true) => return Err(NetworkFilterError::NegatedExplicitCancel),
-                    ("explicitcancel", false) => mask.set(NetworkFilterMask::EXPLICIT_CANCEL, true),
                     ("csp", _) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
                         if !value.is_empty() {
@@ -740,10 +738,6 @@ impl NetworkFilter {
 
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
-    }
-
-    pub fn is_explicit_cancel(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::EXPLICIT_CANCEL)
     }
 
     pub fn is_badfilter(&self) -> bool {

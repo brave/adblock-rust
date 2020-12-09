@@ -103,7 +103,6 @@ impl Engine {
         .unwrap_or_else(|_e| {
             BlockerResult {
                 matched: false,
-                explicit_cancel: false,
                 important: false,
                 redirect: None,
                 exception: None,

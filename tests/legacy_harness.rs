@@ -743,23 +743,6 @@ mod legacy_misc_tests {
     }
 
     #[test]
-    fn matches_with_filter_info_preserves_explicitcancel() {
-        // Testing matchingFilter
-        let engine = Engine::from_rules_debug(
-            &[
-                String::from("||brianbondy.com^$explicitcancel"),
-            ],
-            FilterFormat::Standard,
-        );
-
-        let checked = engine.check_network_urls("https://brianbondy.com/t", "https://test.com", "script");
-        assert_eq!(checked.matched, true);
-        assert!(checked.filter.is_some(), "Expected filter to match");
-        assert!(checked.explicit_cancel, "Expected explicit cancel option to be preserved by {:?}", checked.filter);
-        assert!(checked.exception.is_none(), "Expected no exception to match");
-    }
-
-    #[test]
     fn matches_with_filter_info_preserves_important() {
         // exceptions have not effect if important filter matches
         let engine = Engine::from_rules_debug(

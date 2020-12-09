@@ -23,10 +23,6 @@ pub struct BlockerOptions {
 #[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
-    /// Normally, Brave Browser returns `200 OK` with an empty body when
-    /// `matched` is `true`, except if `explicit_cancel` is also `true`, in
-    /// which case the request is cancelled.
-    pub explicit_cancel: bool,
     /// Important is used to signal that a rule with the `important` option
     /// matched. An `important` match means that exceptions should not apply
     /// and no further checking is neccesary--the request should be blocked
@@ -63,7 +59,6 @@ impl Default for BlockerResult {
     fn default() -> BlockerResult {
         BlockerResult {
             matched: false,
-            explicit_cancel: false,
             important: false,
             redirect: None,
             exception: None,
@@ -248,7 +243,6 @@ impl Blocker {
         let matched = exception.is_none() && (filter.is_some() || redirect_filter.is_some() || matched_rule);
         BlockerResult {
             matched,
-            explicit_cancel: matched && filter.is_some() && filter.as_ref().map(|f| f.is_explicit_cancel()).unwrap_or_else(|| false),
             important: filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false),
             redirect,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
@@ -1095,7 +1089,6 @@ mod blocker_tests {
 
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, false);
-        assert_eq!(matched_rule.explicit_cancel, false);
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
