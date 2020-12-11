@@ -1,6 +1,6 @@
 {
   "name": "adblock-rs",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Very fast, Rust-based, native implementation of ad-blocker engine for Node",
   "keywords": [
     "adblock",
@@ -16,7 +16,7 @@
   "main": "native/index.js",
   "author": "Andrius Aucinas <aaucinas@brave.com>",
   "contributors": [
-    "Anton Lazarev <alazarev@brave.com"
+    "Anton Lazarev <alazarev@brave.com>"
   ],
   "license": "MPL-2.0",
   "homepage": "https://github.com/brave/adblock-rust#readme",
