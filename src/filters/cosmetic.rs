@@ -346,18 +346,17 @@ impl CosmeticFilter {
 }
 
 /// Returns a slice of `hostname` up to and including the segment that overlaps with the first
-/// segment of `domain`. This has the effect of stripping ".com", ".co.uk", etc.
-fn get_hostname_without_public_suffix<'a>(hostname: &'a str, domain: &str) -> Option<&'a str> {
-    let mut hostname_without_public_suffix = None;
-
+/// segment of `domain`, which has the effect of stripping ".com", ".co.uk", etc., as well as the
+/// public suffix itself.
+fn get_hostname_without_public_suffix<'a>(hostname: &'a str, domain: &str) -> Option<(&'a str, &'a str)> {
     let index_of_dot = domain.find('.');
 
     if let Some(index_of_dot) = index_of_dot {
         let public_suffix = &domain[index_of_dot + 1..];
-        hostname_without_public_suffix = Some(&hostname[0..hostname.len() - public_suffix.len() - 1]);
+        Some((&hostname[0..hostname.len() - public_suffix.len() - 1], &hostname[hostname.len() - domain.len() + index_of_dot + 1..]))
+    } else {
+        None
     }
-
-    hostname_without_public_suffix
 }
 
 /// Given a hostname and the indices of an end position and the start of the domain, returns a
@@ -385,13 +384,14 @@ fn get_hashes_from_labels(hostname: &str, end: usize, start_of_domain: usize) ->
 /// Returns a `Vec` of the hashes of all segments of `hostname` that may match an
 /// entity-constrained rule.
 pub fn get_entity_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
-    let hostname_without_public_suffix = get_hostname_without_public_suffix(hostname, domain);
-    if let Some(hostname_without_public_suffix) = hostname_without_public_suffix {
-        get_hashes_from_labels(
+    if let Some((hostname_without_public_suffix, public_suffix)) = get_hostname_without_public_suffix(hostname, domain) {
+        let mut hashes = get_hashes_from_labels(
             hostname_without_public_suffix,
             hostname_without_public_suffix.len(),
             hostname_without_public_suffix.len(),
-        )
+        );
+        hashes.push(crate::utils::fast_hash(public_suffix));
+        hashes
     } else {
         vec![]
     }
@@ -1332,8 +1332,9 @@ mod util_tests {
         assert_eq!(get_hostname_without_public_suffix("", ""), None);
         assert_eq!(get_hostname_without_public_suffix("com", ""), None);
         assert_eq!(get_hostname_without_public_suffix("com", "com"), None);
-        assert_eq!(get_hostname_without_public_suffix("foo.com", "foo.com"), Some("foo"));
-        assert_eq!(get_hostname_without_public_suffix("foo.bar.com", "bar.com"), Some("foo.bar"));
+        assert_eq!(get_hostname_without_public_suffix("foo.com", "foo.com"), Some(("foo", "com")));
+        assert_eq!(get_hostname_without_public_suffix("foo.bar.com", "bar.com"), Some(("foo.bar", "com")));
+        assert_eq!(get_hostname_without_public_suffix("test.github.io", "test.github.io"), Some(("test", "github.io")));
     }
 }
 
@@ -1349,9 +1350,11 @@ mod matching_tests {
 
     impl MatchByStr for CosmeticFilter {
         /// `hostname` and `domain` should be specified as, e.g. "subdomain.domain.com" and
-        /// "domain.com", respectively, to . This function will panic if the specified `domain` is
-        /// shorter than the specified `hostname`.
+        /// "domain.com", respectively. This function will panic if the specified `domain` is
+        /// longer than the specified `hostname`.
         fn matches_str(&self, hostname: &str, domain: &str) -> bool {
+            debug_assert!(hostname.len() >= domain.len());
+
             let request_entities = get_entity_hashes_from_labels(hostname, domain);
 
             let request_hostnames = get_hostname_hashes_from_labels(hostname, domain);
@@ -1529,5 +1532,11 @@ mod matching_tests {
         assert!(!rule.matches_str("", ""));
         let rule = CosmeticFilter::parse("~domain.com##.selector", false).unwrap();
         assert!(!rule.matches_str("", ""));
+    }
+
+    #[test]
+    fn respects_etld() {
+        let rule = CosmeticFilter::parse("github.io##.selector", false).unwrap();
+        assert!(rule.matches_str("test.github.io", "github.io"));
     }
 }

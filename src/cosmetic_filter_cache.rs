@@ -692,4 +692,33 @@ mod cosmetic_cache_tests {
         expected_hides.insert("a[href=\"bad.com\"]".to_owned());
         assert_eq!(hide_selectors, expected_hides);
     }
+
+    #[test]
+    fn apply_to_tld() {
+        use crate::resources::ResourceType;
+
+        // toolforge.org and github.io are examples of TLDs with multiple segments. These rules
+        // should still be parsed correctly and applied on corresponding subdomains.
+        let rules = vec![
+            "toolforge.org##+js(abort-on-property-read, noAdBlockers)",
+            "github.io##div.adToBlock",
+        ];
+        let mut cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        cfcache.use_resources(&[
+            Resource {
+                name: "abort-on-property-read.js".into(),
+                aliases: vec!["aopr".to_string()],
+                kind: ResourceType::Template,
+                content: base64::encode("abort-on-property-read.js, {{1}}"),
+            },
+        ]);
+
+        let injected_script = cfcache.hostname_cosmetic_resources("antonok.toolforge.org", false).injected_script;
+        assert_eq!(injected_script, "abort-on-property-read.js, noAdBlockers\n");
+
+        let hide_selectors = cfcache.hostname_cosmetic_resources("antonok.github.io", false).hide_selectors;
+        let mut expected_hides = HashSet::new();
+        expected_hides.insert("div.adToBlock".to_owned());
+        assert_eq!(hide_selectors, expected_hides);
+    }
 }
