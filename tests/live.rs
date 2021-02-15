@@ -102,7 +102,7 @@ fn get_blocker_engine_deserialized() -> Engine {
     use futures::FutureExt;
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
-    let dat_url = "https://adblock-data.s3.amazonaws.com/4/rs-ABPFilterParserData.dat";
+    let dat_url = "https://adblock-data.s3.brave.com/4/rs-ABPFilterParserData.dat";
     let resp_bytes_fut = reqwest::get(dat_url)
         .map(|e| e.expect("Could not request rules"))
         .then(|resp| resp.bytes());
@@ -120,7 +120,7 @@ fn get_blocker_engine_deserialized_ios() -> Engine {
     use futures::FutureExt;
     let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
-    let list_url = "https://adblock-data.s3.amazonaws.com/ios/latest.txt";
+    let list_url = "https://adblock-data.s3.brave.com/ios/latest.txt";
     let resp_text_fut = reqwest::get(list_url)
         .map(|resp| resp.expect("Could not request rules"))
         .then(|resp| resp.text());
