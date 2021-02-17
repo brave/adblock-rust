@@ -529,6 +529,56 @@ mod tests {
     }
 
     #[test]
+    fn document() {
+        let filters = vec![
+            String::from("||example.com$document"),
+            String::from("@@||sub.example.com$document"),
+        ];
+
+        let engine = Engine::from_rules_debug(&filters, FilterFormat::Standard);
+
+        assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        assert!(!engine.check_network_urls("https://example.com", "https://example.com", "script").matched);
+        assert!(engine.check_network_urls("https://sub.example.com", "https://sub.example.com", "document").exception.is_some());
+    }
+
+    #[test]
+    fn implicit_all() {
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^")], FilterFormat::Standard);
+            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$first-party,match-case")], FilterFormat::Standard);
+            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$script")], FilterFormat::Standard);
+            assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$~script")], FilterFormat::Standard);
+            assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$document"), String::from("@@||example.com^$generichide")], FilterFormat::Standard);
+            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("example.com")], FilterFormat::Hosts);
+            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path")], FilterFormat::Standard);
+            assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
+        }
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path^")], FilterFormat::Standard);
+            assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
+        }
+    }
+
+    #[test]
     fn generichide() {
         let filters = vec![
             String::from("##.donotblock"),
