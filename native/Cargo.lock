@@ -20,6 +20,7 @@ dependencies = [
  "flate2",
  "idna 0.2.0",
  "itertools",
+ "lifeguard",
  "once_cell",
  "percent-encoding 2.1.0",
  "regex",
@@ -327,6 +328,12 @@ name = "libc"
 version = "0.2.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a31a0627fdf1f6a39ec0dd577e101440b7db22672c0901fe00a9a6fbb5c24e8"
+
+[[package]]
+name = "lifeguard"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89be94dbd775db37b46ca4f4bf5cf89adfb13ba197bfbcb69b2122848ee73c26"
 
 [[package]]
 name = "log"
