@@ -88,7 +88,7 @@ pub async fn get_all_filters() -> adblock::lists::FilterSet {
 }
 
 fn get_blocker_engine() -> Engine {
-    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
     let filter_set = async_runtime.block_on(get_all_filters());
 
     let mut engine = Engine::from_filter_set(filter_set, true);
@@ -100,7 +100,7 @@ fn get_blocker_engine() -> Engine {
 
 fn get_blocker_engine_deserialized() -> Engine {
     use futures::FutureExt;
-    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
     let dat_url = "https://adblock-data.s3.brave.com/4/rs-ABPFilterParserData.dat";
     let resp_bytes_fut = reqwest::get(dat_url)
@@ -118,7 +118,7 @@ fn get_blocker_engine_deserialized() -> Engine {
 
 fn get_blocker_engine_deserialized_ios() -> Engine {
     use futures::FutureExt;
-    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
     let list_url = "https://adblock-data.s3.brave.com/ios/latest.txt";
     let resp_text_fut = reqwest::get(list_url)
