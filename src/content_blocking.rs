@@ -364,7 +364,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 CbType::Block
             };
 
-            let resource_type = if v.mask.contains(NetworkFilterMask::FROM_ANY) {
+            let resource_type = if v.mask.contains(NetworkFilterMask::FROM_NETWORK_TYPES) {
                 None
             } else {
                 let mut types = HashSet::new();

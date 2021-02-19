@@ -99,7 +99,7 @@ mod legacy_test_filters {
         test_filter(
             "||ads.example.com^",
             NetworkFilterMask::DEFAULT_OPTIONS
-                // | NetworkFilterMask::IS_REGEX               // this engine handles ^ separators with regexes
+                | NetworkFilterMask::FROM_DOCUMENT
                 | NetworkFilterMask::IS_RIGHT_ANCHOR
                 | NetworkFilterMask::IS_HOSTNAME_ANCHOR, // FTHostAnchored | FTHostOnly
             None,
@@ -257,7 +257,7 @@ mod legacy_test_filters {
     fn check_third_party() {
         test_filter(
             "||googlesyndication.com/safeframe/$third-party",
-            NetworkFilterMask::FROM_ANY
+            NetworkFilterMask::FROM_NETWORK_TYPES
             | NetworkFilterMask::FROM_HTTP
             | NetworkFilterMask::FROM_HTTPS
             | NetworkFilterMask::THIRD_PARTY

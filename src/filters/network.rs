@@ -21,6 +21,7 @@ pub enum NetworkFilterError {
     NegatedRedirection,
     NegatedTag,
     NegatedGenericHide,
+    NegatedDocument,
     GenericHideWithoutException,
     EmptyRedirection,
     UnrecognisedOption,
@@ -55,7 +56,7 @@ bitflags::bitflags! {
         const BAD_FILTER = 1 << 27;
         const GENERIC_HIDE = 1 << 30;
 
-        // full document rules tend to be handled differently
+        // Full document rules are not implied by negated types.
         const FROM_DOCUMENT = 1 << 29;
 
         // Kind of pattern
@@ -71,7 +72,8 @@ bitflags::bitflags! {
         // "Other" network request types
         const UNMATCHED = 1 << 25;
 
-        const FROM_ANY = Self::FROM_FONT.bits |
+        // Includes all request types that are implied by any negated types.
+        const FROM_NETWORK_TYPES = Self::FROM_FONT.bits |
             Self::FROM_IMAGE.bits |
             Self::FROM_MEDIA.bits |
             Self::FROM_OBJECT.bits |
@@ -83,8 +85,13 @@ bitflags::bitflags! {
             Self::FROM_WEBSOCKET.bits |
             Self::FROM_XMLHTTPREQUEST.bits;
 
+        // Includes all remaining types, not implied by any negated types.
+        // TODO Could also include popup, inline-font, inline-script
+        const FROM_ALL_TYPES = Self::FROM_NETWORK_TYPES.bits |
+            Self::FROM_DOCUMENT.bits;
+
         // Unless filter specifies otherwise, all these options are set by default
-        const DEFAULT_OPTIONS = Self::FROM_ANY.bits |
+        const DEFAULT_OPTIONS = Self::FROM_NETWORK_TYPES.bits |
             Self::FROM_HTTP.bits |
             Self::FROM_HTTPS.bits |
             Self::THIRD_PARTY.bits |
@@ -221,7 +228,7 @@ impl NetworkFilter {
         // Temporary masks for positive (e.g.: $script) and negative (e.g.: $~script)
         // content type options.
         let mut cpt_mask_positive: NetworkFilterMask = NetworkFilterMask::NONE;
-        let mut cpt_mask_negative: NetworkFilterMask = NetworkFilterMask::FROM_ANY;
+        let mut cpt_mask_negative: NetworkFilterMask = NetworkFilterMask::NONE;
 
         let mut hostname: Option<String> = None;
 
@@ -344,6 +351,8 @@ impl NetworkFilter {
                     }
                     ("generichide", true) => return Err(NetworkFilterError::NegatedGenericHide),
                     ("generichide", false) => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
+                    ("document", true) => return Err(NetworkFilterError::NegatedDocument),
+                    ("document", false) => cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true),
                     ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
                     ("ghide", false) => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
                     (_, negation) => {
@@ -367,7 +376,7 @@ impl NetworkFilter {
 
                         // We got a valid cpt option, update mask
                         if negation {
-                            cpt_mask_negative.set(option_mask, false);
+                            cpt_mask_negative.set(option_mask, true);
                         } else {
                             cpt_mask_positive.set(option_mask, true);
                         }
@@ -379,12 +388,16 @@ impl NetworkFilter {
             // --------------------------------------------------------------------- //
         }
 
-        if cpt_mask_positive.is_empty() {
-            mask |= cpt_mask_negative;
-        } else if cpt_mask_negative.contains(NetworkFilterMask::FROM_ANY) {
-            mask |= cpt_mask_positive;
-        } else {
-            mask |= cpt_mask_positive & cpt_mask_negative;
+        mask |= cpt_mask_positive;
+
+        // If any negated "network" types were set, then implicitly enable all network types.
+        // The negated types will be applied later.
+        if (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES) != NetworkFilterMask::NONE {
+            mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
+        }
+        // If no positive types were set, then the filter should apply to all network types.
+        if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() {
+            mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
 
         // Identify kind of pattern
@@ -397,10 +410,14 @@ impl NetworkFilter {
             filter_index_start += 1;
         }
 
+        // TODO these need to actually be handled differently than trailing `^`.
+        let mut end_url_anchor = false;
+
         // Deal with hostname pattern
         if filter_index_end > 0 && filter_index_end > filter_index_start && line[..filter_index_end].ends_with('|') {
             mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
             filter_index_end -= 1;
+            end_url_anchor = true;
         }
 
         let is_regex = check_is_regex(&line[filter_index_start..filter_index_end]);
@@ -561,6 +578,26 @@ impl NetworkFilter {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
+        // uBlock Origin would block main document `https://example.com` requests with all of the
+        // following filters:
+        // - ||example.com
+        // - ||example.com/
+        // - example.com
+        // - https://example.com
+        // However, it relies on checking the URL post-match against information from the matched
+        // filter, which isn't saved in Brave unless running with filter lists compiled in "debug"
+        // mode. Instead, we apply the implicit document matching more strictly, only for hostname
+        // filters of the form `||example.com^`.
+        if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() &&
+                (cpt_mask_negative & NetworkFilterMask::FROM_ALL_TYPES).is_empty() &&
+                mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) &&
+                mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) &&
+                !end_url_anchor {
+            mask |= NetworkFilterMask::FROM_ALL_TYPES;
+        }
+        // Finally, apply any explicitly negated request types
+        mask &= !cpt_mask_negative;
+
         Ok(NetworkFilter {
             bug,
             csp,
@@ -709,7 +746,7 @@ impl NetworkFilter {
 
 
     fn get_cpt_mask(&self) -> NetworkFilterMask {
-        self.mask & NetworkFilterMask::FROM_ANY
+        self.mask & NetworkFilterMask::FROM_ALL_TYPES
     }
 
     pub fn is_exception(&self) -> bool {
@@ -766,10 +803,6 @@ impl NetworkFilter {
 
     pub fn has_bug(&self) -> bool {
         self.bug.is_some()
-    }
-
-    fn cpt_any(&self) -> bool {
-        self.get_cpt_mask().contains(NetworkFilterMask::FROM_ANY)
     }
 
     fn third_party(&self) -> bool {
@@ -1294,7 +1327,10 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
 
 pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> bool {
     match NetworkFilterMask::from(cpt) {
-        NetworkFilterMask::FROM_DOCUMENT => filter.get_cpt_mask().contains(NetworkFilterMask::FROM_DOCUMENT) || filter.is_exception(),
+        // TODO this is not ideal, but required to allow regexed exception rules without an
+        // explicit `$document` option to apply uBO-style.
+        // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
+        NetworkFilterMask::FROM_DOCUMENT => filter.mask.contains(NetworkFilterMask::FROM_DOCUMENT) || filter.is_exception(),
         mask => filter.mask.contains(mask),
     }
 }
@@ -1381,7 +1417,7 @@ mod parse_tests {
 
         // Options
         first_party: bool,
-        from_any: bool,
+        from_network_types: bool,
         from_font: bool,
         from_image: bool,
         from_media: bool,
@@ -1393,6 +1429,7 @@ mod parse_tests {
         from_subdocument: bool,
         from_websocket: bool,
         from_xml_http_request: bool,
+        from_document: bool,
         match_case: bool,
         third_party: bool,
     }
@@ -1421,7 +1458,7 @@ mod parse_tests {
 
                 // Options
                 first_party: filter.first_party(),
-                from_any: filter.cpt_any(),
+                from_network_types: filter.mask.contains(NetworkFilterMask::FROM_NETWORK_TYPES),
                 from_font: filter.mask.contains(NetworkFilterMask::FROM_FONT),
                 from_image: filter.mask.contains(NetworkFilterMask::FROM_IMAGE),
                 from_media: filter.mask.contains(NetworkFilterMask::FROM_MEDIA),
@@ -1433,6 +1470,7 @@ mod parse_tests {
                 from_subdocument: filter.mask.contains(NetworkFilterMask::FROM_SUBDOCUMENT),
                 from_websocket: filter.mask.contains(NetworkFilterMask::FROM_WEBSOCKET),
                 from_xml_http_request: filter.mask.contains(NetworkFilterMask::FROM_XMLHTTPREQUEST),
+                from_document: filter.mask.contains(NetworkFilterMask::FROM_DOCUMENT),
                 match_case: filter.match_case(),
                 third_party: filter.third_party(),
             }
@@ -1462,7 +1500,7 @@ mod parse_tests {
 
             // Options
             first_party: true,
-            from_any: true,
+            from_network_types: true,
             from_font: true,
             from_image: true,
             from_media: true,
@@ -1474,6 +1512,7 @@ mod parse_tests {
             from_subdocument: true,
             from_websocket: true,
             from_xml_http_request: true,
+            from_document: false,
             match_case: false,
             third_party: true,
         }
@@ -1840,7 +1879,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com", true).unwrap();
             let mut defaults = default_network_filter_breakdown();
-            defaults.from_any = true;
+            defaults.from_network_types = true;
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
@@ -1850,7 +1889,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com$first-party", true).unwrap();
             let mut defaults = default_network_filter_breakdown();
-            defaults.from_any = true;
+            defaults.from_network_types = true;
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
@@ -1862,7 +1901,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com$third-party", true).unwrap();
             let mut defaults = default_network_filter_breakdown();
-            defaults.from_any = true;
+            defaults.from_network_types = true;
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
@@ -1874,7 +1913,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com$domain=test.com", true).unwrap();
             let mut defaults = default_network_filter_breakdown();
-            defaults.from_any = true;
+            defaults.from_network_types = true;
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
@@ -1886,7 +1925,7 @@ mod parse_tests {
             let filter =
                 NetworkFilter::parse("||foo.com$domain=test.com,match-case", true).unwrap();
             let mut defaults = default_network_filter_breakdown();
-            defaults.from_any = true;
+            defaults.from_network_types = true;
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
@@ -2237,6 +2276,7 @@ mod parse_tests {
             defaults.is_plain = true;
             defaults.is_hostname_anchor = true;
             defaults.is_right_anchor = true;
+            defaults.from_document = true;
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
         }
         {
@@ -2247,6 +2287,7 @@ mod parse_tests {
             defaults.is_plain = true;
             defaults.is_hostname_anchor = true;
             defaults.is_right_anchor = true;
+            defaults.from_document = true;
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
         }
         {
@@ -2257,6 +2298,7 @@ mod parse_tests {
             defaults.is_plain = true;
             defaults.is_hostname_anchor = true;
             defaults.is_right_anchor = true;
+            defaults.from_document = true;
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
         }
     }
@@ -2336,7 +2378,7 @@ mod parse_tests {
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
-                defaults.from_any = false;
+                defaults.from_network_types = false;
                 set_all_options(&mut defaults, false);
                 set_option(&option, &mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
@@ -2349,7 +2391,7 @@ mod parse_tests {
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
-                defaults.from_any = false;
+                defaults.from_network_types = false;
                 set_all_options(&mut defaults, false);
                 set_option(&option, &mut defaults, true);
                 set_option("object", &mut defaults, true);
@@ -2364,7 +2406,7 @@ mod parse_tests {
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
-                defaults.from_any = false;
+                defaults.from_network_types = false;
                 defaults.opt_domains = Some(vec![utils::fast_hash("bar.com")]);
                 set_all_options(&mut defaults, false);
                 set_option(&option, &mut defaults, true);
@@ -2378,7 +2420,7 @@ mod parse_tests {
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
-                defaults.from_any = false;
+                defaults.from_network_types = false;
                 set_all_options(&mut defaults, true);
                 set_option(&option, &mut defaults, false);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
@@ -2392,8 +2434,8 @@ mod parse_tests {
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
-                defaults.from_any = false;
-                set_all_options(&mut defaults, false);
+                defaults.from_network_types = false;
+                set_all_options(&mut defaults, true);
                 set_option(&option, &mut defaults, false);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
@@ -2404,7 +2446,7 @@ mod parse_tests {
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
                 defaults.is_plain = true;
-                defaults.from_any = true;
+                defaults.from_network_types = true;
                 set_all_options(&mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
@@ -2464,7 +2506,7 @@ mod parse_tests {
         defaults.is_hostname_anchor = true;
         defaults.is_exception = true;
         defaults.is_plain = true;
-        defaults.from_any = true;
+        defaults.from_network_types = true;
         defaults.opt_domains = Some(vec![utils::fast_hash("auth.wi-fi.ru")]);
         assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
     }
