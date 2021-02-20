@@ -155,6 +155,15 @@ pub enum CbRuleCreationFailure {
     NetworkBadFilterUnsupported,
     /// Network rules with csp options cannot be supported in content blocking syntax.
     NetworkCspUnsupported,
+    /// Content blocking syntax only supports a subset of regex features, namely:
+    /// - Matching any character with “.”.
+    /// - Matching ranges with the range syntax [a-b].
+    /// - Quantifying expressions with “?”, “+” and “*”.
+    /// - Groups with parenthesis.
+    /// It may be possible to correctly convert some full-regex rules, but others use unsupported
+    /// features (e.g. quantified repetition with {...}) that make conversion to content blocking
+    /// syntax impossible.
+    FullRegexUnsupported,
     /// `Blocker`-internal `NetworkFilter`s can be represented in optimized form, but these cannot
     /// be currently converted into content blocking syntax.
     OptimizedRulesUnsupported,
@@ -248,6 +257,9 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             }
             if v.mask.contains(NetworkFilterMask::IS_CSP) {
                 return Err(CbRuleCreationFailure::NetworkCspUnsupported);
+            }
+            if v.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX) {
+                return Err(CbRuleCreationFailure::FullRegexUnsupported);
             }
 
             let load_type = if v.mask.contains(NetworkFilterMask::THIRD_PARTY | NetworkFilterMask::FIRST_PARTY) {
