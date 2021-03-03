@@ -1,6 +1,5 @@
+use addr::domain;
 use criterion::*;
-use once_cell::sync::Lazy;
-use psl::Psl;
 use tokio::runtime::Runtime;
 
 use std::path::Path;
@@ -9,8 +8,6 @@ use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
 use adblock::request::Request;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
-
-static PSL_LIST: Lazy<psl::List> = Lazy::new(|| psl::List::new());
 
 async fn get_all_filters() -> Vec<String> {
     use futures::FutureExt;
@@ -137,8 +134,8 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
             let domain_end = from_start.find('|').or_else(|| from_start.find(",")).or_else(|| Some(from_start.len())).unwrap() + domain_start;
             let source_hostname = &raw_line[domain_start..domain_end];
 
-            let suffix = PSL_LIST.suffix(source_hostname).unwrap();
-            let suffix = suffix.to_str();
+            let domain = domain::Name::parse(source_hostname).unwrap();
+            let suffix = domain.suffix();
             let domain_start = source_hostname[..source_hostname.len()-suffix.len()-1].rfind('.');
             let source_domain = if let Some(domain_start) = domain_start {
                 &source_hostname[domain_start+1..]

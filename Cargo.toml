@@ -21,7 +21,7 @@ no-default-features = true
 features = ["default-docs-rs"]
 
 [dependencies]
-addr = { version = "0.2", optional = true }
+addr = { version = "0.9", default-features = false, optional = true }
 url = "2.2"
 percent-encoding = "2.1"
 once_cell = "1.5"
@@ -78,8 +78,8 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["default-docs-rs", "docs-rs-incompatible"]
-default-docs-rs = ["full-regex-handling", "object-pooling"]
+default = ["default-docs-rs"]
+default-docs-rs = ["embedded-domain-resolver", "full-regex-handling", "object-pooling"]
 full-domain-matching = []
 metrics = []
 full-regex-handling = []
@@ -88,4 +88,3 @@ css-validation = ["cssparser", "selectors"]
 content-blocking = ["serde_json"]
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
 resource-assembler = []
-docs-rs-incompatible = ["embedded-domain-resolver"] # addr prevents docs.rs builds, see https://github.com/rust-lang/docs.rs/issues/904

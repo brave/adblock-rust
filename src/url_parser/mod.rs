@@ -4,6 +4,8 @@
 mod parser;
 // mod parser_regex;
 
+use addr::domain;
+
 #[cfg(not(feature = "embedded-domain-resolver"))]
 static DOMAIN_RESOLVER: once_cell::sync::OnceCell<Box<dyn ResolvesDomain>> = once_cell::sync::OnceCell::new();
 
@@ -29,13 +31,13 @@ impl ResolvesDomain for DefaultResolver {
         if host.is_empty() {
             (0, 0)
         } else {
-            match host.parse::<addr::DomainName>() {
+            match domain::Name::parse(host) {
                 Err(_e) => (0, host.len()),
                 Ok(domain) => {
-                    let root = domain.root();
-                    let domain_str = root.to_str();
-                    let domain_len = domain_str.len();
                     let host_len = host.len();
+                    let domain_len = domain.root()
+                        .unwrap_or_else(|| domain.suffix())
+                        .len();
                     (host_len - domain_len, host_len)
                 }
             }
