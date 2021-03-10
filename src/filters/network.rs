@@ -14,6 +14,7 @@ pub const TOKENS_BUFFER_SIZE: usize = 200;
 #[derive(Debug, PartialEq)]
 pub enum NetworkFilterError {
     FilterParseError,
+    BugValueNotNumeric,
     NegatedBadFilter,
     NegatedImportant,
     NegatedOptionMatchCase,
@@ -183,6 +184,195 @@ impl FilterPart {
     }
 }
 
+#[derive(Clone, Copy)]
+enum NetworkFilterLeftAnchor {
+    /// A `||` token, which represents a match to the start of a domain or subdomain segment.
+    DoublePipe,
+    /// A `|` token, which represents a match to the exact start of the URL.
+    SinglePipe,
+}
+
+#[derive(Clone, Copy)]
+enum NetworkFilterRightAnchor {
+    /// A `|` token, which represents a match to the exact end of the URL.
+    SinglePipe,
+}
+
+/// Pattern for a network filter, describing what URLs to match against.
+#[derive(Clone)]
+struct NetworkFilterPattern {
+    left_anchor: Option<NetworkFilterLeftAnchor>,
+    pattern: String,
+    right_anchor: Option<NetworkFilterRightAnchor>,
+}
+
+/// Any option that appears on the right side of a network filter as initiated by a `$` character.
+/// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
+/// negated using a prepended `~`.
+#[derive(Clone)]
+enum NetworkFilterOption {
+    Domain(Vec<(bool, String)>),
+    Badfilter,
+    Important,
+    MatchCase,
+    ThirdParty(bool),
+    FirstParty(bool),
+    Collapse,
+    Bug(u32),
+    Tag(String),
+    Redirect(String),
+    Csp(Option<String>),
+    Generichide,
+    Document,
+    Image(bool),
+    Media(bool),
+    Object(bool),
+    Other(bool),
+    Ping(bool),
+    Script(bool),
+    Stylesheet(bool),
+    Subdocument(bool),
+    XmlHttpRequest(bool),
+    Websocket(bool),
+    Font(bool),
+}
+
+/// Abstract syntax representation of a network filter. This representation can fully specify the
+/// string representation of a filter as written, with the exception of aliased options like `1p`
+/// or `ghide`. This allows separation of concerns between parsing and interpretation.
+struct AbstractNetworkFilter {
+    exception: bool,
+    pattern: NetworkFilterPattern,
+    options: Option<Vec<NetworkFilterOption>>,
+}
+
+impl AbstractNetworkFilter {
+    fn parse(line: &str) -> Result<Self, NetworkFilterError> {
+        let mut filter_index_start: usize = 0;
+        let mut filter_index_end: usize = line.len();
+
+        let mut exception = false;
+        if line.starts_with("@@") {
+            filter_index_start += 2;
+            exception = true;
+        }
+
+        let maybe_options_index: Option<usize> = twoway::rfind_str(&line, "$");
+
+        let mut options = None;
+        if let Some(options_index) = maybe_options_index {
+            filter_index_end = options_index;
+
+            // slicing here is safe; the first byte after '$' will be a character boundary
+            let raw_options = &line[filter_index_end + 1..];
+
+            options = Some(parse_filter_options(raw_options)?);
+        }
+
+        let left_anchor = if line[filter_index_start..].starts_with("||") {
+            filter_index_start += 2;
+            Some(NetworkFilterLeftAnchor::DoublePipe)
+        } else if line[filter_index_start..].starts_with('|') {
+            filter_index_start += 1;
+            Some(NetworkFilterLeftAnchor::SinglePipe)
+        } else {
+            None
+        };
+
+        let right_anchor = if filter_index_end > 0 && filter_index_end > filter_index_start && line[..filter_index_end].ends_with('|') {
+            filter_index_end -= 1;
+            Some(NetworkFilterRightAnchor::SinglePipe)
+        } else {
+            None
+        };
+
+        let pattern = &line[filter_index_start..filter_index_end];
+
+        Ok(AbstractNetworkFilter {
+            exception,
+            pattern: NetworkFilterPattern {
+                left_anchor,
+                pattern: pattern.to_string(),
+                right_anchor,
+            },
+            options,
+        })
+    }
+}
+
+fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
+    let mut result = vec![];
+
+    for raw_option in raw_options.split(',') {
+        // Check for negation: ~option
+        let negation = raw_option.starts_with('~');
+        let maybe_negated_option = raw_option.trim_start_matches('~');
+
+        // Check for options: option=value1|value2
+        let mut option_and_values = maybe_negated_option.splitn(2, '=');
+        let (option, value) = (
+            option_and_values.next().unwrap(),
+            option_and_values.next().unwrap_or_default(),
+        );
+
+        result.push(match (option, negation) {
+            ("domain", _) => {
+                let domains: Vec<(bool, String)> = value.split('|').map(|domain| {
+                    if let Some(negated_domain) = domain.strip_prefix('~') {
+                        (false, negated_domain.to_string())
+                    } else {
+                        (true, domain.to_string())
+                    }
+                }).collect();
+                NetworkFilterOption::Domain(domains)
+            }
+            ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
+            ("badfilter", false) => NetworkFilterOption::Badfilter,
+            ("important", true) => return Err(NetworkFilterError::NegatedImportant),
+            ("important", false) => NetworkFilterOption::Important,
+            ("match-case", true) => return Err(NetworkFilterError::NegatedOptionMatchCase),
+            ("match-case", false) => NetworkFilterOption::MatchCase,
+            ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
+            ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
+            ("collapse", _) => NetworkFilterOption::Collapse,
+            ("bug", _) => NetworkFilterOption::Bug(value.parse::<u32>().map_err(|_| NetworkFilterError::BugValueNotNumeric)?),
+            ("tag", true) => return Err(NetworkFilterError::NegatedTag),
+            ("tag", false) => NetworkFilterOption::Tag(String::from(value)),
+            ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
+            ("redirect", false) => {
+                // Ignore this filter if no redirection resource is specified
+                if value.is_empty() {
+                    return Err(NetworkFilterError::EmptyRedirection);
+                }
+
+                NetworkFilterOption::Redirect(String::from(value))
+            }
+            ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
+                Some(String::from(value))
+            } else {
+                None
+            }),
+            ("generichide", true) | ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
+            ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
+            ("document", true) => return Err(NetworkFilterError::NegatedDocument),
+            ("document", false) => NetworkFilterOption::Document,
+            ("image", negated) => NetworkFilterOption::Image(!negated),
+            ("media", negated) => NetworkFilterOption::Media(!negated),
+            ("object", negated) | ("object-subrequest", negated) => NetworkFilterOption::Object(!negated),
+            ("other", negated) => NetworkFilterOption::Other(!negated),
+            ("ping", negated) | ("beacon", negated) => NetworkFilterOption::Ping(!negated),
+            ("script", negated) => NetworkFilterOption::Script(!negated),
+            ("stylesheet", negated) | ("css", negated) => NetworkFilterOption::Stylesheet(!negated),
+            ("subdocument", negated) | ("frame", negated) => NetworkFilterOption::Subdocument(!negated),
+            ("xmlhttprequest", negated) | ("xhr", negated) => NetworkFilterOption::XmlHttpRequest(!negated),
+            ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
+            ("font", negated) => NetworkFilterOption::Font(!negated),
+            (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
+        });
+    }
+    Ok(result)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkFilter {
     pub mask: NetworkFilterMask,
@@ -217,8 +407,9 @@ pub struct NetworkFilter {
 }
 
 impl NetworkFilter {
-    #[allow(clippy::cognitive_complexity)]
     pub fn parse(line: &str, debug: bool) -> Result<Self, NetworkFilterError> {
+        let parsed = AbstractNetworkFilter::parse(line)?;
+
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
             | NetworkFilterMask::FIRST_PARTY
@@ -242,59 +433,35 @@ impl NetworkFilter {
         let mut bug: Option<u32> = None;
         let mut tag: Option<String> = None;
 
-        // Start parsing
-        let mut filter_index_start: usize = 0;
-        let mut filter_index_end: usize = line.len();
-
-        // @@filter == Exception
-        if line.starts_with("@@") {
-            filter_index_start += 2;
+        if parsed.exception {
             mask.set(NetworkFilterMask::IS_EXCEPTION, true);
         }
 
-        // filter$options == Options
-        // ^     ^
-        // |     |
-        // |     optionsIndex
-        // filterIndexStart
-        let maybe_options_index: Option<usize> = twoway::rfind_str(&line, "$");
-
-        if let Some(options_index) = maybe_options_index {
-            // Parse options and set flags
-            filter_index_end = options_index;
-
-            // Parse Options
-            let raw_options = &line[filter_index_end + 1..];    // safe, first character after '$' will be char boundary
-            let options = raw_options.split(',');
-            for raw_option in options {
-                // Check for negation: ~option
-                let negation = raw_option.starts_with('~');
-                let maybe_negated_option = raw_option.trim_start_matches('~');
-
-                // Check for options: option=value1|value2
-                let mut option_and_values = maybe_negated_option.splitn(2, '=');
-                let (option, value) = (
-                    option_and_values.next().unwrap(),
-                    option_and_values.next().unwrap_or_default(),
-                );
-
-                match (option, negation) {
-                    ("domain", _) => {
-                        let mut option_values: Vec<&str> = value.split('|').collect();
+        if let Some(options) = parsed.options {
+            macro_rules! apply_content_type {
+                ($content_type:ident, $enabled:ident) => {
+                    if $enabled {
+                        cpt_mask_positive.set(NetworkFilterMask::$content_type, true);
+                    } else {
+                        cpt_mask_negative.set(NetworkFilterMask::$content_type, true);
+                    }
+                };
+            }
+            options.into_iter().for_each(|option| {
+                match option {
+                    NetworkFilterOption::Domain(mut domains) => {
                         // Some rules have duplicate domain options - avoid including duplicates
                         // Benchmarking doesn't indicate signficant performance degradation across the entire easylist
-                        option_values.sort_unstable();
-                        option_values.dedup();
+                        domains.sort_unstable();
+                        domains.dedup();
                         let mut opt_domains_array: Vec<Hash> = vec![];
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
 
-                        for option_value in option_values {
-                            if option_value.starts_with('~') {
-                                let domain = &option_value[1..];
-                                let domain_hash = utils::fast_hash(&domain);
+                        for (enabled, domain) in domains {
+                            let domain_hash = utils::fast_hash(&domain);
+                            if !enabled {
                                 opt_not_domains_array.push(domain_hash);
                             } else {
-                                let domain_hash = utils::fast_hash(&option_value);
                                 opt_domains_array.push(domain_hash);
                             }
                         }
@@ -310,82 +477,34 @@ impl NetworkFilter {
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
-                    ("badfilter", false) => mask.set(NetworkFilterMask::BAD_FILTER, true),
-                    ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
-                    // Note: `negation` should always be `false` here.
-                    ("important", true) => return Err(NetworkFilterError::NegatedImportant),
-                    ("important", false) => mask.set(NetworkFilterMask::IS_IMPORTANT, true),
-                    // Note: `negation` should always be `false` here.
-                    ("match-case", true) => return Err(NetworkFilterError::NegatedOptionMatchCase),
-                    ("match-case", false) => mask.set(NetworkFilterMask::MATCH_CASE, true),
-                    // ~third-party means we should clear the flag
-                    ("third-party", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
-                    ("third-party", false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
-                    ("3p", true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
-                    ("3p", false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
-                    // ~first-party means we should clear the flag
-                    ("first-party", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
-                    // first-party means ~third-party
-                    ("first-party", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
-                    ("1p", true) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
-                    ("1p", false) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
-                    ("collapse", _) => {}
-                    ("bug", _) => bug = value.parse::<u32>().ok(),
-                    ("tag", false) => tag = Some(String::from(value)),
-                    ("tag", true) => return Err(NetworkFilterError::NegatedTag),
-                    // Negation of redirection doesn't make sense
-                    ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
-                    ("redirect", false) => {
-                        // Ignore this filter if no redirection resource is specified
-                        if value.is_empty() {
-                            return Err(NetworkFilterError::EmptyRedirection);
-                        }
-
-                        redirect = Some(String::from(value));
-                    }
-                    ("csp", _) => {
+                    NetworkFilterOption::Badfilter => mask.set(NetworkFilterMask::BAD_FILTER, true),
+                    NetworkFilterOption::Important => mask.set(NetworkFilterMask::IS_IMPORTANT, true),
+                    NetworkFilterOption::MatchCase => mask.set(NetworkFilterMask::MATCH_CASE, true),
+                    NetworkFilterOption::ThirdParty(false) | NetworkFilterOption::FirstParty(true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
+                    NetworkFilterOption::ThirdParty(true) | NetworkFilterOption::FirstParty(false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
+                    NetworkFilterOption::Collapse => (),
+                    NetworkFilterOption::Bug(num) => bug = Some(num),
+                    NetworkFilterOption::Tag(value) => tag = Some(value),
+                    NetworkFilterOption::Redirect(value) => redirect = Some(value),
+                    NetworkFilterOption::Csp(value) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
-                        if !value.is_empty() {
-                            csp = Some(String::from(value));
-                        }
+                        csp = value;
                     }
-                    ("generichide", true) => return Err(NetworkFilterError::NegatedGenericHide),
-                    ("generichide", false) => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
-                    ("document", true) => return Err(NetworkFilterError::NegatedDocument),
-                    ("document", false) => cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true),
-                    ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
-                    ("ghide", false) => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
-                    (_, negation) => {
-                        // Handle content type options separatly
-                        let mut option_mask = NetworkFilterMask::NONE;
-                        match option {
-                            "image" => option_mask.set(NetworkFilterMask::FROM_IMAGE, true),
-                            "media" => option_mask.set(NetworkFilterMask::FROM_MEDIA, true),
-                            "object" | "object-subrequest" => option_mask.set(NetworkFilterMask::FROM_OBJECT, true),
-                            "other" => option_mask.set(NetworkFilterMask::FROM_OTHER, true),
-                            "ping" | "beacon" => option_mask.set(NetworkFilterMask::FROM_PING, true),
-                            "script" => option_mask.set(NetworkFilterMask::FROM_SCRIPT, true),
-                            "css" | "stylesheet" => option_mask.set(NetworkFilterMask::FROM_STYLESHEET, true),
-                            "frame" | "subdocument" => option_mask.set(NetworkFilterMask::FROM_SUBDOCUMENT, true),
-                            "main_frame" | "document" => option_mask.set(NetworkFilterMask::FROM_DOCUMENT, true),
-                            "xhr" | "xmlhttprequest" => option_mask.set(NetworkFilterMask::FROM_XMLHTTPREQUEST, true),
-                            "websocket" => option_mask.set(NetworkFilterMask::FROM_WEBSOCKET, true),
-                            "font" => option_mask.set(NetworkFilterMask::FROM_FONT, true),
-                            _ => return Err(NetworkFilterError::UnrecognisedOption),
-                        }
-
-                        // We got a valid cpt option, update mask
-                        if negation {
-                            cpt_mask_negative.set(option_mask, true);
-                        } else {
-                            cpt_mask_positive.set(option_mask, true);
-                        }
-                    }
+                    NetworkFilterOption::Generichide => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
+                    NetworkFilterOption::Document => cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true),
+                    NetworkFilterOption::Image(enabled) => apply_content_type!(FROM_IMAGE, enabled),
+                    NetworkFilterOption::Media(enabled) => apply_content_type!(FROM_MEDIA, enabled),
+                    NetworkFilterOption::Object(enabled) => apply_content_type!(FROM_OBJECT, enabled),
+                    NetworkFilterOption::Other(enabled) => apply_content_type!(FROM_OTHER, enabled),
+                    NetworkFilterOption::Ping(enabled) => apply_content_type!(FROM_PING, enabled),
+                    NetworkFilterOption::Script(enabled) => apply_content_type!(FROM_SCRIPT, enabled),
+                    NetworkFilterOption::Stylesheet(enabled) => apply_content_type!(FROM_STYLESHEET, enabled),
+                    NetworkFilterOption::Subdocument(enabled) => apply_content_type!(FROM_SUBDOCUMENT, enabled),
+                    NetworkFilterOption::XmlHttpRequest(enabled) => apply_content_type!(FROM_XMLHTTPREQUEST, enabled),
+                    NetworkFilterOption::Websocket(enabled) => apply_content_type!(FROM_WEBSOCKET, enabled),
+                    NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
                 }
-            }
-
-            // End of option parsing
-            // --------------------------------------------------------------------- //
+            });
         }
 
         mask |= cpt_mask_positive;
@@ -400,32 +519,25 @@ impl NetworkFilter {
             mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
 
-        // Identify kind of pattern
-
-        if line[filter_index_start..].starts_with("||") {
-            mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true);
-            filter_index_start += 2;
-        } else if line[filter_index_start..].starts_with('|') {
-            mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
-            filter_index_start += 1;
+        match parsed.pattern.left_anchor {
+            Some(NetworkFilterLeftAnchor::DoublePipe) => mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true),
+            Some(NetworkFilterLeftAnchor::SinglePipe) => mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true),
+            None => (),
         }
 
         // TODO these need to actually be handled differently than trailing `^`.
         let mut end_url_anchor = false;
-
-        // Deal with hostname pattern
-        if filter_index_end > 0 && filter_index_end > filter_index_start && line[..filter_index_end].ends_with('|') {
+        if let Some(NetworkFilterRightAnchor::SinglePipe) = parsed.pattern.right_anchor {
             mask.set(NetworkFilterMask::IS_RIGHT_ANCHOR, true);
-            filter_index_end -= 1;
             end_url_anchor = true;
         }
 
-        let is_regex = check_is_regex(&line[filter_index_start..filter_index_end]);
+        let pattern = &parsed.pattern.pattern;
+
+        let is_regex = check_is_regex(&pattern);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
-        if line[filter_index_start..filter_index_end].starts_with('/')
-            && line[filter_index_start..filter_index_end].ends_with('/')
-        {
+        if pattern.starts_with('/') && pattern.ends_with('/') {
             #[cfg(feature = "full-regex-handling")]
             {
                 mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);
@@ -437,32 +549,34 @@ impl NetworkFilter {
             }
         }
 
-        if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
+        let (mut filter_index_start, mut filter_index_end) = (0, pattern.len());
+
+        if let Some(NetworkFilterLeftAnchor::DoublePipe) = parsed.pattern.left_anchor {
             if is_regex {
                 // Split at the first '/', '*' or '^' character to get the hostname
                 // and then the pattern.
                 // TODO - this could be made more efficient if we could match between two
                 // indices. Once again, we have to do more work than is really needed.
                 static SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new("[/^*]").unwrap());
-                if let Some(first_separator) = SEPARATOR.find(line) {
+                if let Some(first_separator) = SEPARATOR.find(pattern) {
                     let first_separator_start = first_separator.start();
                     // NOTE: `first_separator` shall never be -1 here since `IS_REGEX` is true.
                     // This means there must be at least an occurrence of `*` or `^`
                     // somewhere.
 
                     // If the first separator is a wildcard, included in in hostname
-                    if first_separator_start < line.len() && line[first_separator_start..=first_separator_start].starts_with('*') {
+                    if first_separator_start < pattern.len() && pattern[first_separator_start..=first_separator_start].starts_with('*') {
                         mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
                     }
 
-                    hostname = Some(String::from(&line[filter_index_start..first_separator_start]));
+                    hostname = Some(String::from(&pattern[..first_separator_start]));
                     filter_index_start = first_separator_start;
 
                     // If the only symbol remaining for the selector is '^' then ignore it
                     // but set the filter as right anchored since there should not be any
                     // other label on the right
                     if filter_index_end - filter_index_start == 1
-                        && line[filter_index_start..].starts_with('^')
+                        && pattern[filter_index_start..].starts_with('^')
                     {
                         mask.set(NetworkFilterMask::IS_REGEX, false);
                         filter_index_start = filter_index_end;
@@ -471,23 +585,23 @@ impl NetworkFilter {
                         mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
                         mask.set(
                             NetworkFilterMask::IS_REGEX,
-                            check_is_regex(&line[filter_index_start..filter_index_end]),
+                            check_is_regex(&pattern[filter_index_start..filter_index_end]),
                         );
                     }
                 }
             } else {
                 // Look for next /
-                let slash_index = twoway::find_str(&line[filter_index_start..], "/");
+                let slash_index = twoway::find_str(&pattern, "/");
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
-                            &line[filter_index_start..filter_index_start + i],
+                            &pattern[..i],
                         ));
                         filter_index_start += i;
                         mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
                     })
                     .or_else(|| {
-                        hostname = Some(String::from(&line[filter_index_start..filter_index_end]));
+                        hostname = Some(String::from(pattern));
                         filter_index_start = filter_index_end;
                         None
                     });
@@ -495,14 +609,13 @@ impl NetworkFilter {
         }
 
         // Remove trailing '*'
-        if filter_index_end > filter_index_start
-            && line[..filter_index_end].ends_with('*')
+        if filter_index_end > filter_index_start && pattern.ends_with('*')
         {
             filter_index_end -= 1;
         }
 
         // Remove leading '*' if the filter is not hostname anchored.
-        if filter_index_end > filter_index_start && line[filter_index_start..].starts_with('*')
+        if filter_index_end > filter_index_start && pattern[filter_index_start..].starts_with('*')
         {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
             filter_index_start += 1;
@@ -511,7 +624,7 @@ impl NetworkFilter {
         // Transform filters on protocol (http, https, ws)
         if mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
             if filter_index_end == filter_index_start + 5
-                && line[filter_index_start..].starts_with("ws://")
+                && pattern[filter_index_start..].starts_with("ws://")
             {
                 mask.set(NetworkFilterMask::FROM_WEBSOCKET, true);
                 mask.set(NetworkFilterMask::FROM_HTTP, false);
@@ -519,21 +632,21 @@ impl NetworkFilter {
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end == filter_index_start + 7
-                && line[filter_index_start..].starts_with("http://")
+                && pattern[filter_index_start..].starts_with("http://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTP, true);
                 mask.set(NetworkFilterMask::FROM_HTTPS, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end == filter_index_start + 8
-                && line[filter_index_start..].starts_with("https://")
+                && pattern[filter_index_start..].starts_with("https://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTPS, true);
                 mask.set(NetworkFilterMask::FROM_HTTP, false);
                 mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
                 filter_index_start = filter_index_end;
             } else if filter_index_end == filter_index_start + 8
-                && line[filter_index_start..].starts_with("http*://")
+                && pattern[filter_index_start..].starts_with("http*://")
             {
                 mask.set(NetworkFilterMask::FROM_HTTPS, true);
                 mask.set(NetworkFilterMask::FROM_HTTP, true);
@@ -545,9 +658,9 @@ impl NetworkFilter {
         let filter: Option<String> = if filter_index_end > filter_index_start {
             mask.set(
                 NetworkFilterMask::IS_REGEX,
-                check_is_regex(&line[filter_index_start..filter_index_end]),
+                check_is_regex(&pattern[filter_index_start..filter_index_end]),
             );
-            Some(String::from(&line[filter_index_start..filter_index_end]).to_ascii_lowercase())
+            Some(String::from(&pattern[filter_index_start..filter_index_end]).to_ascii_lowercase())
         } else {
             None
         };
@@ -574,7 +687,7 @@ impl NetworkFilter {
             Ok(hostname)
         }).transpose();
 
-        if mask.contains(NetworkFilterMask::GENERIC_HIDE) && !mask.contains(NetworkFilterMask::IS_EXCEPTION) {
+        if mask.contains(NetworkFilterMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
@@ -652,7 +765,7 @@ impl NetworkFilter {
                 Err(_) => return Err(NetworkFilterError::PunycodeError),
             }
         }
-        hostname.push_str("^");
+        hostname.push('^');
 
         NetworkFilter::parse(&hostname, debug)
     }
