@@ -16,10 +16,6 @@ exclude = [
     "data/easylist-parse-errors.log",
 ]
 
-[package.metadata.docs.rs]
-no-default-features = true
-features = ["default-docs-rs"]
-
 [dependencies]
 addr = { version = "0.9", default-features = false, optional = true }
 url = "2.2"
@@ -78,8 +74,7 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["default-docs-rs"]
-default-docs-rs = ["embedded-domain-resolver", "full-regex-handling", "object-pooling"]
+default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling"]
 full-domain-matching = []
 metrics = []
 full-regex-handling = []
