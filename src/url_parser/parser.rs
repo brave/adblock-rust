@@ -275,15 +275,15 @@ impl<'i> Input<'i> {
 }
 
 pub trait Pattern {
-    fn split_prefix<'i>(self, input: &mut Input<'i>) -> bool;
+    fn split_prefix(self, input: &mut Input) -> bool;
 }
 
 impl Pattern for char {
-    fn split_prefix<'i>(self, input: &mut Input<'i>) -> bool { input.next() == Some(self) }
+    fn split_prefix(self, input: &mut Input) -> bool { input.next() == Some(self) }
 }
 
 impl<'a> Pattern for &'a str {
-    fn split_prefix<'i>(self, input: &mut Input<'i>) -> bool {
+    fn split_prefix(self, input: &mut Input) -> bool {
         for c in self.chars() {
             if input.next() != Some(c) {
                 return false
@@ -294,7 +294,7 @@ impl<'a> Pattern for &'a str {
 }
 
 impl<F: FnMut(char) -> bool> Pattern for F {
-    fn split_prefix<'i>(self, input: &mut Input<'i>) -> bool { input.next().map_or(false, self) }
+    fn split_prefix(self, input: &mut Input) -> bool { input.next().map_or(false, self) }
 }
 
 impl<'i> Iterator for Input<'i> {

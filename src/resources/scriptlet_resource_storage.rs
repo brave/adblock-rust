@@ -98,15 +98,15 @@ impl ScriptletResourceStorage {
         let args = &scriptlet_args[1..];
         let template = self.resources
             .get(scriptlet_name)
-            .ok_or_else(|| ScriptletResourceError::NoMatchingScriptlet)?;
+            .ok_or(ScriptletResourceError::NoMatchingScriptlet)?;
 
         Ok(template.patch(args))
     }
 }
 
 fn without_js_extension(scriptlet_name: &str) -> &str {
-    if scriptlet_name.ends_with(".js") {
-        &scriptlet_name[..scriptlet_name.len() - 3]
+    if let Some(stripped) = scriptlet_name.strip_suffix(".js") {
+        stripped
     } else {
         &scriptlet_name
     }
@@ -116,7 +116,7 @@ fn without_js_extension(scriptlet_name: &str) -> &str {
 ///
 /// A literal comma is produced by the '\,' pattern. Otherwise, all '\', '"', and ''' characters
 /// are erased in the resulting arguments.
-pub fn parse_scriptlet_args<'a>(args: &'a str) -> Vec<Cow<'a, str>> {
+pub fn parse_scriptlet_args(args: &str) -> Vec<Cow<str>> {
     let mut args_vec = vec![];
     let mut find_start = 0;
     let mut after_last_delim = 0;

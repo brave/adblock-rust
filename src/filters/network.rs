@@ -1390,13 +1390,11 @@ fn check_pattern_hostname_anchor_filter(
                     FilterPart::Empty => true,
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
                     FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname)
-                        .find(f)
-                        .is_some(),
+                        .contains(f),
                     FilterPart::AnyOf(filters) => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
                         for f in filters {
-                            if url_after_hostname.find(f).is_some()
-                            {
+                            if url_after_hostname.contains(f) {
                                 return true;
                             }
                         }

@@ -4,7 +4,6 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
@@ -395,7 +394,7 @@ impl Blocker {
             Ok(())
         } else if filter.tag.is_some() {
             self.tagged_filters_all.push(filter);
-            let tags_enabled = HashSet::from_iter(self.tags_enabled().into_iter());
+            let tags_enabled = self.tags_enabled().into_iter().collect::<HashSet<_>>();
             self.tags_with_set(tags_enabled);
             Ok(())
         } else {
@@ -405,12 +404,12 @@ impl Blocker {
     }
 
     pub fn use_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)));
+        let tag_set: HashSet<String> = tags.iter().map(|&t| String::from(t)).collect();
         self.tags_with_set(tag_set);
     }
 
     pub fn enable_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = HashSet::from_iter(tags.iter().map(|&t| String::from(t)))
+        let tag_set: HashSet<String> = tags.iter().map(|&t| String::from(t)).collect::<HashSet<_>>()
             .union(&self.tags_enabled)
             .cloned()
             .collect();
@@ -419,7 +418,7 @@ impl Blocker {
 
     pub fn disable_tags(&mut self, tags: &[&str]) {
         let tag_set: HashSet<String> = self.tags_enabled
-            .difference(&HashSet::from_iter(tags.iter().map(|&t| String::from(t))))
+            .difference(&tags.iter().map(|&t| String::from(t)).collect())
             .cloned()
             .collect();
         self.tags_with_set(tag_set);
@@ -662,7 +661,7 @@ where
 }
 
 fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(map: &HashMap<K, Vec<V>, H>) -> usize {
-    let mut size = 0 as usize;
+    let mut size = 0usize;
     for (_, val) in map.iter() {
         size += val.len();
     }

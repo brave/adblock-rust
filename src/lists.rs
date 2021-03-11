@@ -337,7 +337,7 @@ fn detect_filter_type(filter: &str) -> FilterType {
 
     // Ignore Adguard cosmetics
     // `$$`
-    if filter.find("$$").is_some() {
+    if filter.contains("$$") {
         return FilterType::NotSupported;
     }
 

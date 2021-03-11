@@ -566,7 +566,7 @@ fn key_from_selector(selector: &str) -> Result<String, CosmeticFilterError> {
 
                 // Not all u32s are valid Unicode codepoints
                 key += &core::char::from_u32(codepoint)
-                    .ok_or_else(|| CosmeticFilterError::InvalidCssSelector)?
+                    .ok_or(CosmeticFilterError::InvalidCssSelector)?
                     .to_string();
             }
         }
