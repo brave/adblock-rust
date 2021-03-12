@@ -675,15 +675,11 @@ impl NetworkFilter {
             };
 
             let lowercase = hostname_normalised.to_lowercase();
-            let mut hostname = String::new();
-            if lowercase.is_ascii() {
-                hostname.push_str(&lowercase);
+            let hostname = if lowercase.is_ascii() {
+                lowercase
             } else {
-                match idna::domain_to_ascii(&lowercase) {
-                    Ok(x) => hostname.push_str(&x),
-                    Err(_) => return Err(NetworkFilterError::PunycodeError),
-                }
-            }
+                idna::domain_to_ascii(&lowercase).map_err(|_| NetworkFilterError::PunycodeError)?
+            };
             Ok(hostname)
         }).transpose();
 
@@ -760,10 +756,7 @@ impl NetworkFilter {
         if normalized_host.is_ascii() {
             hostname.push_str(&normalized_host);
         } else {
-            match idna::domain_to_ascii(&normalized_host) {
-                Ok(x) => hostname.push_str(&x),
-                Err(_) => return Err(NetworkFilterError::PunycodeError),
-            }
+            hostname.push_str(&idna::domain_to_ascii(&normalized_host).map_err(|_| NetworkFilterError::PunycodeError)?);
         }
         hostname.push('^');
 

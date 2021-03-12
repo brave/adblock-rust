@@ -354,12 +354,24 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                     domains_start
                 }.split('|');
 
-                domains.for_each(|domain| if domain.starts_with('~') {
-                        unless_domain.push(format!("*{}", &domain["~".len()..]));
+                domains.for_each(|domain| {
+                    let (collection, domain) = if let Some(domain_stripped) = domain.strip_prefix('~') {
+                        (&mut unless_domain, domain_stripped)
                     } else {
-                        if_domain.push(format!("*{}", domain));
-                    }
-                );
+                        (&mut if_domain, domain)
+                    };
+
+                    let lowercase = domain.to_lowercase();
+                    let normalized_domain = if lowercase.is_ascii() {
+                        lowercase
+                    } else {
+                        // The network filter has already parsed successfully, so this should be
+                        // safe
+                        idna::domain_to_ascii(&lowercase).unwrap()
+                    };
+
+                    collection.push(format!("*{}", normalized_domain));
+                });
 
                 (non_empty(if_domain), non_empty(unless_domain))
             } else {
@@ -794,6 +806,17 @@ mod ab2cb_tests {
                 ]
             }
         }]"####);
+        test_from_abp("||allestörungen.at^$third-party", r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?xn--allestrungen-9ib\\.at",
+                "load-type": [
+                    "third-party"
+                ]
+            }
+        }]"####);
         test_from_abp("||anet*.tradedoubler.com^$third-party", r####"[{
             "action": {
                 "type": "block"
@@ -1016,6 +1039,18 @@ mod ab2cb_tests {
                     "*majorleaguegaming.com",
                     "*pbs.org",
                     "*wikihow.com"
+                ]
+            }
+        }]"####);
+        test_from_abp("@@||googletagservices.com/tag/js/gpt.js$domain=allestoringen.nl|allestörungen.at", r####"[{
+            "action": {
+                "type": "ignore-previous-rules"
+            },
+            "trigger": {
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?googletagservices\\.com/tag/js/gpt\\.js",
+                "if-domain": [
+                    "*allestoringen.nl",
+                    "*xn--allestrungen-9ib.at"
                 ]
             }
         }]"####);
