@@ -2,16 +2,29 @@ use addr::domain;
 use criterion::*;
 use tokio::runtime::Runtime;
 
-use std::path::Path;
-
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
 use adblock::request::Request;
 use adblock::blocker::{Blocker, BlockerOptions};
+#[cfg(feature = "resource-assembler")]
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
+
+const DEFAULT_LISTS_URL: &str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
 
 async fn get_all_filters() -> Vec<String> {
     use futures::FutureExt;
-    let default_lists = adblock::filter_lists::default::default_lists();
+
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct ListDescriptor {
+        url: String,
+    }
+
+    let default_lists = reqwest::get(DEFAULT_LISTS_URL)
+        .then(|resp| resp
+            .expect("Could not get default filter listing")
+            .text()
+        ).map(|text| serde_json::from_str::<Vec<ListDescriptor>>(&text.expect("Could not get default filter listing as text"))
+            .expect("Could not parse default filter listing JSON")
+        ).await;
 
     let filters_fut: Vec<_> = default_lists
         .iter()
@@ -39,7 +52,7 @@ async fn get_all_filters() -> Vec<String> {
 
 /// Gets all rules with redirects, and modifies them to apply to resources at `a{0-n}.com/bad.js`
 fn get_redirect_rules() -> Vec<NetworkFilter> {
-    let mut async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
     let filters = async_runtime.block_on(get_all_filters());
     let (network_filters, _) = adblock::lists::parse_filters(&filters, true, adblock::lists::FilterFormat::Standard);
@@ -76,17 +89,27 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
         enable_optimizations: true,
     };
 
-    let mut blocker = Blocker::new(rules, &blocker_options);
+    #[cfg(not(feature = "resource-assembler"))]
+    let blocker = Blocker::new(rules, &blocker_options);
 
-    let mut resources = assemble_web_accessible_resources(
-        Path::new("data/test/fake-uBO-files/web_accessible_resources"),
-        Path::new("data/test/fake-uBO-files/redirect-engine.js")
-    );
-    resources.append(&mut assemble_scriptlet_resources(
-        Path::new("data/test/fake-uBO-files/scriptlets.js"),
-    ));
+    #[cfg(feature = "resource-assembler")]
+    let blocker = {
+        use std::path::Path;
 
-    blocker.use_resources(&resources);
+        let mut blocker = Blocker::new(rules, &blocker_options);
+
+        let mut resources = assemble_web_accessible_resources(
+            Path::new("data/test/fake-uBO-files/web_accessible_resources"),
+            Path::new("data/test/fake-uBO-files/redirect-engine.js")
+        );
+        resources.append(&mut assemble_scriptlet_resources(
+            Path::new("data/test/fake-uBO-files/scriptlets.js"),
+        ));
+
+        blocker.use_resources(&resources);
+
+        blocker
+    };
 
     blocker
 }

@@ -1,3 +1,4 @@
+#![cfg(any())]  // This attribute disables the entire module
 use criterion::*;
 
 use adblock::utils::rules_from_lists;
