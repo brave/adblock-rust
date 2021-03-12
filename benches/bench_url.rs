@@ -22,11 +22,17 @@ fn load_requests() -> Vec<TestRequest> {
 }
 
 fn request_parsing_throughput(c: &mut Criterion) {
+    let mut group = c.benchmark_group("throughput-request");
+
     let requests = load_requests();
     let requests_len = requests.len() as u64;
-    c.bench(
-        "throughput-request",
-        Benchmark::new("create", move |b| {
+
+    group.throughput(Throughput::Elements(requests_len));
+    group.sample_size(10);
+
+    group.bench_function(
+        "create",
+        move |b| {
             b.iter(|| {
                 let mut successful = 0;
                 requests.iter().for_each(|r| {
@@ -37,18 +43,24 @@ fn request_parsing_throughput(c: &mut Criterion) {
                     }
                 })
             })
-        })
-        .throughput(Throughput::Elements(requests_len))
-        .sample_size(10),
+        },
     );
+
+    group.finish();
 }
 
 fn request_extract_hostname(c: &mut Criterion) {
+    let mut group = c.benchmark_group("throughput-request");
+
     let requests = load_requests();
     let requests_len = requests.len() as u64;
-    c.bench(
-        "throughput-request",
-        Benchmark::new("hostname+domain extract", move |b| {
+
+    group.throughput(Throughput::Elements(requests_len));
+    group.sample_size(10);
+
+    group.bench_function(
+        "hostname+domain extract",
+        move |b| {
             b.iter(|| {
                 let mut successful = 0;
                 requests.iter().for_each(|r| {
@@ -60,15 +72,21 @@ fn request_extract_hostname(c: &mut Criterion) {
                     }
                 });
             })
-        })
-        .throughput(Throughput::Elements(requests_len))
-        .sample_size(10),
+        },
     );
+
+    group.finish();
 }
 
 fn request_new_throughput(c: &mut Criterion) {
+    let mut group = c.benchmark_group("throughput-request");
+
     let requests = load_requests();
     let requests_len = requests.len() as u64;
+
+    group.throughput(Throughput::Elements(requests_len));
+    group.sample_size(10);
+
     let requests_parsed: Vec<_> = requests.iter().map(|r| {
         let url_norm = r.url.to_ascii_lowercase();
         let source_url_norm = r.frameUrl.to_ascii_lowercase();
@@ -107,9 +125,9 @@ fn request_new_throughput(c: &mut Criterion) {
     .filter_map(Result::ok)
     .collect();
 
-    c.bench(
-        "throughput-request",
-        Benchmark::new("new", move |b| {
+    group.bench_function(
+        "new",
+        move |b| {
             b.iter(|| {
                 let mut successful = 0;
                 requests_parsed.iter().for_each(|r| {
@@ -118,10 +136,10 @@ fn request_new_throughput(c: &mut Criterion) {
                 });
                 
             })
-        })
-        .throughput(Throughput::Elements(requests_len))
-        .sample_size(10),
+        },
     );
+
+    group.finish();
 }
 
 criterion_group!(

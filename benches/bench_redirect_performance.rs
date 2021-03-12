@@ -190,22 +190,25 @@ fn bench_fn(blocker: &Blocker, requests: &[Request]) {
 }
 
 fn redirect_performance(c: &mut Criterion) {
+    let mut group = c.benchmark_group("redirect_performance");
+
     let rules = get_redirect_rules();
 
     let blocker = get_preloaded_blocker(rules.clone());
     let requests = build_custom_requests(rules.clone());
     let requests_len = requests.len() as u64;
 
-    c.bench(
-        "redirect_performance",
-        Benchmark::new(
-            "without_alias_lookup",
-            move |b| {
-                b.iter(|| bench_fn(&blocker, &requests))
-            },
-        ).throughput(Throughput::Elements(requests_len))
-        .sample_size(10)
+    group.throughput(Throughput::Elements(requests_len));
+    group.sample_size(10);
+
+    group.bench_function(
+        "without_alias_lookup",
+        move |b| {
+            b.iter(|| bench_fn(&blocker, &requests))
+        },
     );
+
+    group.finish();
 }
 
 criterion_group!(
