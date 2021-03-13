@@ -30,6 +30,7 @@ pub enum NetworkFilterError {
     FullRegexUnsupported,
     RegexParsingError(regex::Error),
     PunycodeError,
+    CspWithContentType,
 }
 
 bitflags::bitflags! {
@@ -406,6 +407,29 @@ pub struct NetworkFilter {
     regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>
 }
 
+/// Ensure that no invalid option combinations were provided for a filter.
+fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilterError> {
+    use NetworkFilterOption as NfOpt;
+    // CSP options are incompatible with all content type options.
+    if options.iter().any(|e| matches!(e, NfOpt::Csp(..))) && options.iter().any(|e| matches!(e, NfOpt::Document
+        | NfOpt::Image(..)
+        | NfOpt::Media(..)
+        | NfOpt::Object(..)
+        | NfOpt::Other(..)
+        | NfOpt::Ping(..)
+        | NfOpt::Script(..)
+        | NfOpt::Stylesheet(..)
+        | NfOpt::Subdocument(..)
+        | NfOpt::XmlHttpRequest(..)
+        | NfOpt::Websocket(..)
+        | NfOpt::Font(..)
+    )) {
+        Err(NetworkFilterError::CspWithContentType)?;
+    }
+
+    Ok(())
+}
+
 impl NetworkFilter {
     pub fn parse(line: &str, debug: bool) -> Result<Self, NetworkFilterError> {
         let parsed = AbstractNetworkFilter::parse(line)?;
@@ -438,6 +462,8 @@ impl NetworkFilter {
         }
 
         if let Some(options) = parsed.options {
+            validate_options(&options)?;
+
             macro_rules! apply_content_type {
                 ($content_type:ident, $enabled:ident) => {
                     if $enabled {
@@ -447,6 +473,7 @@ impl NetworkFilter {
                     }
                 };
             }
+
             options.into_iter().for_each(|option| {
                 match option {
                     NetworkFilterOption::Domain(mut domains) => {
@@ -2081,13 +2108,10 @@ mod parse_tests {
             assert_eq!(filter.csp, None);
         }
         {
-            // parses csp mixed with other options
+            // CSP mixed with content type is an error
             let filter =
-                NetworkFilter::parse(r#"||foo.com$domain=foo|bar,csp=self bar "",image"#, true)
-                    .unwrap();
-            assert_eq!(filter.is_csp(), true);
-            assert_eq!(filter.mask.contains(NetworkFilterMask::FROM_IMAGE), true);
-            assert_eq!(filter.csp, Some(String::from(r#"self bar """#)));
+                NetworkFilter::parse(r#"||foo.com$domain=foo|bar,csp=self bar "",image"#, true);
+            assert_eq!(filter.err(), Some(NetworkFilterError::CspWithContentType));
         }
     }
 

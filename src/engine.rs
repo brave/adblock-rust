@@ -140,6 +140,8 @@ impl Engine {
 
     /// Returns a string containing any additional CSP directives that should be added to this
     /// request's response. Only applies to document and subdocument requests.
+    ///
+    /// If multiple policies are present from different rules, they will be joined by commas.
     pub fn get_csp_directives(
         &self,
         url: &str,

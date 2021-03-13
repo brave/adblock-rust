@@ -250,7 +250,7 @@ impl Blocker {
         }
     }
 
-    /// Given a "main_frame" request, check if some content security policies
+    /// Given a "main_frame" or "subdocument" request, check if some content security policies
     /// should be injected in the page.
     pub fn get_csp_directives(&self, request: &Request) -> Option<String> {
         use crate::request::RequestType;
