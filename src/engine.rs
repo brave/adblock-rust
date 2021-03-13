@@ -211,7 +211,7 @@ impl Engine {
     /// CSS selectors corresponding to rules referencing those classes or ids, provided that the
     /// corresponding rules are not excepted.
     ///
-    /// `exceptions` should be passed directly from `HostnameSpecificResources`.
+    /// `exceptions` should be passed directly from `UrlSpecificResources`.
     pub fn hidden_class_id_selectors(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Vec<String> {
         self.cosmetic_cache.hidden_class_id_selectors(classes, ids, exceptions)
     }

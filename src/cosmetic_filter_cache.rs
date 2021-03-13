@@ -1,3 +1,13 @@
+//! Provides behavior related to cosmetic filtering - that is, modifying a page's contents after
+//! it's been loaded into a browser. This is primarily used to hide or clean up unwanted page
+//! elements that are served inline with the rest of the first-party content from a page, but can
+//! also be used to inject JavaScript "scriptlets" that intercept and modify the behavior of
+//! scripts on the page at runtime.
+//!
+//! The primary API exposed by this module is the `CosmeticFilterCache` struct, which stores
+//! cosmetic filters and allows them to be queried efficiently at runtime for any which may be
+//! relevant to a particular page.
+
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::cosmetic::CosmeticFilterMask;
 use crate::resources::{Resource, ScriptletResourceStorage};
@@ -45,6 +55,11 @@ impl UrlSpecificResources {
     }
 }
 
+/// Splits the given hostname-specific rules into three collections:
+/// - a set of CSS selectors that should be hidden on all pages under the hostname
+/// - a mapping from CSS selectors to any additional (i.e. not `display: none`) CSS styles that
+///   should be applied to those elements
+/// - a list of any scriptlets that should be injected into the page's JavaScript context
 fn hostname_specific_rules(rules: &[&SpecificFilterType]) -> (HashSet<String>, HashMap<String, Vec<String>>, Vec<String>) {
     if rules.is_empty() {
         (HashSet::default(), HashMap::default(), vec![])
@@ -78,15 +93,33 @@ fn hostname_specific_rules(rules: &[&SpecificFilterType]) -> (HashSet<String>, H
     }
 }
 
+/// The main engine driving cosmetic filtering.
+///
+/// There are two primary methods that should be considered when using this in a browser:
+/// `hidden_class_id_selectors`, and `url_cosmetic_resources`.
+///
+/// Note that cosmetic filtering is imprecise and that this structure is intenionally designed for
+/// efficient querying in the context of a browser, optimizing for low memory usage in the page
+/// context and good performance. It is *not* designed to provide a 100% accurate report of what
+/// will be blocked on any particular page, although when used correctly, all provided rules and
+/// scriptlets should be safe to apply.
 #[derive(Deserialize, Serialize)]
 pub(crate) struct CosmeticFilterCache {
+    /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
     pub(crate) simple_class_rules: HashSet<String>,
+    /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
     pub(crate) simple_id_rules: HashSet<String>,
+    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
+    /// class, e.g. `##.ad image`.
     pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
+    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
+    /// id, e.g. `###banner > .text a`.
     pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
 
     pub(crate) specific_rules: HostnameRuleDb,
 
+    /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
+    /// into any of the class or id buckets above, e.g. `##a[href="https://malware.com"]`
     pub(crate) misc_generic_selectors: HashSet<String>,
 
     pub(crate) scriptlets: ScriptletResourceStorage,
@@ -173,6 +206,24 @@ impl CosmeticFilterCache {
         }
     }
 
+    /// Generic class/id rules are by far the most common type of cosmetic filtering rule, and they
+    /// apply to all sites. Rather than injecting all of these rules onto every page, which would
+    /// blow up memory usage, we only inject rules based on classes and ids that actually appear on
+    /// the page (in practice, a `MutationObserver` is used to identify those elements). We can
+    /// include rules like `.a-class div#ads > .advertisement`, keyed by the `.a-class` selector,
+    /// since we know that this rule cannot possibly apply unless there is an `.a-class` element on
+    /// the page.
+    ///
+    /// This method returns all of the generic CSS selectors of elements to hide (i.e. with a
+    /// `display: none !important` CSS rule) that could possibly be or become relevant to the page
+    /// given the new classes and ids that have appeared on the page. It guarantees that it will be
+    /// safe to hide those elements on a particular page by taking into account the page's
+    /// hostname-specific set of exception rules.
+    ///
+    /// The exceptions should be returned directly as they appear in the page's
+    /// `UrlSpecificResources`. The exceptions, along with the set of already-seen classes and ids,
+    /// must be cached externally as the cosmetic filtering subsystem here is designed to be
+    /// stateless with regard to active page sessions.
     pub fn hidden_class_id_selectors(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Vec<String> {
         let mut simple_classes = vec![];
         let mut simple_ids = vec![];
@@ -209,6 +260,14 @@ impl CosmeticFilterCache {
             .collect::<Vec<_>>()
     }
 
+    /// Any rules that can't be handled by `hidden_class_id_selectors` are returned by
+    /// `hostname_cosmetic_resources`. As soon as a page navigation is committed, this method
+    /// should be queried to get the initial set of cosmetic filtering operations to apply to the
+    /// page. This provides any rules specifying elements to hide by selectors that are too complex
+    /// to be returned by `hidden_class_id_selectors` (i.e. not directly starting with a class or
+    /// id selector, like `div[class*="Ads"]`), or any rule that is only applicable to a particular
+    /// hostname or set of hostnames (like `example.com##.a-class`). The first category is always
+    /// injected into every page, and makes up a relatively small number of rules in practice.
     pub fn hostname_cosmetic_resources(&self, hostname: &str, generichide: bool) -> UrlSpecificResources {
         let domain_str = {
             let (start, end) = crate::url_parser::get_host_domain(hostname);
@@ -326,17 +385,17 @@ impl HostnameExceptionsBuilder {
     }
 }
 
-#[derive(Deserialize, Serialize, Default)]
-pub struct HostnameRuleDb {
-    db: HashMap<Hash, Vec<SpecificFilterType>>,
-}
-
 /// Each hostname-specific filter can be pointed to by several different hostnames, and each
 /// hostname can correspond to several different filters. To effectively store and access those
 /// filters by hostname, all the non-hostname information for filters is stored in per-hostname
 /// "buckets" within a Vec, and each bucket is identified by its index. Hostname hashes are used as
 /// keys to get the indices of relevant buckets, which are in turn used to retrieve all the filters
 /// that apply.
+#[derive(Deserialize, Serialize, Default)]
+pub(crate) struct HostnameRuleDb {
+    db: HashMap<Hash, Vec<SpecificFilterType>>,
+}
+
 impl HostnameRuleDb {
     pub fn new() -> Self {
         HostnameRuleDb {
@@ -389,19 +448,44 @@ impl HostnameRuleDb {
     }
 }
 
+/// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SpecificFilterType {
-    // Parameter is the rule's selector
+    /// A simple hostname-specific hide rule, e.g. `example.com##.ad`.
+    ///
+    /// The parameter is the rule's CSS selector.
     Hide(String),
+    /// A simple hostname-specific hide exception rule, e.g. `example.com#@#.ad`.
+    ///
+    /// The parameter is the rule's CSS selector.
     Unhide(String),
 
-    // Parameters are the rule's selector, and its additional style
+    /// A hostname-specific rule with a custom style for an element, e.g.
+    /// `example.com##.ad:style(margin: 0)`.
+    ///
+    /// The parameters are the rule's selector and its additional style.
     Style(String, String),
-    UnhideStyle(String, String),          // Doesn't happen in practice
+    /// A hostname-specific exception rule for a custom style for an element, e.g.
+    /// `example.com#@#.ad:style(margin: 0)`.
+    ///
+    /// The parameters are the rule's selector and its additional style.
+    ///
+    /// In practice, this kind of rule does not appear in filter lists, although it is not
+    /// explicitly forbidden according to any syntax documentation.
+    UnhideStyle(String, String),
 
-    // Parameter is the rule's injected script
+    /// A hostname-specific rule with a scriptlet to inject along with any arguments, e.g.
+    /// `example.com##+js(acis, Number.isNan)`.
+    ///
+    /// The parameter is the contents of the `+js(...)` syntax construct.
     ScriptInject(String),
-    UnhideScriptInject(String),           // Barely happens in practice
+    /// A hostname-specific rule to except a scriptlet to inject along with any arguments, e.g.
+    /// `example.com#@#+js(acis, Number.isNan)`.
+    ///
+    /// The parameter is the contents of the `+js(...)` syntax construct.
+    ///
+    /// In practice, these rules are extremely rare in filter lists.
+    UnhideScriptInject(String),
 }
 
 /// This implementation assumes the given rule has hostname or entity constraints, and that the
