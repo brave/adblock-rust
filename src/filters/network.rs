@@ -488,6 +488,10 @@ impl NetworkFilter {
                     NetworkFilterOption::Redirect(value) => redirect = Some(value),
                     NetworkFilterOption::Csp(value) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
+                        // CSP rules can never have content types, and should always match against
+                        // subdocument and document rules. Rules do not match against document
+                        // requests by default, so this must be explictly added.
+                        mask.set(NetworkFilterMask::FROM_DOCUMENT, true);
                         csp = value;
                     }
                     NetworkFilterOption::Generichide => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
