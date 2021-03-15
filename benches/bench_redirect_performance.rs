@@ -1,4 +1,5 @@
-use addr::domain;
+use addr::parser::DomainName;
+use addr::psl::List;
 use criterion::*;
 use tokio::runtime::Runtime;
 
@@ -157,7 +158,7 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
             let domain_end = from_start.find('|').or_else(|| from_start.find(",")).or_else(|| Some(from_start.len())).unwrap() + domain_start;
             let source_hostname = &raw_line[domain_start..domain_end];
 
-            let domain = domain::Name::parse(source_hostname).unwrap();
+            let domain = List.parse_domain_name(source_hostname).unwrap();
             let suffix = domain.suffix();
             let domain_start = source_hostname[..source_hostname.len()-suffix.len()-1].rfind('.');
             let source_domain = if let Some(domain_start) = domain_start {

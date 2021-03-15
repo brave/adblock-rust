@@ -26,10 +26,13 @@ struct DefaultResolver;
 #[cfg(feature = "embedded-domain-resolver")]
 impl ResolvesDomain for DefaultResolver {
     fn get_host_domain(&self, host: &str) -> (usize, usize) {
+        use addr::parser::DomainName;
+        use addr::psl::List;
+
         if host.is_empty() {
             (0, 0)
         } else {
-            match addr::domain::Name::parse(host) {
+            match List.parse_domain_name(host) {
                 Err(_e) => (0, host.len()),
                 Ok(domain) => {
                     let host_len = host.len();

@@ -31,11 +31,12 @@ dependencies = [
 
 [[package]]
 name = "addr"
-version = "0.9.0"
+version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b90f8e5635a1887d105cd1769d60eeb0afb25235dca8447d1d02ec817c2b6e22"
+checksum = "936697e9caf938eb2905036100edf8e1269da8291f8a02f5fe7b37073784eec0"
 dependencies = [
  "psl",
+ "psl-types",
 ]
 
 [[package]]
@@ -1059,9 +1060,18 @@ checksum = "8f1383dff4092fe903ac180e391a8d4121cc48f08ccf850614b0290c6673b69d"
 
 [[package]]
 name = "psl"
-version = "1.0.5"
+version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43852d63028767f7465699980f0acbca6910203271b00e164eddf03d15911b79"
+checksum = "a781ee3b6f12122f5bfbc5154630f3e214740823da4b705980fc00c81c7d89f9"
+dependencies = [
+ "psl-types",
+]
+
+[[package]]
+name = "psl-types"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e9aa996d9ccdfb96682edbcdfbeb899efa3deae893ae0f932c21a56cdbf90ff"
 
 [[package]]
 name = "quote"
