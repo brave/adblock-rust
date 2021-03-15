@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 [[package]]
 name = "adblock"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "addr",
  "base64",
@@ -31,11 +31,12 @@ dependencies = [
 
 [[package]]
 name = "addr"
-version = "0.9.1"
+version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c7f9a4856c759fbcc0b770ad04293a3f52f8c19adec54e2082c260dcdd998f"
+checksum = "936697e9caf938eb2905036100edf8e1269da8291f8a02f5fe7b37073784eec0"
 dependencies = [
  "psl",
+ "psl-types",
 ]
 
 [[package]]
@@ -233,9 +234,18 @@ dependencies = [
 
 [[package]]
 name = "psl"
-version = "1.0.8"
+version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "232fa9bc426255dd020bf45715da58879cc552ec7ca728fa8cbb628a4f5f263d"
+checksum = "a781ee3b6f12122f5bfbc5154630f3e214740823da4b705980fc00c81c7d89f9"
+dependencies = [
+ "psl-types",
+]
+
+[[package]]
+name = "psl-types"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e9aa996d9ccdfb96682edbcdfbeb899efa3deae893ae0f932c21a56cdbf90ff"
 
 [[package]]
 name = "quote"
