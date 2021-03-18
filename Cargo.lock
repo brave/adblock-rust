@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 [[package]]
 name = "adblock"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "addr",
  "base64",
