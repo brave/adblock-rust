@@ -250,10 +250,65 @@ impl Blocker {
         }
     }
 
-    /// Given a "main_frame" request, check if some content security policies
+    /// Given a "main_frame" or "subdocument" request, check if some content security policies
     /// should be injected in the page.
-    pub fn get_csp_directives(&self, _request: Request) -> Option<String> {
-        unimplemented!()
+    pub fn get_csp_directives(&self, request: &Request) -> Option<String> {
+        use crate::request::RequestType;
+
+        if request.request_type != RequestType::Document && request.request_type != RequestType::Subdocument {
+            return None;
+        }
+
+        let mut request_tokens;
+        #[cfg(feature = "object-pooling")]
+        {
+            request_tokens = self.pool.pool.new();
+        }
+        #[cfg(not(feature = "object-pooling"))]
+        {
+            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
+        }
+        request.get_tokens(&mut request_tokens);
+
+        let filters = self.csp.check_all(request, &request_tokens, &self.tags_enabled);
+
+        if filters.is_empty() {
+            return None;
+        }
+
+        let mut disabled_directives: HashSet<&str> = HashSet::new();
+        let mut enabled_directives: HashSet<&str> = HashSet::new();
+
+        for filter in filters {
+            if filter.is_exception() {
+                if let Some(directive) = &filter.csp {
+                    disabled_directives.insert(directive);
+                } else {
+                    // Exception filters with empty `csp` options will disable all CSP injections for
+                    // matching pages.
+                    return None
+                }
+            } else {
+                if let Some(directive) = &filter.csp {
+                    enabled_directives.insert(directive);
+                }
+            }
+        }
+
+        let mut remaining_directives = enabled_directives.difference(&disabled_directives);
+
+        let mut merged = if let Some(directive) = remaining_directives.next() {
+            String::from(*directive)
+        } else {
+            return None;
+        };
+
+        remaining_directives.for_each(|directive| {
+            merged.push(',');
+            merged.push_str(directive);
+        });
+
+        Some(merged)
     }
 
     pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Blocker {
@@ -585,6 +640,11 @@ impl NetworkFilterList {
         false
     }
 
+    /// Returns the first found filter, if any, that matches the given request. The backing storage
+    /// has a non-deterministic order, so this should be used for any category of filters where a
+    /// match from each would be functionally equivalent. For example, if two different exception
+    /// filters match a certain request, it doesn't matter _which_ one is matched - the request
+    /// will be excepted either way.
     pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Option<&NetworkFilter> {
         #[cfg(feature = "metrics")]
         let mut filters_checked = 0;
@@ -650,6 +710,79 @@ impl NetworkFilterList {
         print!("false\t{}\t{}\t", filter_buckets, filters_checked);
 
         None
+    }
+
+    /// Returns _all_ filters that match the given request. This should be used for any category of
+    /// filters where a match from each may carry unique information. For example, if two different
+    /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
+    /// each directive should be combined for the final result.
+    pub fn check_all(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Vec<&NetworkFilter> {
+        #[cfg(feature = "metrics")]
+        let mut filters_checked = 0;
+        #[cfg(feature = "metrics")]
+        let mut filter_buckets = 0;
+
+        let mut filters = vec![];
+
+        #[cfg(not(feature = "metrics"))]
+        {
+            if self.filter_map.is_empty() {
+                return filters;
+            }
+        }
+
+        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
+            for token in source_hostname_hashes {
+                if let Some(filter_bucket) = self.filter_map.get(token) {
+                    #[cfg(feature = "metrics")]
+                    {
+                        filter_buckets += 1;
+                    }
+
+                    for filter in filter_bucket {
+                        #[cfg(feature = "metrics")]
+                        {
+                            filters_checked += 1;
+                        }
+                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                            #[cfg(feature = "metrics")]
+                            print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
+                            filters.push(filter);
+                        }
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "metrics")]
+        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
+
+        for token in request_tokens {
+            if let Some(filter_bucket) = self.filter_map.get(token) {
+                #[cfg(feature = "metrics")]
+                {
+                    filter_buckets += 1;
+                }
+                for filter in filter_bucket {
+                    #[cfg(feature = "metrics")]
+                    {
+                        filters_checked += 1;
+                    }
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                        #[cfg(feature = "metrics")]
+                        print!("true\t{}\t{}\t", filter_buckets, filters_checked);
+                        filters.push(filter);
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "metrics")]
+        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
+
+        filters
     }
 }
 
@@ -1171,7 +1304,7 @@ mod blocker_tests {
 
         let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
 
-        let blocker_options: BlockerOptions = BlockerOptions {
+        let blocker_options = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
         };
 
@@ -1187,6 +1320,60 @@ mod blocker_tests {
         });
     }
 
+    #[test]
+    fn get_csp_directives() {
+        let filters = vec![
+            String::from("$csp=script-src 'self' * 'unsafe-inline',domain=thepiratebay.vip|pirateproxy.live|thehiddenbay.com|downloadpirate.com|thepiratebay10.org|kickass.vip|pirateproxy.app|ukpass.co|prox.icu|pirateproxy.life"),
+            String::from("$csp=worker-src 'none',domain=pirateproxy.live|thehiddenbay.com|tpb.party|thepiratebay.org|thepiratebay.vip|thepiratebay10.org|flashx.cc|vidoza.co|vidoza.net"),
+            String::from("||1337x.to^$csp=script-src 'self' 'unsafe-inline'"),
+            String::from("@@^no-csp^$csp=script-src 'self' 'unsafe-inline'"),
+            String::from("^duplicated-directive^$csp=worker-src 'none'"),
+            String::from("@@^disable-all^$csp"),
+            String::from("^first-party-only^$csp=script-src 'none',1p"),
+        ];
+
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+
+        let blocker_options = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        {   // No directives should be returned for requests that are not `document` or `subdocument` content types.
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "script").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "image").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "object").unwrap()), None);
+        }
+        {   // A single directive should be returned if only one match is present in the engine, for both document and subdocument types
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://vidoza.co", "document").unwrap()), Some(String::from("worker-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://vidoza.net", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
+        }
+        {   // Multiple merged directives should be returned if more than one match is present in the engine
+            let possible_results = vec![
+                Some(String::from("script-src 'self' * 'unsafe-inline',worker-src 'none'")),
+                Some(String::from("worker-src 'none',script-src 'self' * 'unsafe-inline'")),
+            ];
+            assert!(possible_results.contains(&blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://pirateproxy.live", "document").unwrap())));
+            assert!(possible_results.contains(&blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://pirateproxy.live", "subdocument").unwrap())));
+        }
+        {   // A directive with an exception should not be returned
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to", "https://1337x.to", "document").unwrap()), Some(String::from("script-src 'self' 'unsafe-inline'")));
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to/no-csp", "https://1337x.to", "subdocument").unwrap()), None);
+        }
+        {   // Multiple identical directives should only appear in the output once
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/duplicated-directive", "https://flashx.cc", "document").unwrap()), Some(String::from("worker-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/duplicated-directive", "https://flashx.cc", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
+        }
+        {   // A CSP exception with no corresponding directive should disable all CSP injections for the page
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to/duplicated-directive/disable-all", "https://thepiratebay10.org", "document").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to/duplicated-directive/disable-all", "https://thepiratebay10.org", "document").unwrap()), None);
+        }
+        {   // A CSP exception with a partyness modifier should only match where the modifier applies
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("htps://github.com/first-party-only", "https://example.com", "subdocument").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/first-party-only", "https://example.com", "document").unwrap()), Some(String::from("script-src 'none'")));
+        }
+    }
 
     #[test]
     fn tags_enable_works() {

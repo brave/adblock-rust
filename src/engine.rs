@@ -138,6 +138,22 @@ impl Engine {
         self.blocker.check_parameterised(&request, previously_matched_rule, force_check_exceptions)
     }
 
+    /// Returns a string containing any additional CSP directives that should be added to this
+    /// request's response. Only applies to document and subdocument requests.
+    ///
+    /// If multiple policies are present from different rules, they will be joined by commas.
+    pub fn get_csp_directives(
+        &self,
+        url: &str,
+        hostname: &str,
+        source_hostname: &str,
+        request_type: &str,
+        third_party_request: Option<bool>,
+    ) -> Option<String> {
+        let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        self.blocker.get_csp_directives(&request)
+    }
+
     /// Check if a given filter has been previously added to this `Engine`.
     ///
     /// Note that only network filters are currently supported by this method.
