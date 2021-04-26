@@ -283,24 +283,27 @@ fn filter_set_into_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue
     }
 }*/
 
-/*fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    let url: String = cx.argument::<JsString>(0)?.value();
-    let source_url: String = cx.argument::<JsString>(1)?.value();
-    let request_type: String = cx.argument::<JsString>(2)?.value();
+fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
+    let url: String = cx.argument::<JsString>(0)?.value(&mut cx);
+    let source_url: String = cx.argument::<JsString>(1)?.value(&mut cx);
+    let request_type: String = cx.argument::<JsString>(2)?.value(&mut cx);
     let request_ok = adblock::request::Request::from_urls(&url, &source_url, &request_type).is_ok();
 
     Ok(cx.boolean(request_ok))
 }
 
 fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let web_accessible_resource_dir: String = cx.argument::<JsString>(0)?.value();
-    let redirect_engine_path: String = cx.argument::<JsString>(1)?.value();
-    let scriptlets_path: String = cx.argument::<JsString>(2)?.value();
+    let web_accessible_resource_dir: String = cx.argument::<JsString>(0)?.value(&mut cx);
+    let redirect_engine_path: String = cx.argument::<JsString>(1)?.value(&mut cx);
+    let scriptlets_path: String = cx.argument::<JsString>(2)?.value(&mut cx);
 
     let mut resources = assemble_web_accessible_resources(&Path::new(&web_accessible_resource_dir), &Path::new(&redirect_engine_path));
     resources.append(&mut assemble_scriptlet_resources(&Path::new(&scriptlets_path)));
 
-    let js_resources = neon_serde::to_value(&mut cx, &resources)?;
+    let js_resources = match neon_serde::to_value(&mut cx, &resources) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
 
     Ok(js_resources)
 }
@@ -308,10 +311,16 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
 fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
     let filter_format_enum = JsObject::new(cx);
 
-    let standard = neon_serde::to_value(cx, &FilterFormat::Standard)?;
+    let standard = match neon_serde::to_value(cx, &FilterFormat::Standard) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
     filter_format_enum.set(cx, "STANDARD", standard)?;
 
-    let hosts = neon_serde::to_value(cx, &FilterFormat::Hosts)?;
+    let hosts = match neon_serde::to_value(cx, &FilterFormat::Hosts) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
     filter_format_enum.set(cx, "HOSTS", hosts)?;
 
     Ok(filter_format_enum)
@@ -320,17 +329,26 @@ fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsOb
 fn build_rule_types_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
     let rule_types_enum = JsObject::new(cx);
 
-    let all = neon_serde::to_value(cx, &RuleTypes::All)?;
+    let all = match neon_serde::to_value(cx, &RuleTypes::All) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
     rule_types_enum.set(cx, "ALL", all)?;
 
-    let network_only = neon_serde::to_value(cx, &RuleTypes::NetworkOnly)?;
+    let network_only = match neon_serde::to_value(cx, &RuleTypes::NetworkOnly) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
     rule_types_enum.set(cx, "NETWORK_ONLY", network_only)?;
 
-    let cosmetic_only = neon_serde::to_value(cx, &RuleTypes::CosmeticOnly)?;
+    let cosmetic_only = match neon_serde::to_value(cx, &RuleTypes::CosmeticOnly) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
     rule_types_enum.set(cx, "COSMETIC_ONLY", cosmetic_only)?;
 
     Ok(rule_types_enum)
-}*/
+}
 
 register_module!(mut m, {
     m.export_function("FilterSet_constructor", create_filter_set)?;
@@ -338,16 +356,16 @@ register_module!(mut m, {
     m.export_function("FilterSet_addFilter", filter_set_add_filter)?;
     m.export_function("FilterSet_intoContentBlocking", filter_set_into_content_blocking)?;
 
-    /*m.export_class::<JsEngine>("Engine")?;
+    /*m.export_class::<JsEngine>("Engine")?;*/
 
     m.export_function("validateRequest", validate_request)?;
-    m.export_function("uBlockResources", ublock_resources)?;*/
+    m.export_function("uBlockResources", ublock_resources)?;
 
-    /*let filter_format_enum = build_filter_format_enum(&mut m)?;
+    let filter_format_enum = build_filter_format_enum(&mut m)?;
     m.export_value("FilterFormat", filter_format_enum)?;
 
     let rule_types_enum = build_rule_types_enum(&mut m)?;
-    m.export_value("RuleTypes", rule_types_enum)?;*/
+    m.export_value("RuleTypes", rule_types_enum)?;
 
     Ok(())
 });
