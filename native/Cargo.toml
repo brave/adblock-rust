@@ -4,18 +4,14 @@ version = "0.3.11"
 authors = ["Andrius Aucinas <aaucinas@brave.com>", "Anton Lazarev <alazarev@brave.com>"]
 edition = "2018"
 license = "MPL-2.0"
-build = "build.rs"
 exclude = ["artifacts.json", "index.node"]
 
 [lib]
 name = "adblock_rs"
 crate-type = ["cdylib"]
 
-[build-dependencies]
-neon-build = "0.3.3"
-
 [dependencies]
-neon-serde = "0.3"
+neon-serde = { git = "https://github.com/antonok-edm/neon-serde", branch = "refactor/update-neon-0.8" }
 serde =  { version = "1.0", features = ["derive", "rc"] }
 adblock = { path = "../", features = ["css-validation", "content-blocking", "resource-assembler"] }
-neon = "0.3.3"
+neon = { version = "^ 0.8", default-features = false, features = ["napi-1"] }
