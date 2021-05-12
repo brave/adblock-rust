@@ -17,11 +17,11 @@ exclude = [
 ]
 
 [dependencies]
-addr = { version = "0.11", default-features = false, features = ["psl"], optional = true }
+addr = { version = "0.14", default-features = false, features = ["psl"], optional = true }
 url = "2.2"
 percent-encoding = "2.1"
-once_cell = "1.5"
-regex = "1.4"
+once_cell = "1.7"
+regex = "1.5"
 bitflags = "1.2"
 itertools = "0.9"
 idna = "0.2"
