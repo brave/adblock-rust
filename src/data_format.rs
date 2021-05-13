@@ -211,39 +211,39 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
     }
 }
 
-impl Into<(Blocker, CosmeticFilterCache)> for DeserializeFormat {
-    fn into(self) -> (Blocker, CosmeticFilterCache) {
+impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+    fn from(format: DeserializeFormat) -> Self {
         (Blocker {
-            csp: self.part1.csp,
-            exceptions: self.part1.exceptions,
-            importants: self.part1.importants,
-            redirects: self.part1.redirects,
-            filters_tagged: self.part1.filters_tagged,
-            filters: self.part1.filters,
+            csp: format.part1.csp,
+            exceptions: format.part1.exceptions,
+            importants: format.part1.importants,
+            redirects: format.part1.redirects,
+            filters_tagged: format.part1.filters_tagged,
+            filters: format.part1.filters,
 
             tags_enabled: Default::default(),
-            tagged_filters_all: self.part1.tagged_filters_all,
+            tagged_filters_all: format.part1.tagged_filters_all,
 
             hot_filters: Default::default(),
 
-            enable_optimizations: self.part1.enable_optimizations,
+            enable_optimizations: format.part1.enable_optimizations,
 
-            resources: self.part1.resources,
+            resources: format.part1.resources,
             #[cfg(feature = "object-pooling")]
             pool: Default::default(),
 
-            generic_hide: self.rest.generic_hide,
+            generic_hide: format.rest.generic_hide,
         }, CosmeticFilterCache {
-            simple_class_rules: self.rest.simple_class_rules,
-            simple_id_rules: self.rest.simple_id_rules,
-            complex_class_rules: self.rest.complex_class_rules,
-            complex_id_rules: self.rest.complex_id_rules,
+            simple_class_rules: format.rest.simple_class_rules,
+            simple_id_rules: format.rest.simple_id_rules,
+            complex_class_rules: format.rest.complex_class_rules,
+            complex_id_rules: format.rest.complex_id_rules,
 
-            specific_rules: self.rest.specific_rules,
+            specific_rules: format.rest.specific_rules,
 
-            misc_generic_selectors: self.rest.misc_generic_selectors,
+            misc_generic_selectors: format.rest.misc_generic_selectors,
 
-            scriptlets: self.rest.scriptlets,
+            scriptlets: format.rest.scriptlets,
         })
     }
 }

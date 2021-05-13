@@ -424,7 +424,7 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
         | NfOpt::Websocket(..)
         | NfOpt::Font(..)
     )) {
-        Err(NetworkFilterError::CspWithContentType)?;
+        return Err(NetworkFilterError::CspWithContentType);
     }
 
     Ok(())
@@ -1144,43 +1144,40 @@ fn check_is_regex(filter: &str) -> bool {
 /// filters authors rely and different assumption. We can have prefix of suffix
 /// matches of anchor.
 fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filter_hostname: bool) -> bool {
-    let filter_hostname_len = filter_hostname.len();
-    // Corner-case, if `filterHostname` is empty, then it's a match
-    if filter_hostname_len == 0 {
-        return true;
-    }
-    let hostname_len = hostname.len();
-
-    if filter_hostname_len > hostname_len {
+    match filter_hostname.len() {
+        // Corner-case, if `filterHostname` is empty, then it's a match
+        0 => true,
         // `filterHostname` cannot be longer than actual hostname
-        false
-    } else if filter_hostname_len == hostname_len {
+        _ if filter_hostname.len() > hostname.len() => false,
         // If they have the same len(), they should be equal
-        filter_hostname == hostname
-    } else if let Some(match_index) = twoway::find_str(hostname, filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
-        if match_index == 0 {
-            // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
-            //
-            // Examples (filter_hostname, hostname):
-            //   * (foo, foo.com)
-            //   * (sub.foo, sub.foo.com)
-            wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.')
-        } else if match_index == hostname_len - filter_hostname_len {
-            // `filter_hostname` is a suffix of `hostname`.
-            //
-            // Examples (filter_hostname, hostname):
-            //    * (foo.com, sub.foo.com)
-            //    * (com, foo.com)
-            filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
-        } else {
-            // `filter_hostname` is infix of `hostname` and needs match full labels
-            (wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
-                && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
-        }
-    }
-    else {
-        // No match
-        false
+        _ if filter_hostname.len() == hostname.len() => filter_hostname == hostname,
+        _ => {
+            match twoway::find_str(hostname, filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
+                Some(0) => {
+                    // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
+                    //
+                    // Examples (filter_hostname, hostname):
+                    //   * (foo, foo.com)
+                    //   * (sub.foo, sub.foo.com)
+                    wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname.len()..].starts_with('.')
+                },
+                Some(match_index) if match_index == hostname.len() - filter_hostname.len() => {
+                    // `filter_hostname` is a suffix of `hostname`.
+                    //
+                    // Examples (filter_hostname, hostname):
+                    //    * (foo.com, sub.foo.com)
+                    //    * (com, foo.com)
+                    filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
+                }
+                Some(match_index) => {
+                    // `filter_hostname` is infix of `hostname` and needs match full labels
+                    (wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname.len()..].starts_with('.'))
+                        && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
+                }
+                // No match
+                _ => false,
+            }
+        },
     }
 }
 
