@@ -55,7 +55,7 @@ let resources = AdBlockClient.uBlockResources('uBlockOrigin/src/web_accessible_r
 const filterSet = new AdBlockClient.FilterSet(true);
 filterSet.addFilters(rules);
 const client = new AdBlockClient.Engine(filterSet, true);
-client.updateResources(resources);
+client.useResources(resources);
 
 const serializedArrayBuffer = client.serialize(); // Serialize the engine to an ArrayBuffer
 
