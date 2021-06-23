@@ -84,4 +84,4 @@ object-pooling = ["lifeguard"]
 css-validation = ["cssparser", "selectors"]
 content-blocking = ["serde_json"]
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
-resource-assembler = []
+resource-assembler = ["serde_json"]

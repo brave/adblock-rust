@@ -8,15 +8,6 @@ use std::fs::File;
 use std::path::Path;
 use crate::resources::{Resource, ResourceType, MimeType};
 
-//    [ '1x1.gif', {
-static MAP_NAME_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\[\s*'([a-zA-Z0-9\-_\.]+)',\s*\{"#).unwrap());
-//      alias: '1x1-transparent.gif',
-static MAP_PROPERTY_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*([a-zA-Z0-9_]+):\s*'([a-zA-Z0-9\-_\./\*]+)',"#).unwrap());
-//    } ],
-static MAP_END_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\}\s*\]"#).unwrap());
-//  ]);
-static MAP_END_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\]\s*\)"#).unwrap());
-
 static TOP_COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap());
 static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap());
 
@@ -26,17 +17,54 @@ static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap(
 /// - `name` is the name of a resource, corresponding to its path in the `web_accessible_resources`
 /// directory
 ///
-/// - `alias` is an optional additional name that can be used to reference the resource
+/// - `alias` is a list of optional additional names that can be used to reference the resource
 ///
 /// - `data` is either `"text"` or `"blob"`, but is currently unused in `adblock-rust`. Within
 /// uBlock Origin, it's used to prevent text files from being encoded in base64 in a data URL.
 struct ResourceProperties {
     name: String,
-    alias: Option<String>,
+    alias: Vec<String>,
     data: Option<String>,
 }
 
+/// The deserializable represenation of the `alias` field of a resource's properties, which can
+/// either be a single string or a list of strings.
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum ResourceAliasField {
+    SingleString(String),
+    ListOfStrings(Vec<String>),
+}
+
+impl ResourceAliasField {
+    fn to_vec(self) -> Vec<String> {
+        match self {
+            Self::SingleString(s) => vec![s],
+            Self::ListOfStrings(l) => l,
+        }
+    }
+}
+
+/// Directly deserializable representation of a resource's properties from `redirect-engine.js`.
+#[derive(serde::Deserialize)]
+struct JsResourceProperties {
+    #[serde(default)]
+    alias: Option<ResourceAliasField>,
+    #[serde(default)]
+    data: Option<String>,
+    #[serde(default)]
+    params: Option<Vec<String>>,
+}
+
+/// Maps the name of the resource to its properties in a 2-element tuple.
+type JsResourceEntry = (String, JsResourceProperties);
+
 const REDIRECTABLE_RESOURCES_DECLARATION: &str = "const redirectableResources = new Map([";
+//  ]);
+static MAP_END_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\]\s*\)"#).unwrap());
+
+static TRAILING_COMMA_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#",([\],\}])"#).unwrap());
+static UNQUOTED_FIELD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"([\{,])([a-zA-Z][a-zA-Z0-9_]*):"#).unwrap());
 
 /// Reads data from a a file in the format of uBlock Origin's `redirect-engine.js` file to
 /// determine the files in the `web_accessible_resources` directory, as well as any of their
@@ -44,60 +72,57 @@ const REDIRECTABLE_RESOURCES_DECLARATION: &str = "const redirectableResources = 
 ///
 /// This is read from the `redirectableResources` map.
 fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourceProperties> {
-    let mut resource_properties = Vec::new();
+    // This isn't bulletproof, but it should handle the historical versions of the mapping
+    // correctly, and having a strict JSON parser should catch any unexpected format changes. Plus,
+    // it prevents dependending on a full JS engine.
 
-    let mut current_resource: Option<ResourceProperties> = None;
-    let mut found_mapping = false;
+    // Extract just the map. It's between REDIRECTABLE_RESOURCES_DECLARATION and MAP_END_RE.
+    let mut map: String = mapfile_data
+        .lines()
+        .skip_while(|line| *line != REDIRECTABLE_RESOURCES_DECLARATION)
+        .take_while(|line| !MAP_END_RE.is_match(line))
+        // Strip any trailing comments from each line.
+        .map(|line| if let Some(i) = line.find("//") {
+            &line[..i]
+        } else {
+            line
+        })
+        // Remove all newlines from the entire string.
+        .fold(String::new(), |s, line| s + line);
 
-    for line in mapfile_data.lines().skip_while(|line| *line != REDIRECTABLE_RESOURCES_DECLARATION).skip(1) {
-        found_mapping = true;
+    // Add back the final square brace that was omitted above as part of MAP_END_RE.
+    map.push(']');
 
-        let key_capture = MAP_NAME_KEY_RE.captures(line);
-        if let Some(key_capture) = key_capture {
-            // unwrap is safe because first capture group must be populated
-            let key = key_capture.get(1).unwrap().as_str();
-            current_resource = Some(ResourceProperties { name: key.to_owned(), alias: None, data: None});
-            continue;
+    // Trim out the beginning `const redirectableResources = new Map(`.
+    // Also, replace all single quote characters with double quotes.
+    assert!(map.starts_with(REDIRECTABLE_RESOURCES_DECLARATION));
+    map = map[REDIRECTABLE_RESOURCES_DECLARATION.len()-1..].replace('\'', "\"");
+
+    // Remove all whitespace from the entire string.
+    map.retain(|c| !c.is_whitespace());
+
+    // Replace all matches for `,]` or `,}` with `]` or `}`, respectively.
+    map = TRAILING_COMMA_RE.replace_all(&map, |caps: &regex::Captures| caps[1].to_string()).to_string();
+
+    // Replace all property keys directly preceded by a `{` or a `,` and followed by a `:` with
+    // double-quoted versions.
+    map = UNQUOTED_FIELD_RE.replace_all(&map, |caps: &regex::Captures| format!("{}\"{}\":", &caps[1], &caps[2])).to_string();
+
+    // It *should* be valid JSON now, so parse it with serde_json.
+    let parsed: Vec<JsResourceEntry> = serde_json::from_str(&map).unwrap();
+
+    parsed.into_iter().filter_map(|(name, props)| {
+        // Ignore resources with params for now, since there's no support for them currently.
+        if props.params.is_some() {
+            None
+        } else {
+            Some(ResourceProperties {
+                name,
+                alias: props.alias.map(|a| a.to_vec()).unwrap_or_default(),
+                data: props.data,
+            })
         }
-
-        let prop_captures = MAP_PROPERTY_KEY_RE.captures(line);
-        if let Some(prop_captures) = prop_captures {
-            // unwraps are safe because both capture groups must be populated
-            let property_key = prop_captures.get(1).unwrap().as_str();
-            let property_value = prop_captures.get(2).unwrap().as_str();
-
-            if let Some(ref mut current_resource) = current_resource {
-                match property_key {
-                    "alias" => current_resource.alias = Some(property_value.to_owned()),
-                    "data" => current_resource.data = Some(property_value.to_owned()),
-                    other => panic!("unexpected key: {}", other),
-                }
-            } else {
-                panic!("could not find beginning of resource in alias map");
-            }
-            continue;
-        }
-
-        if MAP_END_KEY_RE.is_match(line) {
-            resource_properties.push(current_resource.take().expect("closed a resource entry before opening a new one"));
-            continue;
-        }
-
-        if MAP_END_RE.is_match(line) {
-            if let Some(current_resource) = current_resource {
-                panic!("encountered end of alias map while {} was unclosed", current_resource.name);
-            }
-            break;
-        }
-
-        panic!("encountered unexpected line {:?}", line);
-    }
-
-    if !found_mapping {
-        panic!("failed to find mapping");
-    }
-
-    resource_properties
+    }).collect()
 }
 
 /// Reads data from a file in the form of uBlock Origin's `scriptlets.js` file and produces
@@ -221,6 +246,160 @@ pub fn assemble_scriptlet_resources(scriptlets_path: &Path) -> Vec<Resource> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_war_resource_assembly3() {
+        let web_accessible_resource_dir = Path::new("data/test/fake-uBO-files/web_accessible_resources");
+        let redirect_engine_path = Path::new("data/test/fake-uBO-files/redirect-engine3.js");
+        let resources = assemble_web_accessible_resources(web_accessible_resource_dir, redirect_engine_path);
+
+        let expected_resource_names = vec![
+            "1x1.gif",
+            "2x2.png",
+            "3x2.png",
+            "32x32.png",
+            "addthis_widget.js",
+            "amazon_ads.js",
+            "amazon_apstag.js",
+            "ampproject_v0.js",
+            "chartbeat.js",
+            //"click-to-load.html" is ignored because it has a params field.
+            "doubleclick_instream_ad_status.js",
+            "empty",
+            "google-analytics_analytics.js",
+            "google-analytics_cx_api.js",
+            "google-analytics_ga.js",
+            "google-analytics_inpage_linkid.js",
+            "googlesyndication_adsbygoogle.js",
+            "googletagmanager_gtm.js",
+            "googletagservices_gpt.js",
+            "hd-main.js",
+            "ligatus_angular-tag.js",
+            "monkeybroker.js",
+            "noeval.js",
+            "noeval-silent.js",
+            "nobab.js",
+            "nofab.js",
+            "noop-0.1s.mp3",
+            "noop-1s.mp4",
+            "noop.html",
+            "noop.js",
+            "noop.txt",
+            "outbrain-widget.js",
+            "popads.js",
+            "popads-dummy.js",
+            "scorecardresearch_beacon.js",
+            "window.open-defuser.js",
+        ];
+
+        for name in expected_resource_names {
+            dbg!(&name);
+            assert!(resources.iter()
+                .find(|resource| {
+                    if let ResourceType::Mime(_) = resource.kind {
+                        resource.name == name
+                    } else {
+                        false
+                    }
+                }).is_some(), "{:?}", name);
+        }
+
+        let serialized = serde_json::to_string(&resources).expect("serialize resources");
+
+        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+
+        assert_eq!(reserialized[0].name, "1x1.gif");
+        assert_eq!(reserialized[0].aliases, vec!["1x1-transparent.gif"]);
+        assert_eq!(reserialized[0].kind, ResourceType::Mime(MimeType::ImageGif));
+
+        assert_eq!(reserialized[28].name, "noop.js");
+        assert_eq!(reserialized[28].aliases, vec!["noopjs", "abp-resource:blank-js"]);
+        assert_eq!(reserialized[28].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
+        let noopjs_contents = std::fs::read_to_string(Path::new("data/test/fake-uBO-files/web_accessible_resources/noop.js")).unwrap().replace('\r', "");
+        assert_eq!(
+            std::str::from_utf8(
+                &base64::decode(&reserialized[28].content).expect("decode base64 content")
+            ).expect("convert to utf8 string"),
+            noopjs_contents,
+        );
+    }
+
+    #[test]
+    fn test_war_resource_assembly2() {
+        let web_accessible_resource_dir = Path::new("data/test/fake-uBO-files/web_accessible_resources");
+        let redirect_engine_path = Path::new("data/test/fake-uBO-files/redirect-engine2.js");
+        let resources = assemble_web_accessible_resources(web_accessible_resource_dir, redirect_engine_path);
+
+        let expected_resource_names = vec![
+            "1x1.gif",
+            "2x2.png",
+            "3x2.png",
+            "32x32.png",
+            "addthis_widget.js",
+            "amazon_ads.js",
+            "amazon_apstag.js",
+            "ampproject_v0.js",
+            "chartbeat.js",
+            //"click-to-load.html" is ignored because it has a params field.
+            "doubleclick_instream_ad_status.js",
+            "empty",
+            "google-analytics_analytics.js",
+            "google-analytics_cx_api.js",
+            "google-analytics_ga.js",
+            "google-analytics_inpage_linkid.js",
+            "googlesyndication_adsbygoogle.js",
+            "googletagmanager_gtm.js",
+            "googletagservices_gpt.js",
+            "hd-main.js",
+            "ligatus_angular-tag.js",
+            "monkeybroker.js",
+            "noeval.js",
+            "noeval-silent.js",
+            "nobab.js",
+            "nofab.js",
+            "noop-0.1s.mp3",
+            "noop-1s.mp4",
+            "noop.html",
+            "noop.js",
+            "noop.txt",
+            "outbrain-widget.js",
+            "popads.js",
+            "popads-dummy.js",
+            "scorecardresearch_beacon.js",
+            "window.open-defuser.js",
+        ];
+
+        for name in expected_resource_names {
+            dbg!(&name);
+            assert!(resources.iter()
+                .find(|resource| {
+                    if let ResourceType::Mime(_) = resource.kind {
+                        resource.name == name
+                    } else {
+                        false
+                    }
+                }).is_some(), "{:?}", name);
+        }
+
+        let serialized = serde_json::to_string(&resources).expect("serialize resources");
+
+        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+
+        assert_eq!(reserialized[0].name, "1x1.gif");
+        assert_eq!(reserialized[0].aliases, vec!["1x1-transparent.gif"]);
+        assert_eq!(reserialized[0].kind, ResourceType::Mime(MimeType::ImageGif));
+
+        assert_eq!(reserialized[28].name, "noop.js");
+        assert_eq!(reserialized[28].aliases, vec!["noopjs"]);
+        assert_eq!(reserialized[28].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
+        let noopjs_contents = std::fs::read_to_string(Path::new("data/test/fake-uBO-files/web_accessible_resources/noop.js")).unwrap().replace('\r', "");
+        assert_eq!(
+            std::str::from_utf8(
+                &base64::decode(&reserialized[28].content).expect("decode base64 content")
+            ).expect("convert to utf8 string"),
+            noopjs_contents,
+        );
+    }
 
     #[test]
     fn test_war_resource_assembly() {
