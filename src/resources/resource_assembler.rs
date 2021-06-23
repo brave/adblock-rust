@@ -136,7 +136,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
     let mut script = String::new();
 
     for line in uncommented.lines() {
-        if line.starts_with('#') || line.starts_with("// ") {
+        if line.starts_with('#') || line.starts_with("// ") || line == "//" {
             continue;
         }
 
@@ -157,6 +157,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
 
         if NON_EMPTY_LINE_RE.is_match(line) {
             script += line.trim();
+            script.push('\n');
             continue;
         }
 
@@ -478,6 +479,87 @@ mod tests {
     }
 
     #[test]
+    fn test_scriptlet_resource_assembly2() {
+        let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets2.js");
+        let resources = assemble_scriptlet_resources(scriptlets_path);
+
+        let expected_resource_names = vec![
+            "abort-current-inline-script.js",
+            "abort-on-property-read.js",
+            "abort-on-property-write.js",
+            "abort-on-stack-trace.js",
+            "addEventListener-defuser.js",
+            "addEventListener-logger.js",
+            "json-prune.js",
+            "nano-setInterval-booster.js",
+            "nano-setTimeout-booster.js",
+            "noeval-if.js",
+            "no-fetch-if.js",
+            "no-floc.js",
+            "remove-attr.js",
+            "remove-class.js",
+            "no-requestAnimationFrame-if.js",
+            "set-constant.js",
+            "no-setInterval-if.js",
+            "no-setTimeout-if.js",
+            "webrtc-if.js",
+            "window.name-defuser",
+            "overlay-buster.js",
+            "alert-buster.js",
+            "gpt-defuser.js",
+            "nowebrtc.js",
+            "golem.de.js",
+            "upmanager-defuser.js",
+            "smartadserver.com.js",
+            "adfly-defuser.js",
+            "disable-newtab-links.js",
+            "damoh-defuser.js",
+            "twitch-videoad.js",
+            "fingerprint2.js",
+            "cookie-remover.js",
+        ];
+
+        for name in expected_resource_names {
+            assert!(resources.iter()
+                .find(|resource| {
+                    match resource.kind {
+                        ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript) => resource.name == name,
+                        _ => false,
+                    }
+                })
+                .is_some(), "failed to find {}", name);
+        }
+
+        let serialized = serde_json::to_string(&resources).expect("serialize resources");
+
+        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+
+        assert_eq!(reserialized[0].name, "abort-current-inline-script.js");
+        assert_eq!(reserialized[0].aliases, vec!["acis.js"]);
+        assert_eq!(reserialized[0].kind, ResourceType::Template);
+
+        assert_eq!(reserialized[20].name, "overlay-buster.js");
+        assert_eq!(reserialized[20].aliases, Vec::<String>::new());
+        assert_eq!(reserialized[20].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
+        assert_eq!(
+            std::str::from_utf8(
+                &base64::decode(&reserialized[20].content).expect("decode base64 content")
+            ).expect("convert to utf8 string"),
+            "(function() {\nif ( window !== window.top ) {\nreturn;\n}\nvar tstart;\nvar ttl = 30000;\nvar delay = 0;\nvar delayStep = 50;\nvar buster = function() {\nvar docEl = document.documentElement,\nbodyEl = document.body,\nvw = Math.min(docEl.clientWidth, window.innerWidth),\nvh = Math.min(docEl.clientHeight, window.innerHeight),\ntol = Math.min(vw, vh) * 0.05,\nel = document.elementFromPoint(vw/2, vh/2),\nstyle, rect;\nfor (;;) {\nif ( el === null || el.parentNode === null || el === bodyEl ) {\nbreak;\n}\nstyle = window.getComputedStyle(el);\nif ( parseInt(style.zIndex, 10) >= 1000 || style.position === 'fixed' ) {\nrect = el.getBoundingClientRect();\nif ( rect.left <= tol && rect.top <= tol && (vw - rect.right) <= tol && (vh - rect.bottom) < tol ) {\nel.parentNode.removeChild(el);\ntstart = Date.now();\nel = document.elementFromPoint(vw/2, vh/2);\nbodyEl.style.setProperty('overflow', 'auto', 'important');\ndocEl.style.setProperty('overflow', 'auto', 'important');\ncontinue;\n}\n}\nel = el.parentNode;\n}\nif ( (Date.now() - tstart) < ttl ) {\ndelay = Math.min(delay + delayStep, 1000);\nsetTimeout(buster, delay);\n}\n};\nvar domReady = function(ev) {\nif ( ev ) {\ndocument.removeEventListener(ev.type, domReady);\n}\ntstart = Date.now();\nsetTimeout(buster, delay);\n};\nif ( document.readyState === 'loading' ) {\ndocument.addEventListener('DOMContentLoaded', domReady);\n} else {\ndomReady();\n}\n})();\n",
+        );
+
+        assert_eq!(reserialized[6].name, "json-prune.js");
+        assert_eq!(reserialized[6].aliases, Vec::<String>::new());
+        assert_eq!(reserialized[6].kind, ResourceType::Template);
+        assert_eq!(
+            std::str::from_utf8(
+                &base64::decode(&reserialized[6].content).expect("decode base64 content")
+            ).expect("convert to utf8 string"),
+            "(function() {\nconst rawPrunePaths = '{{1}}';\nconst rawNeedlePaths = '{{2}}';\nconst prunePaths = rawPrunePaths !== '{{1}}' && rawPrunePaths !== ''\n? rawPrunePaths.split(/ +/)\n: [];\nlet needlePaths;\nlet log, reLogNeedle;\nif ( prunePaths.length !== 0 ) {\nneedlePaths = prunePaths.length !== 0 &&\nrawNeedlePaths !== '{{2}}' && rawNeedlePaths !== ''\n? rawNeedlePaths.split(/ +/)\n: [];\n} else {\nlog = console.log.bind(console);\nlet needle;\nif ( rawNeedlePaths === '' || rawNeedlePaths === '{{2}}' ) {\nneedle = '.?';\n} else if ( rawNeedlePaths.charAt(0) === '/' && rawNeedlePaths.slice(-1) === '/' ) {\nneedle = rawNeedlePaths.slice(1, -1);\n} else {\nneedle = rawNeedlePaths.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\nreLogNeedle = new RegExp(needle);\n}\nconst findOwner = function(root, path, prune = false) {\nlet owner = root;\nlet chain = path;\nfor (;;) {\nif ( typeof owner !== 'object' || owner === null  ) {\nreturn false;\n}\nconst pos = chain.indexOf('.');\nif ( pos === -1 ) {\nif ( prune === false ) {\nreturn owner.hasOwnProperty(chain);\n}\nif ( chain === '*' ) {\nfor ( const key in owner ) {\nif ( owner.hasOwnProperty(key) === false ) { continue; }\ndelete owner[key];\n}\n} else if ( owner.hasOwnProperty(chain) ) {\ndelete owner[chain];\n}\nreturn true;\n}\nconst prop = chain.slice(0, pos);\nif (\nprop === '[]' && Array.isArray(owner) ||\nprop === '*' && owner instanceof Object\n) {\nconst next = chain.slice(pos + 1);\nlet found = false;\nfor ( const key of Object.keys(owner) ) {\nfound = findOwner(owner[key], next, prune) || found;\n}\nreturn found;\n}\nif ( owner.hasOwnProperty(prop) === false ) { return false; }\nowner = owner[prop];\nchain = chain.slice(pos + 1);\n}\n};\nconst mustProcess = function(root) {\nfor ( const needlePath of needlePaths ) {\nif ( findOwner(root, needlePath) === false ) {\nreturn false;\n}\n}\nreturn true;\n};\nconst pruner = function(o) {\nif ( log !== undefined ) {\nconst json = JSON.stringify(o, null, 2);\nif ( reLogNeedle.test(json) ) {\nlog('uBO:', location.hostname, json);\n}\nreturn o;\n}\nif ( mustProcess(o) === false ) { return o; }\nfor ( const path of prunePaths ) {\nfindOwner(o, path, true);\n}\nreturn o;\n};\nJSON.parse = new Proxy(JSON.parse, {\napply: function() {\nreturn pruner(Reflect.apply(...arguments));\n},\n});\nResponse.prototype.json = new Proxy(Response.prototype.json, {\napply: function() {\nreturn Reflect.apply(...arguments).then(o => pruner(o));\n},\n});\n})();\n",
+        );
+    }
+
+    #[test]
     fn test_scriptlet_resource_assembly() {
         let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets.js");
         let resources = assemble_scriptlet_resources(scriptlets_path);
@@ -542,7 +624,7 @@ mod tests {
             std::str::from_utf8(
                 &base64::decode(&reserialized[18].content).expect("decode base64 content")
             ).expect("convert to utf8 string"),
-            "(function() {if ( window !== window.top ) {return;}var tstart;var ttl = 30000;var delay = 0;var delayStep = 50;var buster = function() {var docEl = document.documentElement,bodyEl = document.body,vw = Math.min(docEl.clientWidth, window.innerWidth),vh = Math.min(docEl.clientHeight, window.innerHeight),tol = Math.min(vw, vh) * 0.05,el = document.elementFromPoint(vw/2, vh/2),style, rect;for (;;) {if ( el === null || el.parentNode === null || el === bodyEl ) {break;}style = window.getComputedStyle(el);if ( parseInt(style.zIndex, 10) >= 1000 || style.position === \'fixed\' ) {rect = el.getBoundingClientRect();if ( rect.left <= tol && rect.top <= tol && (vw - rect.right) <= tol && (vh - rect.bottom) < tol ) {el.parentNode.removeChild(el);tstart = Date.now();el = document.elementFromPoint(vw/2, vh/2);bodyEl.style.setProperty(\'overflow\', \'auto\', \'important\');docEl.style.setProperty(\'overflow\', \'auto\', \'important\');continue;}}el = el.parentNode;}if ( (Date.now() - tstart) < ttl ) {delay = Math.min(delay + delayStep, 1000);setTimeout(buster, delay);}};var domReady = function(ev) {if ( ev ) {document.removeEventListener(ev.type, domReady);}tstart = Date.now();setTimeout(buster, delay);};if ( document.readyState === \'loading\' ) {document.addEventListener(\'DOMContentLoaded\', domReady);} else {domReady();}})();",
+            "(function() {\nif ( window !== window.top ) {\nreturn;\n}\nvar tstart;\nvar ttl = 30000;\nvar delay = 0;\nvar delayStep = 50;\nvar buster = function() {\nvar docEl = document.documentElement,\nbodyEl = document.body,\nvw = Math.min(docEl.clientWidth, window.innerWidth),\nvh = Math.min(docEl.clientHeight, window.innerHeight),\ntol = Math.min(vw, vh) * 0.05,\nel = document.elementFromPoint(vw/2, vh/2),\nstyle, rect;\nfor (;;) {\nif ( el === null || el.parentNode === null || el === bodyEl ) {\nbreak;\n}\nstyle = window.getComputedStyle(el);\nif ( parseInt(style.zIndex, 10) >= 1000 || style.position === 'fixed' ) {\nrect = el.getBoundingClientRect();\nif ( rect.left <= tol && rect.top <= tol && (vw - rect.right) <= tol && (vh - rect.bottom) < tol ) {\nel.parentNode.removeChild(el);\ntstart = Date.now();\nel = document.elementFromPoint(vw/2, vh/2);\nbodyEl.style.setProperty('overflow', 'auto', 'important');\ndocEl.style.setProperty('overflow', 'auto', 'important');\ncontinue;\n}\n}\nel = el.parentNode;\n}\nif ( (Date.now() - tstart) < ttl ) {\ndelay = Math.min(delay + delayStep, 1000);\nsetTimeout(buster, delay);\n}\n};\nvar domReady = function(ev) {\nif ( ev ) {\ndocument.removeEventListener(ev.type, domReady);\n}\ntstart = Date.now();\nsetTimeout(buster, delay);\n};\nif ( document.readyState === 'loading' ) {\ndocument.addEventListener('DOMContentLoaded', domReady);\n} else {\ndomReady();\n}\n})();\n",
         );
     }
 }
