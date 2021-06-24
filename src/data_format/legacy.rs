@@ -4,19 +4,26 @@
 //!
 //! The format itself is split into two parts for historical reasons. Any new fields should be
 //! added to the _end_ of both `SerializeFormatRest` and `DeserializeFormatRest`.
+//!
+//! This particular data format is space-inefficient, has several unused fields, prevents some
+//! dependency updates, and the lack of a version field makes upgrades difficult. It will be
+//! removed in a future release.
 
 use std::collections::{HashSet, HashMap};
 use serde::{Deserialize, Serialize};
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use flate2::Compression;
-use rmp_serde as rmps;
+use rmp_serde_legacy as rmps;
 
 use crate::blocker::{Blocker, NetworkFilterList};
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 use crate::filters::network::NetworkFilter;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
 use crate::utils::is_eof_error;
+
+use super::SerializationError;
+use super::DeserializationError;
 
 /// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
 /// serialization.
@@ -26,20 +33,6 @@ use crate::utils::is_eof_error;
 pub struct SerializeFormat<'a> {
     part1: SerializeFormatPt1<'a>,
     rest: SerializeFormatRest<'a>,
-}
-
-#[derive(Debug)]
-pub enum SerializationError {
-    RmpSerdeError(rmps::encode::Error),
-    GzError(std::io::Error),
-}
-
-impl From<rmps::encode::Error> for SerializationError {
-    fn from(e: rmps::encode::Error) -> Self { Self::RmpSerdeError(e) }
-}
-
-impl From<std::io::Error> for SerializationError {
-    fn from(e: std::io::Error) -> Self { Self::GzError(e) }
 }
 
 impl<'a> SerializeFormat<'a> {
@@ -100,15 +93,6 @@ pub struct DeserializeFormat {
     rest: DeserializeFormatRest,
 }
 
-#[derive(Debug)]
-pub enum DeserializationError {
-    RmpSerdeError(rmps::decode::Error),
-}
-
-impl From<rmps::decode::Error> for DeserializationError {
-    fn from(e: rmps::decode::Error) -> Self { Self::RmpSerdeError(e) }
-}
-
 impl DeserializeFormat {
     pub fn deserialize(serialized: &[u8]) -> Result<Self, DeserializationError> {
         let mut gz = GzDecoder::new(serialized);
@@ -116,7 +100,7 @@ impl DeserializeFormat {
         let rest = match rmps::decode::from_read(&mut gz) {
             Ok(rest) => rest,
             Err(ref e) if is_eof_error(e) => Default::default(),
-            Err(e) => return Err(DeserializationError::RmpSerdeError(e)),
+            Err(e) => Err(e)?,
         };
         Ok(Self { part1, rest })
     }
