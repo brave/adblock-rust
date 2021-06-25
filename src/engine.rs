@@ -459,17 +459,14 @@ mod tests {
         assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
     }
 
-    #[test]
     fn deserialization_generate_simple() {
-        let mut engine = Engine::from_rules(&[
+        let engine = Engine::from_rules(&[
             "ad-banner".to_owned()
         ], FilterFormat::Standard);
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
-        engine.deserialize(&serialized).unwrap();
     }
 
-    #[test]
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$tag=abc".to_owned()
@@ -477,10 +474,8 @@ mod tests {
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
-        engine.deserialize(&serialized).unwrap();
     }
 
-    #[test]
     fn deserialization_generate_resources() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext".to_owned()
@@ -504,7 +499,6 @@ mod tests {
 
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
-        engine.deserialize(&serialized).unwrap();
     }
 
     #[test]

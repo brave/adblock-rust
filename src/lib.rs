@@ -13,6 +13,6 @@ pub mod url_parser;
 pub mod engine;
 pub mod resources;
 pub mod cosmetic_filter_cache;
-mod data_format;
+pub mod data_format;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;

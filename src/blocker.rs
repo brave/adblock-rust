@@ -101,7 +101,6 @@ pub struct Blocker {
     pub(crate) redirects: NetworkFilterList,
     pub(crate) filters_tagged: NetworkFilterList,
     pub(crate) filters: NetworkFilterList,
-    pub(crate) generic_hide: NetworkFilterList,
 
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
@@ -117,6 +116,8 @@ pub struct Blocker {
     // Not serialized
     #[cfg(feature = "object-pooling")]
     pub(crate) pool: TokenPool,
+
+    pub(crate) generic_hide: NetworkFilterList,
 }
 
 impl Blocker {
