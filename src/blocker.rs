@@ -288,10 +288,8 @@ impl Blocker {
                     // matching pages.
                     return None
                 }
-            } else {
-                if let Some(directive) = &filter.csp {
-                    enabled_directives.insert(directive);
-                }
+            } else if let Some(directive) = &filter.csp {
+                enabled_directives.insert(directive);
             }
         }
 

@@ -180,12 +180,10 @@ impl CosmeticFilterCache {
                 let key = key.clone();
                 if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
                     self.simple_class_rules.insert(key);
+                } else if let Some(bucket) = self.complex_class_rules.get_mut(&key) {
+                    bucket.push(rule.selector);
                 } else {
-                    if let Some(bucket) = self.complex_class_rules.get_mut(&key) {
-                        bucket.push(rule.selector);
-                    } else {
-                        self.complex_class_rules.insert(key, vec![rule.selector]);
-                    }
+                    self.complex_class_rules.insert(key, vec![rule.selector]);
                 }
             }
         } else if rule.mask.contains(CosmeticFilterMask::IS_ID_SELECTOR) {
@@ -193,12 +191,10 @@ impl CosmeticFilterCache {
                 let key = key.clone();
                 if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
                     self.simple_id_rules.insert(key);
+                } else if let Some(bucket) = self.complex_id_rules.get_mut(&key) {
+                    bucket.push(rule.selector);
                 } else {
-                    if let Some(bucket) = self.complex_id_rules.get_mut(&key) {
-                        bucket.push(rule.selector);
-                    } else {
-                        self.complex_id_rules.insert(key, vec![rule.selector]);
-                    }
+                    self.complex_id_rules.insert(key, vec![rule.selector]);
                 }
             }
         } else {
@@ -439,12 +435,8 @@ impl HostnameRuleDb {
         }
     }
 
-    pub fn retrieve<'a>(&'a self, hostname: &Hash) -> Option<&'a[SpecificFilterType]> {
-        if let Some(bucket) = self.db.get(hostname) {
-            Some(&bucket)
-        } else {
-            None
-        }
+    pub fn retrieve(&self, hostname: &Hash) -> Option<&[SpecificFilterType]> {
+        self.db.get(hostname).map(|bucket| &bucket[..])
     }
 }
 
@@ -506,12 +498,10 @@ impl From<&CosmeticFilter> for SpecificFilterType {
             } else {
                 SpecificFilterType::ScriptInject(rule.selector.clone())
             }
+        } else if unhide {
+            SpecificFilterType::Unhide(rule.selector.clone())
         } else {
-            if unhide {
-                SpecificFilterType::Unhide(rule.selector.clone())
-            } else {
-                SpecificFilterType::Hide(rule.selector.clone())
-            }
+            SpecificFilterType::Hide(rule.selector.clone())
         }
     }
 }
