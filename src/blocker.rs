@@ -507,6 +507,7 @@ impl Blocker {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct NetworkFilterList {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
@@ -785,11 +786,20 @@ impl NetworkFilterList {
     }
 }
 
+/// Inserts a value into the `Vec` under the specified key in the `HashMap`. The entry will be
+/// created if it does not exist. If it already exists, it will be inserted in the `Vec` in a
+/// sorted order.
 fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
 where
     K: std::cmp::Ord + std::hash::Hash,
+    V: PartialOrd,
 {
-    map.entry(k).or_insert_with(Vec::new).push(v)
+    let entry = map.entry(k).or_insert_with(Vec::new);
+
+    match entry.binary_search_by(|f| f.partial_cmp(&v).unwrap_or(std::cmp::Ordering::Equal)) {
+        Ok(_pos) => (), // Can occur if the exact same rule is inserted twice. No reason to add anything.
+        Err(slot) => entry.insert(slot, v),
+    }
 }
 
 fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(map: &HashMap<K, Vec<V>, H>) -> usize {
@@ -835,7 +845,7 @@ mod tests {
         insert_dup(&mut dup_map, 1, String::from("bar"));
         assert_eq!(
             dup_map.get(&1),
-            Some(&vec![String::from("foo"), String::from("bar")])
+            Some(&vec![String::from("bar"), String::from("foo")])
         );
 
         // inserts into another key item
@@ -843,7 +853,7 @@ mod tests {
         assert_eq!(dup_map.get(&123), Some(&vec![String::from("baz")]));
         assert_eq!(
             dup_map.get(&1),
-            Some(&vec![String::from("foo"), String::from("bar")])
+            Some(&vec![String::from("bar"), String::from("foo")])
         );
     }
 
@@ -1606,7 +1616,8 @@ mod legacy_rule_parsing_tests {
     struct ListCounts {
         pub filters: usize,
         pub cosmetic_filters: usize,
-        pub exceptions: usize
+        pub exceptions: usize,
+        pub duplicates: usize,
     }
 
     impl std::ops::Add<ListCounts> for ListCounts {
@@ -1617,6 +1628,7 @@ mod legacy_rule_parsing_tests {
                 filters: self.filters + other.filters,
                 cosmetic_filters: self.cosmetic_filters + other.cosmetic_filters,
                 exceptions: self.exceptions + other.exceptions,
+                duplicates: 0,  // Don't bother trying to calculate - lists could have cross-duplicated entries
             }
         }
     }
@@ -1629,22 +1641,22 @@ mod legacy_rule_parsing_tests {
     // difference from original counts caused by not handling document/subdocument options and possibly miscounting on the blocker side.
     // Printing all non-cosmetic, non-html, non-comment/-empty rules and ones with no unsupported options yields 29142 items
     // This engine also handles 3 rules that old one does not
-    const EASY_LIST: ListCounts = ListCounts { filters: 24065, cosmetic_filters: 31163, exceptions: 5796 };
+    const EASY_LIST: ListCounts = ListCounts { filters: 24065, cosmetic_filters: 31163, exceptions: 5796, duplicates: 0 };
     // easyPrivacy = { 11817, 0, 0, 1020 };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
-    const EASY_PRIVACY: ListCounts = ListCounts { filters: 11889, cosmetic_filters: 0, exceptions: 1021 };
+    const EASY_PRIVACY: ListCounts = ListCounts { filters: 11889, cosmetic_filters: 0, exceptions: 1021, duplicates: 2 };
     // ublockUnbreak = { 4, 8, 0, 94 };
     // differences in counts explained by client.hostAnchoredExceptionHashSet->GetSize() underreporting when compared to client.numHostAnchoredExceptionFilters
-    const UBLOCK_UNBREAK: ListCounts = ListCounts { filters: 4, cosmetic_filters: 8, exceptions: 98 };
+    const UBLOCK_UNBREAK: ListCounts = ListCounts { filters: 4, cosmetic_filters: 8, exceptions: 98, duplicates: 0 };
     // braveUnbreak = { 31, 0, 0, 4 };
     // differences in counts explained by client.hostAnchoredHashSet->GetSize() underreporting when compared to client.numHostAnchoredFilters
-    const BRAVE_UNBREAK: ListCounts = ListCounts { filters: 32, cosmetic_filters: 0, exceptions: 4 };
+    const BRAVE_UNBREAK: ListCounts = ListCounts { filters: 32, cosmetic_filters: 0, exceptions: 4, duplicates: 0 };
     // disconnectSimpleMalware = { 2450, 0, 0, 0 };
-    const DISCONNECT_SIMPLE_MALWARE: ListCounts = ListCounts { filters: 2450, cosmetic_filters: 0, exceptions: 0 };
+    const DISCONNECT_SIMPLE_MALWARE: ListCounts = ListCounts { filters: 2450, cosmetic_filters: 0, exceptions: 0, duplicates: 0 };
     // spam404MainBlacklist = { 5629, 166, 0, 0 };
-    const SPAM_404_MAIN_BLACKLIST: ListCounts = ListCounts { filters: 5629, cosmetic_filters: 166, exceptions: 0 };
-    const MALWARE_DOMAIN_LIST: ListCounts = ListCounts { filters: 1104, cosmetic_filters: 0, exceptions: 0 };
-    const MALWARE_DOMAINS: ListCounts = ListCounts { filters: 26853, cosmetic_filters: 0, exceptions: 0 };
+    const SPAM_404_MAIN_BLACKLIST: ListCounts = ListCounts { filters: 5629, cosmetic_filters: 166, exceptions: 0, duplicates: 0 };
+    const MALWARE_DOMAIN_LIST: ListCounts = ListCounts { filters: 1104, cosmetic_filters: 0, exceptions: 0, duplicates: 3 };
+    const MALWARE_DOMAINS: ListCounts = ListCounts { filters: 26853, cosmetic_filters: 0, exceptions: 0, duplicates: 48 };
 
     fn check_list_counts(rule_lists: &[String], format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
@@ -1674,7 +1686,7 @@ mod legacy_rule_parsing_tests {
             vec_hashmap_len(&blocker.importants.filter_map) +
             vec_hashmap_len(&blocker.redirects.filter_map) +
             vec_hashmap_len(&blocker.csp.filter_map) >=
-            expectation.filters, "Number of collected network filters does not match expectation");
+            expectation.filters - expectation.duplicates, "Number of collected network filters does not match expectation");
     }
 
     #[test]
@@ -1752,7 +1764,8 @@ mod legacy_rule_parsing_tests {
 
     #[test]
     fn parse_hosts_formats() {
-        let expectation = MALWARE_DOMAIN_LIST + MALWARE_DOMAINS;
+        let mut expectation = MALWARE_DOMAIN_LIST + MALWARE_DOMAINS;
+        expectation.duplicates = 69;
         check_list_counts(
             &vec![
                 String::from("./data/test/malwaredomainlist.txt"),

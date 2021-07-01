@@ -393,6 +393,7 @@ impl HostnameExceptionsBuilder {
 /// that apply.
 #[derive(Deserialize, Serialize, Default)]
 pub(crate) struct HostnameRuleDb {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     db: HashMap<Hash, Vec<SpecificFilterType>>,
 }
 

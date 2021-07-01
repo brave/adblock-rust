@@ -22,6 +22,9 @@ pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
 
     // Append whatever is still left unfused
     optimized.append(&mut unfused);
+
+    // Re-sort the list, now that the order has been perturbed
+    optimized.sort_by_key(|f| f.id);
     optimized
 }
 

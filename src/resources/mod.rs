@@ -82,6 +82,7 @@ pub struct RedirectResource {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct RedirectResourceStorage {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub resources: HashMap<String, RedirectResource>,
 }
 
