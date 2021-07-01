@@ -159,8 +159,8 @@ pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
     rules
 }
 
-pub(crate) fn is_eof_error(e: &rmp_serde::decode::Error) -> bool {
-    if let rmp_serde::decode::Error::InvalidMarkerRead(e) = e {
+pub(crate) fn is_eof_error(e: &rmp_serde_legacy::decode::Error) -> bool {
+    if let rmp_serde_legacy::decode::Error::InvalidMarkerRead(e) = e {
         if e.kind() == std::io::ErrorKind::UnexpectedEof {
             if format!("{}", e) == "failed to fill whole buffer" {
                 return true;
