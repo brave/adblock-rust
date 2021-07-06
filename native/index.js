@@ -28,7 +28,16 @@ class Engine {
     }
 
     serialize(...args) {
-        return blocker.Engine_serialize(this.boxed, ...args);
+        console.debug('adblock-rs: `Engine.serialize` is deprecated. Use `serializeCompressed` for backwards compatibility, or switch to using `serializeRaw`. `serializeCompressed` will be removed and this method will take the behavior of `serializeRaw` in a future release.');
+        return blocker.Engine_serializeCompressed(this.boxed, ...args);
+    }
+
+    serializeRaw(...args) {
+        return blocker.Engine_serializeRaw(this.boxed, ...args);
+    }
+
+    serializeCompressed(...args) {
+        return blocker.Engine_serializeCompressed(this.boxed, ...args);
     }
 
     deserialize(...args) {

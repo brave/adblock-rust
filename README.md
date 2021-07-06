@@ -57,7 +57,7 @@ filterSet.addFilters(rules);
 const client = new AdBlockClient.Engine(filterSet, true);
 client.useResources(resources);
 
-const serializedArrayBuffer = client.serialize(); // Serialize the engine to an ArrayBuffer
+const serializedArrayBuffer = client.serializeRaw(); // Serialize the engine to an ArrayBuffer
 
 console.log(`Engine size: ${(serializedArrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
 
