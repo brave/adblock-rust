@@ -50,48 +50,52 @@ pub struct RemoteFilterSource {
     pub support_url: String,
 }
 
-pub async fn get_all_filters() -> adblock::lists::FilterSet {
-    use futures::FutureExt;
+/// Fetch all filters once and store them in a lazy-loaded static variable to avoid unnecessary
+/// network traffic.
+static ALL_FILTERS: once_cell::sync::Lazy<adblock::lists::FilterSet> = once_cell::sync::Lazy::new(|| {
+    async fn get_all_filters() -> adblock::lists::FilterSet {
+        use futures::FutureExt;
 
-    const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
+        const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
 
-    let default_lists: Vec<RemoteFilterSource> = async {
-        let body = reqwest::get(DEFAULT_LISTS_URL).await.unwrap().text().await.unwrap();
-        serde_json::from_str(&body).unwrap()
-    }.await;
+        let default_lists: Vec<RemoteFilterSource> = async {
+            let body = reqwest::get(DEFAULT_LISTS_URL).await.unwrap().text().await.unwrap();
+            serde_json::from_str(&body).unwrap()
+        }.await;
 
-    let filters_fut: Vec<_> = default_lists
-        .iter()
-        .map(|list| {
-            reqwest::get(&list.url)
-                .then(|resp| resp
-                    .expect("Could not request rules")
-                    .text()
-                ).map(move |text| (
-                        list.format,
-                        text.expect("Could not get rules as text")
+        let filters_fut: Vec<_> = default_lists
+            .iter()
+            .map(|list| {
+                reqwest::get(&list.url)
+                    .then(|resp| resp
+                        .expect("Could not request rules")
+                        .text()
+                    ).map(move |text| (
+                            list.format,
+                            text.expect("Could not get rules as text")
+                        )
                     )
-                )
-        })
-        .collect();
+            })
+            .collect();
 
-    let mut filter_set = adblock::lists::FilterSet::default();
+        let mut filter_set = adblock::lists::FilterSet::default();
 
-    futures::future::join_all(filters_fut)
-        .await
-        .iter()
-        .for_each(|(format, list)| {
-            filter_set.add_filters(&list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(), *format);
-        });
+        futures::future::join_all(filters_fut)
+            .await
+            .iter()
+            .for_each(|(format, list)| {
+                filter_set.add_filters(&list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(), *format);
+            });
 
-    filter_set
-}
+        filter_set
+    }
+
+    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+    async_runtime.block_on(get_all_filters())
+});
 
 fn get_blocker_engine() -> Engine {
-    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-    let filter_set = async_runtime.block_on(get_all_filters());
-
-    let mut engine = Engine::from_filter_set(filter_set, true);
+    let mut engine = Engine::from_filter_set(ALL_FILTERS.clone(), true);
 
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
