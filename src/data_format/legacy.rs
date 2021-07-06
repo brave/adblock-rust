@@ -338,8 +338,6 @@ impl Into<(Blocker, CosmeticFilterCache)> for DeserializeFormat {
             tags_enabled: Default::default(),
             tagged_filters_all: self.part1.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
 
-            hot_filters: Default::default(),
-
             enable_optimizations: self.part1.enable_optimizations,
 
             resources: self.part1.resources,

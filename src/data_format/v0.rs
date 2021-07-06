@@ -146,8 +146,6 @@ impl Into<(Blocker, CosmeticFilterCache)> for DeserializeFormat {
             tags_enabled: Default::default(),
             tagged_filters_all: self.tagged_filters_all,
 
-            hot_filters: Default::default(),
-
             enable_optimizations: self.enable_optimizations,
 
             resources: self.resources,

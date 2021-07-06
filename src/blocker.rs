@@ -108,9 +108,6 @@ pub struct Blocker {
     pub(crate) tags_enabled: HashSet<String>,
     pub(crate) tagged_filters_all: Vec<NetworkFilter>,
 
-    // Not serialized
-    pub(crate) hot_filters: NetworkFilterList,
-
     pub(crate) enable_optimizations: bool,
 
     pub(crate) resources: RedirectResourceStorage,
@@ -384,7 +381,6 @@ impl Blocker {
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
-            hot_filters: NetworkFilterList::default(),
             // Options
             enable_optimizations: options.enable_optimizations,
 
