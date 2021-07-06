@@ -508,7 +508,7 @@ impl Blocker {
 #[derive(Serialize, Deserialize, Default)]
 pub struct NetworkFilterList {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
-    filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
+    pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
 impl NetworkFilterList {

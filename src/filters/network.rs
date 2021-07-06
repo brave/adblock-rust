@@ -389,8 +389,6 @@ pub struct NetworkFilter {
     pub raw_line: Option<String>,
 
     pub id: Hash,
-    // Unused, kept to retain backwards-compatibility
-    _fuzzy_signature: Option<Vec<Hash>>,
 
     // All domain option values (their hashes) OR'ed together to quickly dismiss mis-matches
     pub opt_domains_union: Option<Hash>,
@@ -404,7 +402,7 @@ pub struct NetworkFilter {
     // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to Some<CompiledRegex>
     // to avoid expensive cloning of the Regex itself.
     #[serde(skip_serializing, skip_deserializing)]
-    regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>
+    pub(crate) regex: Arc<RwLock<Option<Arc<CompiledRegex>>>>
 }
 
 // TODO - restrict the API so that this is always true - i.e. lazy-calculate IDs from actual data,
@@ -775,7 +773,6 @@ impl NetworkFilter {
             },
             redirect,
             id: utils::fast_hash(&line),
-            _fuzzy_signature: None,
             opt_domains_union,
             opt_not_domains_union,
             regex: Arc::new(RwLock::new(None))
