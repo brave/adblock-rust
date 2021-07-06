@@ -270,7 +270,7 @@ pub fn parse_filter(
 
                 filter
             } else {
-                &filter[..]
+                filter
             };
 
             // Take the last of at most 2 whitespace separated fields

@@ -132,37 +132,37 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
     }
 }
 
-impl Into<(Blocker, CosmeticFilterCache)> for DeserializeFormat {
-    fn into(self) -> (Blocker, CosmeticFilterCache) {
+impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+    fn from(v: DeserializeFormat) -> Self {
         (Blocker {
-            csp: self.csp,
-            exceptions: self.exceptions,
-            importants: self.importants,
-            redirects: self.redirects,
-            filters_tagged: self.filters_tagged,
-            filters: self.filters,
-            generic_hide: self.generic_hide,
+            csp: v.csp,
+            exceptions: v.exceptions,
+            importants: v.importants,
+            redirects: v.redirects,
+            filters_tagged: v.filters_tagged,
+            filters: v.filters,
+            generic_hide: v.generic_hide,
 
             tags_enabled: Default::default(),
-            tagged_filters_all: self.tagged_filters_all,
+            tagged_filters_all: v.tagged_filters_all,
 
-            enable_optimizations: self.enable_optimizations,
+            enable_optimizations: v.enable_optimizations,
 
-            resources: self.resources,
+            resources: v.resources,
             #[cfg(feature = "object-pooling")]
             pool: Default::default(),
 
         }, CosmeticFilterCache {
-            simple_class_rules: self.simple_class_rules,
-            simple_id_rules: self.simple_id_rules,
-            complex_class_rules: self.complex_class_rules,
-            complex_id_rules: self.complex_id_rules,
+            simple_class_rules: v.simple_class_rules,
+            simple_id_rules: v.simple_id_rules,
+            complex_class_rules: v.complex_class_rules,
+            complex_id_rules: v.complex_id_rules,
 
-            specific_rules: self.specific_rules,
+            specific_rules: v.specific_rules,
 
-            misc_generic_selectors: self.misc_generic_selectors,
+            misc_generic_selectors: v.misc_generic_selectors,
 
-            scriptlets: self.scriptlets,
+            scriptlets: v.scriptlets,
         })
     }
 }

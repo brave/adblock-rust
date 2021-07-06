@@ -61,6 +61,20 @@ pub enum CosmeticFilterLocationType {
     NotHostname,
 }
 
+/// Contains hashes of all of the comma separated location items that were populated before the
+/// hash separator in a cosmetic filter rule.
+#[derive(Default)]
+struct CosmeticFilterLocations {
+    /// Locations of the form `entity.*`
+    entities: Option<Vec<Hash>>,
+    /// Locations of the form `~entity.*`
+    not_entities: Option<Vec<Hash>>,
+    /// Locations of the form `hostname`
+    hostnames: Option<Vec<Hash>>,
+    /// Locations of the form `~hostname`
+    not_hostnames: Option<Vec<Hash>>,
+}
+
 impl CosmeticFilter {
     #[inline]
     pub fn locations_before_sharp(line: &str, sharp_index: usize) -> impl Iterator<Item=(CosmeticFilterLocationType, &str)> {
@@ -93,16 +107,8 @@ impl CosmeticFilter {
 
     /// Parses the contents of a cosmetic filter rule up to the `##` or `#@#` separator.
     ///
-    /// On success, returns `Vec`s of hashes of all of the following comma separated items that
-    /// were populated in the rule:
-    ///
-    ///    - `entities`: entity.*
-    ///
-    ///    - `not_entities`: ~entity.*
-    ///
-    ///    - `hostnames`: hostname
-    ///
-    ///    - `not_hostnames`: ~hostname
+    /// On success, returns hashes of all the comma separated location items that were populated in
+    /// the rule.
     ///
     /// This should only be called if `sharp_index` is greater than 0, in which case all four are
     /// guaranteed to be `None`.
@@ -111,7 +117,7 @@ impl CosmeticFilter {
         line: &str,
         sharp_index: usize,
         mask: &mut CosmeticFilterMask
-    ) -> Result<(Option<Vec<Hash>>, Option<Vec<Hash>>, Option<Vec<Hash>>, Option<Vec<Hash>>), CosmeticFilterError> {
+    ) -> Result<CosmeticFilterLocations, CosmeticFilterError> {
         let mut entities_vec = vec![];
         let mut not_entities_vec = vec![];
         let mut hostnames_vec = vec![];
@@ -153,7 +159,7 @@ impl CosmeticFilter {
         let not_entities = sorted_or_none(not_entities_vec);
         let not_hostnames = sorted_or_none(not_hostnames_vec);
 
-        Ok((entities, not_entities, hostnames, not_hostnames))
+        Ok(CosmeticFilterLocations { entities, not_entities, hostnames, not_hostnames })
     }
 
     /// Parses the contents of a cosmetic filter rule following the `##` or `#@#` separator.
@@ -228,10 +234,10 @@ impl CosmeticFilter {
             // hostnames#@#selector
             //          12 3
 
-            let (entities, not_entities, hostnames, not_hostnames) = if sharp_index > 0 {
+            let CosmeticFilterLocations { entities, not_entities, hostnames, not_hostnames } = if sharp_index > 0 {
                 CosmeticFilter::parse_before_sharp(line, sharp_index, &mut mask)?
             } else {
-                (None, None, None, None)
+                CosmeticFilterLocations::default()
             };
 
             let mut selector = &line[suffix_start_index..];

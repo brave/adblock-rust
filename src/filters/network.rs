@@ -439,7 +439,7 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
         | NfOpt::Websocket(..)
         | NfOpt::Font(..)
     )) {
-        Err(NetworkFilterError::CspWithContentType)?;
+        return Err(NetworkFilterError::CspWithContentType);
     }
 
     Ok(())
