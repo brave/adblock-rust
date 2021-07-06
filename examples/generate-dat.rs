@@ -15,7 +15,7 @@ fn main() {
     let mut engine = Engine::from_rules_debug(&rules, FilterFormat::Standard);
     engine.use_tags(&["twitter-embeds"]);
     assert!(engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script").exception.is_some());
-    let serialized = engine.serialize().expect("Could not serialize!");
+    let serialized = engine.serialize_raw().expect("Could not serialize!");
 
     // Write to file
     let mut file = File::create("engine.dat").expect("Could not create serialization file");

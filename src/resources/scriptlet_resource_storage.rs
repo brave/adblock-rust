@@ -49,6 +49,7 @@ impl ScriptletResource {
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct ScriptletResourceStorage {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     resources: HashMap<String, ScriptletResource>,
 }
 

@@ -181,7 +181,7 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
 fn engine_serialize(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
     let serialized = if let Ok(engine) = this.0.lock() {
-        engine.serialize().unwrap()
+        engine.serialize_compressed().unwrap()
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
