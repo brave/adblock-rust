@@ -276,9 +276,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.9.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
+checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
 dependencies = [
  "either",
 ]
@@ -359,9 +359,9 @@ dependencies = [
 
 [[package]]
 name = "neon"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d33fe11bcc59e19cadfabd6a90ac07038eddc357f6effa25a731dd3ae7f40d6"
+checksum = "05c562b89fa7f9707f02056abe25a37ec290ca4a4f1596edbd7aa1aa7b87af1d"
 dependencies = [
  "cslice",
  "neon-build",
@@ -373,15 +373,15 @@ dependencies = [
 
 [[package]]
 name = "neon-build"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6fe902d44ec11ccd34980b5de63b96a79ce96e231de976338166c34c43bd70b"
+checksum = "f9c55f6d310757b9fe6cd96a376609548a252da31828f935a7f59106533a89e9"
 
 [[package]]
 name = "neon-macros"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec537080e06fef83443c16fcc354a2168888770705b8cd5bc54a31e9791b777f"
+checksum = "47065bc93b16f41fcfe29cad7d4d2a3e299b4389a3c9b429ba7a55f69a057fff"
 dependencies = [
  "quote",
  "syn",
@@ -389,9 +389,9 @@ dependencies = [
 
 [[package]]
 name = "neon-runtime"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "120205ff046015597a47ab4fd81aa17f9681eae6e6ee5aa49aa3c020bb83ec99"
+checksum = "be313e6cf11f469653ee1b137b9203f5d604f2b496d423e96c5e251b51eead03"
 dependencies = [
  "cfg-if 1.0.0",
  "libloading",
@@ -487,9 +487,9 @@ checksum = "a9a7ab5d64814df0fe4a4b5ead45ed6c5f181ee3ff04ba344313a6c80446c5d4"
 
 [[package]]
 name = "once_cell"
-version = "1.7.2"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "percent-encoding"
