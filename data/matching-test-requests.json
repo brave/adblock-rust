@@ -6186,6 +6186,15 @@
   {
     "check": true,
     "filters": [
+      "||cdn.taboola.com/libtrc/*/loader.js$script,redirect-url=http://noops.js,important,domain=cnet.com"
+    ],
+    "sourceUrl": "https://www.cnet.com",
+    "type": "script",
+    "url": "https://cdn.taboola.com/libtrc/cbsinteractive-cnet/loader.js"
+  },
+  {
+    "check": true,
+    "filters": [
       "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"
     ],
     "sourceUrl": "https://www.cnet.com",

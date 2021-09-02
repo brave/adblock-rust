@@ -940,7 +940,7 @@ mod tests {
             let filters = vec!["||foo.com"];
             let network_filters: Vec<_> = filters
                 .into_iter()
-                .map(|f| NetworkFilter::parse(&f, true))
+                .map(|f| NetworkFilter::parse(&f, true, Default::default()))
                 .filter_map(Result::ok)
                 .collect();
             let filter_list = NetworkFilterList::new(network_filters, false);
@@ -952,7 +952,7 @@ mod tests {
             let filters = vec!["||foo.com", "||bar.com/foo"];
             let network_filters: Vec<_> = filters
                 .into_iter()
-                .map(|f| NetworkFilter::parse(&f, true))
+                .map(|f| NetworkFilter::parse(&f, true, Default::default()))
                 .filter_map(Result::ok)
                 .collect();
             let filter_list = NetworkFilterList::new(network_filters, false);
@@ -970,7 +970,7 @@ mod tests {
             let filters = vec!["||foo.com", "||foo.com/bar", "||www"];
             let network_filters: Vec<_> = filters
                 .into_iter()
-                .map(|f| NetworkFilter::parse(&f, true))
+                .map(|f| NetworkFilter::parse(&f, true, Default::default()))
                 .filter_map(Result::ok)
                 .collect();
             let filter_list = NetworkFilterList::new(network_filters, false);
@@ -989,7 +989,7 @@ mod tests {
             let filters = vec!["||foo.com", "||foo.com$domain=bar.com"];
             let network_filters: Vec<_> = filters
                 .into_iter()
-                .map(|f| NetworkFilter::parse(&f, true))
+                .map(|f| NetworkFilter::parse(&f, true, Default::default()))
                 .filter_map(Result::ok)
                 .collect();
             let filter_list = NetworkFilterList::new(network_filters, false);
@@ -1012,7 +1012,7 @@ mod tests {
             let filters = vec!["foo*$domain=bar.com|baz.com"];
             let network_filters: Vec<_> = filters
                 .into_iter()
-                .map(|f| NetworkFilter::parse(&f, true))
+                .map(|f| NetworkFilter::parse(&f, true, Default::default()))
                 .filter_map(Result::ok)
                 .collect();
             let filter_list = NetworkFilterList::new(network_filters, false);
@@ -1049,7 +1049,7 @@ mod tests {
     fn test_requests_filters(filters: &Vec<&str>, requests: &Vec<(Request, bool)>) {
         let network_filters: Vec<_> = filters
             .into_iter()
-            .map(|f| NetworkFilter::parse(&f, true))
+            .map(|f| NetworkFilter::parse(&f, true, Default::default()))
             .filter_map(Result::ok)
             .collect();
         let filter_list = NetworkFilterList::new(network_filters, false);
@@ -1214,7 +1214,7 @@ mod tests {
 mod blocker_tests {
 
     use super::*;
-    use crate::lists::{parse_filters, FilterFormat};
+    use crate::lists::{parse_filters, FilterFormat, parse_filters_with_opts, ParseOptions};
     use crate::request::Request;
     use std::collections::HashSet;
     use std::iter::FromIterator;
@@ -1236,6 +1236,105 @@ mod blocker_tests {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", req.url, matched_rule.filter);
             }
         });
+    }
+
+    #[test]
+    fn redirect_url_blocked() {
+        let filters = vec![
+            String::from("||foo.com$important,redirect-url=http://xyz.com"),
+        ];
+
+        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
+
+        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+
+        let (network_filters, _) = parse_filters_with_opts(&filters, true, opts);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, true);
+        assert_eq!(matched_rule.important, true);
+        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
+        assert_eq!(matched_rule.error, None);
+    }
+
+    #[test]
+    fn redirect_url_not_recognized_without_parse_opt() {
+        let filters = vec![
+            String::from("||foo.com$important,redirect-url=http://xyz.com"),
+        ];
+
+        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
+
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, false);
+        assert_eq!(matched_rule.redirect, None);
+        assert_eq!(matched_rule.error, None);
+    }
+
+    #[test]
+    fn redirect_url_malformed() {
+        let filters = vec![
+            String::from("||foo.com$important,redirect-url=asdfasdf"),
+        ];
+
+        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
+
+        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+
+        let (network_filters, _) = parse_filters_with_opts(&filters, true, opts);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, false); // Not matched if redirect URL malformed
+        assert_eq!(matched_rule.important, false); // ditto
+        assert_eq!(matched_rule.redirect, None);
+        assert_eq!(matched_rule.error, None);
+    }
+
+    #[test]
+    fn redirect_url_exception() {
+        let filters = vec![
+            String::from("||imdb-video.media-imdb.com$media,redirect-url=http://xyz.com"),
+            String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
+        ];
+
+        let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
+
+        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+
+        let (network_filters, _) = parse_filters_with_opts(&filters, true, opts);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, false);
+        assert_eq!(matched_rule.important, false);
+        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
+        assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
+        assert_eq!(matched_rule.error, None);
     }
 
     #[test]
@@ -1265,7 +1364,7 @@ mod blocker_tests {
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, false);
         assert_eq!(matched_rule.important, false);
-        assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
+        assert_eq!(matched_rule.redirect, Some(Redirection::Resource("data:audio/mp3;base64,bXAz".to_string())));
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
         assert_eq!(matched_rule.error, None);
     }
@@ -1570,7 +1669,7 @@ mod blocker_tests {
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        let filter = NetworkFilter::parse("adv$badfilter", true).unwrap();
+        let filter = NetworkFilter::parse("adv$badfilter", true, Default::default()).unwrap();
         let added = blocker.add_filter(filter);
         assert!(added.is_err());
         assert_eq!(added.err().unwrap(), BlockerError::BadFilterAddUnsupported);
@@ -1587,7 +1686,7 @@ mod blocker_tests {
 
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-            let filter = NetworkFilter::parse("adv", true).unwrap();
+            let filter = NetworkFilter::parse("adv", true, Default::default()).unwrap();
             blocker.add_filter(filter.clone()).unwrap();
             assert!(blocker.filter_exists(&filter), "Expected filter to be inserted");
             let added = blocker.add_filter(filter);
@@ -1602,7 +1701,7 @@ mod blocker_tests {
 
             let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-            let filter = NetworkFilter::parse("adv", true).unwrap();
+            let filter = NetworkFilter::parse("adv", true, Default::default()).unwrap();
             blocker.add_filter(filter.clone()).unwrap();
             let added = blocker.add_filter(filter);
             assert!(added.is_ok());
@@ -1619,10 +1718,10 @@ mod blocker_tests {
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
         blocker.enable_tags(&["brian"]);
 
-        blocker.add_filter(NetworkFilter::parse("adv$tag=stuff", true).unwrap()).unwrap();
-        blocker.add_filter(NetworkFilter::parse("somelongpath/test$tag=stuff", true).unwrap()).unwrap();
-        blocker.add_filter(NetworkFilter::parse("||brianbondy.com/$tag=brian", true).unwrap()).unwrap();
-        blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("adv$tag=stuff", true, Default::default()).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("somelongpath/test$tag=stuff", true, Default::default()).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("||brianbondy.com/$tag=brian", true, Default::default()).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true, Default::default()).unwrap()).unwrap();
 
         let url_results = vec![
             (Request::from_url("http://example.com/advert.html").unwrap(), false),
@@ -1649,7 +1748,7 @@ mod blocker_tests {
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        blocker.add_filter(NetworkFilter::parse("@@*ad_banner.png", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("@@*ad_banner.png", true, Default::default()).unwrap()).unwrap();
 
         let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
 
@@ -1666,7 +1765,7 @@ mod blocker_tests {
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
 
-        blocker.add_filter(NetworkFilter::parse("@@||example.com$generichide", true).unwrap()).unwrap();
+        blocker.add_filter(NetworkFilter::parse("@@||example.com$generichide", true, Default::default()).unwrap()).unwrap();
 
         assert!(blocker.check_generic_hide(&Request::from_url("https://example.com").unwrap()));
     }
@@ -1751,7 +1850,7 @@ mod legacy_rule_parsing_tests {
         assert!(vec_hashmap_len(&blocker.filters.filter_map) +
             vec_hashmap_len(&blocker.importants.filter_map) +
             vec_hashmap_len(&blocker.redirects.filter_map) +
-            vec_hashmap_len(&blocker.redirect_urls.filter_map) +
+            vec_hashmap_len(&blocker.redirects.filter_map) +
             vec_hashmap_len(&blocker.csp.filter_map) >=
             expectation.filters - expectation.duplicates, "Number of collected network filters does not match expectation");
     }
