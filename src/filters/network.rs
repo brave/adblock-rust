@@ -1,6 +1,7 @@
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
 use once_cell::sync::Lazy;
+use crate::url_parser::parse_url;
 
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -11,7 +12,7 @@ use crate::utils::Hash;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum NetworkFilterError {
     FilterParseError,
     BugValueNotNumeric,
@@ -25,6 +26,8 @@ pub enum NetworkFilterError {
     NegatedDocument,
     GenericHideWithoutException,
     EmptyRedirection,
+    RedirectionUrlInvalid,
+    MultipleRedirections,
     UnrecognisedOption,
     NoRegex,
     FullRegexUnsupported,
@@ -51,7 +54,7 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const _FUZZY_MATCH = 1 << 15;    // Unused
+        const IS_REDIRECT_URL = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const _EXPLICIT_CANCEL = 1 << 26;   // Unused
@@ -222,6 +225,7 @@ enum NetworkFilterOption {
     Bug(u32),
     Tag(String),
     Redirect(String),
+    RedirectUrl(String),
     Csp(Option<String>),
     Generichide,
     Document,
@@ -236,6 +240,35 @@ enum NetworkFilterOption {
     XmlHttpRequest(bool),
     Websocket(bool),
     Font(bool),
+}
+
+impl NetworkFilterOption {
+    pub fn is_content_type(&self) -> bool {
+        match self {
+            Self::Document
+            | Self::Image(..)
+            | Self::Media(..)
+            | Self::Object(..)
+            | Self::Other(..)
+            | Self::Ping(..)
+            | Self::Script(..)
+            | Self::Stylesheet(..)
+            | Self::Subdocument(..)
+            | Self::XmlHttpRequest(..)
+            | Self::Websocket(..)
+            | Self::Font(..) => true,
+            _ => false,
+        }
+
+    }
+
+    pub fn is_redirection(&self) -> bool {
+        match self {
+            Self::Redirect(..) => true,
+            Self::RedirectUrl(..) => true,
+            _ => false,
+        }
+    }
 }
 
 /// Abstract syntax representation of a network filter. This representation can fully specify the
@@ -348,6 +381,19 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
 
                 NetworkFilterOption::Redirect(String::from(value))
             }
+            ("redirect-url", true) => return Err(NetworkFilterError::NegatedRedirection),
+            ("redirect-url", false) => {
+                // Ignore this filter if no redirection resource is specified
+                if value.is_empty() {
+                    return Err(NetworkFilterError::EmptyRedirection);
+                }
+                // Parse URL
+                let maybe_parsed_url = parse_url(&String::from(value));
+                if maybe_parsed_url.is_none() {
+                    return Err(NetworkFilterError::RedirectionUrlInvalid)
+                }
+                NetworkFilterOption::RedirectUrl(String::from(value))
+            }
             ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
                 Some(String::from(value))
             } else {
@@ -424,21 +470,22 @@ impl PartialOrd for NetworkFilter {
 
 /// Ensure that no invalid option combinations were provided for a filter.
 fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilterError> {
-    use NetworkFilterOption as NfOpt;
-    // CSP options are incompatible with all content type options.
-    if options.iter().any(|e| matches!(e, NfOpt::Csp(..))) && options.iter().any(|e| matches!(e, NfOpt::Document
-        | NfOpt::Image(..)
-        | NfOpt::Media(..)
-        | NfOpt::Object(..)
-        | NfOpt::Other(..)
-        | NfOpt::Ping(..)
-        | NfOpt::Script(..)
-        | NfOpt::Stylesheet(..)
-        | NfOpt::Subdocument(..)
-        | NfOpt::XmlHttpRequest(..)
-        | NfOpt::Websocket(..)
-        | NfOpt::Font(..)
-    )) {
+    let mut has_csp = false;
+    let mut has_content_type = false;
+    let mut has_redirect = false;
+    for option in options {
+        if matches!(option, NetworkFilterOption::Csp(..)) {
+            has_csp = true;
+        } else if option.is_content_type() {
+            has_content_type = true;
+        } else if option.is_redirection() {
+            if has_redirect {
+                return Err(NetworkFilterError::MultipleRedirections);
+            }
+            has_redirect = true;
+        }
+    }
+    if has_csp && has_content_type {
         return Err(NetworkFilterError::CspWithContentType);
     }
 
@@ -528,6 +575,10 @@ impl NetworkFilter {
                     NetworkFilterOption::Bug(num) => bug = Some(num),
                     NetworkFilterOption::Tag(value) => tag = Some(value),
                     NetworkFilterOption::Redirect(value) => redirect = Some(value),
+                    NetworkFilterOption::RedirectUrl(value) => redirect = {
+                        mask.set(NetworkFilterMask::IS_REDIRECT_URL, true);
+                        Some(value)
+                    },
                     NetworkFilterOption::Csp(value) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
@@ -926,6 +977,10 @@ impl NetworkFilter {
 
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
+    }
+
+    pub fn is_redirect_url(&self) -> bool {
+        self.redirect.is_some() && self.mask.contains(NetworkFilterMask::IS_REDIRECT_URL)
     }
 
     pub fn is_badfilter(&self) -> bool {

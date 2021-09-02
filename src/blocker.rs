@@ -19,6 +19,18 @@ pub struct BlockerOptions {
     pub enable_optimizations: bool,
 }
 
+/// Determines what should be loaded instead of a particular network request if the request also
+/// matched a blocking filter.
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub enum Redirection {
+    /// Redirect to a stub resource loaded from the blocker's resource library. The field contains
+    /// the body of the redirect to be injected.
+    Resource(String),
+    /// Redirect to a remote resource. The field contains the URL of the replacement resource to be
+    /// loaded. These will only occur if previously enabled in `ParseOptions`.
+    Url(String),
+}
+
 #[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
@@ -32,16 +44,16 @@ pub struct BlockerResult {
     /// behaviour between them: checking should stop instead of moving to the
     /// next instance iff an `important` rule matched.
     pub important: bool,
-    /// Iff the blocker matches a rule which has the `redirect` option, as per
-    /// [uBlock Origin's redirect syntax][1], the `redirect` is `Some`. The
-    /// `redirect` field contains the body of the redirect to be injected.
+    /// Specifies what to load instead of the original request, rather than
+    /// just blocking it outright. This can come from a filter with a `redirect`
+    /// or `redirect-rule` option, or also from a `redirect-url` option if
+    /// enabled in `ParseOptions`. See `Redirection` for further instructions
+    /// on how the inner data should be interpreted.
     ///
     /// Note that the presence of a redirect does _not_ imply that the request
     /// should be blocked. The `redirect-rule` option can produce a redirection
     /// that's only applied if another blocking filter matches a request.
-    ///
-    /// [1]: https://github.com/gorhill/uBlock/wiki/Static-filter-syntax#redirect
-    pub redirect: Option<String>,
+    pub redirect: Option<Redirection>,
     /// Exception is `Some` when the blocker matched on an exception rule.
     /// Effectively this means that there was a match, but the request should
     /// not be blocked. It is a non-empty string if the blocker was initialized
@@ -219,24 +231,39 @@ impl Blocker {
 
         let redirect_filters = self.redirects.check_all(request, &request_tokens, &NO_TAGS);
 
+        // Extract the highest priority redirect directive.
+        // So far, priority specifiers are not supported, which means:
+        // 1. Exceptions - can bail immediately if found
+        // 2. Redirect URLs
+        // 3. Redirect resources
         let redirect_option = {
-            let mut redirect = None;
+            // (true, s) implies s is a URL.
+            // (false, s) implies s is the name of a resource to lookup.
+            let mut redirect: Option<(bool, &str)> = None;
             for redirect_filter in redirect_filters {
                 if redirect_filter.is_exception() {
                     redirect = None;
                     break;
-                } else {
-                    redirect = redirect_filter.redirect.as_ref();
+                } else if redirect_filter.is_redirect_url() {
+                    // Unconditionally write to `redirect` - it's the highest priority option that
+                    // does not break the loop.
+                    redirect = redirect_filter.redirect.as_ref().map(|s| (true, s.as_str()));
+                } else if redirect.is_none() {
+                    // Otherwise, only write to `redirect` if it hasn't already been set by a
+                    // previous filter.
+                    redirect = redirect_filter.redirect.as_ref().map(|s| (false, s.as_str()));
                 }
             }
             redirect
         };
 
-        let redirect: Option<String> = redirect_option.as_ref().and_then(|redirect_identifier| {
-            // Only match redirects with matching resources
-            if let Some(resource) = self.resources.get_resource(redirect_identifier) {
+        let redirect: Option<Redirection> = redirect_option.and_then(|(is_url, redirect_identifier)| {
+            if is_url {
+                Some(Redirection::Url(redirect_identifier.to_string()))
+            } else if let Some(resource) = self.resources.get_resource(redirect_identifier) {
+                // Only match resource redirects if a matching resource exists
                 let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
-                Some(data_url.trim().to_owned())
+                Some(Redirection::Resource(data_url.trim().to_owned()))
             } else {
                 // It's acceptable to pass no redirection if no matching resource is loaded.
                 // TODO - it may be useful to return a status flag to indicate that this occurred.
@@ -326,7 +353,7 @@ impl Blocker {
         let mut exceptions = Vec::with_capacity(network_filters.len() / 8);
         // $important
         let mut importants = Vec::with_capacity(200);
-        // $redirect
+        // $redirect and $redirect-url
         let mut redirects = Vec::with_capacity(200);
         // $tag=
         let mut tagged_filters_all = Vec::with_capacity(200);
@@ -448,6 +475,9 @@ impl Blocker {
             self.importants.add_filter(filter);
             Ok(())
         } else if filter.is_redirect() {
+            self.redirects.add_filter(filter);
+            Ok(())
+        } else if filter.is_redirect_url() {
             self.redirects.add_filter(filter);
             Ok(())
         } else if filter.tag.is_some() {
@@ -1721,6 +1751,7 @@ mod legacy_rule_parsing_tests {
         assert!(vec_hashmap_len(&blocker.filters.filter_map) +
             vec_hashmap_len(&blocker.importants.filter_map) +
             vec_hashmap_len(&blocker.redirects.filter_map) +
+            vec_hashmap_len(&blocker.redirect_urls.filter_map) +
             vec_hashmap_len(&blocker.csp.filter_map) >=
             expectation.filters - expectation.duplicates, "Number of collected network filters does not match expectation");
     }
