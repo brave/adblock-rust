@@ -355,9 +355,8 @@ impl Blocker {
                     exceptions.push(filter);
                 } else if filter.is_important() {
                     importants.push(filter);
-                } else if filter.is_redirect() {
-                    redirects.push(filter);
-                } else if filter.tag.is_some() {
+                } else if filter.tag.is_some() && !filter.is_redirect() {
+                    // `tag` + `redirect` is unsupported for now.
                     tagged_filters_all.push(filter);
                 } else {
                     filters.push(filter);
