@@ -341,6 +341,12 @@ impl Blocker {
                 if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
                     continue;
                 }
+
+                // Redirects are independent of blocking behavior.
+                if filter.is_redirect() {
+                    redirects.push(filter.clone());
+                }
+
                 if filter.is_csp() {
                     csp.push(filter);
                 } else if filter.is_generic_hide() {
@@ -348,13 +354,6 @@ impl Blocker {
                 } else if filter.is_exception() {
                     exceptions.push(filter);
                 } else if filter.is_important() {
-                    // Add `$important,redirect` filters twice for temporary compatibility while
-                    // fixing #131
-                    if filter.is_redirect() {
-                        let mut filter = filter.clone();
-                        filter.mask.set(crate::filters::network::NetworkFilterMask::IS_IMPORTANT, false);
-                        redirects.push(filter);
-                    }
                     importants.push(filter);
                 } else if filter.is_redirect() {
                     redirects.push(filter);
