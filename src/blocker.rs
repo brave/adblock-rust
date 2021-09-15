@@ -36,6 +36,10 @@ pub struct BlockerResult {
     /// [uBlock Origin's redirect syntax][1], the `redirect` is `Some`. The
     /// `redirect` field contains the body of the redirect to be injected.
     ///
+    /// Note that the presence of a redirect does _not_ imply that the request
+    /// should be blocked. The `redirect-rule` option can produce a redirection
+    /// that's only applied if another blocking filter matches a request.
+    ///
     /// [1]: https://github.com/gorhill/uBlock/wiki/Static-filter-syntax#redirect
     pub redirect: Option<String>,
     /// Exception is `Some` when the blocker matched on an exception rule.
@@ -171,8 +175,6 @@ impl Blocker {
             .importants
             .check(request, &request_tokens, &NO_TAGS);
 
-        let redirect_filter = self.redirects.check(request, &request_tokens, &NO_TAGS);
-
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             #[cfg(feature = "metrics")]
@@ -189,7 +191,7 @@ impl Blocker {
 
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
-            None if matched_rule || force_check_exceptions || redirect_filter.is_some() => {
+            None if matched_rule || force_check_exceptions => {
                 #[cfg(feature = "metrics")]
                 print!("exceptions\t");
                 self.exceptions.check(request, &request_tokens, &self.tags_enabled)
@@ -215,27 +217,37 @@ impl Blocker {
         #[cfg(feature = "metrics")]
         println!();
 
-        // only match redirects if we have them set up
-        let redirect: Option<String> = redirect_filter.as_ref().and_then(|f| {
-            // Filter redirect option is set
-            if let Some(redirect) = f.redirect.as_ref() {
-                // And we have a matching redirect resource
-                if let Some(resource) = self.resources.get_resource(redirect) {
-                    let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
-                    Some(data_url.trim().to_owned())
+        let redirect_filters = self.redirects.check_all(request, &request_tokens, &NO_TAGS);
+
+        let redirect_option = {
+            let mut redirect = None;
+            for redirect_filter in redirect_filters {
+                if redirect_filter.is_exception() {
+                    redirect = None;
+                    break;
                 } else {
-                    // TODO: handle error - throw?
-                    #[cfg(test)]
-                    eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
-                    None
+                    redirect = redirect_filter.redirect.as_ref();
                 }
+            }
+            redirect
+        };
+
+        let redirect: Option<String> = redirect_option.as_ref().and_then(|redirect_identifier| {
+            // Only match redirects with matching resources
+            if let Some(resource) = self.resources.get_resource(redirect_identifier) {
+                let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
+                Some(data_url.trim().to_owned())
             } else {
+                // It's acceptable to pass no redirection if no matching resource is loaded.
+                // TODO - it may be useful to return a status flag to indicate that this occurred.
+                #[cfg(test)]
+                eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
                 None
             }
         });
 
         // If something has already matched before but we don't know what, still return a match
-        let matched = exception.is_none() && (filter.is_some() || redirect_filter.is_some() || matched_rule);
+        let matched = exception.is_none() && (filter.is_some() || matched_rule);
         BlockerResult {
             matched,
             important: filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false),
@@ -1197,7 +1209,7 @@ mod blocker_tests {
     }
 
     #[test]
-    fn redirect_exception() {
+    fn redirect_blocking_exception() {
         let filters = vec![
             String::from("||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3"),
             String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
@@ -1225,6 +1237,38 @@ mod blocker_tests {
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
+        assert_eq!(matched_rule.error, None);
+    }
+
+    #[test]
+    fn redirect_exception() {
+        let filters = vec![
+            String::from("||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3"),
+            String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3"),
+        ];
+
+        let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
+
+        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let mut blocker = Blocker::new(network_filters, &blocker_options);
+
+        blocker.add_resource(&Resource {
+            name: "noop-0.1s.mp3".to_string(),
+            aliases: vec![],
+            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
+            content: base64::encode("mp3"),
+        }).unwrap();
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, false);
+        assert_eq!(matched_rule.important, false);
+        assert_eq!(matched_rule.redirect, None);
+        assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3".to_string()));
         assert_eq!(matched_rule.error, None);
     }
 
