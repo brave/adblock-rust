@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
+use crate::lists::ParseOptions;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -281,7 +282,7 @@ struct AbstractNetworkFilter {
 }
 
 impl AbstractNetworkFilter {
-    fn parse(line: &str) -> Result<Self, NetworkFilterError> {
+    fn parse(line: &str, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
         let mut filter_index_start: usize = 0;
         let mut filter_index_end: usize = line.len();
 
@@ -300,7 +301,7 @@ impl AbstractNetworkFilter {
             // slicing here is safe; the first byte after '$' will be a character boundary
             let raw_options = &line[filter_index_end + 1..];
 
-            options = Some(parse_filter_options(raw_options)?);
+            options = Some(parse_filter_options(raw_options, opts)?);
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
@@ -334,7 +335,7 @@ impl AbstractNetworkFilter {
     }
 }
 
-fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
+fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
     let mut result = vec![];
 
     for raw_option in raw_options.split(',') {
@@ -383,12 +384,16 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             }
             ("redirect-url", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect-url", false) => {
+                // Only parse filter option if parse options allow it
+                if !opts.parse_redirect_urls {
+                    return Err(NetworkFilterError::UnrecognisedOption);
+                }
                 // Ignore this filter if no redirection resource is specified
                 if value.is_empty() {
                     return Err(NetworkFilterError::EmptyRedirection);
                 }
                 // Parse URL
-                let maybe_parsed_url = parse_url(&String::from(value));
+                let maybe_parsed_url = parse_url(value);
                 if maybe_parsed_url.is_none() {
                     return Err(NetworkFilterError::RedirectionUrlInvalid)
                 }
@@ -493,8 +498,8 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
 }
 
 impl NetworkFilter {
-    pub fn parse(line: &str, debug: bool) -> Result<Self, NetworkFilterError> {
-        let parsed = AbstractNetworkFilter::parse(line)?;
+    pub fn parse(line: &str, debug: bool, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
+        let parsed = AbstractNetworkFilter::parse(line, opts)?;
 
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
@@ -856,7 +861,7 @@ impl NetworkFilter {
         }
         hostname.push('^');
 
-        NetworkFilter::parse(&hostname, debug)
+        NetworkFilter::parse(&hostname, debug, Default::default())
     }
 
     pub fn get_id_without_badfilter(&self) -> Hash {

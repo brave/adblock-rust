@@ -1,6 +1,6 @@
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::lists::{FilterFormat, FilterSet};
+use crate::lists::{FilterFormat, FilterSet, ParseOptions};
 use crate::request::Request;
 use crate::resources::{Resource, RedirectResource};
 
@@ -44,12 +44,24 @@ impl Engine {
 
     /// Loads rules, enabling optimizations and including debug information.
     pub fn from_rules_debug(rules: &[String], format: FilterFormat) -> Self {
-        Self::from_rules_parametrised(&rules, format, true, true)
+        let opts = ParseOptions { format, ..Default::default() };
+        Self::from_rules_debug_with_opts(&rules, opts)
+    }
+
+    /// Loads rules, enabling optimizations and including debug information.
+    /// Include opts
+    pub fn from_rules_debug_with_opts(rules: &[String], opts: ParseOptions) -> Self {
+        Self::from_rules_parametrised_with_opts(&rules, opts, true, true)
     }
 
     pub fn from_rules_parametrised(filter_rules: &[String], format: FilterFormat, debug: bool, optimize: bool) -> Self {
+        let opts = ParseOptions { format, ..Default::default() };
+        Self::from_rules_parametrised_with_opts(filter_rules, opts, debug, optimize)
+    }
+
+    pub fn from_rules_parametrised_with_opts(filter_rules: &[String], opts: ParseOptions, debug: bool, optimize: bool) -> Self {
         let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filters(filter_rules, format);
+        filter_set.add_filters_with_opts(filter_rules, opts);
         Self::from_filter_set(filter_set, optimize)
     }
 
@@ -184,7 +196,7 @@ impl Engine {
     /// Note that only network filters are currently supported by this method.
     pub fn filter_exists(&self, filter: &str) -> bool {
         use crate::filters::network::NetworkFilter;
-        let filter_parsed = NetworkFilter::parse(filter, false);
+        let filter_parsed = NetworkFilter::parse(filter, false, Default::default());
         match filter_parsed.map(|f| self.blocker.filter_exists(&f)) {
             Ok(exists) => exists,
             Err(_e) => {

@@ -17,6 +17,36 @@ pub enum RuleTypes {
     CosmeticOnly,
 }
 
+/// Options for tweaking how a filter or list of filters is interpreted when parsing. It's
+/// recommended to use _struct update syntax_ with a `default()` "rest" value; adding new fields to
+/// this struct will not be considered a breaking change.
+///
+/// ```
+/// # use adblock::lists::{FilterFormat, ParseOptions};
+/// let parse_options = ParseOptions {
+///     format: FilterFormat::Hosts,
+///     ..ParseOptions::default()
+/// };
+/// ```
+#[derive(Copy, Clone)]
+pub struct ParseOptions {
+    /// Assume filters are in the given format when parsing. Defaults to `FilterFormat::Standard`.
+    pub format: FilterFormat,
+    /// The `$redirect-url` filter option can redirect to an arbitrary HTTP/HTTPS resource over the
+    /// network. By default this is disabled for security concerns, and any rule containing a
+    /// `redirect-url` option will be ignored.
+    pub parse_redirect_urls: bool,
+}
+
+impl Default for ParseOptions {
+    fn default() -> Self {
+        ParseOptions {
+            format: FilterFormat::Standard,
+            parse_redirect_urls: false
+        }
+    }
+}
+
 #[cfg(feature = "content-blocking")]
 impl Default for RuleTypes {
     fn default() -> Self {
@@ -84,14 +114,28 @@ impl FilterSet {
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored.
     pub fn add_filter_list(&mut self, filter_list: &str, format: FilterFormat) {
+        let opts = ParseOptions { format, ..Default::default() };
+        self.add_filter_list_with_opts(filter_list, opts);
+    }
+
+    /// Adds the contents of an entire filter list to this `FilterSet` with ParseOptions.
+    /// Filters that cannot be parsed successfully are ignored.
+    pub fn add_filter_list_with_opts(&mut self, filter_list: &str, opts: ParseOptions) {
         let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
-        self.add_filters(&rules, format);
+        self.add_filters_with_opts(&rules, opts);
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
     /// successfully are ignored.
     pub fn add_filters(&mut self, filters: &[String], format: FilterFormat) {
-        let (mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters(&filters, self.debug, format);
+        let opts = ParseOptions { format, ..Default::default() };
+        self.add_filters_with_opts(filters, opts);
+    }
+
+    /// Adds a collection of filter rules to this `FilterSet` with ParseOptions.
+    /// Filters that cannot be parsed successfully are ignored.
+    pub fn add_filters_with_opts(&mut self, filters: &[String], opts: ParseOptions) {
+        let (mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters_with_opts(&filters, self.debug, opts);
         self.network_filters.append(&mut parsed_network_filters);
         self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
     }
@@ -230,11 +274,11 @@ impl From<CosmeticFilterError> for FilterParseError {
     }
 }
 
-/// Parse a single filter rule
-pub fn parse_filter(
+/// Parse a single filter rule with ParseOptions
+pub fn parse_filter_with_opts(
     line: &str,
     debug: bool,
-    format: FilterFormat,
+    opts: ParseOptions,
 ) -> Result<ParsedFilter, FilterParseError> {
 
     let filter = line.trim();
@@ -243,10 +287,10 @@ pub fn parse_filter(
         return Err(FilterParseError::Empty);
     }
 
-    match format {
+    match opts.format {
         FilterFormat::Standard => {
             match detect_filter_type(filter) {
-                FilterType::Network => NetworkFilter::parse(filter, debug)
+                FilterType::Network => NetworkFilter::parse(filter, debug, opts)
                     .map(|f| f.into())
                     .map_err(|e| e.into()),
                 FilterType::Cosmetic => CosmeticFilter::parse(filter, debug)
@@ -297,17 +341,26 @@ pub fn parse_filter(
     }
 }
 
-/// Parse an entire list of filters, ignoring any errors
-pub fn parse_filters(
-    list: &[String],
+/// Parse a single filter rule
+pub fn parse_filter(
+    line: &str,
     debug: bool,
     format: FilterFormat,
+) -> Result<ParsedFilter, FilterParseError> {
+    return parse_filter_with_opts(line, debug, ParseOptions {format, ..Default::default()});
+}
+
+/// Parse an entire list of filters with ParseOptions, ignoring any errors
+pub fn parse_filters_with_opts(
+    list: &[String],
+    debug: bool,
+    opts: ParseOptions,
 ) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
 
     let list_iter = list.iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
-        .map(|line| parse_filter(line, debug, format))
+        .map(|line| parse_filter_with_opts(line, debug, opts))
         .filter_map(Result::ok)
         .partition_map(|filter| match filter {
             ParsedFilter::Network(f) => Either::Left(f),
@@ -315,6 +368,15 @@ pub fn parse_filters(
         });
 
     (network_filters, cosmetic_filters)
+}
+
+/// Parse an entire list of filters, ignoring any errors
+pub fn parse_filters(
+    list: &[String],
+    debug: bool,
+    format: FilterFormat,
+) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
+    return parse_filters_with_opts(list, debug, ParseOptions {format, ..Default::default()});
 }
 
 /// Given a single line, checks if this would likely be a cosmetic filter, a

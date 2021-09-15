@@ -11,7 +11,7 @@ mod legacy_test_filters {
         blocked: &[&'a str],
         not_blocked: &[&'a str],
     ) {
-        let filter_res = NetworkFilter::parse(raw_filter, true);
+        let filter_res = NetworkFilter::parse(raw_filter, true, Default::default());
         assert!(
             filter_res.is_ok(),
             "Parsing {} failed: {:?}",
@@ -290,7 +290,7 @@ mod legacy_test_filters {
         );
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
-        let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true).unwrap();
+        let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true, Default::default()).unwrap();
         let request = Request::from_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "", "script").unwrap();
         assert!(filter.matches(&request));
     }
@@ -656,13 +656,13 @@ mod legacy_misc_tests {
 
     #[test]
     fn host_anchored_filters_parse_correctly() { // Host anchor is calculated correctly
-        let filter = NetworkFilter::parse("||test.com$third-party", false).unwrap();
+        let filter = NetworkFilter::parse("||test.com$third-party", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
 
-        let filter = NetworkFilter::parse("||test.com/ok$third-party", false).unwrap();
+        let filter = NetworkFilter::parse("||test.com/ok$third-party", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
 
-        let filter = NetworkFilter::parse("||test.com/ok", false).unwrap();
+        let filter = NetworkFilter::parse("||test.com/ok", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
     }
 
