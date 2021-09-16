@@ -385,7 +385,7 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
             ("redirect-url", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect-url", false) => {
                 // Only parse filter option if parse options allow it
-                if !opts.parse_redirect_urls {
+                if !opts.include_redirect_urls {
                     return Err(NetworkFilterError::UnrecognisedOption);
                 }
                 // Ignore this filter if no redirection resource is specified
@@ -2258,7 +2258,7 @@ mod parse_tests {
 
     #[test]
     fn parses_redirect_urls() {
-        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
         {
             // No parsing without parse option
             let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, Default::default());

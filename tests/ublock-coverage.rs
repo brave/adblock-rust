@@ -1,5 +1,4 @@
 use adblock::engine::Engine;
-use adblock::lists::FilterFormat;
 use adblock::utils::rules_from_lists;
 
 use serde::Deserialize;
@@ -44,7 +43,7 @@ fn get_blocker_engine() -> Engine {
         String::from("data/regression-testing/easyprivacy.txt"),
     ]);
 
-    Engine::from_rules_parametrised(&rules, FilterFormat::Standard, true, false)
+    Engine::from_rules_parametrised(&rules, Default::default(), true, false)
 }
 
 fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
@@ -60,7 +59,7 @@ fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
 
     extra_rules.iter().for_each(|rule| rules.push(rule.to_string()));
 
-    Engine::from_rules_parametrised(&rules, FilterFormat::Standard, true, false)
+    Engine::from_rules_parametrised(&rules, Default::default(), true, false)
 }
 
 #[test]
@@ -71,7 +70,7 @@ fn check_specific_rules() {
             &[
                 String::from("||www.facebook.com/*/plugin"),
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
 
         let checked = engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
@@ -89,7 +88,7 @@ fn check_specific_rules() {
             &[
                 String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),

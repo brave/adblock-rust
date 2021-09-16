@@ -1,7 +1,6 @@
 use criterion::*;
 use once_cell::sync::Lazy;
 
-use adblock::lists::FilterFormat;
 use adblock::utils::{read_file_lines, rules_from_lists};
 use adblock::blocker::{Blocker, BlockerOptions};
 
@@ -58,7 +57,7 @@ fn bench_parsing_impl(lists: &Vec<Vec<String>>) -> usize {
     let mut dummy = 0;
 
     for list in lists {
-        let (network_filters, _) = adblock::lists::parse_filters(list, false, FilterFormat::Standard);
+        let (network_filters, _) = adblock::lists::parse_filters(list, false, Default::default());
         dummy = dummy + network_filters.len() % 1000000;
     }
   
@@ -85,7 +84,7 @@ fn list_parse(c: &mut Criterion) {
 }
 
 fn get_blocker(rules: &Vec<String>) -> Blocker {
-    let (network_filters, _) = adblock::lists::parse_filters(rules, false, FilterFormat::Standard);
+    let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
     println!("Got {} network filters", network_filters.len());
 

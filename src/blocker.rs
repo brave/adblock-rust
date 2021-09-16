@@ -1214,13 +1214,13 @@ mod tests {
 mod blocker_tests {
 
     use super::*;
-    use crate::lists::{parse_filters, FilterFormat, parse_filters_with_opts, ParseOptions};
+    use crate::lists::{parse_filters, ParseOptions};
     use crate::request::Request;
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
     fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
-        let (network_filters, _) = parse_filters(filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1246,9 +1246,9 @@ mod blocker_tests {
 
         let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
 
-        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
 
-        let (network_filters, _) = parse_filters_with_opts(&filters, true, opts);
+        let (network_filters, _) = parse_filters(&filters, true, opts);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -1271,7 +1271,7 @@ mod blocker_tests {
 
         let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -1293,9 +1293,9 @@ mod blocker_tests {
 
         let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
 
-        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
 
-        let (network_filters, _) = parse_filters_with_opts(&filters, true, opts);
+        let (network_filters, _) = parse_filters(&filters, true, opts);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -1319,9 +1319,9 @@ mod blocker_tests {
 
         let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
 
-        let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
+        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
 
-        let (network_filters, _) = parse_filters_with_opts(&filters, true, opts);
+        let (network_filters, _) = parse_filters(&filters, true, opts);
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -1346,7 +1346,7 @@ mod blocker_tests {
 
         let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -1378,7 +1378,7 @@ mod blocker_tests {
 
         let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -1476,7 +1476,7 @@ mod blocker_tests {
             (Request::from_urls("https://r.aabb.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1506,7 +1506,7 @@ mod blocker_tests {
             String::from("^first-party-only^$csp=script-src 'none',1p"),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: false,
@@ -1564,7 +1564,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), false),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1600,7 +1600,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1637,7 +1637,7 @@ mod blocker_tests {
             (Request::from_url("https://brave.com/about").unwrap(), true),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, FilterFormat::Standard);
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,    // optimizations will reduce number of rules
@@ -1774,7 +1774,7 @@ mod blocker_tests {
 #[cfg(test)]
 mod legacy_rule_parsing_tests {
     use crate::utils::rules_from_lists;
-    use crate::lists::{parse_filters, FilterFormat};
+    use crate::lists::{parse_filters, FilterFormat, ParseOptions};
     use crate::blocker::{Blocker, BlockerOptions};
     use crate::blocker::vec_hashmap_len;
 
@@ -1826,7 +1826,7 @@ mod legacy_rule_parsing_tests {
     fn check_list_counts(rule_lists: &[String], format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
 
-        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, format);
+        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, ParseOptions { format, ..Default::default() });
 
         assert_eq!(
             (network_filters.len(),

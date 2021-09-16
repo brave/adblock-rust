@@ -1,6 +1,6 @@
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::lists::{FilterFormat, FilterSet, ParseOptions};
+use crate::lists::{FilterSet, ParseOptions};
 use crate::request::Request;
 use crate::resources::{Resource, RedirectResource};
 
@@ -36,32 +36,20 @@ impl Engine {
     }
 
     /// Loads rules in a single format, enabling optimizations and discarding debug information.
-    pub fn from_rules(rules: &[String], format: FilterFormat) -> Self {
+    pub fn from_rules(rules: &[String], opts: ParseOptions) -> Self {
         let mut filter_set = FilterSet::new(false);
-        filter_set.add_filters(rules, format);
+        filter_set.add_filters(rules, opts);
         Self::from_filter_set(filter_set, true)
     }
 
     /// Loads rules, enabling optimizations and including debug information.
-    pub fn from_rules_debug(rules: &[String], format: FilterFormat) -> Self {
-        let opts = ParseOptions { format, ..Default::default() };
-        Self::from_rules_debug_with_opts(&rules, opts)
+    pub fn from_rules_debug(rules: &[String], opts: ParseOptions) -> Self {
+        Self::from_rules_parametrised(&rules, opts, true, true)
     }
 
-    /// Loads rules, enabling optimizations and including debug information.
-    /// Include opts
-    pub fn from_rules_debug_with_opts(rules: &[String], opts: ParseOptions) -> Self {
-        Self::from_rules_parametrised_with_opts(&rules, opts, true, true)
-    }
-
-    pub fn from_rules_parametrised(filter_rules: &[String], format: FilterFormat, debug: bool, optimize: bool) -> Self {
-        let opts = ParseOptions { format, ..Default::default() };
-        Self::from_rules_parametrised_with_opts(filter_rules, opts, debug, optimize)
-    }
-
-    pub fn from_rules_parametrised_with_opts(filter_rules: &[String], opts: ParseOptions, debug: bool, optimize: bool) -> Self {
+    pub fn from_rules_parametrised(filter_rules: &[String], opts: ParseOptions, debug: bool, optimize: bool) -> Self {
         let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filters_with_opts(filter_rules, opts);
+        filter_set.add_filters(filter_rules, opts);
         Self::from_filter_set(filter_set, optimize)
     }
 
@@ -291,6 +279,7 @@ mod tests {
     use super::*;
     use crate::resources::{ResourceType, MimeType};
     use crate::blocker::Redirection;
+    use crate::lists::FilterFormat;
 
     #[test]
     fn tags_enable_adds_tags() {
@@ -307,7 +296,7 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
+        let mut engine = Engine::from_rules(&filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
 
@@ -336,7 +325,7 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
+        let mut engine = Engine::from_rules(&filters, Default::default());
         engine.enable_tags(&["brian", "stuff"]);
         engine.disable_tags(&["stuff"]);
 
@@ -363,7 +352,7 @@ mod tests {
             ("https://brianbondy.com/advert", true),
         ];
 
-        let engine = Engine::from_rules(&filters, FilterFormat::Standard);
+        let engine = Engine::from_rules(&filters, Default::default());
 
         url_results.into_iter().for_each(|(url, expected_result)| {
             let matched_rule = engine.check_network_urls(&url, "", "");
@@ -388,7 +377,7 @@ mod tests {
             ("https://brianbondy.com/advert", false),
         ];
 
-        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
+        let mut engine = Engine::from_rules(&filters, Default::default());
         engine.enable_tags(&["brian", "stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
@@ -416,7 +405,7 @@ mod tests {
             ("https://brave.com/about", false),
         ];
 
-        let mut engine = Engine::from_rules(&filters, FilterFormat::Standard);
+        let mut engine = Engine::from_rules(&filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
         let serialized = engine.serialize_raw().unwrap();
@@ -507,7 +496,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&[
             "ad-banner".to_owned()
-        ], FilterFormat::Standard);
+        ], Default::default());
         let serialized = engine.serialize_compressed().unwrap();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
@@ -517,7 +506,7 @@ mod tests {
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$tag=abc".to_owned()
-        ], FilterFormat::Standard);
+        ], Default::default());
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize_compressed().unwrap();
         println!("Engine serialized: {:?}", serialized);
@@ -528,7 +517,7 @@ mod tests {
     fn deserialization_generate_resources() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext".to_owned()
-        ], FilterFormat::Standard);
+        ], Default::default());
 
         let resources = vec![
             Resource {
@@ -555,7 +544,7 @@ mod tests {
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext".to_owned()
-        ], FilterFormat::Standard);
+        ], Default::default());
 
         engine.add_resource(Resource {
             name: "nooptext".to_owned(),
@@ -601,7 +590,7 @@ mod tests {
             String::from("@@||sub.example.com$document"),
         ];
 
-        let engine = Engine::from_rules_debug(&filters, FilterFormat::Standard);
+        let engine = Engine::from_rules_debug(&filters, Default::default());
 
         assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         assert!(!engine.check_network_urls("https://example.com", "https://example.com", "script").matched);
@@ -611,35 +600,35 @@ mod tests {
     #[test]
     fn implicit_all() {
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^")], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$first-party,match-case")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$first-party,match-case")], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$script")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$script")], Default::default());
             assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$~script")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$~script")], Default::default());
             assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$document"), String::from("@@||example.com^$generichide")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$document"), String::from("@@||example.com^$generichide")], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("example.com")], FilterFormat::Hosts);
+            let engine = Engine::from_rules_debug(&vec![String::from("example.com")], ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path")], Default::default());
             assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path^")], FilterFormat::Standard);
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path^")], Default::default());
             assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
         }
     }
@@ -663,7 +652,7 @@ mod tests {
             ("https://example2.com/test.html", vec![".block"], true),
         ];
 
-        let engine = Engine::from_rules(&filters, FilterFormat::Standard);
+        let engine = Engine::from_rules(&filters, Default::default());
 
         url_results.into_iter().for_each(|(url, expected_result, expected_generichide)| {
             let result = engine.url_cosmetic_resources(url);
@@ -678,7 +667,7 @@ mod tests {
         filter_set.add_filters(&vec![
             "||addthis.com^$important,3p,domain=~missingkids.com|~missingkids.org|~sainsburys.jobs|~sitecore.com|~amd.com".to_string(),
             "||addthis.com/*/addthis_widget.js$script,redirect=addthis.com/addthis_widget.js".to_string(),
-        ], FilterFormat::Standard);
+        ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
         engine.add_resource(Resource {

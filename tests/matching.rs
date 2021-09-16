@@ -59,7 +59,7 @@ fn check_filter_matching() {
     assert!(requests.len() > 0, "List of parsed request info is empty");
 
     let opts = ParseOptions {
-        parse_redirect_urls: true,
+        include_redirect_urls: true,
         ..Default::default()
     };
 
@@ -93,8 +93,8 @@ fn check_engine_matching() {
             continue;
         }
         for filter in req.filters {
-            let opts = ParseOptions { parse_redirect_urls: true, ..Default::default() };
-            let mut engine = Engine::from_rules_debug_with_opts(&[filter.clone()], opts);
+            let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
+            let mut engine = Engine::from_rules_debug(&[filter.clone()], opts);
             let resources = build_resources_from_filters(&[filter.clone()]);
             engine.use_resources(&resources);
 

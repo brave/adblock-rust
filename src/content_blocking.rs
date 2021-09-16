@@ -546,10 +546,9 @@ impl TryFrom<CosmeticFilter> for CbRule {
 #[cfg(test)]
 mod ab2cb_tests {
     use super::*;
-    use crate::lists::FilterFormat;
 
     fn test_from_abp(abp_rule: &str, cb: &str) {
-        let filter = crate::lists::parse_filter(abp_rule, true, FilterFormat::Standard).expect("Rule under test could not be parsed");
+        let filter = crate::lists::parse_filter(abp_rule, true, Default::default()).expect("Rule under test could not be parsed");
         assert_eq!(CbRuleEquivalent::try_from(filter).unwrap().into_iter().collect::<Vec<_>>(), serde_json::from_str::<Vec<CbRule>>(cb).expect("content blocking rule under test could not be deserialized"));
     }
 
