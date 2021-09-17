@@ -480,7 +480,13 @@ mod tests {
 
         let url = "http://example.com/ad-banner.gif";
         let matched_rule = deserialized_engine.check_network_urls(url, "", "");
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        // This serialized DAT was generated prior to
+        // https://github.com/brave/adblock-rust/pull/185, so the `redirect` filter did not get
+        // duplicated into the list of blocking filters.
+        //
+        // TODO - The failure to match here is considered acceptable for now, as it's part of a
+        // breaking change (minor version bump). However, the test should be updated at some point.
+        //assert!(matched_rule.matched, "Expected match for {}", url);
         assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
     }
 
