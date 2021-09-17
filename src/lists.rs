@@ -28,13 +28,15 @@ pub enum RuleTypes {
 ///     ..ParseOptions::default()
 /// };
 /// ```
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize)]
 pub struct ParseOptions {
     /// Assume filters are in the given format when parsing. Defaults to `FilterFormat::Standard`.
+    #[serde(default)]
     pub format: FilterFormat,
     /// The `$redirect-url` filter option can redirect to an arbitrary HTTP/HTTPS resource over the
     /// network. By default this is disabled for security concerns, and any rule containing a
     /// `redirect-url` option will be ignored.
+    #[serde(default)]
     pub include_redirect_urls: bool,
 }
 
@@ -212,6 +214,13 @@ pub enum FilterFormat {
     /// For this option, `!` is accepted as a comment character at the beginning of a line, and `#`
     /// is accepted as a comment character anywhere in a line.
     Hosts,
+}
+
+/// Default to parsing lists in `Standard` format.
+impl Default for FilterFormat {
+    fn default() -> Self {
+        Self::Standard
+    }
 }
 
 #[derive(Debug, PartialEq)]
