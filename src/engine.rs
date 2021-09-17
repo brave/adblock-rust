@@ -68,11 +68,6 @@ impl Engine {
         }
     }
 
-    #[deprecated(since = "0.3.15", note = "Use `serialize_compressed` for backwards compatibility, or switch to using `serialize_raw`. `serialize_compressed` will be removed and this method will take the behavior of `serialize_raw` in a future release.")]
-    pub fn serialize(&self) -> Result<Vec<u8>, BlockerError> {
-        self.serialize_compressed()
-    }
-
     /// Serializes the `Engine` into a binary format so that it can be quickly reloaded later.
     pub fn serialize_raw(&self) -> Result<Vec<u8>, BlockerError> {
         use crate::data_format::SerializeFormat;
