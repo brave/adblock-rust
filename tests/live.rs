@@ -84,7 +84,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<adblock::lists::FilterSet> = once_cell
             .await
             .iter()
             .for_each(|(format, list)| {
-                filter_set.add_filters(&list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(), *format);
+                filter_set.add_filters(&list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(), adblock::lists::ParseOptions { format: *format, ..Default::default() });
             });
 
         filter_set
@@ -135,7 +135,7 @@ fn get_blocker_engine_deserialized_ios() -> Engine {
         .map(|s| s.to_owned())
         .collect();
     
-    let engine = Engine::from_rules_parametrised(&filters, adblock::lists::FilterFormat::Standard, true, false);
+    let engine = Engine::from_rules_parametrised(&filters, Default::default(), true, false);
     engine
 }
 

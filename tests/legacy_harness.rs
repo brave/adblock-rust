@@ -11,7 +11,7 @@ mod legacy_test_filters {
         blocked: &[&'a str],
         not_blocked: &[&'a str],
     ) {
-        let filter_res = NetworkFilter::parse(raw_filter, true);
+        let filter_res = NetworkFilter::parse(raw_filter, true, Default::default());
         assert!(
             filter_res.is_ok(),
             "Parsing {} failed: {:?}",
@@ -290,7 +290,7 @@ mod legacy_test_filters {
         );
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
-        let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true).unwrap();
+        let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true, Default::default()).unwrap();
         let request = Request::from_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "", "script").unwrap();
         assert!(filter.matches(&request));
     }
@@ -298,11 +298,11 @@ mod legacy_test_filters {
 
 mod legacy_check_match {
     use adblock::engine::Engine;
-    use adblock::lists::FilterFormat;
+    use adblock::lists::{FilterFormat, ParseOptions};
 
     fn check_match<'a>(rules: &[&'a str], format: FilterFormat, blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let mut engine = Engine::from_rules(&rules_owned, format);          // first one with the provided rules
+        let mut engine = Engine::from_rules(&rules_owned, ParseOptions { format, ..Default::default() });          // first one with the provided rules
         engine.use_tags(tags);
 
         let mut engine_deserialized = Engine::default();                    // second empty
@@ -381,7 +381,7 @@ mod legacy_check_match {
                 String::from("/ads/freewheel/*"),
                 String::from("@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com")
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
         let mut engine_deserialized = Engine::default();          // second empty
         {
@@ -482,11 +482,11 @@ mod legacy_check_match {
 
 mod legacy_check_options {
     use adblock::engine::Engine;
-    use adblock::lists::FilterFormat;
+    use adblock::lists::{FilterFormat, ParseOptions};
 
     fn check_option_rule<'a>(rules: &[&'a str], format: FilterFormat, tests: &[(&'a str, &'a str, &'a str, bool)]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let engine = Engine::from_rules(&rules_owned, format);              // first one with the provided rules
+        let engine = Engine::from_rules(&rules_owned, ParseOptions { format, ..Default::default() });              // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
             assert!(engine.check_network_urls(url, source_url, request_type).matched == *expectation,
@@ -640,7 +640,6 @@ mod legacy_check_options {
 mod legacy_misc_tests {
     use adblock::engine::Engine;
     use adblock::filters::network::NetworkFilter;
-    use adblock::lists::FilterFormat;
 
     #[test]
     fn demo_app() { // Demo app test
@@ -648,7 +647,7 @@ mod legacy_misc_tests {
             &[
                 String::from("||googlesyndication.com/safeframe/$third-party")
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
 
         assert!(engine.check_network_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", "http://slashdot.org", "script").matched)
@@ -656,13 +655,13 @@ mod legacy_misc_tests {
 
     #[test]
     fn host_anchored_filters_parse_correctly() { // Host anchor is calculated correctly
-        let filter = NetworkFilter::parse("||test.com$third-party", false).unwrap();
+        let filter = NetworkFilter::parse("||test.com$third-party", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
 
-        let filter = NetworkFilter::parse("||test.com/ok$third-party", false).unwrap();
+        let filter = NetworkFilter::parse("||test.com/ok$third-party", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
 
-        let filter = NetworkFilter::parse("||test.com/ok", false).unwrap();
+        let filter = NetworkFilter::parse("||test.com/ok", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
     }
 
@@ -672,7 +671,7 @@ mod legacy_misc_tests {
             String::from("||googlesyndication.com$third-party"),
             String::from("@@||googlesyndication.ca"),
             String::from("a$explicitcancel")
-        ], FilterFormat::Standard, true, false);    // enable debugging and disable optimizations
+        ], Default::default(), true, false);    // enable debugging and disable optimizations
 
         let serialized = engine.serialize_compressed().unwrap();
         let mut engine2 = Engine::new(false);
@@ -696,7 +695,7 @@ mod legacy_misc_tests {
                 String::from("||googlesyndication.com/safeframe/$third-party"),
                 String::from("||brianbondy.com/ads"),
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
 
         let current_page_frame = "http://slashdot.org";
@@ -725,7 +724,7 @@ mod legacy_misc_tests {
                 String::from("||brianbondy.com/ads"),
                 String::from("@@safeframe")
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
 
         let current_page_frame = "http://slashdot.org";
@@ -750,7 +749,7 @@ mod legacy_misc_tests {
                 String::from("||brianbondy.com^$important"),
                 String::from("@@||brianbondy.com^"),
             ],
-            FilterFormat::Standard,
+            Default::default(),
         );
 
         let checked = engine.check_network_urls("https://brianbondy.com/t", "https://test.com", "script");

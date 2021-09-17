@@ -3,7 +3,6 @@ use criterion::*;
 use serde::{Deserialize, Serialize};
 
 use adblock::utils::rules_from_lists;
-use adblock::lists::FilterFormat;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
 use adblock::url_parser::parse_url;
@@ -24,7 +23,7 @@ fn load_requests() -> Vec<TestRequest> {
 }
 
 fn get_blocker(rules: &Vec<String>) -> Blocker {
-    let (network_filters, _) = adblock::lists::parse_filters(rules, false, FilterFormat::Standard);
+    let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
     let blocker_options = BlockerOptions {
         enable_optimizations: true,
@@ -103,7 +102,7 @@ fn rule_match(c: &mut Criterion) {
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
                 "data/easylist.to/easylist/easyprivacy.txt".to_owned()
             ]);
-            let engine = Engine::from_rules(&rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&rules, Default::default());
             b.iter(|| bench_rule_matching(&engine, &elep_req))
         },
     );
@@ -113,7 +112,7 @@ fn rule_match(c: &mut Criterion) {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
             ]);
-            let engine = Engine::from_rules(&rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&rules, Default::default());
             b.iter(|| bench_rule_matching(&engine, &el_req))
         },
     );
@@ -123,7 +122,7 @@ fn rule_match(c: &mut Criterion) {
             let rules = rules_from_lists(&vec![
                 "data/slim-list.txt".to_owned()
             ]);
-            let engine = Engine::from_rules(&rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&rules, Default::default());
             b.iter(|| bench_rule_matching(&engine, &slim_req))
         },
     );
@@ -208,7 +207,7 @@ fn serialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easyprivacy.txt")
             ]);
 
-            let engine = Engine::from_rules(&full_rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&full_rules, Default::default());
             b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
         },
     );
@@ -219,7 +218,7 @@ fn serialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easylist.txt"),
             ]);
 
-            let engine = Engine::from_rules(&full_rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&full_rules, Default::default());
             b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
         }
     );
@@ -230,7 +229,7 @@ fn serialization(c: &mut Criterion) {
                 String::from("data/slim-list.txt"),
             ]);
 
-            let engine = Engine::from_rules(&full_rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&full_rules, Default::default());
             b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
         }
     );
@@ -251,7 +250,7 @@ fn deserialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easyprivacy.txt")
             ]);
 
-            let engine = Engine::from_rules(&full_rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&full_rules, Default::default());
             let serialized = engine.serialize_raw().unwrap();
 
             b.iter(|| {
@@ -267,7 +266,7 @@ fn deserialization(c: &mut Criterion) {
                 String::from("data/easylist.to/easylist/easylist.txt"),
             ]);
 
-            let engine = Engine::from_rules(&full_rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&full_rules, Default::default());
             let serialized = engine.serialize_raw().unwrap();
 
             b.iter(|| {
@@ -283,7 +282,7 @@ fn deserialization(c: &mut Criterion) {
                 String::from("data/slim-list.txt"),
             ]);
 
-            let engine = Engine::from_rules(&full_rules, FilterFormat::Standard);
+            let engine = Engine::from_rules(&full_rules, Default::default());
             let serialized = engine.serialize_raw().unwrap();
 
             b.iter(|| {
@@ -352,7 +351,7 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
                 "data/easylist.to/easylist/easyprivacy.txt".to_owned()
             ]);
-            let engine = Engine::from_rules_parametrised(&rules, FilterFormat::Standard, false, true);
+            let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
             b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
         },
     );
@@ -362,7 +361,7 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
             let rules = rules_from_lists(&vec![
                 "data/easylist.to/easylist/easylist.txt".to_owned(),
             ]);
-            let engine = Engine::from_rules_parametrised(&rules, FilterFormat::Standard, false, true);
+            let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
             b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
         },
     );
@@ -372,7 +371,7 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
             let rules = rules_from_lists(&vec![
                 "data/slim-list.txt".to_owned()
             ]);
-            let engine = Engine::from_rules_parametrised(&rules, FilterFormat::Standard, false, true);
+            let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
             b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
         },
     );

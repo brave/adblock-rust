@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::sync::Mutex;
 use std::path::Path;
 use adblock::engine::Engine as EngineInternal;
-use adblock::lists::{RuleTypes, FilterFormat, FilterSet as FilterSetInternal};
+use adblock::lists::{RuleTypes, FilterFormat, FilterSet as FilterSetInternal, ParseOptions};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
@@ -19,11 +19,11 @@ impl FilterSet {
     fn new(debug: bool) -> Self {
         Self(RefCell::new(FilterSetInternal::new(debug)))
     }
-    fn add_filters(&self, rules: &[String], format: FilterFormat) {
-        self.0.borrow_mut().add_filters(rules, format)
+    fn add_filters(&self, rules: &[String], opts: ParseOptions) {
+        self.0.borrow_mut().add_filters(rules, opts)
     }
-    fn add_filter(&self, filter: &str, format: FilterFormat) -> Result<(), adblock::lists::FilterParseError> {
-        self.0.borrow_mut().add_filter(filter, format)
+    fn add_filter(&self, filter: &str, opts: ParseOptions) -> Result<(), adblock::lists::FilterParseError> {
+        self.0.borrow_mut().add_filter(filter, opts)
     }
     fn into_content_blocking(&self, rule_types: RuleTypes) -> Result<(Vec<adblock::content_blocking::CbRule>, Vec<String>), ()> {
         self.0.borrow().clone().into_content_blocking(rule_types)
@@ -47,14 +47,14 @@ fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsNull> {
 
     // Take the first argument, which must be an array
     let rules_handle: Handle<JsArray> = cx.argument(1)?;
-    // Second argument is the optional format of the rules, defaulting to
-    // FilterFormat::Standard
-    let format = match cx.argument_opt(2) {
-        Some(format_arg) => match neon_serde::from_value(&mut cx, format_arg) {
+    // Second argument is optional parse options. All fields are optional. ParseOptions::default()
+    // if unspecified.
+    let parse_opts = match cx.argument_opt(2) {
+        Some(parse_opts_arg) => match neon_serde::from_value(&mut cx, parse_opts_arg) {
             Ok(v) => v,
             Err(e) => cx.throw_error(e.to_string())?,
         },
-        None => FilterFormat::Standard,
+        None => ParseOptions::default(),
     };
 
     // Convert a JsArray to a Rust Vec
@@ -67,7 +67,7 @@ fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsNull> {
         rules.push(rule);
     }
 
-    this.add_filters(&rules, format);
+    this.add_filters(&rules, parse_opts);
 
     Ok(JsNull::new(&mut cx))
 }
@@ -76,15 +76,15 @@ fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
     let filter: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let format = match cx.argument_opt(2) {
-        Some(format_arg) => match neon_serde::from_value(&mut cx, format_arg) {
+    let parse_opts = match cx.argument_opt(2) {
+        Some(parse_opts_arg) => match neon_serde::from_value(&mut cx, parse_opts_arg) {
             Ok(v) => v,
             Err(e) => cx.throw_error(e.to_string())?,
         },
-        None => FilterFormat::Standard,
+        None => ParseOptions::default(),
     };
 
-    let ok = this.add_filter(&filter, format).is_ok();
+    let ok = this.add_filter(&filter, parse_opts).is_ok();
     // Return true/false depending on whether or not the filter could be added
     Ok(JsBoolean::new(&mut cx, ok))
 }

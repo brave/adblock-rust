@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use std::fs::File;
 use std::io::prelude::*;
+use adblock::blocker::Redirection;
+use adblock::lists::ParseOptions;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
@@ -31,7 +33,7 @@ fn load_requests() -> Vec<TestRuleRequest> {
 
 fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
     filters.iter()
-        .map(|r| NetworkFilter::parse(&r, true))
+        .map(|r| NetworkFilter::parse(&r, true, Default::default()))
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
         .map(|f| {
@@ -56,11 +58,16 @@ fn check_filter_matching() {
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
 
+    let opts = ParseOptions {
+        include_redirect_urls: true,
+        ..Default::default()
+    };
+
     for req in requests {
         for filter in req.filters {
-            let nework_filter_res = NetworkFilter::parse(&filter, true);
-            assert!(nework_filter_res.is_ok(), "Could not parse filter {}", filter);
-            let network_filter = nework_filter_res.unwrap();
+            let network_filter_res = NetworkFilter::parse(&filter, true, opts);
+            assert!(network_filter_res.is_ok(), "Could not parse filter {}", filter);
+            let network_filter = network_filter_res.unwrap();
 
             let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
@@ -72,7 +79,7 @@ fn check_filter_matching() {
         }
     }
 
-    assert_eq!(requests_checked, 9381); // A catch for regressions
+    assert_eq!(requests_checked, 9382); // A catch for regressions
 }
 
 #[test]
@@ -86,13 +93,14 @@ fn check_engine_matching() {
             continue;
         }
         for filter in req.filters {
-            let mut engine = Engine::from_rules_debug(&[filter.clone()], adblock::lists::FilterFormat::Standard);
+            let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
+            let mut engine = Engine::from_rules_debug(&[filter.clone()], opts);
             let resources = build_resources_from_filters(&[filter.clone()]);
             engine.use_resources(&resources);
 
-            let nework_filter_res = NetworkFilter::parse(&filter, true);
-            assert!(nework_filter_res.is_ok(), "Could not parse filter {}", filter);
-            let network_filter = nework_filter_res.unwrap();
+            let network_filter_res = NetworkFilter::parse(&filter, true, opts);
+            assert!(network_filter_res.is_ok(), "Could not parse filter {}", filter);
+            let network_filter = network_filter_res.unwrap();
 
             let result = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
 
@@ -105,9 +113,23 @@ fn check_engine_matching() {
             
             if network_filter.is_redirect() {
                 assert!(result.redirect.is_some(), "Expected {} to trigger redirect rule {}", req.url, filter);
-                let redirect = result.redirect.as_ref().unwrap();
-                // each redirect url is base64 encoded
-                assert!(redirect.contains("base64"));
+                let redirect = result.redirect.unwrap();
+                if network_filter.is_redirect_url() {
+                    // check it's a URL
+                    let url = match redirect {
+                        Redirection::Url(url) => url,
+                        _ => panic!("not a url despite being a redirect-url filter option"),
+                    };
+                    assert!(url.contains("http://") || url.contains("https://"));
+                } else {
+                    // check it's a URL
+                    let resource = match redirect {
+                        Redirection::Resource(resource) => resource,
+                        _ => panic!("not a resource despite being a redirect filter option"),
+                    };
+                    // each redirect resource is base64 encoded
+                    assert!(resource.contains("base64"));
+                }
             }
         }
     }
