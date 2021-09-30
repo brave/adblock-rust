@@ -132,7 +132,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
 
     let uncommented = TOP_COMMENT_RE.replace_all(&scriptlets_data, "");
     let mut name: Option<&str> = None;
-    let mut details = std::collections::HashMap::new();
+    let mut details = std::collections::HashMap::<_, Vec<_>>::new();
     let mut script = String::new();
 
     for line in uncommented.lines() {
@@ -141,17 +141,17 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
         }
 
         if name.is_none() {
-            if line.starts_with("/// ") {
-                name = Some(line[4..].trim());
+            if let Some(stripped) = line.strip_prefix("/// ") {
+                name = Some(stripped.trim());
             }
             continue;
         }
 
-        if line.starts_with("/// ") {
-            let mut line = line[4..].split_whitespace();
+        if let Some(stripped) = line.strip_prefix("/// ") {
+            let mut line = stripped.split_whitespace();
             let prop = line.next().expect("Detail line has property name");
             let value = line.next().expect("Detail line has property value");
-            details.insert(prop, value);
+            details.entry(prop).and_modify(|v| v.push(value)).or_insert_with(|| vec![value]);
             continue;
         }
 
@@ -166,9 +166,11 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
         } else {
             ResourceType::Mime(MimeType::ApplicationJavascript)
         };
+
+
         resources.push(Resource {
             name: name.expect("Resource name must be specified").to_owned(),
-            aliases: details.get("alias").iter().map(|alias| alias.to_string()).collect(),
+            aliases: details.get("alias").map(|aliases| aliases.iter().map(|alias| alias.to_string()).collect()).unwrap_or_default(),
             kind,
             content: base64::encode(&script),
         });
@@ -537,6 +539,10 @@ mod tests {
         assert_eq!(reserialized[0].name, "abort-current-inline-script.js");
         assert_eq!(reserialized[0].aliases, vec!["acis.js"]);
         assert_eq!(reserialized[0].kind, ResourceType::Template);
+
+        assert_eq!(reserialized[17].name, "no-setTimeout-if.js");
+        assert_eq!(reserialized[17].aliases, vec!["nostif.js", "setTimeout-defuser.js"]);
+        assert_eq!(reserialized[17].kind, ResourceType::Template);
 
         assert_eq!(reserialized[20].name, "overlay-buster.js");
         assert_eq!(reserialized[20].aliases, Vec::<String>::new());
