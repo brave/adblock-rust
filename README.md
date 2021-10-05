@@ -21,7 +21,7 @@ Demo use in Rust:
 
 ```rust
 use adblock::engine::Engine;
-use adblock::lists::{FilterFormat, FilterSet};
+use adblock::lists::{FilterSet, ParseOptions};
 
 fn main() {
     let rules = vec![
@@ -32,7 +32,7 @@ fn main() {
     ];
 
     let mut filter_set = FilterSet::new(true);
-    filter_set.add_filters(&rules, FilterFormat::Standard);
+    filter_set.add_filters(&rules, ParseOptions::default());
 
     let blocker = Engine::from_filter_set(filter_set, true);
     let blocker_result = blocker.check_network_urls("http://example.com/-advertisement-icon.", "http://example.com/helloworld", "image");
