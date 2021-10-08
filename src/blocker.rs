@@ -1241,7 +1241,7 @@ mod blocker_tests {
     #[test]
     fn redirect_url_blocked() {
         let filters = vec![
-            String::from("||foo.com$important,redirect-url=http://xyz.com"),
+            String::from("||foo.com$important,redirect-url=https://xyz.com"),
         ];
 
         let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
@@ -1259,14 +1259,14 @@ mod blocker_tests {
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, true);
         assert_eq!(matched_rule.important, true);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
+        assert_eq!(matched_rule.redirect, Some(Redirection::Url("https://xyz.com".to_string())));
         assert_eq!(matched_rule.error, None);
     }
 
     #[test]
     fn redirect_url_not_recognized_without_parse_opt() {
         let filters = vec![
-            String::from("||foo.com$important,redirect-url=http://xyz.com"),
+            String::from("||foo.com$important,redirect-url=https://xyz.com"),
         ];
 
         let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
@@ -1313,7 +1313,7 @@ mod blocker_tests {
     #[test]
     fn redirect_url_exception() {
         let filters = vec![
-            String::from("||imdb-video.media-imdb.com$media,redirect-url=http://xyz.com"),
+            String::from("||imdb-video.media-imdb.com$media,redirect-url=https://xyz.com"),
             String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
         ];
 
@@ -1332,7 +1332,7 @@ mod blocker_tests {
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, false);
         assert_eq!(matched_rule.important, false);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
+        assert_eq!(matched_rule.redirect, Some(Redirection::Url("https://xyz.com".to_string())));
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
         assert_eq!(matched_rule.error, None);
     }

@@ -33,7 +33,7 @@ pub struct ParseOptions {
     /// Assume filters are in the given format when parsing. Defaults to `FilterFormat::Standard`.
     #[serde(default)]
     pub format: FilterFormat,
-    /// The `$redirect-url` filter option can redirect to an arbitrary HTTP/HTTPS resource over the
+    /// The `$redirect-url` filter option can redirect to an arbitrary HTTPS resource over the
     /// network. By default this is disabled for security concerns, and any rule containing a
     /// `redirect-url` option will be ignored.
     #[serde(default)]

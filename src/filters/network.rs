@@ -27,7 +27,7 @@ pub enum NetworkFilterError {
     NegatedDocument,
     GenericHideWithoutException,
     EmptyRedirection,
-    RedirectionUrlInvalid,
+    RedirectUrlNotValidHttpsUrl,
     MultipleRedirections,
     UnrecognisedOption,
     NoRegex,
@@ -394,8 +394,8 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
                 }
                 // Parse URL
                 let maybe_parsed_url = parse_url(value);
-                if maybe_parsed_url.is_none() {
-                    return Err(NetworkFilterError::RedirectionUrlInvalid)
+                if maybe_parsed_url.is_none() || String::from(maybe_parsed_url.unwrap().schema()) != "https" {
+                    return Err(NetworkFilterError::RedirectUrlNotValidHttpsUrl)
                 }
                 NetworkFilterOption::RedirectUrl(String::from(value))
             }
@@ -2261,19 +2261,19 @@ mod parse_tests {
         let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
         {
             // No parsing without parse option
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, Default::default());
+            let filter = NetworkFilter::parse("||foo.com$redirect-url=https://xyz.com", true, Default::default());
             let err = filter.clone().err();
             assert_eq!(err, Some(NetworkFilterError::UnrecognisedOption));
         }
         {
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, opts).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("http://xyz.com")));
+            let filter = NetworkFilter::parse("||foo.com$redirect-url=https://xyz.com", true, opts).unwrap();
+            assert_eq!(filter.redirect, Some(String::from("https://xyz.com")));
             assert_eq!(filter.is_redirect_url(), true);
         }
         {
-            let filter = NetworkFilter::parse("$redirect-url=http://xyz.com", true, opts).unwrap();
+            let filter = NetworkFilter::parse("$redirect-url=https://xyz.com", true, opts).unwrap();
             assert_eq!(filter.is_redirect_url(), true);
-            assert_eq!(filter.redirect, Some(String::from("http://xyz.com")));
+            assert_eq!(filter.redirect, Some(String::from("https://xyz.com")));
         }
         // parses ~redirect-url
         {
@@ -2282,9 +2282,8 @@ mod parse_tests {
             let err = filter.clone().err();
             assert_eq!(err, Some(NetworkFilterError::NegatedRedirection));
         }
-        // parses redirect-url without a value
         {
-            // Not valid
+            // Not valid - without value
             let filter = NetworkFilter::parse("||foo.com$redirect-url", true, opts);
             let err = filter.clone().err();
             assert_eq!(err, Some(NetworkFilterError::EmptyRedirection));
@@ -2295,19 +2294,25 @@ mod parse_tests {
             assert_eq!(err, Some(NetworkFilterError::EmptyRedirection))
         }
         {
-            // Has to be valid URL
+            // Not valid - needs scheme
             let filter = NetworkFilter::parse("||foo.com$redirect-url=xyz.com", true, opts);
             let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::RedirectionUrlInvalid))
+            assert_eq!(err, Some(NetworkFilterError::RedirectUrlNotValidHttpsUrl))
+        }
+        {
+            // Not valid - only https
+            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, opts);
+            let err = filter.clone().err();
+            assert_eq!(err, Some(NetworkFilterError::RedirectUrlNotValidHttpsUrl))
         }
         {
             // only one between redirect and redirect-url can be specified
-            let filter = NetworkFilter::parse("||foo.com$redirect=xyz,redirect-url=http://xyz.com", true, opts);
+            let filter = NetworkFilter::parse("||foo.com$redirect=xyz,redirect-url=https://xyz.com", true, opts);
             let err = filter.clone().err();
             assert_eq!(err, Some(NetworkFilterError::MultipleRedirections))
         }
-        // defaults to false
         {
+            // defaults to false
             let filter = NetworkFilter::parse("||foo.com", true, opts).unwrap();
             assert_eq!(filter.is_redirect_url(), false);
             assert_eq!(filter.redirect, None);

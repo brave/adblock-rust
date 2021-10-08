@@ -6186,7 +6186,7 @@
   {
     "check": true,
     "filters": [
-      "||cdn.taboola.com/libtrc/*/loader.js$script,redirect-url=http://noops.js,important,domain=cnet.com"
+      "||cdn.taboola.com/libtrc/*/loader.js$script,redirect-url=https://noops.js,important,domain=cnet.com"
     ],
     "sourceUrl": "https://www.cnet.com",
     "type": "script",
