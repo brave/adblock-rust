@@ -444,6 +444,9 @@ mod css_validation {
         if style.contains("url(") {
             return false;
         }
+        if style.contains("/*") {
+            return false;
+        }
         true
     }
 
