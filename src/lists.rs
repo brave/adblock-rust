@@ -497,10 +497,24 @@ mod tests {
     #[test]
     fn parse_filter_failed_fuzz_4() {
         // \\##+js(,\xdd\x8d
-        assert!(parse_filter(
+        let parsed = parse_filter(
             &String::from_utf8(vec![92, 35, 35, 43, 106, 115, 40, 44, 221, 141]).unwrap(),
             true,
             Default::default(),
-        ).is_ok());
+        );
+        #[cfg(feature = "css-validation")]
+        assert!(parsed.is_err());
+        #[cfg(not(feature = "css-validation"))]
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "css-validation")]
+    fn parse_filter_opening_comment() {
+        assert!(parse_filter(
+            "##input,input/*",
+            true,
+            Default::default(),
+        ).is_err());
     }
 }
