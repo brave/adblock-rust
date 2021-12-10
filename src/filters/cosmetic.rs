@@ -423,18 +423,81 @@ mod css_validation {
 #[cfg(feature="css-validation")]
 mod css_validation {
     //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
-    use cssparser::ParserInput;
-    use cssparser::Parser;
-    use selectors::parser::Selector;
-
-    use std::fmt::{Display, Formatter, Error};
+    use cssparser::{CowRcStr, ParserInput, Parser, ParseError, SourceLocation};
     use core::fmt::{Write, Result as FmtResult};
 
+    /// Checks whether the given string represents a valid CSS selector.
+    ///
+    /// For the majority of filters, this works by trivial regex matching. More complex filters are
+    /// assembled into a mock stylesheet which is then parsed using `cssparser` and validated.
+    ///
+    /// This function does not attempt to validate specific types of pseudoclasses, since the list
+    /// of valid ones is large and constantly evolving. However, it should still catch any kind of
+    /// comment escaping that would allow injection of `url()` styles.
     pub fn is_valid_css_selector(selector: &str) -> bool {
-        let mut pi = ParserInput::new(selector);
+        use once_cell::sync::Lazy;
+        use regex::Regex;
+        static RE_SIMPLE_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.]?[A-Za-z_][\w-]*$").unwrap());
+
+        if RE_SIMPLE_SELECTOR.is_match(selector) {
+            return true;
+        }
+
+        // Use `mock-stylesheet-marker` where uBO uses `color: red` since we have control over the
+        // parsing logic within the block.
+        let mock_stylesheet = format!("{}{{mock-stylesheet-marker}}", selector);
+        let mut pi = ParserInput::new(&mock_stylesheet);
         let mut parser = Parser::new(&mut pi);
-        let r = Selector::parse(&SelectorParseImpl, &mut parser);
-        r.is_ok()
+        let mut rule_list_parser = cssparser::RuleListParser::new_for_stylesheet(&mut parser, QualifiedRuleParserImpl);
+
+        if let Some(first_rule) = rule_list_parser.next() {
+            match first_rule {
+                Ok(()) => (),
+                Err(_) => return false,
+            }
+        } else {
+            return false;
+        }
+
+        let is_last_rule = rule_list_parser.next().is_none();
+
+        is_last_rule
+    }
+
+    struct QualifiedRuleParserImpl;
+
+    impl<'i> cssparser::QualifiedRuleParser<'i> for QualifiedRuleParserImpl {
+        type Prelude = ();
+        type QualifiedRule = ();
+        type Error = ();
+
+        fn parse_prelude<'t>(&mut self, input: &mut Parser<'i, 't>) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
+            selectors::SelectorList::parse(&SelectorParseImpl, input)
+                .map(|_| ())
+                .map_err(|_| ParseError { kind: cssparser::ParseErrorKind::Custom(()), location: SourceLocation { line: 0, column: 0 } })
+        }
+
+        /// Check that the block is exactly equal to "mock-stylesheet-marker"
+        fn parse_block<'t>(&mut self, _prelude: Self::Prelude, _start: &cssparser::ParserState, input: &mut Parser<'i, 't>) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
+            let err = Err(ParseError { kind: cssparser::ParseErrorKind::Custom(()), location: SourceLocation { line: 0, column: 0 } });
+            match input.next() {
+                Ok(cssparser::Token::Ident(i)) if i.as_ref() == "mock-stylesheet-marker" => (),
+                _ => return err,
+            }
+            if input.next().is_ok() {
+                return err;
+            }
+            Ok(())
+        }
+    }
+
+    /// Default implementations for `AtRuleParser` parsing methods return false. This is
+    /// acceptable; at-rules should not be valid in cosmetic rules.
+    impl cssparser::AtRuleParser<'_> for QualifiedRuleParserImpl {
+        type PreludeNoBlock = ();
+        type PreludeBlock = ();
+        type AtRule = ();
+        type Error = ();
     }
 
     pub fn is_valid_css_style(style: &str) -> bool {
@@ -455,6 +518,25 @@ mod css_validation {
     impl<'i> selectors::parser::Parser<'i> for SelectorParseImpl {
         type Impl = SelectorImpl;
         type Error = selectors::parser::SelectorParseErrorKind<'i>;
+
+        fn parse_slotted(&self) -> bool { true }
+        fn parse_part(&self) -> bool { true }
+        fn parse_is_and_where(&self) -> bool { true }
+        fn parse_host(&self) -> bool { true }
+        fn parse_non_ts_pseudo_class(&self, _location: SourceLocation, _name: CowRcStr<'i>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass, ParseError<'i, Self::Error>> {
+            Ok(NonTSPseudoClass)
+        }
+        fn parse_non_ts_functional_pseudo_class<'t>(&self, _name: CowRcStr<'i>, arguments: &mut Parser<'i, 't>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass, ParseError<'i, Self::Error>> {
+            while arguments.next().is_ok() {}
+            Ok(NonTSPseudoClass)
+        }
+        fn parse_pseudo_element(&self, _location: SourceLocation, _name: CowRcStr<'i>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::PseudoElement, ParseError<'i, Self::Error>> {
+            Ok(PseudoElement)
+        }
+        fn parse_functional_pseudo_element<'t>(&self, _name: CowRcStr<'i>, arguments: &mut Parser<'i, 't>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::PseudoElement, ParseError<'i, Self::Error>> {
+            while arguments.next().is_ok() {}
+            Ok(PseudoElement)
+        }
     }
 
     /// The `selectors` library requires an object that implements `SelectorImpl` to store data
@@ -468,23 +550,24 @@ mod css_validation {
         type ExtraMatchingData = ();
         type AttrValue = DummyValue;
         type Identifier = DummyValue;
-        type ClassName = DummyValue;
-        type LocalName = String;
-        type NamespaceUrl = String;
+        type LocalName = DummyValue;
+        type NamespaceUrl = DummyValue;
         type NamespacePrefix = DummyValue;
-        type BorrowedNamespaceUrl = String;
-        type BorrowedLocalName = String;
+        type BorrowedNamespaceUrl = DummyValue;
+        type BorrowedLocalName = DummyValue;
         type NonTSPseudoClass = NonTSPseudoClass;
         type PseudoElement = PseudoElement;
     }
 
-    /// For performance, individual fields of parsed selectors is discarded. Instead, they are
+    /// For performance, individual fields of parsed selectors are discarded. Instead, they are
     /// parsed into a `DummyValue` with no fields.
     #[derive(Debug, Clone, PartialEq, Eq, Default)]
     struct DummyValue;
 
-    impl Display for DummyValue {
-        fn fmt(&self, _: &mut Formatter) -> Result<(), Error> { Ok(()) }
+    impl cssparser::ToCss for DummyValue {
+        fn to_css<W>(&self, _dest: &mut W) -> core::fmt::Result {
+            Ok(())
+        }
     }
 
     impl<'a> From<&'a str> for DummyValue {
@@ -498,6 +581,7 @@ mod css_validation {
     impl selectors::parser::NonTSPseudoClass for NonTSPseudoClass {
         type Impl = SelectorImpl;
         fn is_active_or_hover(&self) -> bool { false }
+        fn is_user_action_state(&self) -> bool { false }
     }
 
     impl cssparser::ToCss for NonTSPseudoClass {
@@ -511,8 +595,6 @@ mod css_validation {
     impl selectors::parser::PseudoElement for PseudoElement {
         type Impl = SelectorImpl;
 
-        fn supports_pseudo_class(&self, _pseudo_class: &NonTSPseudoClass) -> bool { true }
-
         fn valid_after_slotted(&self) -> bool { true }
     }
 
@@ -523,12 +605,17 @@ mod css_validation {
     #[test]
     fn bad_selector_inputs() {
         assert!(!is_valid_css_selector(r#"rm -rf ./*"#));
-        assert!(!is_valid_css_selector(r#"javascript:alert("hacked")"#));
+        assert!(is_valid_css_selector(r#"javascript:alert("All pseudo-classes are valid")"#));
+        assert!(!is_valid_css_selector(r#"javascript:alert("But opening comments are still forbidden" /*)"#));
         assert!(!is_valid_css_selector(r#"This is not a CSS selector."#));
         assert!(!is_valid_css_selector(r#"./malware.sh"#));
         assert!(!is_valid_css_selector(r#"https://safesite.ru"#));
         assert!(!is_valid_css_selector(r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#));
         assert!(!is_valid_css_selector(r#"#!/usr/bin/sh"#));
+        assert!(!is_valid_css_selector(r#"input,input/*"#));
+        // Accept a closing comment within a string. It should still be impossible to create an
+        // opening comment to match it.
+        assert!(is_valid_css_selector(r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#));
     }
 }
 
