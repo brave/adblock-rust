@@ -25,8 +25,8 @@ impl FilterSet {
     fn add_filter(&self, filter: &str, opts: ParseOptions) -> Result<(), adblock::lists::FilterParseError> {
         self.0.borrow_mut().add_filter(filter, opts)
     }
-    fn into_content_blocking(&self, rule_types: RuleTypes) -> Result<(Vec<adblock::content_blocking::CbRule>, Vec<String>), ()> {
-        self.0.borrow().clone().into_content_blocking(rule_types)
+    fn into_content_blocking(&self) -> Result<(Vec<adblock::content_blocking::CbRule>, Vec<String>), ()> {
+        self.0.borrow().clone().into_content_blocking()
     }
 }
 
@@ -92,15 +92,7 @@ fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 fn filter_set_into_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
-    let rule_types = match cx.argument_opt(1) {
-        Some(rule_types) => match neon_serde::from_value(&mut cx, rule_types) {
-            Ok(v) => v,
-            Err(e) => cx.throw_error(e.to_string())?,
-        },
-        None => RuleTypes::default(),
-    };
-
-    match this.into_content_blocking(rule_types) {
+    match this.into_content_blocking() {
         Ok((cb_rules, filters_used)) => {
             let cb_rules = match neon_serde::to_value(&mut cx, &cb_rules) {
                 Ok(v) => v,

@@ -1095,3 +1095,71 @@ mod ab2cb_tests {
         }]"####).expect("content blocking rule under test could not be deserialized"));
     }
 }
+
+#[cfg(test)]
+mod filterset_tests {
+    use super::*;
+    use once_cell::sync::Lazy;
+    use crate::lists::{FilterSet, ParseOptions, RuleTypes};
+
+    static FILTER_LIST: Lazy<[String; 6]> = Lazy::new(|| [
+        String::from("||example.com^$script"),
+        String::from("||test.net^$image,third-party"),
+        String::from("/trackme.js^$script"),
+        String::from("example.com##.ad-banner"),
+        String::from("##.ad-640x480"),
+        String::from("##p.sponsored"),
+    ]);
+
+    #[test]
+    fn convert_all_rules() -> Result<(), ()> {
+        let mut set = FilterSet::new(true);
+        set.add_filters(&*FILTER_LIST, Default::default());
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+        assert_eq!(used_rules, &*FILTER_LIST);
+
+        // All 6 rules plus `ignore_previous_fp_documents()`
+        assert_eq!(cb_rules.len(), 7);
+
+        Ok(())
+    }
+
+    #[test]
+    fn convert_network_only() -> Result<(), ()> {
+        let parse_opts = ParseOptions {
+            rule_types: RuleTypes::NetworkOnly,
+            ..Default::default()
+        };
+
+        let mut set = FilterSet::new(true);
+        set.add_filters(&*FILTER_LIST, parse_opts);
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+        assert_eq!(used_rules, &FILTER_LIST[0..3]);
+
+        // 3 network rules plus `ignore_previous_fp_documents()`
+        assert_eq!(cb_rules.len(), 4);
+
+        Ok(())
+    }
+
+    #[test]
+    fn convert_cosmetic_only() -> Result<(), ()> {
+        let parse_opts = ParseOptions {
+            rule_types: RuleTypes::CosmeticOnly,
+            ..Default::default()
+        };
+
+        let mut set = FilterSet::new(true);
+        set.add_filters(&*FILTER_LIST, parse_opts);
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+        assert_eq!(used_rules, &FILTER_LIST[3..6]);
+
+        // 3 cosmetic rules only
+        assert_eq!(cb_rules.len(), 3);
+
+        Ok(())
+    }
+}

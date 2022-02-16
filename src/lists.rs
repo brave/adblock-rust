@@ -6,15 +6,36 @@ use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 
-/// iOS and macOS limit the number of content blocking rules that can be loaded. To better
-/// fine-tune content-blocking behavior, the types of rules converted can be restricted using this
-/// type.
-#[cfg(feature = "content-blocking")]
+/// Specifies rule types to keep during parsing.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RuleTypes {
     All,
     NetworkOnly,
     CosmeticOnly,
+}
+
+impl Default for RuleTypes {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+impl RuleTypes {
+    fn loads_network_rules(&self) -> bool {
+        match self {
+            Self::All => true,
+            Self::NetworkOnly => true,
+            _ => false,
+        }
+    }
+
+    fn loads_cosmetic_rules(&self) -> bool {
+        match self {
+            Self::All => true,
+            Self::CosmeticOnly => true,
+            _ => false,
+        }
+    }
 }
 
 /// Options for tweaking how a filter or list of filters is interpreted when parsing. It's
@@ -38,39 +59,21 @@ pub struct ParseOptions {
     /// `redirect-url` option will be ignored.
     #[serde(default)]
     pub include_redirect_urls: bool,
+    /// Specifies rule types to keep during parsing. Defaults to `RuleTypes::All`. This can be used
+    /// to reduce the memory impact of engines that will only be used for cosmetic filtering or
+    /// network filtering, but not both. It can also be useful for iOS and macOS when exporting to
+    /// content-blocking syntax, as these platforms limit the number of content blocking rules that
+    /// can be loaded.
+    #[serde(default)]
+    pub rule_types: RuleTypes,
 }
 
 impl Default for ParseOptions {
     fn default() -> Self {
         ParseOptions {
             format: FilterFormat::Standard,
-            include_redirect_urls: false
-        }
-    }
-}
-
-#[cfg(feature = "content-blocking")]
-impl Default for RuleTypes {
-    fn default() -> Self {
-        Self::All
-    }
-}
-
-#[cfg(feature = "content-blocking")]
-impl RuleTypes {
-    fn loads_network_rules(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::NetworkOnly => true,
-            _ => false,
-        }
-    }
-
-    fn loads_cosmetic_rules(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::CosmeticOnly => true,
-            _ => false,
+            include_redirect_urls: false,
+            rule_types: RuleTypes::All,
         }
     }
 }
@@ -147,7 +150,7 @@ impl FilterSet {
     ///
     /// This function will fail if the `FilterSet` was not created in debug mode.
     #[cfg(feature = "content-blocking")]
-    pub fn into_content_blocking(self, rule_types: RuleTypes) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {
+    pub fn into_content_blocking(self) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {
         use std::convert::TryInto;
         use crate::content_blocking;
 
@@ -160,37 +163,35 @@ impl FilterSet {
 
         let mut filters_used = vec![];
 
-        if rule_types.loads_network_rules() {
-            self.network_filters.into_iter().for_each(|filter| {
-                let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
-                if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter) {
-                    filters_used.push(original_rule);
-                    equivalent.into_iter().for_each(|cb_rule| {
-                        match &cb_rule.action.typ {
-                            content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
-                            _ => other_rules.push(cb_rule),
-                        }
-                    });
-                }
-            });
-        }
-
-        if rule_types.loads_cosmetic_rules() {
-            self.cosmetic_filters.into_iter().for_each(|filter| {
-                let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
-                if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
-                    filters_used.push(original_rule);
+        self.network_filters.into_iter().for_each(|filter| {
+            let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
+            if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter) {
+                filters_used.push(original_rule);
+                equivalent.into_iter().for_each(|cb_rule| {
                     match &cb_rule.action.typ {
                         content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
                         _ => other_rules.push(cb_rule),
                     }
+                });
+            }
+        });
+
+        let add_fp_document_exception = !filters_used.is_empty();
+
+        self.cosmetic_filters.into_iter().for_each(|filter| {
+            let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
+            if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
+                filters_used.push(original_rule);
+                match &cb_rule.action.typ {
+                    content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
+                    _ => other_rules.push(cb_rule),
                 }
-            });
-        }
+            }
+        });
 
         other_rules.append(&mut ignore_previous_rules);
 
-        if rule_types.loads_network_rules() {
+        if add_fp_document_exception {
             other_rules.push(content_blocking::ignore_previous_fp_documents());
         }
 
@@ -283,17 +284,21 @@ pub fn parse_filter(
 
     match opts.format {
         FilterFormat::Standard => {
-            match detect_filter_type(filter) {
-                FilterType::Network => NetworkFilter::parse(filter, debug, opts)
+            match (detect_filter_type(filter), opts.rule_types) {
+                (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => NetworkFilter::parse(filter, debug, opts)
                     .map(|f| f.into())
                     .map_err(|e| e.into()),
-                FilterType::Cosmetic => CosmeticFilter::parse(filter, debug)
+                (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => CosmeticFilter::parse(filter, debug)
                     .map(|f| f.into())
                     .map_err(|e| e.into()),
                 _ => Err(FilterParseError::Unsupported),
             }
         }
         FilterFormat::Hosts => {
+            // Hosts-style rules can only ever be network rules
+            if !opts.rule_types.loads_network_rules() {
+                return Err(FilterParseError::Unsupported);
+            }
             if filter.starts_with('!') {
                 return Err(FilterParseError::Unsupported);
             }
