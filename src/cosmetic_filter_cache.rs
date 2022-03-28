@@ -306,8 +306,9 @@ impl CosmeticFilterCache {
         let mut injected_script = String::new();
         script_injections.iter().for_each(|s| {
             if let Ok(filled_template) = self.scriptlets.get_scriptlet(&s) {
+                injected_script += "try {\n";
                 injected_script += &filled_template;
-                injected_script += "\n";
+                injected_script += "\n} catch ( e ) { }\n";
             }
         });
 
@@ -667,19 +668,19 @@ mod cosmetic_cache_tests {
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
-        expected.injected_script = "set-constant.js, atob, trueFunc\n".to_owned();
+        expected.injected_script = "try {\nset-constant.js, atob, trueFunc\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("cosmetic.net", false);
-        expected.injected_script = "nowebrtc.js\n".to_owned();
+        expected.injected_script = "try {\nnowebrtc.js\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("g.cosmetic.net", false);
-        expected.injected_script = "nowebrtc.js\nwindow.open-defuser.js\n".to_owned();
+        expected.injected_script = "try {\nnowebrtc.js\n} catch ( e ) { }\ntry {\nwindow.open-defuser.js\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("c.g.cosmetic.net", false);
-        expected.injected_script = "window.open-defuser.js\n".to_owned();
+        expected.injected_script = "try {\nwindow.open-defuser.js\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
     }
 
@@ -799,7 +800,7 @@ mod cosmetic_cache_tests {
         ]);
 
         let injected_script = cfcache.hostname_cosmetic_resources("antonok.toolforge.org", false).injected_script;
-        assert_eq!(injected_script, "abort-on-property-read.js, noAdBlockers\n");
+        assert_eq!(injected_script, "try {\nabort-on-property-read.js, noAdBlockers\n} catch ( e ) { }\n");
 
         let hide_selectors = cfcache.hostname_cosmetic_resources("antonok.github.io", false).hide_selectors;
         let mut expected_hides = HashSet::new();
