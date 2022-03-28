@@ -52,7 +52,7 @@ pub struct RemoteFilterSource {
 
 /// Fetch all filters once and store them in a lazy-loaded static variable to avoid unnecessary
 /// network traffic.
-static ALL_FILTERS: once_cell::sync::Lazy<adblock::lists::FilterSet> = once_cell::sync::Lazy::new(|| {
+static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::FilterSet>> = once_cell::sync::Lazy::new(|| {
     async fn get_all_filters() -> adblock::lists::FilterSet {
         use futures::FutureExt;
 
@@ -91,11 +91,11 @@ static ALL_FILTERS: once_cell::sync::Lazy<adblock::lists::FilterSet> = once_cell
     }
 
     let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-    async_runtime.block_on(get_all_filters())
+    std::sync::Mutex::new(async_runtime.block_on(get_all_filters()))
 });
 
 fn get_blocker_engine() -> Engine {
-    let mut engine = Engine::from_filter_set(ALL_FILTERS.clone(), true);
+    let mut engine = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
 
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -134,7 +134,7 @@ fn get_blocker_engine_deserialized_ios() -> Engine {
         .lines()
         .map(|s| s.to_owned())
         .collect();
-    
+
     let engine = Engine::from_rules_parametrised(&filters, Default::default(), true, false);
     engine
 }
@@ -204,7 +204,7 @@ fn check_live_deserialized_specific_urls() {
 fn check_live_from_filterlists() {
     let engine = get_blocker_engine();
     let requests = load_requests();
-    
+
     for req in requests {
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
         assert_eq!(checked.matched, req.blocked,
@@ -217,7 +217,7 @@ fn check_live_from_filterlists() {
 fn check_live_deserialized_file() {
     let engine = get_blocker_engine_deserialized();
     let requests = load_requests();
-    
+
     for req in requests {
         println!("Checking {:?}", req);
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
@@ -232,7 +232,7 @@ fn check_live_deserialized_file() {
 fn check_live_deserialized_ios() {
     let engine = get_blocker_engine_deserialized_ios();
     let requests = load_requests();
-    
+
     for req in requests {
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
         assert_eq!(checked.matched, req.blocked,
@@ -252,7 +252,7 @@ fn check_live_redirects() {
     let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path);
 
     engine.use_resources(&resources);
-    { 
+    {
         let checked = engine.check_network_urls(
             "https://c.amazon-adsystem.com/aax2/amzn_ads.js",
             "https://aussieexotics.com/",
@@ -274,17 +274,17 @@ fn check_live_redirects() {
             checked.filter, checked.exception);
         assert!(checked.redirect.is_some());
     }
-    
+
 }
 
 #[test]
 /// Ensure that two different engines loaded from the same textual filter set serialize to
 /// identical buffers.
 fn stable_serialization() {
-    let engine1 = Engine::from_filter_set(ALL_FILTERS.clone(), true);
+    let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
     let ser1 = engine1.serialize_raw().unwrap();
 
-    let engine2 = Engine::from_filter_set(ALL_FILTERS.clone(), true);
+    let engine2 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
     let ser2 = engine2.serialize_raw().unwrap();
 
     assert_eq!(ser1, ser2);
@@ -294,7 +294,7 @@ fn stable_serialization() {
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
 fn stable_serialization_through_load() {
-    let engine1 = Engine::from_filter_set(ALL_FILTERS.clone(), true);
+    let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
     let ser1 = engine1.serialize_raw().unwrap();
 
     let mut engine2 = Engine::new(true);
