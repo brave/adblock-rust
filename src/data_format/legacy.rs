@@ -195,7 +195,7 @@ impl From<NetworkFilterLegacyDeserializeFmt> for NetworkFilter {
             id: v.id,
             opt_domains_union: v.opt_domains_union,
             opt_not_domains_union: v.opt_not_domains_union,
-            regex: std::cell::RefCell::new(None),
+            regex: crate::filters::network::RegExStorage::default(),
         }
     }
 }

@@ -88,3 +88,8 @@ By default, `adblock-rust` ships with a built-in domain resolution implementatio
 
 `adblock-rust` uses uBlock Origin-compatible resources for scriptlet injection and redirect rules.
 The `resource-assembler` feature allows `adblock-rust` to parse these resources directly from the file formats used by the uBlock Origin repository.
+
+### Thread safety
+
+The `thread-safety` feature enabled by default and allows to use the engine from multiple threads. Disabling the feature optimizes speed and memory usage by dropping some synchronization primitives.
+Consider disabling this feature if you don't use multiply threads in your application. In Brave browser this feature is disabled.

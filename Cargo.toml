@@ -78,7 +78,7 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling"]
+default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "thread-safety"]
 full-domain-matching = []
 metrics = []
 full-regex-handling = []
@@ -87,3 +87,4 @@ css-validation = ["cssparser", "selectors"]
 content-blocking = ["serde_json"]
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
 resource-assembler = ["serde_json"]
+thread-safety = [] # Slower but thread-safe implementation. Consider disabling it if you don't need multithreading.
