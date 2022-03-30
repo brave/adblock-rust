@@ -268,6 +268,15 @@ impl Engine {
     }
 }
 
+/// Static assertions for `Engine: Send + Sync` traits.
+#[cfg(not(any(feature = "object-pooling", feature = "optimized-regex-cache")))]
+fn _assertions() {
+    fn _assert_send<T: Send>() {}
+    fn _assert_sync<T: Sync>() {}
+
+    _assert_send::<Engine>();
+    _assert_sync::<Engine>();
+}
 
 #[cfg(test)]
 mod tests {

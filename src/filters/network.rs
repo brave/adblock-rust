@@ -425,52 +425,49 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
     Ok(result)
 }
 
+/// Lazily-compiled regex cache. Regex rules are uncommon, so the `unsync-regex-caching` feature
+/// can be used to reduce the memory footprint of unused regex fields at the cost of making the
+/// adblock engine `!Sync` and `!Send`.
 #[derive(Debug, Clone, Default)]
-pub struct RegExStorage {
-  #[cfg(feature = "thread-safety")]
-  pub(crate) regex: Arc<std::sync::RwLock<Option<Arc<CompiledRegex>>>>,
+pub struct RegexStorage {
+    /// Atomic Arc is used for compatibilty with code that accesses the adblock engine from
+    /// multiple threads.
+    #[cfg(not(feature = "unsync-regex-caching"))]
+    pub(crate) regex: Arc<std::sync::RwLock<Option<Arc<CompiledRegex>>>>,
 
-  #[cfg(not(feature = "thread-safety"))]
-  pub(crate) regex: std::cell::RefCell<Option<Arc<CompiledRegex>>>,
+    /// RefCell allows for cloned NetworkFilters to point to the same Option and what is inside.
+    /// When the Regex hasn't been compiled, <None> is stored, afterwards Arc to CompiledRegex
+    /// to avoid expensive cloning of the Regex itself.
+    /// Non-thread safe, should be used from a single thread.
+    #[cfg(feature = "unsync-regex-caching")]
+    pub(crate) regex: std::cell::RefCell<Option<Arc<CompiledRegex>>>,
 }
 
-impl RegExStorage {
-  pub fn default() -> RegExStorage {
-    #[cfg(feature = "thread-safety")]
-    {
-      RegExStorage {regex: Arc::new(std::sync::RwLock::new(None))}
+impl RegexStorage {
+    pub fn get(&self) -> Option<Arc<CompiledRegex>> {
+        #[cfg(not(feature = "unsync-regex-caching"))]
+        if let Some(cache) = &*self.regex.read().unwrap() {
+            return Some(Arc::clone(cache));
+        }
+
+        #[cfg(feature = "unsync-regex-caching")]
+        if let Some(cache) = &*self.regex.borrow() {
+            return Some(Arc::clone(cache));
+        }
+        None
     }
 
-    #[cfg(not(feature = "thread-safety"))]
-    {
-      RegExStorage {regex: std::cell::RefCell::new(None)}
-    }
-  }
+    pub fn set(&self, regex: Arc<CompiledRegex>) {
+        #[cfg(not(feature = "unsync-regex-caching"))]
+        {
+            *self.regex.write().unwrap() = Some(regex);
+        }
 
-  pub fn get(&self) -> Option<Arc<CompiledRegex>> {
-    #[cfg(feature = "thread-safety")]
-    if let Some(cache) = &*self.regex.read().unwrap() {
-      return Some(cache.clone());
+        #[cfg(feature = "unsync-regex-caching")]
+        {
+            *self.regex.borrow_mut() = Some(regex);
+        }
     }
-
-    #[cfg(not(feature = "thread-safety"))]
-    if let Some(cache) = &*self.regex.borrow() {
-      return Some(cache.clone());
-    }
-    None
-  }
-
-  pub fn set(&self, regex: Arc<CompiledRegex>) {
-    #[cfg(feature = "thread-safety")]
-    {
-      *self.regex.write().unwrap() = Some(regex);
-    }
-
-    #[cfg(not(feature = "thread-safety"))]
-    {
-      *self.regex.borrow_mut() = Some(regex);
-    }
-  }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -493,14 +490,9 @@ pub struct NetworkFilter {
     pub opt_domains_union: Option<Hash>,
     pub opt_not_domains_union: Option<Hash>,
 
-    // Regex compild lazily, using "Interior Mutability"
-    // RefCell allows for cloned NetworkFilters to point to the same Option and what is inside.
-    // When the Regex hasn't been compiled, <None> is stored, afterwards Arc to CompiledRegex
-    // to avoid expensive cloning of the Regex itself.
-    // Non-thread safe, should be used from a single thread.
-    // Atomic Arc is used for the backward-compatibilty with the other code.
+    // Regex compiled lazily and cached using interior mutability.
     #[serde(skip_serializing, skip_deserializing)]
-    pub(crate) regex: RegExStorage,
+    pub(crate) regex: RegexStorage,
 }
 
 // TODO - restrict the API so that this is always true - i.e. lazy-calculate IDs from actual data,
@@ -878,7 +870,7 @@ impl NetworkFilter {
             id: utils::fast_hash(&line),
             opt_domains_union,
             opt_not_domains_union,
-            regex: RegExStorage::default(),
+            regex: RegexStorage::default(),
         })
     }
 
@@ -1105,7 +1097,7 @@ impl NetworkMatchable for NetworkFilter {
             return Arc::new(CompiledRegex::MatchAll);
         }
         if let Some(cache) = self.regex.get() {
-          return cache;
+            return cache;
         }
         let regex = compile_regex(
             &self.filter,

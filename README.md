@@ -91,5 +91,5 @@ The `resource-assembler` feature allows `adblock-rust` to parse these resources 
 
 ### Thread safety
 
-The `thread-safety` feature enabled by default and allows to use the engine from multiple threads. Disabling the feature optimizes speed and memory usage by dropping some synchronization primitives.
-Consider disabling this feature if you don't use multiply threads in your application. In Brave browser this feature is disabled.
+The `object-pooling` and `unsync-regex-caching` features enable optimizations for rule matching speed and the amount of memory used by the engine.
+These features can be disabled to make the engine `Send + Sync`, although it is recommended to only access the engine on a single thread to maintain optimal performance.
