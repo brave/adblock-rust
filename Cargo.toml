@@ -78,11 +78,12 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling"]
+default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "unsync-regex-caching"]
 full-domain-matching = []
 metrics = []
 full-regex-handling = []
-object-pooling = ["lifeguard"]
+object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.
+unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.
 css-validation = ["cssparser", "selectors"]
 content-blocking = ["serde_json"]
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.

@@ -88,3 +88,8 @@ By default, `adblock-rust` ships with a built-in domain resolution implementatio
 
 `adblock-rust` uses uBlock Origin-compatible resources for scriptlet injection and redirect rules.
 The `resource-assembler` feature allows `adblock-rust` to parse these resources directly from the file formats used by the uBlock Origin repository.
+
+### Thread safety
+
+The `object-pooling` and `unsync-regex-caching` features enable optimizations for rule matching speed and the amount of memory used by the engine.
+These features can be disabled to make the engine `Send + Sync`, although it is recommended to only access the engine on a single thread to maintain optimal performance.
