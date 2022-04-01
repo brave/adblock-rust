@@ -48,7 +48,7 @@ pub struct CosmeticFilter {
     pub mask: CosmeticFilterMask,
     pub not_entities: Option<Vec<Hash>>,
     pub not_hostnames: Option<Vec<Hash>>,
-    pub raw_line: Option<String>,
+    pub raw_line: Option<Box<String>>,
     pub selector: String,
     pub key: Option<String>,
     pub style: Option<String>,
@@ -303,7 +303,7 @@ impl CosmeticFilter {
                 not_entities,
                 not_hostnames,
                 raw_line: if debug {
-                    Some(String::from(line))
+                    Some(Box::new(String::from(line)))
                 } else {
                     None
                 },

@@ -106,11 +106,11 @@ impl Optimization for SimplePatternGroup {
         filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 
         if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(
+            filter.raw_line = Some(Box::new(
                 filters
                     .iter()
                     .flat_map(|f| f.raw_line.clone())
-                    .join(" <+> "),
+                    .join(" <+> ")),
             )
         }
 
@@ -170,11 +170,11 @@ impl Optimization for UnionDomainGroup {
 
 
         if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(
+            filter.raw_line = Some(Box::new(
                 filters
                     .iter()
                     .flat_map(|f| f.raw_line.clone())
-                    .join(" <+> "),
+                    .join(" <+> ")),
             )
         }
 
