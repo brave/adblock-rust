@@ -164,7 +164,7 @@ impl FilterSet {
         let mut filters_used = vec![];
 
         self.network_filters.into_iter().for_each(|filter| {
-            let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
+            let original_rule = *filter.raw_line.clone().expect("All rules should be in debug mode");
             if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter) {
                 filters_used.push(original_rule);
                 equivalent.into_iter().for_each(|cb_rule| {
@@ -179,7 +179,7 @@ impl FilterSet {
         let add_fp_document_exception = !filters_used.is_empty();
 
         self.cosmetic_filters.into_iter().for_each(|filter| {
-            let original_rule = filter.raw_line.clone().expect("All rules should be in debug mode");
+            let original_rule = *filter.raw_line.clone().expect("All rules should be in debug mode");
             if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
                 filters_used.push(original_rule);
                 match &cb_rule.action.typ {
