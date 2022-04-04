@@ -216,7 +216,7 @@ impl Blocker {
                 print!("exceptions\t");
                 // Set `bug` of request
                 let mut request_bug = request.clone();
-                request_bug.bug = f.bug;
+                request_bug.bug = *f.bug();
                 self.exceptions.check(&request_bug, &request_tokens, &self.tags_enabled)
             }
             Some(_) => {
@@ -247,11 +247,11 @@ impl Blocker {
                 } else if redirect_filter.is_redirect_url() {
                     // Unconditionally write to `redirect` - it's the highest priority option that
                     // does not break the loop.
-                    redirect = redirect_filter.redirect.as_ref().map(|s| (true, s.as_str()));
+                    redirect = redirect_filter.redirect_.as_ref().map(|s| (true, s.as_str()));
                 } else if redirect.is_none() {
                     // Otherwise, only write to `redirect` if it hasn't already been set by a
                     // previous filter.
-                    redirect = redirect_filter.redirect.as_ref().map(|s| (false, s.as_str()));
+                    redirect = redirect_filter.redirect_.as_ref().map(|s| (false, s.as_str()));
                 }
             }
             redirect
@@ -316,14 +316,14 @@ impl Blocker {
 
         for filter in filters {
             if filter.is_exception() {
-                if let Some(directive) = &filter.csp {
+                if let Some(directive) = &filter.csp_ {
                     disabled_directives.insert(directive);
                 } else {
                     // Exception filters with empty `csp` options will disable all CSP injections for
                     // matching pages.
                     return None
                 }
-            } else if let Some(directive) = &filter.csp {
+            } else if let Some(directive) = &filter.csp_ {
                 enabled_directives.insert(directive);
             }
         }
@@ -394,7 +394,7 @@ impl Blocker {
                     exceptions.push(filter);
                 } else if filter.is_important() {
                     importants.push(filter);
-                } else if filter.tag.is_some() && !filter.is_redirect() {
+                } else if filter.tag().is_some() && !filter.is_redirect() {
                     // `tag` + `redirect` is unsupported for now.
                     tagged_filters_all.push(filter);
                 } else {
@@ -450,8 +450,8 @@ impl Blocker {
             self.importants.filter_exists(filter)
         } else if filter.is_redirect() {
             self.redirects.filter_exists(filter)
-        } else if filter.tag.is_some() {
-            self.tagged_filters_all.iter().any(|f| f.id == filter.id)
+        } else if filter.tag().is_some() {
+            self.tagged_filters_all.iter().any(|f| f.id() == filter.id())
         } else {
             self.filters.filter_exists(filter)
         }
@@ -480,7 +480,7 @@ impl Blocker {
         } else if filter.is_redirect_url() {
             self.redirects.add_filter(filter);
             Ok(())
-        } else if filter.tag.is_some() {
+        } else if filter.tag().is_some() {
             self.tagged_filters_all.push(filter);
             let tags_enabled = self.tags_enabled().into_iter().collect::<HashSet<_>>();
             self.tags_with_set(tags_enabled);
@@ -515,7 +515,7 @@ impl Blocker {
     fn tags_with_set(&mut self, tags_enabled: HashSet<String>) {
         self.tags_enabled = tags_enabled;
         let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
-            .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
+            .filter(|n| n.tag().is_some() && self.tags_enabled.contains(n.tag().as_ref().unwrap()))
             .cloned()
             .collect();
         self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
@@ -664,7 +664,7 @@ impl NetworkFilterList {
         for token in tokens {
             if let Some(filters) = self.filter_map.get(&token) {
                 for saved_filter in filters {
-                    if saved_filter.id == filter.id {
+                    if saved_filter.id() == filter.id() {
                         return true;
                     }
                 }
@@ -706,7 +706,7 @@ impl NetworkFilterList {
                             filters_checked += 1;
                         }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                        if filter.matches(request) && filter.tag().as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                             #[cfg(feature = "metrics")]
                             print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             return Some(filter);
@@ -731,7 +731,7 @@ impl NetworkFilterList {
                         filters_checked += 1;
                     }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                    if filter.matches(request) && filter.tag().as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                         #[cfg(feature = "metrics")]
                         print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         return Some(filter);
@@ -779,7 +779,7 @@ impl NetworkFilterList {
                             filters_checked += 1;
                         }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                        if filter.matches(request) && filter.tag().as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                             #[cfg(feature = "metrics")]
                             print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             filters.push(filter);
@@ -804,7 +804,7 @@ impl NetworkFilterList {
                         filters_checked += 1;
                     }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                    if filter.matches(request) && filter.tag().as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                         #[cfg(feature = "metrics")]
                         print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         filters.push(filter);

@@ -24,7 +24,7 @@ pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     optimized.append(&mut unfused);
 
     // Re-sort the list, now that the order has been perturbed
-    optimized.sort_by_key(|f| f.id);
+    optimized.sort_by_key(|f| f.id());
     optimized
 }
 
@@ -78,12 +78,12 @@ impl Optimization for SimplePatternGroup {
         let mut filter = base_filter.clone();
 
         // if any filter is empty (meaning matches anything), the entire combiation matches anything
-        if filters.iter().any(|f| matches!(f.filter, FilterPart::Empty)) {
-            filter.filter = FilterPart::Empty
+        if filters.iter().any(|f| matches!(f.filter(), FilterPart::Empty)) {
+            filter.filter_ = FilterPart::Empty
         } else {
             let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
             for f in filters {
-                match &f.filter {
+                match &f.filter() {
                     FilterPart::Empty => (),
                     FilterPart::Simple(s) => flat_patterns.push(s.clone()),
                     FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s)
@@ -91,25 +91,25 @@ impl Optimization for SimplePatternGroup {
             }
 
             if flat_patterns.is_empty() {
-                filter.filter = FilterPart::Empty;
+                filter.filter_ = FilterPart::Empty;
             } else if flat_patterns.len() == 1 {
-                filter.filter = FilterPart::Simple(flat_patterns[0].clone())
+                filter.filter_ = FilterPart::Simple(flat_patterns[0].clone())
             } else {
-                filter.filter = FilterPart::AnyOf(flat_patterns)
+                filter.filter_ = FilterPart::AnyOf(flat_patterns)
             }
         }
 
         // let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
         let is_regex = true;
-        filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
+        filter.mask_.set(NetworkFilterMask::IS_REGEX, is_regex);
         let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
-        filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
+        filter.mask_.set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 
-        if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Box::new(
+        if base_filter.raw_line_.is_some() {
+            filter.raw_line_ = Some(Box::new(
                 filters
                     .iter()
-                    .flat_map(|f| f.raw_line.clone())
+                    .flat_map(|f| f.raw_line().clone())
                     .join(" <+> ")),
             )
         }
@@ -118,11 +118,11 @@ impl Optimization for SimplePatternGroup {
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
-        format!("{:b}:{:?}", filter.mask, filter.is_complete_regex())
+        format!("{:b}:{:?}", filter.mask(), filter.is_complete_regex())
     }
     fn select(&self, filter: &NetworkFilter) -> bool {
-        filter.opt_domains.is_none()
-            && filter.opt_not_domains.is_none()
+        filter.opt_domains().is_none()
+            && filter.opt_not_domains().is_none()
             && !filter.is_hostname_anchor()
             && !filter.is_redirect()
             && !filter.is_csp()
@@ -141,12 +141,12 @@ impl Optimization for UnionDomainGroup {
         let mut not_domains = HashSet::new();
 
         filters.iter().for_each(|f| {
-            if let Some(opt_domains) = f.opt_domains.as_ref() {
+            if let Some(opt_domains) = f.opt_domains_.as_ref() {
                 for d in opt_domains {
                     domains.insert(d);
                 }
             }
-            if let Some(opt_not_domains) = f.opt_not_domains.as_ref() {
+            if let Some(opt_not_domains) = f.opt_not_domains_.as_ref() {
                 for d in opt_not_domains {
                     not_domains.insert(d);
                 }
@@ -157,23 +157,23 @@ impl Optimization for UnionDomainGroup {
             let mut domains = domains.into_iter().cloned().collect::<Vec<_>>();
             domains.sort_unstable();
             let opt_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
-            filter.opt_domains = Some(domains);
-            filter.opt_domains_union = opt_domains_union;
+            filter.opt_domains_ = Some(domains);
+            filter.opt_domains_union_ = opt_domains_union;
         }
         if !not_domains.is_empty() {
             let mut domains = not_domains.into_iter().cloned().collect::<Vec<_>>();
             domains.sort_unstable();
             let opt_not_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
-            filter.opt_not_domains = Some(domains);
-            filter.opt_not_domains_union = opt_not_domains_union;
+            filter.opt_not_domains_ = Some(domains);
+            filter.opt_not_domains_union_ = opt_not_domains_union;
         }
 
 
-        if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Box::new(
+        if base_filter.raw_line().is_some() {
+            filter.raw_line_ = Some(Box::new(
                 filters
                     .iter()
-                    .flat_map(|f| f.raw_line.clone())
+                    .flat_map(|f| f.raw_line().clone())
                     .join(" <+> ")),
             )
         }
@@ -182,13 +182,13 @@ impl Optimization for UnionDomainGroup {
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
-        format!("{:?}:{}:{:b}:{:?}", filter.hostname.as_ref(), filter.filter.string_view().unwrap_or_default(), filter.mask, filter.redirect.as_ref())
+        format!("{:?}:{}:{:b}:{:?}", filter.hostname().as_ref(), filter.filter().string_view().unwrap_or_default(), filter.mask(), filter.redirect().as_ref())
     }
 
     fn select(&self, filter: &NetworkFilter) -> bool {
         !filter.is_csp()
             && !filter.has_bug()
-            && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
+            && (filter.opt_domains().is_some() || filter.opt_not_domains().is_some())
     }
 }
 
@@ -345,8 +345,8 @@ mod optimization_tests_union_domain {
         );
 
         let expected_domains = vec![utils::fast_hash("example.com"), utils::fast_hash("google.com")];
-        assert!(filter.opt_domains.is_some());
-        let filter_domains = filter.opt_domains.as_ref().unwrap();
+        assert!(filter.opt_domains().is_some());
+        let filter_domains = filter.opt_domains().unwrap();
         for dom in expected_domains {
             assert!(filter_domains.contains(&dom));
         }

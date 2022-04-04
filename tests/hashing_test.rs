@@ -32,7 +32,7 @@ fn check_rule_ids_no_collisions() {
 
     for filter in network_filters {
         let id = filter.get_id();
-        let rule = *filter.raw_line.unwrap_or_default();
+        let rule = *filter.raw_line().unwrap_or_default();
         let existing_rule = filter_ids.get(&id);
         assert!(existing_rule.is_none() || existing_rule.unwrap() == &rule, "ID {} for {} already present from {}", id, rule, existing_rule.unwrap());
         filter_ids.insert(id, rule);

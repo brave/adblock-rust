@@ -21,18 +21,18 @@ mod legacy_test_filters {
         let filter = filter_res.unwrap();
 
         assert_eq!(
-            filter.mask, expected_filter_mask,
+            filter.mask(), expected_filter_mask,
             "Filter {} mask doesn't match expectation",
             raw_filter
         );
 
-        let filter_string = filter.filter.string_view();
+        let filter_string = filter.filter().string_view();
         let filter_part = filter_string.as_ref().map(|f| f.as_str());
         assert!(
             expected_filter == filter_part,
             "Expected filter to be {:?}, found {:?}",
             expected_filter,
-            filter.filter
+            filter.filter()
         );
 
         for to_block in blocked {
@@ -656,13 +656,13 @@ mod legacy_misc_tests {
     #[test]
     fn host_anchored_filters_parse_correctly() { // Host anchor is calculated correctly
         let filter = NetworkFilter::parse("||test.com$third-party", false, Default::default()).unwrap();
-        assert_eq!(filter.hostname, Some(String::from("test.com")));
+        assert_eq!(filter.hostname(), Some(String::from("test.com")));
 
         let filter = NetworkFilter::parse("||test.com/ok$third-party", false, Default::default()).unwrap();
-        assert_eq!(filter.hostname, Some(String::from("test.com")));
+        assert_eq!(filter.hostname(), Some(String::from("test.com")));
 
         let filter = NetworkFilter::parse("||test.com/ok", false, Default::default()).unwrap();
-        assert_eq!(filter.hostname, Some(String::from("test.com")));
+        assert_eq!(filter.hostname(), Some(String::from("test.com")));
     }
 
     #[test]

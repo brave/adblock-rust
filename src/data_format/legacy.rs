@@ -27,43 +27,43 @@ use super::{DeserializationError, SerializationError};
 
 /// `_fuzzy_signature` is no longer used, and is removed from future format versions.
 #[derive(Debug, Clone, Serialize)]
-struct NetworkFilterLegacySerializeFmt<'a> {
-    mask: &'a crate::filters::network::NetworkFilterMask,
-    filter: &'a crate::filters::network::FilterPart,
-    opt_domains: &'a Option<Vec<crate::utils::Hash>>,
-    opt_not_domains: &'a Option<Vec<crate::utils::Hash>>,
-    redirect: &'a Option<String>,
-    hostname: &'a Option<String>,
-    csp: &'a Option<String>,
-    bug: &'a Option<u32>,
-    tag: &'a Option<String>,
+struct NetworkFilterLegacySerializeFmt {
+    mask: crate::filters::network::NetworkFilterMask,
+    filter: crate::filters::network::FilterPart,
+    opt_domains: Option<Vec<crate::utils::Hash>>,
+    opt_not_domains: Option<Vec<crate::utils::Hash>>,
+    redirect: Option<String>,
+    hostname: Option<String>,
+    csp: Option<String>,
+    bug: Option<u32>,
+    tag: Option<String>,
     raw_line: Option<String>,
-    id: &'a crate::utils::Hash,
+    id: crate::utils::Hash,
     _fuzzy_signature: Option<Vec<crate::utils::Hash>>,
-    opt_domains_union: &'a Option<crate::utils::Hash>,
-    opt_not_domains_union: &'a Option<crate::utils::Hash>,
+    opt_domains_union: Option<crate::utils::Hash>,
+    opt_not_domains_union: Option<crate::utils::Hash>,
 }
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
 /// while `NetworkFilterList` requires `&'a Arc<NetworkFilter>`.
-impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt<'a> where T: std::borrow::Borrow<NetworkFilter> {
-    fn from(v: &'a T) -> NetworkFilterLegacySerializeFmt<'a> {
+impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt where T: std::borrow::Borrow<NetworkFilter> {
+    fn from(v: &T) -> NetworkFilterLegacySerializeFmt {
         let v = v.borrow();
         NetworkFilterLegacySerializeFmt {
-            mask: &v.mask,
-            filter: &v.filter,
-            opt_domains: &v.opt_domains,
-            opt_not_domains: &v.opt_not_domains,
-            redirect: &v.redirect,
-            hostname: &v.hostname,
-            csp: &v.csp,
-            bug: &v.bug,
-            tag: &v.tag,
-            raw_line: if let Some(raw) = &v.raw_line { Some(*raw.clone()) } else { None },
-            id: &v.id,
+            mask: v.mask(),
+            filter: v.filter(),
+            opt_domains: v.opt_domains(),
+            opt_not_domains: v.opt_not_domains(),
+            redirect: v.redirect(),
+            hostname: v.hostname(),
+            csp: v.csp(),
+            bug: *v.bug(),
+            tag: v.tag(),
+            raw_line: if let Some(raw) = v.raw_line() { Some(*raw.clone()) } else { None },
+            id: v.id(),
             _fuzzy_signature: None,
-            opt_domains_union: &v.opt_domains_union,
-            opt_not_domains_union: &v.opt_not_domains_union,
+            opt_domains_union: v.opt_domains_union(),
+            opt_not_domains_union: v.opt_not_domains_union(),
         }
     }
 }
@@ -72,9 +72,9 @@ impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt<'a> where T: std::bo
 /// intermediate representation that is constructed with `NetworkFilterLegacyFmt` instead.
 fn serialize_legacy_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
     #[derive(Serialize, Default)]
-    struct NetworkFilterListLegacySerializeFmt<'a> {
+    struct NetworkFilterListLegacySerializeFmt {
         #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
-        filter_map: HashMap<crate::utils::Hash, Vec<NetworkFilterLegacySerializeFmt<'a>>>,
+        filter_map: HashMap<crate::utils::Hash, Vec<NetworkFilterLegacySerializeFmt>>,
     }
 
     let legacy_list = NetworkFilterListLegacySerializeFmt {
@@ -182,20 +182,20 @@ pub(crate) struct NetworkFilterLegacyDeserializeFmt {
 impl From<NetworkFilterLegacyDeserializeFmt> for NetworkFilter {
     fn from(v: NetworkFilterLegacyDeserializeFmt) -> Self {
         Self {
-            mask: v.mask,
-            filter: v.filter,
-            opt_domains: v.opt_domains,
-            opt_not_domains: v.opt_not_domains,
-            redirect: v.redirect,
-            hostname: v.hostname,
-            csp: v.csp,
-            bug: v.bug,
-            tag: v.tag,
-            raw_line: if let Some(raw) = v.raw_line { Some(Box::new(raw)) } else { None },
-            id: v.id,
-            opt_domains_union: v.opt_domains_union,
-            opt_not_domains_union: v.opt_not_domains_union,
-            regex: crate::filters::network::RegexStorage::default(),
+            mask_: v.mask,
+            filter_: v.filter,
+            opt_domains_: v.opt_domains,
+            opt_not_domains_: v.opt_not_domains,
+            redirect_: v.redirect,
+            hostname_: v.hostname,
+            csp_: v.csp,
+            bug_: v.bug,
+            tag_: v.tag,
+            raw_line_: if let Some(raw) = v.raw_line { Some(Box::new(raw)) } else { None },
+            id_: v.id,
+            opt_domains_union_: v.opt_domains_union,
+            opt_not_domains_union_: v.opt_not_domains_union,
+            regex_: crate::filters::network::RegexStorage::default(),
         }
     }
 }

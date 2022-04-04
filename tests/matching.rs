@@ -37,7 +37,7 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
         .map(|f| {
-            let redirect = f.redirect.unwrap();
+            let redirect = f.redirect().unwrap();
 
             Resource {
                 name: redirect.to_owned(),
@@ -110,7 +110,7 @@ fn check_engine_matching() {
             } else {
                 assert!(result.matched, "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
             }
-            
+
             if network_filter.is_redirect() {
                 assert!(result.redirect.is_some(), "Expected {} to trigger redirect rule {}", req.url, filter);
                 let redirect = result.redirect.unwrap();
