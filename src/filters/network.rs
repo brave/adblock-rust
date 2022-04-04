@@ -482,7 +482,7 @@ pub struct NetworkFilter {
     pub bug: Option<u32>,
     pub tag: Option<String>,
 
-    pub raw_line: Option<String>,
+    pub raw_line: Option<Box<String>>,
 
     pub id: Hash,
 
@@ -862,7 +862,7 @@ impl NetworkFilter {
             opt_not_domains,
             tag,
             raw_line: if debug {
-                Some(String::from(line))
+                Some(Box::new(String::from(line)))
             } else {
                 None
             },
@@ -2571,7 +2571,8 @@ mod parse_tests {
     fn parses_hosts_style() {
         {
             let filter = NetworkFilter::parse_hosts_style("example.com", true).unwrap();
-            assert_eq!(filter.raw_line, Some("||example.com^".to_string()));
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^".to_string());
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -2582,7 +2583,8 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse_hosts_style("www.example.com", true).unwrap();
-            assert_eq!(filter.raw_line, Some("||example.com^".to_string()));
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^".to_string());
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -2593,7 +2595,8 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse_hosts_style("malware.example.com", true).unwrap();
-            assert_eq!(filter.raw_line, Some("||malware.example.com^".to_string()));
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||malware.example.com^".to_string());
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("malware.example.com".to_string());
             defaults.is_plain = true;
