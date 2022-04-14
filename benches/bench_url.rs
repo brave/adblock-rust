@@ -134,7 +134,7 @@ fn request_new_throughput(c: &mut Criterion) {
                     Request::new(&r.0, &r.1, &r.2, &r.3, &r.4, &r.5, &r.6);
                     successful += 1;
                 });
-                
+
             })
         },
     );

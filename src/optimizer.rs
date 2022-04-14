@@ -1,4 +1,4 @@
-use crate::filters::network::{NetworkFilter, NetworkFilterMask, FilterPart};
+use crate::filters::network::{NetworkFilter, NetworkFilterMask, FilterPart, FilterPartType, NetworkFilterGetter};
 use itertools::*;
 use std::collections::{HashMap, HashSet};
 
@@ -78,15 +78,15 @@ impl Optimization for SimplePatternGroup {
         let mut filter = base_filter.clone();
 
         // if any filter is empty (meaning matches anything), the entire combiation matches anything
-        if filters.iter().any(|f| matches!(f.filter(), FilterPart::Empty)) {
+        if filters.iter().any(|f| matches!(f.filter_part_type(), FilterPartType::Empty)) {
             filter.filter_ = FilterPart::Empty
         } else {
             let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
             for f in filters {
-                match &f.filter() {
-                    FilterPart::Empty => (),
-                    FilterPart::Simple(s) => flat_patterns.push(s.clone()),
-                    FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s)
+                match f.filter_part_type() {
+                    FilterPartType::Empty => (),
+                    FilterPartType::Simple => flat_patterns.push(f.filter_part_as_simple().to_string()),
+                    FilterPartType::AnyOf => flat_patterns.extend_from_slice(&f.filter_part_as_any_of().into_iter().map(|s| s.to_string()).collect::<Vec<String>>())
                 }
             }
 
@@ -182,7 +182,7 @@ impl Optimization for UnionDomainGroup {
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
-        format!("{:?}:{}:{:b}:{:?}", filter.hostname().as_ref(), filter.filter().string_view().unwrap_or_default(), filter.mask(), filter.redirect().as_ref())
+        format!("{:?}:{}:{:b}:{:?}", filter.hostname().as_ref(), filter.filter_string_view().unwrap_or_default(), filter.mask(), filter.redirect().as_ref())
     }
 
     fn select(&self, filter: &NetworkFilter) -> bool {
@@ -261,7 +261,7 @@ mod optimization_tests_pattern_group {
             "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
         );
 
-        let fused_regex = fused.get_regex();
+        let fused_regex = fused.make_regex();
         check_regex_match(&fused_regex, "/static/ad-", true);
         check_regex_match(&fused_regex, "/static/ad.", true);
         check_regex_match(&fused_regex, "/static/ad%", false);

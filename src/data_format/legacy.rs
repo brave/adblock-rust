@@ -17,9 +17,9 @@ use flate2::read::GzDecoder;
 use flate2::Compression;
 use rmp_serde_legacy as rmps;
 
-use crate::blocker::{Blocker, NetworkFilterList};
+use crate::blocker::{Blocker, BlockerBuildArgs, NetworkFilterList, FlatNetworkFilterList};
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterGetter};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
 use crate::utils::is_eof_error;
 
@@ -46,26 +46,33 @@ struct NetworkFilterLegacySerializeFmt {
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
 /// while `NetworkFilterList` requires `&'a Arc<NetworkFilter>`.
-impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt where T: std::borrow::Borrow<NetworkFilter> {
-    fn from(v: &T) -> NetworkFilterLegacySerializeFmt {
-        let v = v.borrow();
+/// TODO: remove dyn.
+impl<'a, T : NetworkFilterGetter<'a>> From<&'a T> for NetworkFilterLegacySerializeFmt {
+    fn from(v: &'a T) -> NetworkFilterLegacySerializeFmt {
+//        let v = v.borrow();
         NetworkFilterLegacySerializeFmt {
             mask: v.mask(),
-            filter: v.filter(),
-            opt_domains: v.opt_domains(),
-            opt_not_domains: v.opt_not_domains(),
-            redirect: v.redirect(),
-            hostname: v.hostname(),
-            csp: v.csp(),
-            bug: *v.bug(),
-            tag: v.tag(),
-            raw_line: if let Some(raw) = v.raw_line() { Some(*raw.clone()) } else { None },
+            filter: v.filter_legacy(),
+            opt_domains: v.opt_domains().map(|q| q.to_vec()),
+            opt_not_domains: v.opt_not_domains().map(|q| q.to_vec()),
+            redirect: v.redirect().map(|s| s.to_string()),
+            hostname: v.hostname().map(|s| s.to_string()),
+            csp: v.csp().map(|s| s.to_string()),
+            bug: if v.has_bug() { Some(v.bug()) } else { None },
+            tag: v.tag().map(|s| s.to_string()),
+            raw_line: v.raw_line().map(|r| r.to_string()),
             id: v.id(),
             _fuzzy_signature: None,
             opt_domains_union: v.opt_domains_union(),
             opt_not_domains_union: v.opt_not_domains_union(),
         }
     }
+}
+
+impl<'a, T : NetworkFilterGetter<'a>> From<&'a std::sync::Arc<T>> for NetworkFilterLegacySerializeFmt {
+  fn from(v: &'a std::sync::Arc<T>) -> NetworkFilterLegacySerializeFmt {
+    NetworkFilterLegacySerializeFmt::from(v.as_ref())
+  }
 }
 
 /// Forces a `NetworkFilterList` to be serialized with the legacy filter format by converting to an
@@ -78,7 +85,7 @@ fn serialize_legacy_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Re
     }
 
     let legacy_list = NetworkFilterListLegacySerializeFmt {
-        filter_map: list.filter_map.iter().map(|(k, v)| {
+        filter_map: list.filter_map_.iter().map(|(k, v)| {
             (*k, v.iter().map(|f| f.into()).collect())
         }).collect(),
     };
@@ -116,21 +123,22 @@ impl<'a> SerializeFormat<'a> {
 
 #[derive(Serialize)]
 struct SerializeFormatPt1<'a> {
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    csp: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    exceptions: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    importants: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    redirects: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    filters_tagged: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    filters: &'a NetworkFilterList,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // csp: &'a FlatNetworkFilterList<'a>,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // exceptions: &'a FlatNetworkFilterList<'a>,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // importants: &'a FlatNetworkFilterList<'a>,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // redirects: &'a FlatNetworkFilterList<'a>,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // filters: &'a FlatNetworkFilterList<'a>,
 
-    #[serde(serialize_with = "serialize_legacy_network_filter_vec")]
-    tagged_filters_all: &'a Vec<NetworkFilter>,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // filters_tagged: &'a NetworkFilterList,
+
+    // #[serde(serialize_with = "serialize_legacy_network_filter_vec")]
+    // tagged_filters_all: &'a Vec<NetworkFilter>,
 
     _debug: bool,
     enable_optimizations: bool,
@@ -156,8 +164,8 @@ struct SerializeFormatRest<'a> {
 
     scriptlets: &'a ScriptletResourceStorage,
 
-    #[serde(serialize_with = "serialize_legacy_network_filter_list")]
-    generic_hide: &'a NetworkFilterList,
+    // #[serde(serialize_with = "serialize_legacy_network_filter_list")]
+    // generic_hide: &'a NetworkFilterList,
 }
 
 /// `_fuzzy_signature` is no longer used, and is cleaned up from future format versions.
@@ -196,6 +204,7 @@ impl From<NetworkFilterLegacyDeserializeFmt> for NetworkFilter {
             opt_domains_union_: v.opt_domains_union,
             opt_not_domains_union_: v.opt_not_domains_union,
             regex_: crate::filters::network::RegexStorage::default(),
+            empty_string_: String::default(),
         }
     }
 }
@@ -208,7 +217,7 @@ pub(crate) struct NetworkFilterListLegacyDeserializeFmt {
 impl From<NetworkFilterListLegacyDeserializeFmt> for NetworkFilterList {
     fn from(v: NetworkFilterListLegacyDeserializeFmt) -> Self {
         Self {
-            filter_map: v.filter_map.into_iter().map(|(k, v)| (k, v.into_iter().map(|f| std::sync::Arc::new(f.into())).collect())).collect(),
+            filter_map_: v.filter_map.into_iter().map(|(k, v)| (k, v.into_iter().map(|f| std::sync::Arc::new(f.into())).collect())).collect(),
         }
     }
 }
@@ -286,19 +295,20 @@ struct DeserializeFormatRest {
     generic_hide: NetworkFilterListLegacyDeserializeFmt,
 }
 
-impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
-    fn from(v: (&'a Blocker, &'a CosmeticFilterCache)) -> Self {
+impl<'a> From<(&'a Blocker<'a>, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
+    fn from(v: (&'a Blocker<'a>, &'a CosmeticFilterCache)) -> Self {
         let (blocker, cfc) = v;
         Self {
             part1: SerializeFormatPt1 {
-                csp: &blocker.csp,
-                exceptions: &blocker.exceptions,
-                importants: &blocker.importants,
-                redirects: &blocker.redirects,
-                filters_tagged: &blocker.filters_tagged,
-                filters: &blocker.filters,
+                // csp: &blocker.csp,
+                // exceptions: &blocker.exceptions,
+                // importants: &blocker.importants,
+                // redirects: &blocker.redirects,
+                // filters: &blocker.filters,
 
-                tagged_filters_all: &blocker.tagged_filters_all,
+                //filters_tagged: &blocker.filters_tagged,
+
+                //tagged_filters_all: &blocker.tagged_filters_all,
 
                 _debug: true,
                 enable_optimizations: blocker.enable_optimizations,
@@ -319,15 +329,15 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
                 scriptlets: &cfc.scriptlets,
 
-                generic_hide: &blocker.generic_hide,
+                //generic_hide: &blocker.generic_hide,
             },
         }
     }
 }
 
-impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+impl<'a> From<DeserializeFormat> for (Blocker<'a>, CosmeticFilterCache) {
     fn from(v: DeserializeFormat) -> Self {
-        (Blocker {
+        (Blocker::from_args(BlockerBuildArgs {
             csp: v.part1.csp.into(),
             exceptions: v.part1.exceptions.into(),
             importants: v.part1.importants.into(),
@@ -341,11 +351,8 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             enable_optimizations: v.part1.enable_optimizations,
 
             resources: v.part1.resources,
-            #[cfg(feature = "object-pooling")]
-            pool: Default::default(),
-
             generic_hide: v.rest.generic_hide.into(),
-        }, CosmeticFilterCache {
+        }), CosmeticFilterCache {
             simple_class_rules: v.rest.simple_class_rules,
             simple_id_rules: v.rest.simple_id_rules,
             complex_class_rules: v.rest.complex_class_rules,

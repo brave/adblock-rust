@@ -59,7 +59,7 @@ impl From<std::io::Error> for SerializationError {
 }
 
 impl<'a> SerializeFormat<'a> {
-    pub(crate) fn build(blocker: &'a Blocker, cfc: &'a CosmeticFilterCache, legacy: bool) -> Self {
+    pub(crate) fn build(blocker: &'a Blocker<'a>, cfc: &'a CosmeticFilterCache, legacy: bool) -> Self {
         if legacy {
             Self::Legacy(legacy::SerializeFormat::from((blocker, cfc)))
         } else {
@@ -119,7 +119,7 @@ impl From<rmp_serde::decode::Error> for DeserializationError {
 }
 
 impl DeserializeFormat {
-    pub(crate) fn build(self) -> (Blocker, CosmeticFilterCache) {
+    pub(crate) fn build<'a>(self) -> (Blocker<'a>, CosmeticFilterCache) {
         match self {
             Self::Legacy(v) => v.into(),
             Self::V0(v) => v.into(),

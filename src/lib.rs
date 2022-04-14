@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![forbid(unsafe_code)]
+//#![forbid(unsafe_code)]
 
 // Own modules, currently everything is exposed, will need to limit
 #[doc(hidden)]

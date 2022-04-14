@@ -5,11 +5,21 @@ use crate::url_parser::parse_url;
 
 use std::fmt;
 use std::sync::Arc;
+use std::rc::Rc;
+use std::cell::RefCell;
+
 
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
 use crate::lists::ParseOptions;
+
+use std::collections::{HashMap};
+
+extern crate flatbuffers;
+#[allow(dead_code, unused_imports, unsafe_code)]
+#[path = "../flat/network_filter_generated.rs"]
+pub mod flat;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -179,14 +189,10 @@ pub enum FilterPart {
     AnyOf(Vec<String>),
 }
 
-impl FilterPart {
-    pub fn string_view(&self) -> Option<String> {
-        match &self {
-            FilterPart::Empty => None,
-            FilterPart::Simple(s) => Some(s.clone()),
-            FilterPart::AnyOf(s) => Some(s.join("|")),
-        }
-    }
+pub enum FilterPartType {
+  Empty,
+  Simple,
+  AnyOf,
 }
 
 #[derive(Clone, Copy)]
@@ -425,6 +431,34 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
     Ok(result)
 }
 
+#[derive(Debug, Clone)]
+pub struct RegexCache {
+  regex_by_hash : HashMap<Hash, CompiledRegex>,
+  match_all_const_: CompiledRegex,
+}
+
+impl Default for RegexCache {
+  fn default() -> RegexCache {
+    RegexCache {
+      regex_by_hash: Default::default(),
+      match_all_const_: CompiledRegex::MatchAll,
+     }
+  }
+}
+
+pub type RegexCachePtr = Rc<RefCell<RegexCache>>;
+
+impl RegexCache {
+    // Lazily get the regex if the filter has one
+    fn get_regex<'a, 'b, T : NetworkFilterGetter<'b>> (&'a mut self, filter: &T) -> &'a CompiledRegex {
+      if !filter.is_regex() && !filter.is_complete_regex() {
+          return &self.match_all_const_;
+      }
+      self.regex_by_hash.entry(filter.id()).or_insert_with(||
+        filter.make_regex())
+  }
+}
+
 /// Lazily-compiled regex cache. Regex rules are uncommon, so the `unsync-regex-caching` feature
 /// can be used to reduce the memory footprint of unused regex fields at the cost of making the
 /// adblock engine `!Sync` and `!Send`.
@@ -470,10 +504,206 @@ impl RegexStorage {
     }
 }
 
+pub trait NetworkFilterGetter<'a> {
+  fn mask(&self) -> NetworkFilterMask;
+  fn filter_legacy(&self) ->  FilterPart;
+  fn opt_domains(&'a self) -> Option<&'a [Hash]>;
+  fn opt_not_domains(&'a self) -> Option<&'a [Hash]>;
+  fn redirect(&'a self) -> Option<&'a str>;
+  fn hostname(&'a self) -> Option<&'a str>;
+  fn csp(&'a self) -> Option<&'a str>;
+  fn bug(&self) -> u32;
+  fn has_bug(&self) -> bool;
+  fn tag(&'a self) -> Option<&'a str>;
+  fn raw_line(&'a self) -> Option<&'a str>;
+  fn id(&self) -> Hash;
+  fn opt_domains_union(&self) -> Option<Hash>;
+  fn opt_not_domains_union(&self) -> Option<Hash>;
+
+  fn filter_part_type(&self) -> FilterPartType;
+  fn filter_part_as_simple(&'a self) -> &'a str;
+
+  // TODO: use Box<dyn IntoIterator<Item=&'a str>>?
+  fn filter_part_as_any_of(&self) -> Vec<String>;
+  fn filter_string_view(&self) -> Option<String>;
+
+  fn make_regex(&self) -> CompiledRegex {
+    compile_regex(
+      &self.filter_legacy(),
+      self.is_right_anchor(),
+      self.is_left_anchor(),
+      self.is_complete_regex(),
+    )
+  }
+
+  fn for_https(&self) -> bool {
+    self.mask().contains(NetworkFilterMask::FROM_HTTPS)
+  }
+
+  fn get_id_without_badfilter(&'a self) -> Hash {
+      let mut mask = self.mask();
+      mask.set(NetworkFilterMask::BAD_FILTER, false);
+      compute_filter_id(
+          self.csp().as_deref(),
+          mask,
+          self.filter_string_view().as_deref(),
+          self.hostname().as_deref(),
+          self.opt_domains(),
+          self.opt_not_domains(),
+      )
+  }
+
+  fn get_id(&'a self) -> Hash {
+      compute_filter_id(
+          self.csp().as_deref(),
+          self.mask(),
+          self.filter_string_view().as_deref(),
+          self.hostname().as_deref(),
+          self.opt_domains(),
+          self.opt_not_domains(),
+      )
+  }
+
+  fn get_tokens(&'a self) -> Vec<Vec<Hash>> {
+      let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+
+      // If there is only one domain and no domain negation, we also use this
+      // domain as a token.
+      if self.opt_domains().is_some()
+          && self.opt_not_domains().is_none()
+          && self.opt_domains().as_ref().map(|d| d.len()) == Some(1)
+      {
+          if let Some(domains) = self.opt_domains() {
+              if let Some(domain) = domains.first() {
+                  tokens.push(*domain)
+              }
+          }
+      }
+
+      // Get tokens from filter
+      match self.filter_part_type() {
+          FilterPartType::Simple => {
+              if !self.is_complete_regex() {
+                  let skip_last_token =
+                      (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
+                  let skip_first_token = self.is_right_anchor();
+
+                  let mut filter_tokens =
+                      utils::tokenize_filter(self.filter_part_as_simple(), skip_first_token, skip_last_token);
+
+                  tokens.append(&mut filter_tokens);
+              }
+          }
+          FilterPartType::AnyOf => (), // across AnyOf set of filters no single token is guaranteed to match to a request
+          _ => (),
+      }
+
+      // Append tokens from hostname, if any
+      if !self.mask().contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
+          if let Some(hostname) = self.hostname().as_ref()  {
+              let mut hostname_tokens = utils::tokenize(&hostname);
+              tokens.append(&mut hostname_tokens);
+          }
+      }
+
+      // If we got no tokens for the filter/hostname part, then we will dispatch
+      // this filter in multiple buckets based on the domains option.
+      if tokens.is_empty() && self.opt_domains().is_some() && self.opt_not_domains().is_none() {
+          self.opt_domains()
+              .unwrap_or(&[] as &[Hash])
+              .iter()
+              .map(|&d| vec![d])
+              .collect()
+      } else {
+          // Add optional token for protocol
+          if self.for_http() && !self.for_https() {
+              tokens.push(utils::fast_hash("http"));
+          } else if self.for_https() && !self.for_http() {
+              tokens.push(utils::fast_hash("https"));
+          }
+          tokens.shrink_to_fit();
+          vec![tokens]
+      }
+  }
+
+  fn get_cpt_mask(&self) -> NetworkFilterMask {
+      self.mask() & NetworkFilterMask::FROM_ALL_TYPES
+  }
+
+  fn is_exception(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_EXCEPTION)
+  }
+
+  fn is_hostname_anchor(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
+  }
+
+  fn is_right_anchor(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
+  }
+
+  fn is_left_anchor(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_LEFT_ANCHOR)
+  }
+
+  fn match_case(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::MATCH_CASE)
+  }
+
+  fn is_important(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_IMPORTANT)
+  }
+
+  fn is_redirect(&'a self) -> bool {
+      self.redirect().is_some()
+  }
+
+  fn is_redirect_url(&'a self) -> bool {
+      self.redirect().is_some() && self.mask().contains(NetworkFilterMask::IS_REDIRECT_URL)
+  }
+
+  fn is_badfilter(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::BAD_FILTER)
+  }
+
+  fn is_generic_hide(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::GENERIC_HIDE)
+  }
+
+  fn is_regex(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_REGEX)
+  }
+
+  fn is_complete_regex(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_COMPLETE_REGEX)
+  }
+
+  fn is_plain(&self) -> bool {
+      !self.is_regex()
+  }
+
+  fn is_csp(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::IS_CSP)
+  }
+
+  fn third_party(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::THIRD_PARTY)
+  }
+
+  fn first_party(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::FIRST_PARTY)
+  }
+
+  fn for_http(&self) -> bool {
+      self.mask().contains(NetworkFilterMask::FROM_HTTP)
+  }
+}
+
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkFilter {
     pub mask_: NetworkFilterMask,
-    pub filter_: FilterPart,
     pub opt_domains_: Option<Vec<Hash>>,
     pub opt_not_domains_: Option<Vec<Hash>>,
     pub redirect_: Option<String>,
@@ -493,6 +723,11 @@ pub struct NetworkFilter {
     // Regex compiled lazily and cached using interior mutability.
     #[serde(skip_serializing, skip_deserializing)]
     pub(crate) regex_: RegexStorage,
+
+    pub filter_: FilterPart,
+
+    #[serde(skip_serializing, skip_deserializing)]
+    pub empty_string_: String,
 }
 
 // TODO - restrict the API so that this is always true - i.e. lazy-calculate IDs from actual data,
@@ -536,27 +771,135 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
     Ok(())
 }
 
+impl<'a> NetworkFilterGetter<'a> for NetworkFilter {
+  fn mask(&self) -> NetworkFilterMask { self.mask_.clone() }
+  fn filter_legacy(&self) -> FilterPart { self.filter_.clone() }
+  fn opt_domains(&'a self) -> Option<&'a [Hash]> { self.opt_domains_.as_ref().map(|v| &v[..]) }
+  fn opt_not_domains(&'a self) -> Option<&'a [Hash]> { self.opt_not_domains_.as_ref().map(|v| &v[..]) }
+  fn redirect(&'a self) -> Option<&'a str> {self.redirect_.as_deref() }
+
+  fn hostname(&'a self) -> Option<&'a str> {self.hostname_.as_deref() }
+  fn csp(&'a self) -> Option<&'a str> {self.csp_.as_deref() }
+
+  fn has_bug(&self) -> bool { self.bug_.is_some()}
+  fn bug(&self) -> u32 { self.bug_.unwrap() }
+
+  fn tag(&'a self) ->  Option<&'a str> { self.tag_.as_deref() }
+
+  fn raw_line(&'a self) -> Option<&'a str> {
+    if let Some(q) = &self.raw_line_ {
+      Some(&*q)
+    } else {
+      None
+    }
+  }
+
+  fn id(&self) ->  Hash { self.id_ }
+
+  fn opt_domains_union(&self) -> Option<Hash> { self.opt_domains_union_.clone() }
+  fn opt_not_domains_union(&self) -> Option<Hash> { self.opt_not_domains_union_.clone() }
+
+  fn filter_part_type(&self) -> FilterPartType {
+    match &self.filter_ {
+      FilterPart::Empty => FilterPartType::Empty,
+      FilterPart::Simple(_) => FilterPartType::Simple,
+      FilterPart::AnyOf(_) => FilterPartType::AnyOf,
+    }
+  }
+
+  fn filter_part_as_simple(&'a self) -> &'a str {
+    match &self.filter_ {
+      FilterPart::Simple(s) => &s,
+      _ => &self.empty_string_,
+    }
+  }
+
+  fn filter_part_as_any_of(&self) -> Vec<String> {
+    match &self.filter_ {
+      FilterPart::AnyOf(s) => s.clone(),
+      _ => vec![],
+    }
+  }
+
+  fn filter_string_view(&self) -> Option<String> {
+    match &self.filter_part_type() {
+      FilterPartType::Empty => None,
+      FilterPartType::Simple => Some(self.filter_part_as_simple().to_string()),
+      FilterPartType::AnyOf => Some(self.filter_part_as_any_of().join("|")),
+    }
+  }
+}
+
+impl<'a> NetworkFilterGetter<'a> for flat::fb::FlatNetworkFilter<'a> {
+  fn mask(&self) ->  NetworkFilterMask { NetworkFilterMask {bits: self.mask()} }
+  fn filter_legacy(&self) -> FilterPart {
+    match self.filter_part_type() {
+      flat::fb::FilterPartType::SIMPLE => FilterPart::Simple(self.filter_part_as_simple().to_string()),
+      flat::fb::FilterPartType::ANY_OF => FilterPart::AnyOf(self.filter_part_as_any_of()),
+      _ => FilterPart::Empty,
+    }
+  }
+  fn opt_domains(&'a self) -> Option<&'a [Hash]> {self.opt_domains().map(|v| v.safe_slice()) }
+  fn opt_not_domains(&'a self) -> Option<&'a [Hash]> {self.opt_not_domains().map(|v| v.safe_slice()) }
+
+  fn redirect(&'a self) -> Option<&'a str> {self.redirect() }
+
+  fn hostname(&'a self) -> Option<&'a str> {self.hostname() }
+  fn csp(&'a self) -> Option<&'a str> {self.csp() }
+
+  // TODO
+  fn has_bug(&self) -> bool {
+    self._tab.get::<u64>(flat::fb::FlatNetworkFilter::VT_OPT_NOT_DOMAINS_UNION, None).is_some()
+  }
+  fn bug(&self) -> u32 { self.bug() }
+
+  fn tag(&'a self) ->  Option<&'a str> { self.tag() }
+
+  fn raw_line(&'a self) -> Option<&'a str> {
+    self.raw_line()
+  }
+
+  fn id(&self) ->  Hash { self.id() }
+
+  fn opt_domains_union(&self) -> Option<Hash> {
+    self._tab.get::<u64>(flat::fb::FlatNetworkFilter::VT_OPT_DOMAINS_UNION, None)
+  }
+
+  fn opt_not_domains_union(&self) -> Option<Hash> {
+    self._tab.get::<u64>(flat::fb::FlatNetworkFilter::VT_OPT_NOT_DOMAINS_UNION, None)
+  }
+
+  fn filter_part_type(&self) -> FilterPartType {
+    match self.filter_part_type() {
+      flat::fb::FilterPartType::SIMPLE => FilterPartType::Simple,
+      flat::fb::FilterPartType::ANY_OF => FilterPartType::AnyOf,
+      _ => FilterPartType::Empty,
+    }
+  }
+
+  fn filter_part_as_simple(&'a self) -> &'a str {
+    // TODO
+    self.filter_part_inner().unwrap().get(0)
+  }
+
+  fn filter_part_as_any_of(&self) -> Vec<String> {
+    self.filter_part_inner().unwrap().into_iter().map(|s| s.to_string()).collect::<Vec<String>>()
+  }
+
+  fn filter_string_view(&self) -> Option<String> {
+    match self.filter_part_type() {
+      flat::fb::FilterPartType::SIMPLE => Some(self.filter_part_inner().unwrap().get(0).to_string()),
+      flat::fb::FilterPartType::ANY_OF => Some(self.filter_part_inner().unwrap().into_iter()
+          .collect::<Vec<&str>>().join("|")),
+      _ => None,
+    }
+  }
+}
+
+
 impl NetworkFilter {
-    pub fn mask(&self) ->  NetworkFilterMask { self.mask_.clone() }
-    pub fn filter(&self) ->  FilterPart { self.filter_.clone() }
-    //pub fn opt_domains<'a>(&'a self) -> 'a Option<Vec<Hash>> { self.opt_domains_ }
-    //pub fn opt_not_domains<'a>(&'a self) -> 'a Option<Vec<Hash>> { self.opt_not_domains_ }
-    pub fn opt_domains(&self) -> Option<Vec<Hash>> { self.opt_domains_.clone() }
-    pub fn opt_not_domains(&self) -> Option<Vec<Hash>> { self.opt_not_domains_.clone() }
-    pub fn redirect(&self) ->  Option<String> { self.redirect_.clone() }
-    pub fn hostname(&self) ->  Option<String> { self.hostname_.clone() }
-    pub fn csp(&self) ->  Option<String> { self.csp_.clone() }
-    pub fn bug<'a>(&'a self) ->  &'a Option<u32> { &self.bug_ }
-    pub fn tag(&self) ->  Option<String> { self.tag_.clone() }
+  fn regex(&self) -> &RegexStorage {&self.regex_}
 
-    pub fn raw_line(&self) ->  Option<Box<String>> { self.raw_line_.clone() }
-
-    pub fn id(&self) ->  Hash { self.id_ }
-
-    pub fn opt_domains_union(&self) -> Option<Hash> { self.opt_domains_union_.clone() }
-    pub fn opt_not_domains_union(&self) -> Option<Hash> { self.opt_not_domains_union_.clone() }
-
-    pub(crate) fn regex(&self) -> RegexStorage {self.regex_.clone()}
 
     pub fn parse(line: &str, debug: bool, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
         let parsed = AbstractNetworkFilter::parse(line, opts)?;
@@ -892,6 +1235,7 @@ impl NetworkFilter {
             opt_domains_union_: opt_domains_union,
             opt_not_domains_union_ : opt_not_domains_union,
             regex_: RegexStorage::default(),
+            empty_string_: String::default(),
         })
     }
 
@@ -923,174 +1267,6 @@ impl NetworkFilter {
 
         NetworkFilter::parse(&hostname, debug, Default::default())
     }
-
-    pub fn get_id_without_badfilter(&self) -> Hash {
-        let mut mask = self.mask();
-        mask.set(NetworkFilterMask::BAD_FILTER, false);
-        compute_filter_id(
-            self.csp().as_deref(),
-            mask,
-            self.filter().string_view().as_deref(),
-            self.hostname().as_deref(),
-            self.opt_domains().as_ref(),
-            self.opt_not_domains().as_ref(),
-        )
-    }
-
-    pub fn get_id(&self) -> Hash {
-        compute_filter_id(
-            self.csp().as_deref(),
-            self.mask(),
-            self.filter().string_view().as_deref(),
-            self.hostname().as_deref(),
-            self.opt_domains().as_ref(),
-            self.opt_not_domains().as_ref(),
-        )
-    }
-
-    pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
-        let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
-
-        // If there is only one domain and no domain negation, we also use this
-        // domain as a token.
-        if self.opt_domains().is_some()
-            && self.opt_not_domains().is_none()
-            && self.opt_domains().as_ref().map(|d| d.len()) == Some(1)
-        {
-            if let Some(domains) = self.opt_domains().as_ref() {
-                if let Some(domain) = domains.first() {
-                    tokens.push(*domain)
-                }
-            }
-        }
-
-        // Get tokens from filter
-        match &self.filter() {
-            FilterPart::Simple(f) => {
-                if !self.is_complete_regex() {
-                    let skip_last_token =
-                        (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
-                    let skip_first_token = self.is_right_anchor();
-
-                    let mut filter_tokens =
-                        utils::tokenize_filter(&f, skip_first_token, skip_last_token);
-
-                    tokens.append(&mut filter_tokens);
-                }
-            }
-            FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
-            _ => (),
-        }
-
-        // Append tokens from hostname, if any
-        if !self.mask().contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
-            if let Some(hostname) = self.hostname().as_ref()  {
-                let mut hostname_tokens = utils::tokenize(&hostname);
-                tokens.append(&mut hostname_tokens);
-            }
-        }
-
-        // If we got no tokens for the filter/hostname part, then we will dispatch
-        // this filter in multiple buckets based on the domains option.
-        if tokens.is_empty() && self.opt_domains().is_some() && self.opt_not_domains().is_none() {
-            self.opt_domains()
-                .as_ref()
-                .unwrap_or(&vec![])
-                .iter()
-                .map(|&d| vec![d])
-                .collect()
-        } else {
-            // Add optional token for protocol
-            if self.for_http() && !self.for_https() {
-                tokens.push(utils::fast_hash("http"));
-            } else if self.for_https() && !self.for_http() {
-                tokens.push(utils::fast_hash("https"));
-            }
-            tokens.shrink_to_fit();
-            vec![tokens]
-        }
-    }
-
-
-    fn get_cpt_mask(&self) -> NetworkFilterMask {
-        self.mask() & NetworkFilterMask::FROM_ALL_TYPES
-    }
-
-    pub fn is_exception(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_EXCEPTION)
-    }
-
-    pub fn is_hostname_anchor(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
-    }
-
-    pub fn is_right_anchor(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
-    }
-
-    pub fn is_left_anchor(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_LEFT_ANCHOR)
-    }
-
-    fn match_case(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::MATCH_CASE)
-    }
-
-    pub fn is_important(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_IMPORTANT)
-    }
-
-    pub fn is_redirect(&self) -> bool {
-        self.redirect().is_some()
-    }
-
-    pub fn is_redirect_url(&self) -> bool {
-        self.redirect().is_some() && self.mask().contains(NetworkFilterMask::IS_REDIRECT_URL)
-    }
-
-    pub fn is_badfilter(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::BAD_FILTER)
-    }
-
-    pub fn is_generic_hide(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::GENERIC_HIDE)
-    }
-
-    pub fn is_regex(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_REGEX)
-    }
-
-    pub fn is_complete_regex(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_COMPLETE_REGEX)
-    }
-
-    fn is_plain(&self) -> bool {
-        !self.is_regex()
-    }
-
-    pub fn is_csp(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::IS_CSP)
-    }
-
-    pub fn has_bug(&self) -> bool {
-        self.bug().is_some()
-    }
-
-    fn third_party(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::THIRD_PARTY)
-    }
-
-    fn first_party(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::FIRST_PARTY)
-    }
-
-    fn for_http(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::FROM_HTTP)
-    }
-
-    fn for_https(&self) -> bool {
-        self.mask().contains(NetworkFilterMask::FROM_HTTPS)
-    }
 }
 
 impl fmt::Display for NetworkFilter {
@@ -1102,34 +1278,85 @@ impl fmt::Display for NetworkFilter {
     }
 }
 
+impl<'a> fmt::Display for flat::fb::FlatNetworkFilter<'a> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+      match self.raw_line() {
+          Some(r) => write!(f, "{}", r),
+          None => write!(f, "FlatNetworkFilter"),
+      }
+  }
+}
+
+
 pub trait NetworkMatchable {
-    fn matches(&self, request: &request::Request) -> bool;
-    fn get_regex(&self) -> Arc<CompiledRegex>;
+    fn matches_with_regex_cache(&self, request: &request::Request, regex_cache: &RegexCachePtr) -> bool;
+
+//TODO
+//#[cfg(test)]
+    fn matches(&self, request: &request::Request) -> bool {
+      self.matches_with_regex_cache(request, &RegexCachePtr::default())
+    }
+}
+
+impl<'a> NetworkMatchable for flat::fb::FlatNetworkFilter<'a> {
+  fn matches_with_regex_cache(&self, request: &request::Request, regex_cache: &RegexCachePtr) -> bool {
+    check_options(self, request) && check_pattern(self, request, regex_cache)
+  }
+
+//   fn get_regex(&self) -> Arc<CompiledRegex> {
+//     // TODO(atuchin): optimize
+//     if !self.is_regex() && !self.is_complete_regex() {
+//       return Arc::new(CompiledRegex::MatchAll);
+//     }
+
+//     // TODO(atuchin): fix
+//     // println!("get_regex: {} ", self.filter_string_view().unwrap());
+//     // println!("hostname: {} ", self.hostname().unwrap());
+//     // println!("is_right_anchor: {} ", self.is_right_anchor());
+//     // println!("is_left_anchor: {} ", self.is_left_anchor());
+//     // println!("is_complete_regex: {} ", self.is_complete_regex());
+//     // println!("filter_part_as_simple: {} ", self.filter_part_as_simple());
+//     // println!("mask: {} ", self.mask());
+
+// //    return Arc::new(CompiledRegex::MatchAll);
+
+//     let regex = compile_regex(
+//             &self.filter_legacy(),
+//             self.is_right_anchor(),
+//             self.is_left_anchor(),
+//             self.is_complete_regex(),
+//         );
+//     let arc_regex = Arc::new(regex);
+//     arc_regex
+//   }
 }
 
 impl NetworkMatchable for NetworkFilter {
-    fn matches(&self, request: &request::Request) -> bool {
-        check_options(&self, request) && check_pattern(&self, request)
+    // fn matches(&self, request: &request::Request) -> bool {
+    //     check_options(self, request) && check_pattern(self, request)
+    // }
+    fn matches_with_regex_cache(&self, request: &request::Request, regex_cache: &RegexCachePtr) -> bool {
+      check_options(self, request) && check_pattern(self, request, regex_cache)
     }
 
     // Lazily get the regex if the filter has one
-    fn get_regex(&self) -> Arc<CompiledRegex> {
-        if !self.is_regex() && !self.is_complete_regex() {
-            return Arc::new(CompiledRegex::MatchAll);
-        }
-        if let Some(cache) = self.regex().get() {
-            return cache;
-        }
-        let regex = compile_regex(
-            &self.filter(),
-            self.is_right_anchor(),
-            self.is_left_anchor(),
-            self.is_complete_regex(),
-        );
-        let arc_regex = Arc::new(regex);
-        self.regex().set(arc_regex.clone());
-        arc_regex
-    }
+    // fn get_regex(&self) -> Arc<CompiledRegex> {
+    //     if !self.is_regex() && !self.is_complete_regex() {
+    //         return Arc::new(CompiledRegex::MatchAll);
+    //     }
+    //     if let Some(cache) = self.regex().get() {
+    //         return cache;
+    //     }
+    //     let regex = compile_regex(
+    //         &self.filter_legacy(),
+    //         self.is_right_anchor(),
+    //         self.is_left_anchor(),
+    //         self.is_complete_regex(),
+    //     );
+    //     let arc_regex = Arc::new(regex);
+    //     self.regex().set(arc_regex.clone());
+    //     arc_regex
+    // }
 }
 
 // ---------------------------------------------------------------------------
@@ -1141,8 +1368,8 @@ fn compute_filter_id(
     mask: NetworkFilterMask,
     filter: Option<&str>,
     hostname: Option<&str>,
-    opt_domains: Option<&Vec<Hash>>,
-    opt_not_domains: Option<&Vec<Hash>>,
+    opt_domains: Option<&[Hash]>,
+    opt_not_domains: Option<&[Hash]>,
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits);
 
@@ -1322,13 +1549,13 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 // ---------------------------------------------------------------------------
 
 // pattern
-fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    match &filter.filter() {
-        FilterPart::Empty => true,
-        FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
-        FilterPart::AnyOf(filters) => {
-            for f in filters {
-                if twoway::find_str(&request.url, f).is_some() {
+fn check_pattern_plain_filter_filter<'a, T : NetworkFilterGetter<'a>>(filter: &'a T, request: &request::Request) -> bool {
+    match filter.filter_part_type() {
+        FilterPartType::Empty => true,
+        FilterPartType::Simple => twoway::find_str(&request.url, filter.filter_part_as_simple()).is_some(),
+        FilterPartType::AnyOf => {
+            for f in filter.filter_part_as_any_of() {
+                if twoway::find_str(&request.url, &f).is_some() {
                     return true;
                 }
             }
@@ -1338,13 +1565,13 @@ fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::
 }
 
 // pattern|
-fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    match &filter.filter() {
-        FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.ends_with(f),
-        FilterPart::AnyOf(filters) => {
-            for f in filters {
-                if request.url.ends_with(f) {
+fn check_pattern_right_anchor_filter<'a, T : NetworkFilterGetter<'a>>(filter: &'a T, request: &request::Request) -> bool {
+    match filter.filter_part_type() {
+        FilterPartType::Empty => true,
+        FilterPartType::Simple => request.url.ends_with(filter.filter_part_as_simple()),
+        FilterPartType::AnyOf => {
+            for f in filter.filter_part_as_any_of() {
+                if request.url.ends_with(&f) {
                     return true;
                 }
             }
@@ -1354,13 +1581,13 @@ fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::
 }
 
 // |pattern
-fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    match &filter.filter() {
-        FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.starts_with(f),
-        FilterPart::AnyOf(filters) => {
-            for f in filters {
-                if request.url.starts_with(f) {
+fn check_pattern_left_anchor_filter<'a, T : NetworkFilterGetter<'a>>(filter: &'a T, request: &request::Request) -> bool {
+    match filter.filter_part_type() {
+        FilterPartType::Empty => true,
+        FilterPartType::Simple => request.url.starts_with(filter.filter_part_as_simple()),
+        FilterPartType::AnyOf => {
+            for f in filter.filter_part_as_any_of() {
+                if request.url.starts_with(&f) {
                     return true;
                 }
             }
@@ -1370,16 +1597,16 @@ fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::R
 }
 
 // |pattern|
-fn check_pattern_left_right_anchor_filter(
-    filter: &NetworkFilter,
+fn check_pattern_left_right_anchor_filter<'a, T : NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
 ) -> bool {
-    match &filter.filter() {
-        FilterPart::Empty => true,
-        FilterPart::Simple(f) => &request.url == f,
-        FilterPart::AnyOf(filters) => {
-            for f in filters {
-                if &request.url == f {
+    match filter.filter_part_type() {
+        FilterPartType::Empty => true,
+        FilterPartType::Simple => &request.url == filter.filter_part_as_simple(),
+        FilterPartType::AnyOf => {
+            for f in filter.filter_part_as_any_of() {
+                if &request.url == &f {
                     return true;
                 }
             }
@@ -1389,23 +1616,25 @@ fn check_pattern_left_right_anchor_filter(
 }
 
 // pattern*^
-fn check_pattern_regex_filter_at(
-    filter: &NetworkFilter,
+fn check_pattern_regex_filter_at<'a, T : NetworkMatchable + NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
     start_from: usize,
+    regex_cache: &RegexCachePtr,
 ) -> bool {
-    let regex = filter.get_regex();
-    regex.is_match(&request.url[start_from..])
+    let mut regex_cache_mut = regex_cache.borrow_mut();
+    regex_cache_mut.get_regex(filter).is_match(&request.url[start_from..])
 }
 
-fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
-    check_pattern_regex_filter_at(filter, request, 0)
+fn check_pattern_regex_filter<'a, T : NetworkMatchable + NetworkFilterGetter<'a>>(filter: &'a T, request: &request::Request, regex_cache : &RegexCachePtr) -> bool {
+    check_pattern_regex_filter_at(filter, request, 0, regex_cache)
 }
 
 // ||pattern*^
-fn check_pattern_hostname_anchor_regex_filter(
-    filter: &NetworkFilter,
+fn check_pattern_hostname_anchor_regex_filter<'a, T : NetworkMatchable + NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
+    regex_cache: &RegexCachePtr,
 ) -> bool {
     filter
         .hostname()
@@ -1416,6 +1645,7 @@ fn check_pattern_hostname_anchor_regex_filter(
                     filter,
                     request,
                     request.url.find(hostname).unwrap_or_default() + hostname.len(),
+                    regex_cache,
                 )
             } else {
                 false
@@ -1425,8 +1655,8 @@ fn check_pattern_hostname_anchor_regex_filter(
 }
 
 // ||pattern|
-fn check_pattern_hostname_right_anchor_filter(
-    filter: &NetworkFilter,
+fn check_pattern_hostname_right_anchor_filter<'a, T : NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
 ) -> bool {
     filter
@@ -1434,16 +1664,16 @@ fn check_pattern_hostname_right_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask().contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
-                match &filter.filter() {
+                match filter.filter_part_type() {
                     // In this specific case it means that the specified hostname should match
                     // at the end of the hostname of the request. This allows to prevent false
                     // positive like ||foo.bar which would match https://foo.bar.baz where
                     // ||foo.bar^ would not.
-                    FilterPart::Empty => {
+                    FilterPartType::Empty => {
                         request.hostname.len() == hostname.len()        // if lengths are equal, hostname equality is implied by anchoring check
                             || request.hostname.ends_with(hostname)
                     }
-                    _ => check_pattern_right_anchor_filter(&filter, request),
+                    _ => check_pattern_right_anchor_filter(filter, request),
                 }
             } else {
                 false
@@ -1453,8 +1683,8 @@ fn check_pattern_hostname_right_anchor_filter(
 }
 
 // |||pattern|
-fn check_pattern_hostname_left_right_anchor_filter(
-    filter: &NetworkFilter,
+fn check_pattern_hostname_left_right_anchor_filter<'a, T : NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
 ) -> bool {
     // Since this is not a regex, the filter pattern must follow the hostname
@@ -1466,16 +1696,16 @@ fn check_pattern_hostname_left_right_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask().contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
-                match &filter.filter() {
+                match filter.filter_part_type() {
                     // if no filter, we have a match
-                    FilterPart::Empty => true,
+                    FilterPartType::Empty => true,
                     // Since it must follow immediatly after the hostname and be a suffix of
                     // the URL, we conclude that filter must be equal to the part of the
                     // url following the hostname.
-                    FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname) == f,
-                    FilterPart::AnyOf(filters) => {
+                    FilterPartType::Simple => get_url_after_hostname(&request.url, hostname) == filter.filter_part_as_simple(),
+                    FilterPartType::AnyOf => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
-                        for f in filters {
+                        for f in filter.filter_part_as_any_of() {
                             if url_after_hostname == f {
                                 return true;
                             }
@@ -1492,8 +1722,8 @@ fn check_pattern_hostname_left_right_anchor_filter(
 
 // ||pattern + left-anchor => This means that a plain pattern needs to appear
 // exactly after the hostname, with nothing in between.
-fn check_pattern_hostname_left_anchor_filter(
-    filter: &NetworkFilter,
+fn check_pattern_hostname_left_anchor_filter<'a, T : NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
 ) -> bool {
     filter
@@ -1501,19 +1731,19 @@ fn check_pattern_hostname_left_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask().contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
-                match &filter.filter() {
+                match filter.filter_part_type() {
                     // if no filter, we have a match
-                    FilterPart::Empty => true,
+                    FilterPartType::Empty => true,
                     // Since this is not a regex, the filter pattern must follow the hostname
                     // with nothing in between. So we extract the part of the URL following
                     // after hostname and will perform the matching on it.
-                    FilterPart::Simple(f) => {
-                        get_url_after_hostname(&request.url, hostname).starts_with(f)
+                    FilterPartType::Simple => {
+                        get_url_after_hostname(&request.url, hostname).starts_with(filter.filter_part_as_simple())
                     }
-                    FilterPart::AnyOf(filters) => {
+                    FilterPartType::AnyOf => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
-                        for f in filters {
-                            if url_after_hostname.starts_with(f) {
+                        for f in filter.filter_part_as_any_of() {
+                            if url_after_hostname.starts_with(&f) {
                                 return true;
                             }
                         }
@@ -1528,8 +1758,8 @@ fn check_pattern_hostname_left_anchor_filter(
 }
 
 // ||pattern
-fn check_pattern_hostname_anchor_filter(
-    filter: &NetworkFilter,
+fn check_pattern_hostname_anchor_filter<'a, T : NetworkFilterGetter<'a>>(
+    filter: &'a T,
     request: &request::Request,
 ) -> bool {
     filter
@@ -1537,16 +1767,16 @@ fn check_pattern_hostname_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask().contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
-                match &filter.filter() {
+                match filter.filter_part_type() {
                     // if no filter, we have a match
-                    FilterPart::Empty => true,
+                    FilterPartType::Empty => true,
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
-                    FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname)
-                        .contains(f),
-                    FilterPart::AnyOf(filters) => {
+                    FilterPartType::Simple => get_url_after_hostname(&request.url, hostname)
+                        .contains(filter.filter_part_as_simple()),
+                    FilterPartType::AnyOf => {
                         let url_after_hostname = get_url_after_hostname(&request.url, hostname);
-                        for f in filters {
-                            if url_after_hostname.contains(f) {
+                        for f in filter.filter_part_as_any_of() {
+                            if url_after_hostname.contains(&f) {
                                 return true;
                             }
                         }
@@ -1562,10 +1792,10 @@ fn check_pattern_hostname_anchor_filter(
 
 /// Efficiently checks if a certain network filter matches against a network
 /// request.
-fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
+fn check_pattern<'a, T : NetworkMatchable + NetworkFilterGetter<'a>>(filter: &'a T, request: &request::Request, regex_cache: &RegexCachePtr) -> bool {
     if filter.is_hostname_anchor() {
         if filter.is_regex() {
-            check_pattern_hostname_anchor_regex_filter(filter, request)
+            check_pattern_hostname_anchor_regex_filter(filter, request, regex_cache)
         } else if filter.is_right_anchor() && filter.is_left_anchor() {
             check_pattern_hostname_left_right_anchor_filter(filter, request)
         } else if filter.is_right_anchor() {
@@ -1576,7 +1806,7 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
             check_pattern_hostname_anchor_filter(filter, request)
         }
     } else if filter.is_regex() || filter.is_complete_regex() {
-        check_pattern_regex_filter(filter, request)
+        check_pattern_regex_filter(filter, request, regex_cache)
     } else if filter.is_left_anchor() && filter.is_right_anchor() {
         check_pattern_left_right_anchor_filter(filter, request)
     } else if filter.is_left_anchor() {
@@ -1588,7 +1818,7 @@ fn check_pattern(filter: &NetworkFilter, request: &request::Request) -> bool {
     }
 }
 
-pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> bool {
+pub fn check_cpt_allowed<'a, T : NetworkFilterGetter<'a>>(filter: &'a T, cpt: &request::RequestType) -> bool {
     match NetworkFilterMask::from(cpt) {
         // TODO this is not ideal, but required to allow regexed exception rules without an
         // explicit `$document` option to apply uBO-style.
@@ -1598,14 +1828,14 @@ pub fn check_cpt_allowed(filter: &NetworkFilter, cpt: &request::RequestType) -> 
     }
 }
 
-fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
+fn check_options<'a, T : NetworkFilterGetter<'a>>(filter: &'a T, request: &request::Request) -> bool {
     // Bad filter never matches
     if filter.is_badfilter() {
         return false;
     }
     // We first discard requests based on type, protocol and party. This is really
     // cheap and should be done first.
-    if !check_cpt_allowed(&filter, &request.request_type)
+    if !check_cpt_allowed(filter, &request.request_type)
         || (request.is_https && !filter.for_https())
         || (request.is_http && !filter.for_http())
         || (!filter.first_party() && request.is_first_party == Some(true))
@@ -1616,7 +1846,7 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
 
     // Make sure that an exception with a bug ID can only apply to a request being
     // matched for a specific bug ID.
-    if filter.bug().is_some() && filter.is_exception() && *filter.bug() != request.bug {
+    if filter.has_bug() && filter.is_exception() && Some(filter.bug()) != request.bug {
         return false;
     }
 
@@ -1701,13 +1931,13 @@ mod parse_tests {
     impl From<&NetworkFilter> for NetworkFilterBreakdown {
         fn from(filter: &NetworkFilter) -> NetworkFilterBreakdown {
             NetworkFilterBreakdown {
-                filter: filter.filter().string_view(),
-                bug: filter.bug().as_ref().cloned(),
-                csp: filter.csp().as_ref().cloned(),
-                hostname: filter.hostname().as_ref().cloned(),
-                opt_domains: filter.opt_domains().as_ref().cloned(),
-                opt_not_domains: filter.opt_not_domains().as_ref().cloned(),
-                redirect: filter.redirect().as_ref().cloned(),
+                filter: filter.filter_string_view(),
+                bug: if filter.has_bug() { Some(filter.bug()) } else { None },
+                csp: filter.csp().map(|s| s.to_string()),
+                hostname: filter.hostname().map(|s| s.to_string()),
+                opt_domains: filter.opt_domains().map(|v| v.to_vec()),
+                opt_not_domains: filter.opt_not_domains().map(|v| v.to_vec()),
+                redirect: filter.redirect().map(|s| s.to_string()),
 
                 // filter type
                 is_exception: filter.is_exception(),
@@ -2230,7 +2460,7 @@ mod parse_tests {
             // parses simple CSP
             let filter = NetworkFilter::parse(r#"||foo.com$csp=self bar """#, true, Default::default()).unwrap();
             assert_eq!(filter.is_csp(), true);
-            assert_eq!(filter.csp(), Some(String::from(r#"self bar """#)));
+            assert_eq!(filter.csp().unwrap(), r#"self bar """#);
         }
         {
             // parses empty CSP
@@ -2251,14 +2481,14 @@ mod parse_tests {
         // parses domain
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com", true, Default::default()).unwrap();
-            assert_eq!(filter.opt_domains(), Some(vec![utils::fast_hash("bar.com")]));
+            assert_eq!(*filter.opt_domains().unwrap(), [utils::fast_hash("bar.com")]);
             assert_eq!(filter.opt_not_domains(), None);
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com|baz.com", true, Default::default()).unwrap();
-            let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            let mut domains = [utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
             domains.sort_unstable();
-            assert_eq!(filter.opt_domains(), Some(domains));
+            assert_eq!(*filter.opt_domains().unwrap(), domains);
             assert_eq!(filter.opt_not_domains(), None);
         }
 
@@ -2267,40 +2497,40 @@ mod parse_tests {
             let filter = NetworkFilter::parse("||foo.com$domain=~bar.com", true, Default::default()).unwrap();
             assert_eq!(filter.opt_domains(), None);
             assert_eq!(
-                filter.opt_not_domains(),
-                Some(vec![utils::fast_hash("bar.com")])
+                *filter.opt_not_domains().unwrap(),
+                [utils::fast_hash("bar.com")]
             );
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=~bar.com|~baz.com", true, Default::default()).unwrap();
             assert_eq!(filter.opt_domains(), None);
-            let mut domains = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            let mut domains = [utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
             domains.sort_unstable();
-            assert_eq!(filter.opt_not_domains(), Some(domains));
+            assert_eq!(*filter.opt_not_domains().unwrap(), domains);
         }
         // parses domain and ~domain
         {
             let filter = NetworkFilter::parse("||foo.com$domain=~bar.com|baz.com", true, Default::default()).unwrap();
-            assert_eq!(filter.opt_domains(), Some(vec![utils::fast_hash("baz.com")]));
+            assert_eq!(*filter.opt_domains().unwrap(), [utils::fast_hash("baz.com")]);
             assert_eq!(
-                filter.opt_not_domains(),
-                Some(vec![utils::fast_hash("bar.com")])
+                *filter.opt_not_domains().unwrap(),
+                [utils::fast_hash("bar.com")]
             );
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=bar.com|~baz.com", true, Default::default()).unwrap();
-            assert_eq!(filter.opt_domains(), Some(vec![utils::fast_hash("bar.com")]));
+            assert_eq!(*filter.opt_domains().unwrap(), [utils::fast_hash("bar.com")]);
             assert_eq!(
-                filter.opt_not_domains(),
-                Some(vec![utils::fast_hash("baz.com")])
+                *filter.opt_not_domains().unwrap(),
+                [utils::fast_hash("baz.com")]
             );
         }
         {
             let filter = NetworkFilter::parse("||foo.com$domain=foo|~bar|baz", true, Default::default()).unwrap();
-            let mut domains = vec![utils::fast_hash("foo"), utils::fast_hash("baz")];
+            let mut domains = [utils::fast_hash("foo"), utils::fast_hash("baz")];
             domains.sort();
-            assert_eq!(filter.opt_domains(), Some(domains));
-            assert_eq!(filter.opt_not_domains(), Some(vec![utils::fast_hash("bar")]));
+            assert_eq!(*filter.opt_domains().unwrap(), domains);
+            assert_eq!(*filter.opt_not_domains().unwrap(), [utils::fast_hash("bar")]);
         }
         // defaults to no constraint
         {
@@ -2321,13 +2551,13 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, opts).unwrap();
-            assert_eq!(filter.redirect(), Some(String::from("http://xyz.com")));
+            assert_eq!(filter.redirect().unwrap(), "http://xyz.com");
             assert_eq!(filter.is_redirect_url(), true);
         }
         {
             let filter = NetworkFilter::parse("$redirect-url=http://xyz.com", true, opts).unwrap();
             assert_eq!(filter.is_redirect_url(), true);
-            assert_eq!(filter.redirect(), Some(String::from("http://xyz.com")));
+            assert_eq!(filter.redirect().unwrap(), "http://xyz.com");
         }
         // parses ~redirect-url
         {
@@ -2374,11 +2604,11 @@ mod parse_tests {
         // parses redirect
         {
             let filter = NetworkFilter::parse("||foo.com$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect(), Some(String::from("bar.js")));
+            assert_eq!(filter.redirect().unwrap(), "bar.js");
         }
         {
             let filter = NetworkFilter::parse("$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect(), Some(String::from("bar.js")));
+            assert_eq!(filter.redirect().unwrap(), "bar.js");
         }
         // parses ~redirect
         {
@@ -2531,32 +2761,31 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com$bug=42", true, Default::default()).unwrap();
             assert_eq!(filter.has_bug(), true);
-            assert_eq!(*filter.bug(), Some(42));
+            assert_eq!(filter.bug(), 42);
         }
         {
             let filter = NetworkFilter::parse("@@||foo.com$bug=1337", true, Default::default()).unwrap();
             assert_eq!(filter.is_exception(), true);
             assert_eq!(filter.has_bug(), true);
-            assert_eq!(*filter.bug(), Some(1337));
+            assert_eq!(filter.bug(), 1337);
         }
         {
             let filter = NetworkFilter::parse("@@||foo.com|$bug=11111", true, Default::default()).unwrap();
             assert_eq!(filter.is_exception(), true);
             assert_eq!(filter.has_bug(), true);
-            assert_eq!(*filter.bug(), Some(11111));
+            assert_eq!(filter.bug(), 11111);
         }
         {
             let filter = NetworkFilter::parse("@@$bug=11111", true, Default::default()).unwrap();
             assert_eq!(filter.is_exception(), true);
             assert_eq!(filter.has_bug(), true);
-            assert_eq!(*filter.bug(), Some(11111));
+            assert_eq!(filter.bug(), 11111);
         }
 
         // defaults to undefined
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
             assert_eq!(filter.has_bug(), false);
-            assert_eq!(*filter.bug(), None);
         }
     }
 
@@ -2814,7 +3043,7 @@ mod parse_tests {
 
             assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded));
 
-            assert_eq!(decoded.get_regex().is_match("bar/"), true);
+            assert_eq!(decoded.make_regex().is_match("bar/"), true);
         }
     }
 
@@ -3360,7 +3589,7 @@ mod match_tests {
         {
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
-            let regex = Arc::try_unwrap(network_filter.get_regex()).unwrap();
+            let regex = network_filter.make_regex();
             assert!(
                 matches!(regex, CompiledRegex::Compiled(_)),
                 "Generated incorrect regex: {:?}",

@@ -9,7 +9,7 @@ use std::collections::{HashSet, HashMap};
 use serde::{Deserialize, Serialize};
 use rmp_serde as rmps;
 
-use crate::blocker::{Blocker, NetworkFilterList};
+use crate::blocker::{Blocker, BlockerBuildArgs, NetworkFilterList};
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 use crate::filters::network::NetworkFilter;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
@@ -21,15 +21,16 @@ use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serializat
 /// serialization.
 #[derive(Serialize)]
 pub(crate) struct SerializeFormat<'a> {
-    csp: &'a NetworkFilterList,
-    exceptions: &'a NetworkFilterList,
-    importants: &'a NetworkFilterList,
-    redirects: &'a NetworkFilterList,
-    filters_tagged: &'a NetworkFilterList,
-    filters: &'a NetworkFilterList,
-    generic_hide: &'a NetworkFilterList,
+    // csp: &'a NetworkFilterList,
+    // exceptions: &'a NetworkFilterList,
+    // importants: &'a NetworkFilterList,
+    // redirects: &'a NetworkFilterList,
+    // filters: &'a NetworkFilterList,
+    // generic_hide: &'a NetworkFilterList,
 
-    tagged_filters_all: &'a Vec<NetworkFilter>,
+    //filters_tagged: &'a NetworkFilterList,
+
+    //tagged_filters_all: &'a Vec<NetworkFilter>,
 
     enable_optimizations: bool,
 
@@ -100,19 +101,20 @@ impl DeserializeFormat {
     }
 }
 
-impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
-    fn from(v: (&'a Blocker, &'a CosmeticFilterCache)) -> Self {
+impl<'a> From<(&'a Blocker<'a>, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
+    fn from(v: (&'a Blocker<'a>, &'a CosmeticFilterCache)) -> Self {
         let (blocker, cfc) = v;
         Self {
-            csp: &blocker.csp,
-            exceptions: &blocker.exceptions,
-            importants: &blocker.importants,
-            redirects: &blocker.redirects,
-            filters_tagged: &blocker.filters_tagged,
-            filters: &blocker.filters,
-            generic_hide: &blocker.generic_hide,
+            // csp: &blocker.exceptions,  // TODO!!!! Replace to csp!!
+            // exceptions: &blocker.exceptions,
+            // importants: &blocker.importants,
+            // redirects: &blocker.redirects,
+            // filters: &blocker.filters,
+            // generic_hide: &blocker.generic_hide,
 
-            tagged_filters_all: &blocker.tagged_filters_all,
+            //filters_tagged: &blocker.filters_tagged,
+
+            //tagged_filters_all: &blocker.tagged_filters_all,
 
             enable_optimizations: blocker.enable_optimizations,
 
@@ -132,9 +134,9 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
     }
 }
 
-impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+impl<'a> From<DeserializeFormat> for (Blocker<'a>, CosmeticFilterCache) {
     fn from(v: DeserializeFormat) -> Self {
-        (Blocker {
+        (Blocker::from_args(BlockerBuildArgs {
             csp: v.csp,
             exceptions: v.exceptions,
             importants: v.importants,
@@ -149,10 +151,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             enable_optimizations: v.enable_optimizations,
 
             resources: v.resources,
-            #[cfg(feature = "object-pooling")]
-            pool: Default::default(),
-
-        }, CosmeticFilterCache {
+        }), CosmeticFilterCache {
             simple_class_rules: v.simple_class_rules,
             simple_id_rules: v.simple_id_rules,
             complex_class_rules: v.complex_class_rules,

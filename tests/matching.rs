@@ -1,6 +1,6 @@
 use adblock::request::Request;
 use adblock::filters::network::NetworkFilter;
-use adblock::filters::network::NetworkMatchable;
+use adblock::filters::network::{NetworkMatchable, NetworkFilterGetter};
 use adblock::engine::Engine;
 use adblock::resources::{Resource, ResourceType, MimeType};
 
@@ -43,7 +43,7 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
                 name: redirect.to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                content: redirect,
+                content: redirect.to_string(),
             }
         })
         .collect()

@@ -1,0 +1,36 @@
+//flatc --rust -o src/flat/ src/flat/network_filter.fbs
+namespace fb;
+
+enum FilterPartType : ubyte {
+  EMPTY,
+  SIMPLE,
+  ANY_OF,
+}
+
+table FlatNetworkFilter
+{
+  mask: uint32;
+  filter_part_type: FilterPartType;
+  filter_part_inner: [string];
+  opt_domains: [uint64];
+  opt_not_domains: [uint64];
+  redirect: string;
+  hostname: string;
+  csp: string;
+  bug: uint32 (optional);
+
+  tag: string;
+
+  raw_line: string;
+
+  id: uint64;
+
+  opt_domains_union: uint64;
+  opt_not_domains_union: uint64;
+}
+
+table FlatNetworkFilterStorage {
+  global_list: [FlatNetworkFilter];
+}
+
+root_type FlatNetworkFilterStorage;
