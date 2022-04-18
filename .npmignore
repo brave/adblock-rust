@@ -5,7 +5,6 @@ native/target/
 native/index.node
 .git/
 .DS_Store
-.travis.yml
 *.code-workspace
 *.diff
 *.tgz

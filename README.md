@@ -3,7 +3,7 @@
 [![docs.rs](https://docs.rs/adblock/badge.svg)](https://docs.rs/adblock)
 [![crates.io](https://img.shields.io/crates/v/adblock.svg)](https://crates.io/crates/adblock)
 [![npmjs.com](https://img.shields.io/npm/v/adblock-rs.svg)](https://www.npmjs.com/package/adblock-rs)
-[![Build Status](https://travis-ci.org/brave/adblock-rust.svg?branch=master)](https://travis-ci.org/brave/adblock-rust)
+![Build Status](https://github.com/github/brave/adblock-rust/workflows/ci.yml/badge.svg?branch=master)
 
 Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching.
 
