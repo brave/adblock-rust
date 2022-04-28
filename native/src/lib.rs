@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::sync::Mutex;
 use std::path::Path;
 use adblock::engine::Engine as EngineInternal;
-use adblock::lists::{RuleTypes, FilterFormat, FilterSet as FilterSetInternal, ParseOptions};
+use adblock::lists::{RuleTypes, FilterFormat, FilterListMetadata, FilterSet as FilterSetInternal, ParseOptions};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
 
@@ -19,7 +19,7 @@ impl FilterSet {
     fn new(debug: bool) -> Self {
         Self(RefCell::new(FilterSetInternal::new(debug)))
     }
-    fn add_filters(&self, rules: &[String], opts: ParseOptions) {
+    fn add_filters(&self, rules: &[String], opts: ParseOptions) -> FilterListMetadata {
         self.0.borrow_mut().add_filters(rules, opts)
     }
     fn add_filter(&self, filter: &str, opts: ParseOptions) -> Result<(), adblock::lists::FilterParseError> {
@@ -42,7 +42,7 @@ fn create_filter_set(mut cx: FunctionContext) -> JsResult<JsBox<FilterSet>> {
     }
 }
 
-fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsNull> {
+fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
     // Take the first argument, which must be an array
@@ -67,9 +67,14 @@ fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsNull> {
         rules.push(rule);
     }
 
-    this.add_filters(&rules, parse_opts);
+    let metadata = this.add_filters(&rules, parse_opts);
 
-    Ok(JsNull::new(&mut cx))
+    let js_metadata = match neon_serde::to_value(&mut cx, &metadata) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+
+    Ok(js_metadata)
 }
 
 fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {

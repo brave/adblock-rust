@@ -107,7 +107,7 @@ impl Default for FilterSet {
 }
 
 /// Corresponds to the `expires` field of `FilterListMetadata`.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum ExpiresInterval {
     Hours(u16),
     Days(u8),
@@ -148,7 +148,7 @@ impl TryFrom<&str> for ExpiresInterval {
 
 /// Includes information about any "special comments" as described by
 /// https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments
-#[derive(Default)]
+#[derive(Default, Serialize)]
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked
     /// as filter list homepage.
