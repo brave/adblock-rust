@@ -152,23 +152,23 @@ impl TryFrom<&str> for ExpiresInterval {
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked
     /// as filter list homepage.
-    homepage: Option<String>,
+    pub homepage: Option<String>,
     /// `! Title: FooList` - This comment sets a fixed title for the filter list. If this comment
     /// is present, the user is no longer able to change the title.
-    title: Option<String>,
+    pub title: Option<String>,
     /// `! Expires: 5 days` - This comment sets the update interval for the filter list. The value
     /// can be given in days (e.g. 5 days) or hours (e.g. 8 hours). Any value between 1 hour and 14
     /// days is possible. Note that the update will not necessarily happen after this time
     /// interval. The actual update time is slightly randomized and depends on some additional
     /// factors to reduce server load.
-    expires: Option<ExpiresInterval>,
+    pub expires: Option<ExpiresInterval>,
     /// `! Redirect: http://example.com/list.txt` - This comment indicates that the filter list has
     /// moved to a new download address. Adblock Plus ignores any file content beyond that comment
     /// and immediately tries downloading from the new address. In case of success, the address of
     /// the filter list is updated in the settings. This comment is ignored if the new address is
     /// the same as the current address, meaning that it can be used to enforce the "canonical"
     /// address of the filter list.
-    redirect: Option<String>,
+    pub redirect: Option<String>,
 }
 
 impl FilterListMetadata {
