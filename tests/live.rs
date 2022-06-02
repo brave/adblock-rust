@@ -106,10 +106,19 @@ fn get_blocker_engine_deserialized() -> Engine {
     use futures::FutureExt;
     let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
+    let brave_service_key = std::env::var("brave_service_key")
+        .expect("Must set the $brave_service_key environment variable to execute live tests.");
+
     let dat_url = "https://adblock-data.s3.brave.com/4/rs-ABPFilterParserData.dat";
-    let resp_bytes_fut = reqwest::get(dat_url)
+    let download_client = reqwest::Client::new();
+    let resp_bytes_fut = download_client.get(dat_url)
+        .header("BraveServiceKey", brave_service_key)
+        .send()
         .map(|e| e.expect("Could not request rules"))
-        .then(|resp| resp.bytes());
+        .then(|resp| {
+            assert_eq!(resp.status(), 200, "Downloading live DAT failed. Is the service key correct?");
+            resp.bytes()
+        });
     let dat = async_runtime
         .block_on(resp_bytes_fut)
         .expect("Could not get response as bytes");
