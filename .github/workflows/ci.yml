@@ -30,4 +30,6 @@ jobs:
           cargo audit
 
       - name: Cargo test
+        env:
+          BRAVE_SERVICE_KEY: ${{ secrets.BRAVE_SERVICE_KEY }}
         run: cargo test --verbose --features "content-blocking, resource-assembler"
