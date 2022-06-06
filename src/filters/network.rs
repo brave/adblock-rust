@@ -928,7 +928,8 @@ impl NetworkFilter {
     }
 
     pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
-        let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+        let mut shared_tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+        let mut multi_tokens: Vec<Vec<Hash>> = vec![];
 
         // If there is only one domain and no domain negation, we also use this
         // domain as a token.
@@ -938,7 +939,7 @@ impl NetworkFilter {
         {
             if let Some(domains) = self.opt_domains.as_ref() {
                 if let Some(domain) = domains.first() {
-                    tokens.push(*domain)
+                    shared_tokens.push(*domain)
                 }
             }
         }
@@ -954,10 +955,20 @@ impl NetworkFilter {
                     let mut filter_tokens =
                         utils::tokenize_filter(&f, skip_first_token, skip_last_token);
 
-                    tokens.append(&mut filter_tokens);
+                    shared_tokens.append(&mut filter_tokens);
                 }
             }
-            FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
+            FilterPart::AnyOf(list) => {
+                for f in list {
+                    if !self.is_complete_regex() {
+                        let skip_last_token =
+                            (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
+                        let skip_first_token = self.is_right_anchor();
+
+                        multi_tokens.push(utils::tokenize_filter(&f, skip_first_token, skip_last_token));
+                    }
+                }
+            }
             _ => (),
         }
 
@@ -965,13 +976,14 @@ impl NetworkFilter {
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref()  {
                 let mut hostname_tokens = utils::tokenize(&hostname);
-                tokens.append(&mut hostname_tokens);
+                shared_tokens.append(&mut hostname_tokens);
             }
         }
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
-        if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
+        if shared_tokens.is_empty() && multi_tokens.is_empty()
+             && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
             self.opt_domains
                 .as_ref()
                 .unwrap_or(&vec![])
@@ -981,12 +993,17 @@ impl NetworkFilter {
         } else {
             // Add optional token for protocol
             if self.for_http() && !self.for_https() {
-                tokens.push(utils::fast_hash("http"));
+                shared_tokens.push(utils::fast_hash("http"));
             } else if self.for_https() && !self.for_http() {
-                tokens.push(utils::fast_hash("https"));
+                shared_tokens.push(utils::fast_hash("https"));
             }
-            tokens.shrink_to_fit();
-            vec![tokens]
+            shared_tokens.shrink_to_fit();
+            if multi_tokens.is_empty() {
+                vec![shared_tokens]
+            } else {
+                multi_tokens.iter_mut().for_each(|t| t.extend(shared_tokens.iter().cloned()));
+                multi_tokens
+            }
         }
     }
 
