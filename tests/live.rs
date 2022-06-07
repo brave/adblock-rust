@@ -107,7 +107,7 @@ fn get_blocker_engine_deserialized() -> Engine {
     let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
     let brave_service_key = std::env::var("BRAVE_SERVICE_KEY")
-        .expect("Must set the $brave_service_key environment variable to execute live tests.");
+        .expect("Must set the $BRAVE_SERVICE_KEY environment variable to execute live tests.");
 
     let dat_url = "https://adblock-data.s3.brave.com/4/rs-ABPFilterParserData.dat";
     let download_client = reqwest::Client::new();
