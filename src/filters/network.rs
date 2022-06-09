@@ -75,6 +75,10 @@ bitflags::bitflags! {
         const IS_COMPLETE_REGEX = 1 << 24;
         const IS_HOSTNAME_REGEX = 1 << 28;
 
+        // Specifies that a redirect rule should also create a corresponding block rule.
+        // This is used to avoid returning two separate rules from `NetworkFilter::parse`.
+        const ALSO_BLOCK_REDIRECT = 1 << 31;
+
         // "Other" network request types
         const UNMATCHED = 1 << 25;
 
@@ -226,6 +230,7 @@ enum NetworkFilterOption {
     Bug(u32),
     Tag(String),
     Redirect(String),
+    RedirectRule(String),
     RedirectUrl(String),
     Csp(Option<String>),
     Generichide,
@@ -266,6 +271,7 @@ impl NetworkFilterOption {
     pub fn is_redirection(&self) -> bool {
         match self {
             Self::Redirect(..) => true,
+            Self::RedirectRule(..) => true,
             Self::RedirectUrl(..) => true,
             _ => false,
         }
@@ -381,6 +387,14 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
                 }
 
                 NetworkFilterOption::Redirect(String::from(value))
+            }
+            ("redirect-rule", true) => return Err(NetworkFilterError::NegatedRedirection),
+            ("redirect-rule", false) => {
+                if value.is_empty() {
+                    return Err(NetworkFilterError::EmptyRedirection);
+                }
+
+                NetworkFilterOption::RedirectRule(String::from(value))
             }
             ("redirect-url", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect-url", false) => {
@@ -618,7 +632,11 @@ impl NetworkFilter {
                     NetworkFilterOption::Collapse => (),
                     NetworkFilterOption::Bug(num) => bug = Some(num),
                     NetworkFilterOption::Tag(value) => tag = Some(value),
-                    NetworkFilterOption::Redirect(value) => redirect = Some(value),
+                    NetworkFilterOption::Redirect(value) => {
+                        mask.set(NetworkFilterMask::ALSO_BLOCK_REDIRECT, true);
+                        redirect = Some(value);
+                    },
+                    NetworkFilterOption::RedirectRule(value) => redirect = Some(value),
                     NetworkFilterOption::RedirectUrl(value) => redirect = {
                         mask.set(NetworkFilterMask::IS_REDIRECT_URL, true);
                         Some(value)
@@ -1025,6 +1043,10 @@ impl NetworkFilter {
 
     pub fn is_redirect_url(&self) -> bool {
         self.redirect.is_some() && self.mask.contains(NetworkFilterMask::IS_REDIRECT_URL)
+    }
+
+    pub fn also_block_redirect(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
     }
 
     pub fn is_badfilter(&self) -> bool {

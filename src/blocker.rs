@@ -353,7 +353,7 @@ impl Blocker {
         let mut exceptions = Vec::with_capacity(network_filters.len() / 8);
         // $important
         let mut importants = Vec::with_capacity(200);
-        // $redirect and $redirect-url
+        // $redirect, $redirect-rule, and $redirect-url
         let mut redirects = Vec::with_capacity(200);
         // $tag=
         let mut tagged_filters_all = Vec::with_capacity(200);
@@ -398,7 +398,9 @@ impl Blocker {
                     // `tag` + `redirect` is unsupported for now.
                     tagged_filters_all.push(filter);
                 } else {
-                    filters.push(filter);
+                    if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
+                        filters.push(filter);
+                    }
                 }
             }
         }
@@ -1239,6 +1241,31 @@ mod blocker_tests {
     }
 
     #[test]
+    fn redirect_url() {
+        let filters = vec![
+            String::from("||foo.com$redirect-url=http://xyz.com"),
+        ];
+
+        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
+
+        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
+
+        let (network_filters, _) = parse_filters(&filters, true, opts);
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, false);
+        assert_eq!(matched_rule.important, false);
+        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
+        assert_eq!(matched_rule.error, None);
+    }
+
+    #[test]
     fn redirect_url_blocked() {
         let filters = vec![
             String::from("||foo.com$important,redirect-url=http://xyz.com"),
@@ -1333,7 +1360,7 @@ mod blocker_tests {
         assert_eq!(matched_rule.matched, false);
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
-        assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
+        assert_eq!(matched_rule.exception, None);
         assert_eq!(matched_rule.error, None);
     }
 
@@ -1398,6 +1425,38 @@ mod blocker_tests {
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, None);
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3".to_string()));
+        assert_eq!(matched_rule.error, None);
+    }
+
+    #[test]
+    fn redirect_rule_redirection() {
+        let filters = vec![
+            String::from("||doubleclick.net^"),
+            String::from("||www3.doubleclick.net^$xmlhttprequest,redirect-rule=noop.txt,domain=lineups.fun"),
+        ];
+
+        let request = Request::from_urls("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
+
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+
+        let blocker_options: BlockerOptions = BlockerOptions {
+            enable_optimizations: false,
+        };
+
+        let mut blocker = Blocker::new(network_filters, &blocker_options);
+
+        blocker.add_resource(&Resource {
+            name: "noop.txt".to_string(),
+            aliases: vec![],
+            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::TextPlain),
+            content: base64::encode("noop"),
+        }).unwrap();
+
+        let matched_rule = blocker.check(&request);
+        assert_eq!(matched_rule.matched, true);
+        assert_eq!(matched_rule.important, false);
+        assert_eq!(matched_rule.redirect, Some(Redirection::Resource("data:text/plain;base64,bm9vcA==".to_string())));
+        assert_eq!(matched_rule.exception, None);
         assert_eq!(matched_rule.error, None);
     }
 
