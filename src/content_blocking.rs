@@ -1098,7 +1098,6 @@ mod ab2cb_tests {
 
 #[cfg(test)]
 mod filterset_tests {
-    use super::*;
     use once_cell::sync::Lazy;
     use crate::lists::{FilterSet, ParseOptions, RuleTypes};
 

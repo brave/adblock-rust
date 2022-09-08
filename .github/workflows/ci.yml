@@ -29,6 +29,10 @@ jobs:
           cargo generate-lockfile
           cargo audit
 
+        # Ensure that everything (benches, tests, etc.) compiles without warnings
+      - name: Cargo check
+        run: RUSTFLAGS="-D warnings" cargo check --workspace --all-targets --all-features
+
       - name: Cargo test
         env:
           BRAVE_SERVICE_KEY: ${{ secrets.BRAVE_SERVICE_KEY }}
