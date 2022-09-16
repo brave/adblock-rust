@@ -9,7 +9,7 @@ edition = "2018"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.3"
+libfuzzer-sys = "0.4"
 
 [dependencies.adblock]
 path = ".."
@@ -21,11 +21,17 @@ members = ["."]
 [[bin]]
 name = "parse_filter"
 path = "fuzz_targets/parse_filter.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "parse_filter_hosts"
 path = "fuzz_targets/parse_filter_hosts.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "parse_request"
 path = "fuzz_targets/parse_request.rs"
+test = false
+doc = false

@@ -3461,111 +3461,13 @@ mod hash_collision_tests {
     use crate::lists::parse_filters;
     use std::collections::HashMap;
 
-    fn get_rules() -> Vec<String> {
-        utils::rules_from_lists(&[
-            String::from("data/easylist.to/easylist/easylist.txt"),
-            String::from("data/easylist.to/easylist/easyprivacy.txt"),
-        ])
-    }
-
-    #[test]
-    fn check_domains_no_hash_collisions() {
-
-        //
-        // If tests are body parts, this one is Gran's vestigial tail: sure, maybe it helped her
-        // ancestors balance or whatever, but in 2022 it just makes elevators extra awkward and
-        // she has to cut holes in all her pants, so maybe she'd be better off having it removed.
-        // Then again, you were only stopping by to drop off some groceries, so a detour to the
-        // surgeon is a bit extreme for today. Besides, she might want some time to think about it.
-        //
-        // Test goal: confirm that the hashing algorithm doesn't produce collisions with any of the
-        // filters' domain name entries.
-        //
-        // The test originally hashed `opt_domains_full` and `opt_not_domains_full` from
-        // `NetworkFilter`, but in 2019 (commit b24259d5c32f75eb7accfd0b0215bff2b3e9a7d6), those
-        // fields were removed. Unfortunately no one noticed (or cared?) thanks to a feature flag
-        // that hid the test until 2022. To keep the tail... um... To keep the TEST around for now,
-        // there are a few quirks:
-        //
-        // 1. `AbstractNetworkFilter::parse` is private to this file, so the test was moved from
-        //    https://github.com/brave/adblock-rust/blob/v0.5.6/tests/hashing_test.rs to this file.
-        // 2. Since `NetworkFilter` no longer exposes the filters' original domain name, the test
-        //    must now repeat some of the logic in `NetworkFilter::parse` and might become out of
-        //    sync with how domains are hashed in the future.
-        // 3. The number of parsed domains from easylist+easyprivacy seems too low. In order to
-        //    avoid troubleshooting something out of scope for the original test, the new test also
-        //    checks for hash collisions using the filter's `pattern` text field.
-        //
-
-        let rules_lists = get_rules();
-
-        enum HashKind {
-            Pattern,
-            Domain
-        }
-
-        let mut skipped_rules = 0;
-        let mut patterns_hashed = 0;
-        let mut domains_hashed = 0;
-        let mut lookup = HashMap::<Hash, String>::new();
-
-        let mut collision_check = |value: String, kind: HashKind| {
-            let hash = utils::fast_hash(&value);
-            if let Some(stored_value) = lookup.get(&hash) {
-                assert_eq!(
-                    &value,
-                    stored_value,
-                    "hash collision: {} & {} share a hash value: {}", value, stored_value, hash
-                )
-            } else {
-                lookup.insert(hash, value);
-                match kind {
-                    HashKind::Pattern => { patterns_hashed += 1; },
-                    HashKind::Domain => { domains_hashed += 1; }
-                }
-            }
-        };
-
-        rules_lists
-            .iter()
-            .filter_map(|rule| {
-                let attempt = AbstractNetworkFilter::parse(rule, ParseOptions::default());
-                if let Err(ref _err) = attempt {
-                    // println!("parse failure '{:?}' on rule: '{:?}'", _err, rule);
-                    skipped_rules += 1;
-                }
-                attempt.ok()
-            })
-            .for_each(|filter| {
-                filter.options.unwrap_or_default().into_iter().for_each(|option| {
-                    if let NetworkFilterOption::Domain(domains) = option {
-                        domains.into_iter().for_each(|(_, domain)| {
-                            collision_check(domain, HashKind::Domain);
-                        });
-                    }
-                });
-                collision_check(filter.pattern.pattern, HashKind::Pattern);
-            });
-
-        println!("{} out of {} rules could not be parsed.", skipped_rules, rules_lists.len());
-        println!(
-            "With remaining {} rules, {} domains and {} patterns were hashed with 0 hash collisions",
-            rules_lists.len() - skipped_rules,
-            domains_hashed,
-            patterns_hashed
-        );
-        assert!(
-            lookup.len() > 90_000,
-            "only checked hashes for {} strings, which may be insufficient for finding hash collisions",
-            lookup.len()
-        );
-        assert_eq!(domains_hashed + patterns_hashed, lookup.len());
-    }
-
     #[test]
     fn check_rule_ids_no_collisions() {
-        let rules_lists = get_rules();
-        let (network_filters, _) = parse_filters(&rules_lists, true, Default::default());
+        let rules = utils::rules_from_lists(&[
+            String::from("data/easylist.to/easylist/easylist.txt"),
+            String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        ]);
+        let (network_filters, _) = parse_filters(&rules, true, Default::default());
 
         let mut filter_ids: HashMap<Hash, String> = HashMap::new();
 

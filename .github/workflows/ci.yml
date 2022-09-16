@@ -18,10 +18,16 @@ jobs:
           - os: windows-latest
             target: Windows
 
+    env:
+      # Take care when modifying this field; it's parsed naïvely by a script.
+      RUSTFLAGS: --deny warnings
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
+      # audit dependencies for severe vulnerabilities
+      # (to deny warnings in the future, note that cargo audit requires additional arguments)
       - name: Cargo audit
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -29,11 +35,9 @@ jobs:
           cargo generate-lockfile
           cargo audit
 
-        # Ensure that everything (benches, tests, etc.) compiles without warnings
-      - name: Cargo check
-        env:
-          RUSTFLAGS: -D warnings
-        run: cargo check --workspace --all-targets --all-features
+      - name: Cargo build all
+        run: .github/workflows/build-all.sh
+        shell: bash
 
       - name: Cargo test
         env:
