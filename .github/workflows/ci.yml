@@ -19,12 +19,32 @@ jobs:
             target: Windows
 
     env:
-      # Take care when modifying this field; it's parsed naïvely by a script.
+      # Deny warnings for all steps
+      # (changing this flag triggers a complete rebuild, so it's helpful to define it globally)
       RUSTFLAGS: --deny warnings
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Cargo build 'adblock' package
+        run: cargo build --all-features --all-targets
+
+      - name: Cargo build 'native' package
+        run: |
+          # Install npm packages
+          npm ci
+          # Since the 'install' script in package.json has already run `neon build`,
+          # a second `cargo build` may not catch any additional errors. If someone
+          # who knows how neon works confirms that, we could remove the following lines:
+          cd native
+          cargo build --all-features --all-targets
+
+      - name: Cargo fuzz
+        # the 'fuzz' package has no entrypoints, befuddling the mvsc linker on Windows
+        if: matrix.os != 'windows-latest'
+        run: .github/workflows/fuzz-all.sh
+        shell: bash
 
       # audit dependencies for severe vulnerabilities
       # (to deny warnings in the future, note that cargo audit requires additional arguments)
@@ -35,11 +55,7 @@ jobs:
           cargo generate-lockfile
           cargo audit
 
-      - name: Cargo build all
-        run: .github/workflows/build-all.sh
-        shell: bash
-
-      - name: Cargo test
+      - name: Cargo test 'adblock' package
         env:
           BRAVE_SERVICE_KEY: ${{ secrets.BRAVE_SERVICE_KEY }}
-        run: cargo test --verbose --features "content-blocking, resource-assembler"
+        run: cargo test --verbose --all-features --all-targets --no-fail-fast
