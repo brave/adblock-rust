@@ -56,6 +56,18 @@ jobs:
           cargo audit
 
       - name: Cargo test 'adblock' package
+        run: cargo test --all-features --tests --no-fail-fast
+
+      - name: Run Brave-specific tests
         env:
           BRAVE_SERVICE_KEY: ${{ secrets.BRAVE_SERVICE_KEY }}
-        run: cargo test --verbose --all-features --all-targets --no-fail-fast
+          TEST_NAME_FILTER: live_brave
+        run: |
+          # `cargo test` doesn't fail when it matches 0 tests.
+          # This hackily checks that the filter is working.
+          # If this check fails, something might have been renamed inadvertantly.
+          echo "Ensure that '$TEST_NAME_FILTER' still matches exactly 2 tests."
+          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER" --list | grep "2 tests, 0 benchmarks"
+
+          # Now run the tests
+          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER"
