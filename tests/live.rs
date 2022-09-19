@@ -188,25 +188,6 @@ fn get_blocker_engine_deserialized() -> Engine {
     engine
 }
 
-fn get_blocker_engine_deserialized_ios() -> Engine {
-    use futures::FutureExt;
-    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-
-    let list_url = "https://adblock-data.s3.brave.com/ios/latest.txt";
-    let resp_text_fut = reqwest::get(list_url)
-        .map(|resp| resp.expect("Could not request rules"))
-        .then(|resp| resp.text());
-    let filters: Vec<String> = async_runtime
-        .block_on(resp_text_fut)
-        .expect("Could not get rules as text")
-        .lines()
-        .map(|s| s.to_owned())
-        .collect();
-
-    let engine = Engine::from_rules_parametrised(&filters, Default::default(), true, false);
-    engine
-}
-
 #[test]
 fn check_live_specific_urls() {
     let mut engine = get_blocker_engine();
@@ -290,24 +271,6 @@ fn check_live_brave_deserialized_file() { // Note: CI relies on part of this fun
 
     for req in requests {
         println!("Checking {:?}", req);
-        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
-        assert_eq!(checked.matched, req.blocked,
-            "Expected match {} for {} {} {}",
-            req.blocked, req.url, req.sourceUrl, req.r#type);
-    }
-}
-
-/// This test always fails, and likely has never succeeded, because every instance of this function
-/// across all commits, has always appeared right after '#[ignore]'.
-///
-/// git --no-pager grep -B1 "check_live_deserialized_ios" $(git rev-list --all)
-#[test]
-#[ignore = "ever since I was created 😿"]
-fn check_live_deserialized_ios() {
-    let engine = get_blocker_engine_deserialized_ios();
-    let requests = load_requests();
-
-    for req in requests {
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
         assert_eq!(checked.matched, req.blocked,
             "Expected match {} for {} {} {}",
