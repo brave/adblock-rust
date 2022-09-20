@@ -18,10 +18,39 @@ jobs:
           - os: windows-latest
             target: Windows
 
+    env:
+      # Deny warnings for all steps
+      # (changing this flag triggers a complete rebuild, so it's helpful to define it globally)
+      RUSTFLAGS: --deny warnings
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Cargo build 'adblock' package
+        run: cargo build --all-features --all-targets
+
+      - name: Cargo build 'native' package
+        run: |
+          # Install npm packages
+          npm ci
+          # Since the 'install' script in package.json has already run `neon build`,
+          # a second `cargo build` may not catch any additional errors. If someone
+          # who knows how neon works confirms that, we could remove the following lines:
+          cd native
+          cargo build --all-features --all-targets
+
+      - name: Cargo fuzz
+        # Only runs on one runner for a few reasons:
+        #    1. The 'fuzz' package has no entrypoints, befuddling the mvsc linker on Windows
+        #    2. Mac CI Runners can be noticeably slower than the other two
+        #    3. Assumption: fuzzing on multiple OS's isn't likely to catch bugs
+        if: matrix.os == 'ubuntu-latest'
+        run: .github/workflows/fuzz-all.sh
+        shell: bash
+
+      # audit dependencies for severe vulnerabilities
+      # (to deny warnings in the future, note that cargo audit requires additional arguments)
       - name: Cargo audit
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -29,7 +58,25 @@ jobs:
           cargo generate-lockfile
           cargo audit
 
-      - name: Cargo test
+      - name: Cargo test 'adblock' package
+        run: cargo test --all-features --tests --no-fail-fast
+
+      - name: Run Brave-specific tests
+        # Only runs on one runner for a few reasons:
+        #    1. windows doesn't expand the env var properly
+        #    2. On windows, the `grep` command doesn't stop the job like it does on the others
+        #    3. Although `shell: bash` might fix the windows issues, running this test on multiple
+        #       OS's isn't likely to catch bugs anyway
+        if: matrix.os == 'ubuntu-latest'
         env:
           BRAVE_SERVICE_KEY: ${{ secrets.BRAVE_SERVICE_KEY }}
-        run: cargo test --verbose --features "content-blocking, resource-assembler"
+          TEST_NAME_FILTER: live_brave
+        run: |
+          # `cargo test` doesn't fail when it matches 0 tests.
+          # This hackily checks that the filter is working.
+          # If this check fails, something might have been renamed inadvertantly.
+          echo "Ensure that '$TEST_NAME_FILTER' still matches exactly 2 tests."
+          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER" --list | grep "2 tests, 0 benchmarks"
+
+          # Now run the tests
+          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER"

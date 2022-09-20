@@ -758,7 +758,7 @@ impl NetworkFilterList {
         #[cfg(feature = "metrics")]
         let mut filter_buckets = 0;
 
-        let mut filters = vec![];
+        let mut filters: Vec<&NetworkFilter> = vec![];
 
         #[cfg(not(feature = "metrics"))]
         {

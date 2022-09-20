@@ -41,7 +41,8 @@ serde_json = { version = "1.0", optional = true }
 criterion = "0.3"
 csv = "1"
 serde_json = "1.0"
-reqwest = "0.11"
+# By default, reqwest builds openssl from source, which fails on missing/incompatible system dependencies
+reqwest = { version = "0.11", features = ["rustls-tls"], default-features = false }
 futures = "0.3"
 tokio = { version = "1.8", features = ["rt-multi-thread"] }
 sha2 = "0.9"
@@ -79,7 +80,6 @@ harness = false
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
 default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "unsync-regex-caching"]
-full-domain-matching = []
 metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.

@@ -3452,3 +3452,31 @@ mod match_tests {
         assert_eq!(get_url_after_hostname("https://www.youtube.com/?aclksa=l&ai=DChcSEwioqMfq5", "google.com"), "");
     }
 }
+
+#[cfg(test)]
+mod hash_collision_tests {
+    use super::*;
+
+    use crate::utils::Hash;
+    use crate::lists::parse_filters;
+    use std::collections::HashMap;
+
+    #[test]
+    fn check_rule_ids_no_collisions() {
+        let rules = utils::rules_from_lists(&[
+            String::from("data/easylist.to/easylist/easylist.txt"),
+            String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        ]);
+        let (network_filters, _) = parse_filters(&rules, true, Default::default());
+
+        let mut filter_ids: HashMap<Hash, String> = HashMap::new();
+
+        for filter in network_filters {
+            let id = filter.get_id();
+            let rule = *filter.raw_line.unwrap_or_default();
+            let existing_rule = filter_ids.get(&id);
+            assert!(existing_rule.is_none() || existing_rule.unwrap() == &rule, "ID {} for {} already present from {}", id, rule, existing_rule.unwrap());
+            filter_ids.insert(id, rule);
+        }
+    }
+}
