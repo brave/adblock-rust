@@ -330,10 +330,10 @@ fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
 fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     let web_accessible_resource_dir: String = cx.argument::<JsString>(0)?.value(&mut cx);
-    let redirect_engine_path: String = cx.argument::<JsString>(1)?.value(&mut cx);
+    let redirect_resources_path: String = cx.argument::<JsString>(1)?.value(&mut cx);
     let scriptlets_path: String = cx.argument::<JsString>(2)?.value(&mut cx);
 
-    let mut resources = assemble_web_accessible_resources(&Path::new(&web_accessible_resource_dir), &Path::new(&redirect_engine_path));
+    let mut resources = assemble_web_accessible_resources(&Path::new(&web_accessible_resource_dir), &Path::new(&redirect_resources_path));
     resources.append(&mut assemble_scriptlet_resources(&Path::new(&scriptlets_path)));
 
     let js_resources = match neon_serde::to_value(&mut cx, &resources) {
