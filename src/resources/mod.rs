@@ -53,6 +53,7 @@ pub enum MimeType {
     VideoMp4,
     ImagePng,
     TextPlain,
+    TextXml,
     Unknown,
 }
 
@@ -99,6 +100,7 @@ impl MimeType {
                 "mp4" => MimeType::VideoMp4,
                 "png" => MimeType::ImagePng,
                 "txt" => MimeType::TextPlain,
+                "xml" => MimeType::TextXml,
                 _ => {
                     #[cfg(test)]
                     eprintln!("Unrecognized file extension on: {:?}", resource_path);
@@ -148,7 +150,7 @@ impl RedirectResourceStorage {
             let decoded = base64::decode(&resource.content)?;
             match content_type {
                 // Ensure any text contents are also valid utf8
-                MimeType::ApplicationJavascript | MimeType::TextPlain | MimeType::TextHtml => {
+                MimeType::ApplicationJavascript | MimeType::TextPlain | MimeType::TextHtml | MimeType::TextXml => {
                     let _ = String::from_utf8(decoded)?;
                 }
                 _ => (),
@@ -178,6 +180,7 @@ impl From<std::borrow::Cow<'static, str>> for MimeType {
             "video/mp4" => MimeType::VideoMp4,
             "image/png" => MimeType::ImagePng,
             "text/plain" => MimeType::TextPlain,
+            "text/xml" => MimeType::TextXml,
             _ => MimeType::Unknown,
         }
     }
@@ -193,6 +196,7 @@ impl From<MimeType> for String {
             MimeType::VideoMp4 => "video/mp4",
             MimeType::ImagePng => "image/png",
             MimeType::TextPlain => "text/plain",
+            MimeType::TextXml => "text/xml",
             MimeType::Unknown => "application/octet-stream",
         }.to_owned()
     }
