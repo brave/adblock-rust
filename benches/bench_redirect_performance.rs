@@ -101,7 +101,7 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
 
         let mut resources = assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
-            Path::new("data/test/fake-uBO-files/redirect-engine.js")
+            Path::new("data/test/fake-uBO-files/redirect-resources.js")
         );
         resources.append(&mut assemble_scriptlet_resources(
             Path::new("data/test/fake-uBO-files/scriptlets.js"),
