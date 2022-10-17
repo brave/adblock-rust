@@ -77,6 +77,7 @@
         getTargetingKeys: nooparrayfn,
         getSlots: nooparrayfn,
         refresh: noopfn,
+        removeEventListener: noopfn,
         set: noopthisfn,
         setCategoryExclusion: noopthisfn,
         setCentering: noopfn,
@@ -84,6 +85,7 @@
         setForceSafeFrame: noopthisfn,
         setLocation: noopthisfn,
         setPublisherProvidedId: noopthisfn,
+        setPrivacySettings: noopthisfn,
         setRequestNonPersonalizedAds: noopthisfn,
         setSafeFrameConfig: noopthisfn,
         setTagForChildDirectedTreatment: noopthisfn,
@@ -108,6 +110,7 @@
     p.getAttributeKeys = nooparrayfn;
     p.getCategoryExclusions = nooparrayfn;
     p.getDomId = noopstrfn;
+    p.getResponseInformation = noopnullfn;
     p.getSlotElementId = noopstrfn;
     p.getSlotId = noopthisfn;
     p.getTargeting = nooparrayfn;
@@ -117,6 +120,7 @@
     p.setClickUrl = noopthisfn;
     p.setCollapseEmptyDiv = noopthisfn;
     p.setTargeting = noopthisfn;
+    p.updateTargetingFromMap = noopthisfn;
     //
     const gpt = window.googletag || {};
     const cmd = gpt.cmd || [];

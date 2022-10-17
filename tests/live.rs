@@ -284,7 +284,7 @@ fn check_live_redirects() {
     use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
     let mut engine = get_blocker_engine();
-    let redirect_engine_path = std::path::Path::new("data/test/fake-uBO-files/redirect-engine.js");
+    let redirect_engine_path = std::path::Path::new("data/test/fake-uBO-files/redirect-resources.js");
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
     let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path);
 

@@ -50,7 +50,7 @@ const AdBlockClient = require('adblock-rs');
 let el_rules = fs.readFileSync('./data/easylist.to/easylist/easylist.txt', { encoding: 'utf-8' }).split('\n');
 let ubo_unbreak_rules = fs.readFileSync('./data/uBlockOrigin/unbreak.txt', { encoding: 'utf-8' }).split('\n');
 let rules = el_rules.concat(ubo_unbreak_rules);
-let resources = AdBlockClient.uBlockResources('uBlockOrigin/src/web_accessible_resources', 'uBlockOrigin/src/js/redirect-engine.js', 'uBlockOrigin/assets/resources/scriptlets.js');
+let resources = AdBlockClient.uBlockResources('uBlockOrigin/src/web_accessible_resources', 'uBlockOrigin/src/js/redirect-resources.js', 'uBlockOrigin/assets/resources/scriptlets.js');
 
 const filterSet = new AdBlockClient.FilterSet(true);
 filterSet.addFilters(rules);
