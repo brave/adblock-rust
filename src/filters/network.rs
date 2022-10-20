@@ -696,7 +696,7 @@ impl NetworkFilter {
         let is_regex = check_is_regex(&pattern);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
-        if pattern.starts_with('/') && pattern.ends_with('/') {
+        if pattern.starts_with('/') && pattern.ends_with('/') && pattern.len() > 1 {
             #[cfg(feature = "full-regex-handling")]
             {
                 mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, true);

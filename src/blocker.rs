@@ -1221,6 +1221,27 @@ mod blocker_tests {
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
+    #[test]
+    fn single_slash() {
+        let filters = vec![
+            String::from("/|"),
+        ];
+
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+
+        let blocker_options = BlockerOptions {
+            enable_optimizations: true,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let request = Request::from_urls("https://example.com/test/", "https://example.com", "xmlhttprequest").unwrap();
+        assert!(blocker.check(&request).matched);
+
+        let request = Request::from_urls("https://example.com/test", "https://example.com", "xmlhttprequest").unwrap();
+        assert!(!blocker.check(&request).matched);
+    }
+
     fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
         let (network_filters, _) = parse_filters(filters, true, Default::default());
 
