@@ -126,7 +126,6 @@ impl Optimization for SimplePatternGroup {
             && !filter.is_hostname_anchor()
             && !filter.is_redirect()
             && !filter.is_csp()
-            && !filter.has_bug()
     }
 }
 
@@ -187,7 +186,6 @@ impl Optimization for UnionDomainGroup {
 
     fn select(&self, filter: &NetworkFilter) -> bool {
         !filter.is_csp()
-            && !filter.has_bug()
             && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
     }
 }

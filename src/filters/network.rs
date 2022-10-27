@@ -16,7 +16,6 @@ pub const TOKENS_BUFFER_SIZE: usize = 200;
 #[derive(Debug, PartialEq, Clone)]
 pub enum NetworkFilterError {
     FilterParseError,
-    BugValueNotNumeric,
     NegatedBadFilter,
     NegatedImportant,
     NegatedOptionMatchCase,
@@ -226,8 +225,6 @@ enum NetworkFilterOption {
     MatchCase,
     ThirdParty(bool),
     FirstParty(bool),
-    Collapse,
-    Bug(u32),
     Tag(String),
     Redirect(String),
     RedirectRule(String),
@@ -375,8 +372,6 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
             ("match-case", false) => NetworkFilterOption::MatchCase,
             ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
             ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
-            ("collapse", _) => NetworkFilterOption::Collapse,
-            ("bug", _) => NetworkFilterOption::Bug(value.parse::<u32>().map_err(|_| NetworkFilterError::BugValueNotNumeric)?),
             ("tag", true) => return Err(NetworkFilterError::NegatedTag),
             ("tag", false) => NetworkFilterOption::Tag(String::from(value)),
             ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
@@ -493,7 +488,7 @@ pub struct NetworkFilter {
     pub redirect: Option<String>,
     pub hostname: Option<String>,
     pub csp: Option<String>,
-    pub bug: Option<u32>,
+    pub bug: Option<u32>, // TODO unused, remove in next serialization format
     pub tag: Option<String>,
 
     pub raw_line: Option<Box<String>>,
@@ -574,7 +569,6 @@ impl NetworkFilter {
 
         let mut redirect: Option<String> = None;
         let mut csp: Option<String> = None;
-        let mut bug: Option<u32> = None;
         let mut tag: Option<String> = None;
 
         if parsed.exception {
@@ -629,8 +623,6 @@ impl NetworkFilter {
                     NetworkFilterOption::MatchCase => mask.set(NetworkFilterMask::MATCH_CASE, true),
                     NetworkFilterOption::ThirdParty(false) | NetworkFilterOption::FirstParty(true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
                     NetworkFilterOption::ThirdParty(true) | NetworkFilterOption::FirstParty(false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
-                    NetworkFilterOption::Collapse => (),
-                    NetworkFilterOption::Bug(num) => bug = Some(num),
                     NetworkFilterOption::Tag(value) => tag = Some(value),
                     NetworkFilterOption::Redirect(value) => {
                         mask.set(NetworkFilterMask::ALSO_BLOCK_REDIRECT, true);
@@ -867,7 +859,7 @@ impl NetworkFilter {
         mask &= !cpt_mask_negative;
 
         Ok(NetworkFilter {
-            bug,
+            bug: None,
             csp,
             filter: if let Some(simple_filter) = filter {
                 FilterPart::Simple(simple_filter)
@@ -1071,10 +1063,6 @@ impl NetworkFilter {
 
     pub fn is_csp(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_CSP)
-    }
-
-    pub fn has_bug(&self) -> bool {
-        self.bug.is_some()
     }
 
     fn third_party(&self) -> bool {
@@ -1615,12 +1603,6 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         return false;
     }
 
-    // Make sure that an exception with a bug ID can only apply to a request being
-    // matched for a specific bug ID.
-    if filter.bug.is_some() && filter.is_exception() && filter.bug != request.bug {
-        return false;
-    }
-
     // Source URL must be among these domains to match
     if let Some(included_domains) = filter.opt_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
@@ -1661,7 +1643,6 @@ mod parse_tests {
     #[derive(Debug, PartialEq)]
     struct NetworkFilterBreakdown {
         filter: Option<String>,
-        bug: Option<u32>,
         csp: Option<String>,
         hostname: Option<String>,
         opt_domains: Option<Vec<Hash>>,
@@ -1677,7 +1658,6 @@ mod parse_tests {
         is_csp: bool,
         is_plain: bool,
         is_important: bool,
-        has_bug: bool,
 
         // Options
         first_party: bool,
@@ -1703,7 +1683,6 @@ mod parse_tests {
         fn from(filter: &NetworkFilter) -> NetworkFilterBreakdown {
             NetworkFilterBreakdown {
                 filter: filter.filter.string_view(),
-                bug: filter.bug.as_ref().cloned(),
                 csp: filter.csp.as_ref().cloned(),
                 hostname: filter.hostname.as_ref().cloned(),
                 opt_domains: filter.opt_domains.as_ref().cloned(),
@@ -1719,7 +1698,6 @@ mod parse_tests {
                 is_csp: filter.is_csp(),
                 is_plain: filter.is_plain(),
                 is_important: filter.is_important(),
-                has_bug: filter.has_bug(),
 
                 // Options
                 first_party: filter.first_party(),
@@ -1746,7 +1724,6 @@ mod parse_tests {
     fn default_network_filter_breakdown() -> NetworkFilterBreakdown {
         NetworkFilterBreakdown {
             filter: None,
-            bug: None,
             csp: None,
             hostname: None,
             opt_domains: None,
@@ -1762,7 +1739,6 @@ mod parse_tests {
             is_csp: false,
             is_plain: false,
             is_important: false,
-            has_bug: false,
 
             // Options
             first_party: true,
@@ -2524,41 +2500,6 @@ mod parse_tests {
                 .third_party(),
             true
         );
-    }
-
-    #[test]
-    fn parses_bug() {
-        // parses bug
-        {
-            let filter = NetworkFilter::parse("||foo.com$bug=42", true, Default::default()).unwrap();
-            assert_eq!(filter.has_bug(), true);
-            assert_eq!(filter.bug, Some(42));
-        }
-        {
-            let filter = NetworkFilter::parse("@@||foo.com$bug=1337", true, Default::default()).unwrap();
-            assert_eq!(filter.is_exception(), true);
-            assert_eq!(filter.has_bug(), true);
-            assert_eq!(filter.bug, Some(1337));
-        }
-        {
-            let filter = NetworkFilter::parse("@@||foo.com|$bug=11111", true, Default::default()).unwrap();
-            assert_eq!(filter.is_exception(), true);
-            assert_eq!(filter.has_bug(), true);
-            assert_eq!(filter.bug, Some(11111));
-        }
-        {
-            let filter = NetworkFilter::parse("@@$bug=11111", true, Default::default()).unwrap();
-            assert_eq!(filter.is_exception(), true);
-            assert_eq!(filter.has_bug(), true);
-            assert_eq!(filter.bug, Some(11111));
-        }
-
-        // defaults to undefined
-        {
-            let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.has_bug(), false);
-            assert_eq!(filter.bug, None);
-        }
     }
 
     #[test]

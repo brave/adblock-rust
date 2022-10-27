@@ -82,7 +82,7 @@ pub struct Request {
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     // mutable fields, set later
-    pub bug: Option<u32>,
+    pub bug: Option<u32>, // TODO - unused, remove in next major version bump
     hostname_end: usize
 }
 
