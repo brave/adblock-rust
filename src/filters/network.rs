@@ -479,7 +479,6 @@ pub struct NetworkFilter {
     pub redirect: Option<String>,
     pub hostname: Option<String>,
     pub csp: Option<String>,
-    pub bug: Option<u32>, // TODO unused, remove in next version bump
     pub tag: Option<String>,
 
     pub raw_line: Option<Box<String>>,
@@ -850,7 +849,6 @@ impl NetworkFilter {
         mask &= !cpt_mask_negative;
 
         Ok(NetworkFilter {
-            bug: None,
             csp,
             filter: if let Some(simple_filter) = filter {
                 FilterPart::Simple(simple_filter)

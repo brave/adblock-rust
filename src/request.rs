@@ -82,7 +82,6 @@ pub struct Request {
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     // mutable fields, set later
-    pub bug: Option<u32>, // TODO - unused, remove in next major version bump
     hostname_end: usize
 }
 
@@ -187,7 +186,6 @@ impl Request {
             is_http,
             is_https,
             is_supported,
-            bug: None,
             hostname_end
         }
     }

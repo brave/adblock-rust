@@ -164,7 +164,6 @@ impl From<NetworkFilterV0DeserializeFmt> for NetworkFilter {
             redirect: v.redirect,
             hostname: v.hostname,
             csp: v.csp,
-            bug: v._bug,
             tag: v.tag,
             raw_line: v.raw_line.map(Box::new),
             id: v.id,
