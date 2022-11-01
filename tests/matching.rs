@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use std::fs::File;
 use std::io::prelude::*;
-use adblock::blocker::Redirection;
 use adblock::lists::ParseOptions;
 
 #[allow(non_snake_case)]
@@ -58,10 +57,7 @@ fn check_filter_matching() {
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
 
-    let opts = ParseOptions {
-        include_redirect_urls: true,
-        ..Default::default()
-    };
+    let opts = ParseOptions::default();
 
     for req in requests {
         for filter in req.filters {
@@ -79,7 +75,7 @@ fn check_filter_matching() {
         }
     }
 
-    assert_eq!(requests_checked, 9382); // A catch for regressions
+    assert_eq!(requests_checked, 9381); // A catch for regressions
 }
 
 #[test]
@@ -93,7 +89,7 @@ fn check_engine_matching() {
             continue;
         }
         for filter in req.filters {
-            let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
+            let opts = ParseOptions::default();
             let mut engine = Engine::from_rules_debug(&[filter.clone()], opts);
             let resources = build_resources_from_filters(&[filter.clone()]);
             engine.use_resources(&resources);
@@ -113,23 +109,9 @@ fn check_engine_matching() {
             
             if network_filter.is_redirect() {
                 assert!(result.redirect.is_some(), "Expected {} to trigger redirect rule {}", req.url, filter);
-                let redirect = result.redirect.unwrap();
-                if network_filter.is_redirect_url() {
-                    // check it's a URL
-                    let url = match redirect {
-                        Redirection::Url(url) => url,
-                        _ => panic!("not a url despite being a redirect-url filter option"),
-                    };
-                    assert!(url.contains("http://") || url.contains("https://"));
-                } else {
-                    // check it's a URL
-                    let resource = match redirect {
-                        Redirection::Resource(resource) => resource,
-                        _ => panic!("not a resource despite being a redirect filter option"),
-                    };
-                    // each redirect resource is base64 encoded
-                    assert!(resource.contains("base64"));
-                }
+                let resource = result.redirect.unwrap();
+                // each redirect resource is base64 encoded
+                assert!(resource.contains("base64"));
             }
         }
     }

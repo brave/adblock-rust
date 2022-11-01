@@ -48,11 +48,6 @@ pub struct ParseOptions {
     /// Assume filters are in the given format when parsing. Defaults to `FilterFormat::Standard`.
     #[serde(default)]
     pub format: FilterFormat,
-    /// The `$redirect-url` filter option can redirect to an arbitrary HTTP/HTTPS resource over the
-    /// network. By default this is disabled for security concerns, and any rule containing a
-    /// `redirect-url` option will be ignored.
-    #[serde(default)]
-    pub include_redirect_urls: bool,
     /// Specifies rule types to keep during parsing. Defaults to `RuleTypes::All`. This can be used
     /// to reduce the memory impact of engines that will only be used for cosmetic filtering or
     /// network filtering, but not both. It can also be useful for iOS and macOS when exporting to
@@ -66,7 +61,6 @@ impl Default for ParseOptions {
     fn default() -> Self {
         ParseOptions {
             format: FilterFormat::Standard,
-            include_redirect_urls: false,
             rule_types: RuleTypes::All,
         }
     }

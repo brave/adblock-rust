@@ -19,18 +19,6 @@ pub struct BlockerOptions {
     pub enable_optimizations: bool,
 }
 
-/// Determines what should be loaded instead of a particular network request if the request also
-/// matched a blocking filter.
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub enum Redirection {
-    /// Redirect to a stub resource loaded from the blocker's resource library. The field contains
-    /// the body of the redirect to be injected.
-    Resource(String),
-    /// Redirect to a remote resource. The field contains the URL of the replacement resource to be
-    /// loaded. These will only occur if previously enabled in `ParseOptions`.
-    Url(String),
-}
-
 #[derive(Debug, Serialize)]
 pub struct BlockerResult {
     pub matched: bool,
@@ -46,14 +34,13 @@ pub struct BlockerResult {
     pub important: bool,
     /// Specifies what to load instead of the original request, rather than
     /// just blocking it outright. This can come from a filter with a `redirect`
-    /// or `redirect-rule` option, or also from a `redirect-url` option if
-    /// enabled in `ParseOptions`. See `Redirection` for further instructions
-    /// on how the inner data should be interpreted.
+    /// or `redirect-rule` option. If present, the field will contain the body
+    /// of the redirect to be injected.
     ///
     /// Note that the presence of a redirect does _not_ imply that the request
     /// should be blocked. The `redirect-rule` option can produce a redirection
     /// that's only applied if another blocking filter matches a request.
-    pub redirect: Option<Redirection>,
+    pub redirect: Option<String>,
     /// Exception is `Some` when the blocker matched on an exception rule.
     /// Effectively this means that there was a match, but the request should
     /// not be blocked. It is a non-empty string if the blocker was initialized
@@ -226,36 +213,25 @@ impl Blocker {
         // Extract the highest priority redirect directive.
         // So far, priority specifiers are not supported, which means:
         // 1. Exceptions - can bail immediately if found
-        // 2. Redirect URLs
-        // 3. Redirect resources
-        let redirect_option = {
-            // (true, s) implies s is a URL.
-            // (false, s) implies s is the name of a resource to lookup.
-            let mut redirect: Option<(bool, &str)> = None;
+        // 2. Any other redirect resource
+        let redirect_resource = {
+            let mut resource: Option<&str> = None;
             for redirect_filter in redirect_filters {
                 if redirect_filter.is_exception() {
-                    redirect = None;
+                    resource = None;
                     break;
-                } else if redirect_filter.is_redirect_url() {
-                    // Unconditionally write to `redirect` - it's the highest priority option that
-                    // does not break the loop.
-                    redirect = redirect_filter.redirect.as_ref().map(|s| (true, s.as_str()));
-                } else if redirect.is_none() {
-                    // Otherwise, only write to `redirect` if it hasn't already been set by a
-                    // previous filter.
-                    redirect = redirect_filter.redirect.as_ref().map(|s| (false, s.as_str()));
+                } else if resource.is_none() {
+                    resource = redirect_filter.redirect.as_deref();
                 }
             }
-            redirect
+            resource
         };
 
-        let redirect: Option<Redirection> = redirect_option.and_then(|(is_url, redirect_identifier)| {
-            if is_url {
-                Some(Redirection::Url(redirect_identifier.to_string()))
-            } else if let Some(resource) = self.resources.get_resource(redirect_identifier) {
+        let redirect: Option<String> = redirect_resource.and_then(|resource_name| {
+            if let Some(resource) = self.resources.get_resource(resource_name) {
                 // Only match resource redirects if a matching resource exists
                 let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
-                Some(Redirection::Resource(data_url.trim().to_owned()))
+                Some(data_url.trim().to_owned())
             } else {
                 // It's acceptable to pass no redirection if no matching resource is loaded.
                 // TODO - it may be useful to return a status flag to indicate that this occurred.
@@ -345,7 +321,7 @@ impl Blocker {
         let mut exceptions = Vec::with_capacity(network_filters.len() / 8);
         // $important
         let mut importants = Vec::with_capacity(200);
-        // $redirect, $redirect-rule, and $redirect-url
+        // $redirect, $redirect-rule
         let mut redirects = Vec::with_capacity(200);
         // $tag=
         let mut tagged_filters_all = Vec::with_capacity(200);
@@ -1210,7 +1186,7 @@ mod tests {
 mod blocker_tests {
 
     use super::*;
-    use crate::lists::{parse_filters, ParseOptions};
+    use crate::lists::parse_filters;
     use crate::request::Request;
     use std::collections::HashSet;
     use std::iter::FromIterator;
@@ -1256,130 +1232,6 @@ mod blocker_tests {
     }
 
     #[test]
-    fn redirect_url() {
-        let filters = vec![
-            String::from("||foo.com$redirect-url=http://xyz.com"),
-        ];
-
-        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
-
-        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
-
-        let (network_filters, _) = parse_filters(&filters, true, opts);
-
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: false,
-        };
-
-        let blocker = Blocker::new(network_filters, &blocker_options);
-
-        let matched_rule = blocker.check(&request);
-        assert_eq!(matched_rule.matched, false);
-        assert_eq!(matched_rule.important, false);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
-        assert_eq!(matched_rule.error, None);
-    }
-
-    #[test]
-    fn redirect_url_blocked() {
-        let filters = vec![
-            String::from("||foo.com$important,redirect-url=http://xyz.com"),
-        ];
-
-        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
-
-        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
-
-        let (network_filters, _) = parse_filters(&filters, true, opts);
-
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: false,
-        };
-
-        let blocker = Blocker::new(network_filters, &blocker_options);
-
-        let matched_rule = blocker.check(&request);
-        assert_eq!(matched_rule.matched, true);
-        assert_eq!(matched_rule.important, true);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
-        assert_eq!(matched_rule.error, None);
-    }
-
-    #[test]
-    fn redirect_url_not_recognized_without_parse_opt() {
-        let filters = vec![
-            String::from("||foo.com$important,redirect-url=http://xyz.com"),
-        ];
-
-        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
-
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
-
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: false,
-        };
-
-        let blocker = Blocker::new(network_filters, &blocker_options);
-
-        let matched_rule = blocker.check(&request);
-        assert_eq!(matched_rule.matched, false);
-        assert_eq!(matched_rule.redirect, None);
-        assert_eq!(matched_rule.error, None);
-    }
-
-    #[test]
-    fn redirect_url_malformed() {
-        let filters = vec![
-            String::from("||foo.com$important,redirect-url=asdfasdf"),
-        ];
-
-        let request = Request::from_urls("https://foo.com", "https://foo.com", "script").unwrap();
-
-        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
-
-        let (network_filters, _) = parse_filters(&filters, true, opts);
-
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: false,
-        };
-
-        let blocker = Blocker::new(network_filters, &blocker_options);
-
-        let matched_rule = blocker.check(&request);
-        assert_eq!(matched_rule.matched, false); // Not matched if redirect URL malformed
-        assert_eq!(matched_rule.important, false); // ditto
-        assert_eq!(matched_rule.redirect, None);
-        assert_eq!(matched_rule.error, None);
-    }
-
-    #[test]
-    fn redirect_url_exception() {
-        let filters = vec![
-            String::from("||imdb-video.media-imdb.com$media,redirect-url=http://xyz.com"),
-            String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
-        ];
-
-        let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
-
-        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
-
-        let (network_filters, _) = parse_filters(&filters, true, opts);
-
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: false,
-        };
-
-        let blocker = Blocker::new(network_filters, &blocker_options);
-
-        let matched_rule = blocker.check(&request);
-        assert_eq!(matched_rule.matched, false);
-        assert_eq!(matched_rule.important, false);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Url("http://xyz.com".to_string())));
-        assert_eq!(matched_rule.exception, None);
-        assert_eq!(matched_rule.error, None);
-    }
-
-    #[test]
     fn redirect_blocking_exception() {
         let filters = vec![
             String::from("||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3"),
@@ -1406,7 +1258,7 @@ mod blocker_tests {
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, false);
         assert_eq!(matched_rule.important, false);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Resource("data:audio/mp3;base64,bXAz".to_string())));
+        assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
         assert_eq!(matched_rule.error, None);
     }
@@ -1470,7 +1322,7 @@ mod blocker_tests {
         let matched_rule = blocker.check(&request);
         assert_eq!(matched_rule.matched, true);
         assert_eq!(matched_rule.important, false);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Resource("data:text/plain;base64,bm9vcA==".to_string())));
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,bm9vcA==".to_string()));
         assert_eq!(matched_rule.exception, None);
         assert_eq!(matched_rule.error, None);
     }

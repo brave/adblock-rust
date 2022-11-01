@@ -1,7 +1,6 @@
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
 use once_cell::sync::Lazy;
-use crate::url_parser::parse_url;
 
 use std::fmt;
 use std::sync::Arc;
@@ -54,7 +53,7 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const IS_REDIRECT_URL = 1 << 15;
+        const _IS_REDIRECT_URL = 1 << 15;   // Unused
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const _EXPLICIT_CANCEL = 1 << 26;   // Unused
@@ -228,7 +227,6 @@ enum NetworkFilterOption {
     Tag(String),
     Redirect(String),
     RedirectRule(String),
-    RedirectUrl(String),
     Csp(Option<String>),
     Generichide,
     Document,
@@ -262,7 +260,7 @@ impl NetworkFilterOption {
     }
 
     pub fn is_redirection(&self) -> bool {
-        matches!(self, Self::Redirect(..) | Self::RedirectRule(..) | Self::RedirectUrl(..))
+        matches!(self, Self::Redirect(..) | Self::RedirectRule(..))
     }
 }
 
@@ -276,7 +274,7 @@ struct AbstractNetworkFilter {
 }
 
 impl AbstractNetworkFilter {
-    fn parse(line: &str, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
+    fn parse(line: &str) -> Result<Self, NetworkFilterError> {
         let mut filter_index_start: usize = 0;
         let mut filter_index_end: usize = line.len();
 
@@ -295,7 +293,7 @@ impl AbstractNetworkFilter {
             // slicing here is safe; the first byte after '$' will be a character boundary
             let raw_options = &line[filter_index_end + 1..];
 
-            options = Some(parse_filter_options(raw_options, opts)?);
+            options = Some(parse_filter_options(raw_options)?);
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
@@ -329,7 +327,7 @@ impl AbstractNetworkFilter {
     }
 }
 
-fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
+fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
     let mut result = vec![];
 
     for raw_option in raw_options.split(',') {
@@ -381,23 +379,6 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
                 }
 
                 NetworkFilterOption::RedirectRule(String::from(value))
-            }
-            ("redirect-url", true) => return Err(NetworkFilterError::NegatedRedirection),
-            ("redirect-url", false) => {
-                // Only parse filter option if parse options allow it
-                if !opts.include_redirect_urls {
-                    return Err(NetworkFilterError::UnrecognisedOption);
-                }
-                // Ignore this filter if no redirection resource is specified
-                if value.is_empty() {
-                    return Err(NetworkFilterError::EmptyRedirection);
-                }
-                // Parse URL
-                let maybe_parsed_url = parse_url(value);
-                if maybe_parsed_url.is_none() {
-                    return Err(NetworkFilterError::RedirectionUrlInvalid)
-                }
-                NetworkFilterOption::RedirectUrl(String::from(value))
             }
             ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
                 Some(String::from(value))
@@ -537,7 +518,7 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
 
 impl NetworkFilter {
     pub fn parse(line: &str, debug: bool, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
-        let parsed = AbstractNetworkFilter::parse(line, opts)?;
+        let parsed = AbstractNetworkFilter::parse(line)?;
 
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
@@ -619,10 +600,6 @@ impl NetworkFilter {
                         redirect = Some(value);
                     },
                     NetworkFilterOption::RedirectRule(value) => redirect = Some(value),
-                    NetworkFilterOption::RedirectUrl(value) => redirect = {
-                        mask.set(NetworkFilterMask::IS_REDIRECT_URL, true);
-                        Some(value)
-                    },
                     NetworkFilterOption::Csp(value) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
@@ -1020,10 +997,6 @@ impl NetworkFilter {
 
     pub fn is_redirect(&self) -> bool {
         self.redirect.is_some()
-    }
-
-    pub fn is_redirect_url(&self) -> bool {
-        self.redirect.is_some() && self.mask.contains(NetworkFilterMask::IS_REDIRECT_URL)
     }
 
     pub fn also_block_redirect(&self) -> bool {
@@ -1665,7 +1638,6 @@ mod parse_tests {
         from_document: bool,
         match_case: bool,
         third_party: bool,
-        is_redirect_url: bool,
     }
 
     impl From<&NetworkFilter> for NetworkFilterBreakdown {
@@ -1703,7 +1675,6 @@ mod parse_tests {
                 from_websocket: filter.mask.contains(NetworkFilterMask::FROM_WEBSOCKET),
                 from_xml_http_request: filter.mask.contains(NetworkFilterMask::FROM_XMLHTTPREQUEST),
                 from_document: filter.mask.contains(NetworkFilterMask::FROM_DOCUMENT),
-                is_redirect_url: filter.is_redirect_url(),
                 match_case: filter.match_case(),
                 third_party: filter.third_party(),
             }
@@ -1746,7 +1717,6 @@ mod parse_tests {
             from_document: false,
             match_case: false,
             third_party: true,
-            is_redirect_url: false,
         }
     }
 
@@ -2275,65 +2245,6 @@ mod parse_tests {
             assert_eq!(filter.opt_not_domains, None);
         }
     }
-
-    #[test]
-    fn parses_redirect_urls() {
-        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
-        {
-            // No parsing without parse option
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, Default::default());
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::UnrecognisedOption));
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, opts).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("http://xyz.com")));
-            assert_eq!(filter.is_redirect_url(), true);
-        }
-        {
-            let filter = NetworkFilter::parse("$redirect-url=http://xyz.com", true, opts).unwrap();
-            assert_eq!(filter.is_redirect_url(), true);
-            assert_eq!(filter.redirect, Some(String::from("http://xyz.com")));
-        }
-        // parses ~redirect-url
-        {
-            // ~redirect-url is not a valid option
-            let filter = NetworkFilter::parse("||foo.com$~redirect-url", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::NegatedRedirection));
-        }
-        // parses redirect-url without a value
-        {
-            // Not valid
-            let filter = NetworkFilter::parse("||foo.com$redirect-url", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::EmptyRedirection));
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::EmptyRedirection))
-        }
-        {
-            // Has to be valid URL
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=xyz.com", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::RedirectionUrlInvalid))
-        }
-        {
-            // only one between redirect and redirect-url can be specified
-            let filter = NetworkFilter::parse("||foo.com$redirect=xyz,redirect-url=http://xyz.com", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::MultipleRedirections))
-        }
-        // defaults to false
-        {
-            let filter = NetworkFilter::parse("||foo.com", true, opts).unwrap();
-            assert_eq!(filter.is_redirect_url(), false);
-            assert_eq!(filter.redirect, None);
-        }
-    }
-
 
     #[test]
     fn parses_redirects() {

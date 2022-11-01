@@ -81,7 +81,6 @@ fn check_specific_rules() {
     #[cfg(feature = "resource-assembler")]
     {
         use std::path::Path;
-        use adblock::blocker::Redirection;
 
         // exceptions have no effect if important filter matches
         let mut engine = Engine::from_rules_debug(
@@ -98,7 +97,7 @@ fn check_specific_rules() {
 
         let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
         assert_eq!(checked.matched, true);
-        assert_eq!(checked.redirect, Some(Redirection::Resource("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned())));
+        assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
 }
 
