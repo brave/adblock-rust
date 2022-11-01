@@ -36,7 +36,7 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
         .map(|f| {
-            let redirect = f.redirect.unwrap();
+            let redirect = f.modifier_option.unwrap();
 
             Resource {
                 name: redirect.to_owned(),

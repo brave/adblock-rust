@@ -221,7 +221,7 @@ impl Blocker {
                     resource = None;
                     break;
                 } else if resource.is_none() {
-                    resource = redirect_filter.redirect.as_deref();
+                    resource = redirect_filter.modifier_option.as_deref();
                 }
             }
             resource
@@ -285,7 +285,7 @@ impl Blocker {
         for filter in filters {
             if filter.is_exception() {
                 if filter.is_csp() {
-                    if let Some(csp_directive) = &filter.redirect {
+                    if let Some(csp_directive) = &filter.modifier_option {
                         disabled_directives.insert(csp_directive);
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
@@ -294,7 +294,7 @@ impl Blocker {
                     }
                 }
             } else if filter.is_csp() {
-                if let Some(csp_directive) = &filter.redirect {
+                if let Some(csp_directive) = &filter.modifier_option {
                     enabled_directives.insert(csp_directive);
                 }
             }

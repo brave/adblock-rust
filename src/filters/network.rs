@@ -459,7 +459,7 @@ pub struct NetworkFilter {
     pub opt_not_domains: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
-    pub redirect: Option<String>, // TODO rename to modifier_option
+    pub modifier_option: Option<String>,
     pub hostname: Option<String>,
     pub tag: Option<String>,
 
@@ -540,7 +540,7 @@ impl NetworkFilter {
         let mut opt_domains_union: Option<Hash> = None;
         let mut opt_not_domains_union: Option<Hash> = None;
 
-        let mut redirect: Option<String> = None;
+        let mut modifier_option: Option<String> = None;
         let mut tag: Option<String> = None;
 
         if parsed.exception {
@@ -599,11 +599,11 @@ impl NetworkFilter {
                     NetworkFilterOption::Redirect(value) => {
                         mask.set(NetworkFilterMask::IS_REDIRECT, true);
                         mask.set(NetworkFilterMask::ALSO_BLOCK_REDIRECT, true);
-                        redirect = Some(value);
+                        modifier_option = Some(value);
                     }
                     NetworkFilterOption::RedirectRule(value) => {
                         mask.set(NetworkFilterMask::IS_REDIRECT, true);
-                        redirect = Some(value);
+                        modifier_option = Some(value);
                     }
                     NetworkFilterOption::Csp(value) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
@@ -611,7 +611,7 @@ impl NetworkFilter {
                         // subdocument and document rules. Rules do not match against document
                         // requests by default, so this must be explictly added.
                         mask.set(NetworkFilterMask::FROM_DOCUMENT, true);
-                        redirect = value;
+                        modifier_option = value;
                     }
                     NetworkFilterOption::Generichide => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
                     NetworkFilterOption::Document => cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true),
@@ -846,7 +846,7 @@ impl NetworkFilter {
             } else {
                 None
             },
-            redirect,
+            modifier_option,
             id: utils::fast_hash(line),
             opt_domains_union,
             opt_not_domains_union,
@@ -887,7 +887,7 @@ impl NetworkFilter {
         let mut mask = self.mask;
         mask.set(NetworkFilterMask::BAD_FILTER, false);
         compute_filter_id(
-            self.redirect.as_deref(),
+            self.modifier_option.as_deref(),
             mask,
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
@@ -898,7 +898,7 @@ impl NetworkFilter {
 
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.redirect.as_deref(),
+            self.modifier_option.as_deref(),
             self.mask,
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
@@ -1612,7 +1612,7 @@ mod parse_tests {
         hostname: Option<String>,
         opt_domains: Option<Vec<Hash>>,
         opt_not_domains: Option<Vec<Hash>>,
-        redirect: Option<String>,
+        modifier_option: Option<String>,
 
         // filter type
         is_exception: bool,
@@ -1650,7 +1650,7 @@ mod parse_tests {
                 hostname: filter.hostname.as_ref().cloned(),
                 opt_domains: filter.opt_domains.as_ref().cloned(),
                 opt_not_domains: filter.opt_not_domains.as_ref().cloned(),
-                redirect: filter.redirect.as_ref().cloned(),
+                modifier_option: filter.modifier_option.as_ref().cloned(),
 
                 // filter type
                 is_exception: filter.is_exception(),
@@ -1689,7 +1689,7 @@ mod parse_tests {
             hostname: None,
             opt_domains: None,
             opt_not_domains: None,
-            redirect: None,
+            modifier_option: None,
 
             // filter type
             is_exception: false,
@@ -2161,19 +2161,19 @@ mod parse_tests {
     fn parses_csp() {
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, None);
+            assert_eq!(filter.modifier_option, None);
         }
         {
             // parses simple CSP
             let filter = NetworkFilter::parse(r#"||foo.com$csp=self bar """#, true, Default::default()).unwrap();
             assert_eq!(filter.is_csp(), true);
-            assert_eq!(filter.redirect, Some(String::from(r#"self bar """#)));
+            assert_eq!(filter.modifier_option, Some(String::from(r#"self bar """#)));
         }
         {
             // parses empty CSP
             let filter = NetworkFilter::parse("||foo.com$csp", true, Default::default()).unwrap();
             assert_eq!(filter.is_csp(), true);
-            assert_eq!(filter.redirect, None);
+            assert_eq!(filter.modifier_option, None);
         }
         {
             // CSP mixed with content type is an error
@@ -2252,11 +2252,11 @@ mod parse_tests {
         // parses redirect
         {
             let filter = NetworkFilter::parse("||foo.com$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("bar.js")));
+            assert_eq!(filter.modifier_option, Some(String::from("bar.js")));
         }
         {
             let filter = NetworkFilter::parse("$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("bar.js")));
+            assert_eq!(filter.modifier_option, Some(String::from("bar.js")));
         }
         // parses ~redirect
         {
@@ -2277,7 +2277,7 @@ mod parse_tests {
         // defaults to false
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, None);
+            assert_eq!(filter.modifier_option, None);
         }
     }
 
