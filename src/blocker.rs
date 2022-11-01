@@ -284,15 +284,19 @@ impl Blocker {
 
         for filter in filters {
             if filter.is_exception() {
-                if let Some(directive) = &filter.csp {
-                    disabled_directives.insert(directive);
-                } else {
-                    // Exception filters with empty `csp` options will disable all CSP injections for
-                    // matching pages.
-                    return None
+                if filter.is_csp() {
+                    if let Some(csp_directive) = &filter.redirect {
+                        disabled_directives.insert(csp_directive);
+                    } else {
+                        // Exception filters with empty `csp` options will disable all CSP
+                        // injections for matching pages.
+                        return None
+                    }
                 }
-            } else if let Some(directive) = &filter.csp {
-                enabled_directives.insert(directive);
+            } else if filter.is_csp() {
+                if let Some(csp_directive) = &filter.redirect {
+                    enabled_directives.insert(csp_directive);
+                }
             }
         }
 
