@@ -241,15 +241,16 @@ impl<'a> Request {
     ) -> Request {
         let url_norm = url.to_ascii_lowercase();
 
-        let (source_domain_start, source_domain_end) = url_parser::get_host_domain(&source_hostname);
-        let source_domain = &source_hostname[source_domain_start..source_domain_end];
-
         let splitter = url_norm.find(':').unwrap_or(0);
         let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {
             let (domain_start, domain_end) = url_parser::get_host_domain(&hostname);
             let domain = &hostname[domain_start..domain_end];
+
+            let (source_domain_start, source_domain_end) = url_parser::get_host_domain(&source_hostname);
+            let source_domain = &source_hostname[source_domain_start..source_domain_end];
+
             if source_domain.is_empty() {
                 None
             } else {
