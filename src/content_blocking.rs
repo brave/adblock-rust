@@ -155,6 +155,8 @@ pub enum CbRuleCreationFailure {
     NetworkBadFilterUnsupported,
     /// Network rules with csp options cannot be supported in content blocking syntax.
     NetworkCspUnsupported,
+    /// Network rules with removeparam options cannot be supported in content blocking syntax.
+    NetworkRemoveparamUnsupported,
     /// Content blocking syntax only supports a subset of regex features, namely:
     /// - Matching any character with “.”.
     /// - Matching ranges with the range syntax [a-b].
@@ -260,6 +262,9 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             }
             if v.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX) {
                 return Err(CbRuleCreationFailure::FullRegexUnsupported);
+            }
+            if v.is_removeparam() {
+                return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
             }
 
             let load_type = if v.mask.contains(NetworkFilterMask::THIRD_PARTY | NetworkFilterMask::FIRST_PARTY) {

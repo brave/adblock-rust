@@ -41,6 +41,10 @@ pub struct BlockerResult {
     /// should be blocked. The `redirect-rule` option can produce a redirection
     /// that's only applied if another blocking filter matches a request.
     pub redirect: Option<String>,
+    /// `removeparam` may remove URL parameters. If the original request URL was
+    /// modified at all, the new version will be here. This should be used
+    /// as long as the request is not blocked.
+    pub rewritten_url: Option<String>,
     /// Exception is `Some` when the blocker matched on an exception rule.
     /// Effectively this means that there was a match, but the request should
     /// not be blocked. It is a non-empty string if the blocker was initialized
@@ -63,6 +67,7 @@ impl Default for BlockerResult {
             matched: false,
             important: false,
             redirect: None,
+            rewritten_url: None,
             exception: None,
             filter: None,
             error: None,
@@ -96,12 +101,17 @@ impl Default for TokenPool {
     }
 }
 
+// only check for tags in tagged and exception rule buckets,
+// pass empty set for the rest
+static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
+
 /// Stores network filters for efficient querying.
 pub struct Blocker {
     pub(crate) csp: NetworkFilterList,
     pub(crate) exceptions: NetworkFilterList,
     pub(crate) importants: NetworkFilterList,
     pub(crate) redirects: NetworkFilterList,
+    pub(crate) removeparam: NetworkFilterList,
     pub(crate) filters_tagged: NetworkFilterList,
     pub(crate) filters: NetworkFilterList,
     pub(crate) generic_hide: NetworkFilterList,
@@ -145,10 +155,6 @@ impl Blocker {
         if !request.is_supported {
             return BlockerResult::default();
         }
-
-        // only check for tags in tagged and exception rule buckets,
-        // pass empty set for the rest
-        static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
         let mut request_tokens;
         #[cfg(feature = "object-pooling")]
@@ -241,15 +247,68 @@ impl Blocker {
             }
         });
 
+        let important = filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false);
+
+        let rewritten_url = if important {
+            None
+        } else {
+            Self::apply_removeparam(&self.removeparam, request, request_tokens)
+        };
+
         // If something has already matched before but we don't know what, still return a match
         let matched = exception.is_none() && (filter.is_some() || matched_rule);
         BlockerResult {
             matched,
-            important: filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false),
+            important,
             redirect,
+            rewritten_url,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
             error: None,
+        }
+    }
+
+    fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: lifeguard::Recycled<Vec<u64>>) -> Option<String> {
+        // Only check for removeparam if there's a query string in the request URL
+        if let Some(i) = request.url.find('?') {
+            // String indexing safety: indices come from `.len()` or `.find(..)` on individual
+            // ASCII characters (1 byte each), some plus 1.
+            let params_start = i + 1;
+            let hash_index = if let Some(j) = request.url[params_start..].find('#') { params_start + j } else { request.url.len() };
+            let qparams = &request.url[params_start..hash_index];
+            let mut params: Vec<(&str, &str, bool)> = qparams.split('&').map(|pair| {
+                if let Some((k, v)) = pair.split_once('=') {
+                    (k, v, true)
+                } else {
+                    (pair, "", true)
+                }
+            }).collect();
+
+            let filters = removeparam_filters.check_all(request, &request_tokens, &NO_TAGS);
+            let mut rewrite = false;
+            for removeparam_filter in filters {
+                if let Some(removeparam) = &removeparam_filter.modifier_option {
+                    params.iter_mut().for_each(|(k, _, include)| {
+                        if k == removeparam {
+                            *include = false;
+                            rewrite = true;
+                        }
+                    });
+                }
+            }
+            if rewrite {
+                let p = itertools::join(params.into_iter().filter(|(_, _, include)| *include).map(|(k, v, _)| format!("{}={}", k, v)), "&");
+                let new_param_str = if p.is_empty() {
+                    String::from("")
+                } else {
+                    format!("?{}", p)
+                };
+                Some(format!("{}{}{}", &request.url[0..i], new_param_str, &request.url[hash_index..]))
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
@@ -327,6 +386,8 @@ impl Blocker {
         let mut importants = Vec::with_capacity(200);
         // $redirect, $redirect-rule
         let mut redirects = Vec::with_capacity(200);
+        // $removeparam
+        let mut removeparam = Vec::with_capacity(60);
         // $tag=
         let mut tagged_filters_all = Vec::with_capacity(200);
         // $badfilter
@@ -360,6 +421,8 @@ impl Blocker {
 
                 if filter.is_csp() {
                     csp.push(filter);
+                } else if filter.is_removeparam() {
+                    removeparam.push(filter);
                 } else if filter.is_generic_hide() {
                     generic_hide.push(filter);
                 } else if filter.is_exception() {
@@ -384,6 +447,7 @@ impl Blocker {
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
             importants: NetworkFilterList::new(importants, options.enable_optimizations),
             redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
+            removeparam: NetworkFilterList::new(removeparam, options.enable_optimizations),
             filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
             filters: NetworkFilterList::new(filters, options.enable_optimizations),
             generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
@@ -408,6 +472,7 @@ impl Blocker {
         self.exceptions.optimize();
         self.importants.optimize();
         self.redirects.optimize();
+        self.removeparam.optimize();
         self.filters_tagged.optimize();
         self.filters.optimize();
         self.generic_hide.optimize();
@@ -424,6 +489,8 @@ impl Blocker {
             self.importants.filter_exists(filter)
         } else if filter.is_redirect() {
             self.redirects.filter_exists(filter)
+        } else if filter.is_removeparam() {
+            self.removeparam.filter_exists(filter)
         } else if filter.tag.is_some() {
             self.tagged_filters_all.iter().any(|f| f.id == filter.id)
         } else {
@@ -452,6 +519,9 @@ impl Blocker {
             Ok(())
         } else if filter.is_important() {
             self.importants.add_filter(filter);
+            Ok(())
+        } else if filter.is_removeparam() {
+            self.removeparam.add_filter(filter);
             Ok(())
         } else if filter.tag.is_some() && !filter.is_redirect() {
             // `tag` + `redirect` is unsupported
@@ -1477,6 +1547,88 @@ mod blocker_tests {
             assert_eq!(blocker.get_csp_directives(&Request::from_urls("htps://github.com/first-party-only", "https://example.com", "subdocument").unwrap()), None);
             assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/first-party-only", "https://example.com", "document").unwrap()), Some(String::from("script-src 'none'")));
         }
+    }
+
+    #[test]
+    fn test_removeparam() {
+        let filters = vec![
+            String::from("||example.com^$removeparam=test"),
+            String::from("*$removeparam=fbclid"),
+            String::from("/script.js$redirect-rule=noopjs"),
+            String::from("^block^$important"),
+        ];
+
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+
+        let blocker_options = BlockerOptions {
+            enable_optimizations: true,
+        };
+
+        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        blocker.add_resource(&Resource {
+            name: "noopjs".into(),
+            aliases: vec![],
+            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::ApplicationJavascript),
+            content: base64::encode("(() => {})()"),
+        }).unwrap();
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q=1&test=2#blue", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?test=2&q=1#blue", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?test=2#blue", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com#blue".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q=1#blue", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, None);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q=1&test=2", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?test=2&q=1", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?test=2", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q=1", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, None);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q=fbclid", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, None);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q2=2&q3=3&q4=4&q5=5".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?q1=1&q1=2&test=2&test=3", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q1=2".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/script.js?test=2#blue", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com/script.js#blue".into()));
+        assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/block/script.js?test=2#blue", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, None);
+        assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
+        assert!(result.matched);
     }
 
     #[test]

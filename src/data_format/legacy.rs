@@ -330,6 +330,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             exceptions: v.part1.exceptions.into(),
             importants: v.part1.importants.into(),
             redirects: v.part1.redirects.into(),
+            removeparam: NetworkFilterList::default(),
             filters_tagged: v.part1.filters_tagged.into(),
             filters: v.part1.filters.into(),
 

@@ -264,6 +264,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             exceptions: v.exceptions.into(),
             importants: v.importants.into(),
             redirects: v.redirects.into(),
+            removeparam: NetworkFilterList::default(),
             filters_tagged: v.filters_tagged.into(),
             filters: v.filters.into(),
             generic_hide: v.generic_hide.into(),

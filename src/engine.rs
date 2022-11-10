@@ -125,6 +125,7 @@ impl Engine {
                 matched: false,
                 important: false,
                 redirect: None,
+                rewritten_url: None,
                 exception: None,
                 filter: None,
                 error: Some("Error parsing request".to_owned())

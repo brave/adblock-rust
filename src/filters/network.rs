@@ -12,6 +12,9 @@ use crate::lists::ParseOptions;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
+/// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
+static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum NetworkFilterError {
     FilterParseError,
@@ -25,6 +28,10 @@ pub enum NetworkFilterError {
     NegatedDocument,
     GenericHideWithoutException,
     EmptyRedirection,
+    EmptyRemoveparam,
+    NegatedRemoveparam,
+    RemoveparamWithException,
+    RemoveparamRegexUnsupported,
     RedirectionUrlInvalid,
     MultipleModifierOptions,
     UnrecognisedOption,
@@ -53,7 +60,7 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const _IS_REDIRECT_URL = 1 << 15;   // Unused
+        const IS_REMOVEPARAM = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const IS_REDIRECT = 1 << 26;
@@ -228,6 +235,7 @@ enum NetworkFilterOption {
     Redirect(String),
     RedirectRule(String),
     Csp(Option<String>),
+    Removeparam(String),
     Generichide,
     Document,
     Image(bool),
@@ -385,6 +393,16 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             } else {
                 None
             }),
+            ("removeparam", true) => return Err(NetworkFilterError::NegatedRemoveparam),
+            ("removeparam", false) => {
+                if value.is_empty() {
+                    return Err(NetworkFilterError::EmptyRemoveparam);
+                }
+                if !VALID_PARAM.is_match(value) {
+                    return Err(NetworkFilterError::RemoveparamRegexUnsupported);
+                }
+                NetworkFilterOption::Removeparam(String::from(value))
+            }
             ("generichide", true) | ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
             ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
             ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
@@ -504,7 +522,7 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
             modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
-        } else if option.is_redirection() {
+        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..)) {
             modifier_options += 1;
         }
     }
@@ -603,6 +621,10 @@ impl NetworkFilter {
                     }
                     NetworkFilterOption::RedirectRule(value) => {
                         mask.set(NetworkFilterMask::IS_REDIRECT, true);
+                        modifier_option = Some(value);
+                    }
+                    NetworkFilterOption::Removeparam(value) => {
+                        mask.set(NetworkFilterMask::IS_REMOVEPARAM, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Csp(value) => {
@@ -810,6 +832,10 @@ impl NetworkFilter {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
+        if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) && parsed.exception {
+            return Err(NetworkFilterError::RemoveparamWithException);
+        }
+
         // uBlock Origin would block main document `https://example.com` requests with all of the
         // following filters:
         // - ||example.com
@@ -949,6 +975,15 @@ impl NetworkFilter {
             }
         }
 
+        if tokens.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+            if let Some(removeparam) = &self.modifier_option {
+                if VALID_PARAM.is_match(removeparam) {
+                    let mut param_tokens = utils::tokenize(removeparam);
+                    tokens.append(&mut param_tokens);
+                }
+            }
+        }
+
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
         if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
@@ -1001,6 +1036,10 @@ impl NetworkFilter {
 
     pub fn is_redirect(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_REDIRECT)
+    }
+
+    pub fn is_removeparam(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
     }
 
     pub fn also_block_redirect(&self) -> bool {
@@ -2278,6 +2317,47 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
             assert_eq!(filter.modifier_option, None);
+        }
+    }
+
+    #[test]
+    fn parses_removeparam() {
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("$~removeparam=test", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("@@||foo.com^$removeparam=test", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=test,redirect=test", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=test,removeparam=test2", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=𝐔𝐍𝐈𝐂𝐎𝐃𝐄🧋", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=/abc.*/", true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::RemoveparamRegexUnsupported));
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=test", true, Default::default()).unwrap();
+            assert!(filter.is_removeparam());
+            assert_eq!(filter.modifier_option, Some("test".into()));
         }
     }
 
