@@ -537,7 +537,7 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
 }
 
 impl NetworkFilter {
-    pub fn parse(line: &str, debug: bool, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
+    pub fn parse(line: &str, debug: bool, _opts: ParseOptions) -> Result<Self, NetworkFilterError> {
         let parsed = AbstractNetworkFilter::parse(line)?;
 
         // Represent options as a bitmask
