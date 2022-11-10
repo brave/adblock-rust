@@ -247,8 +247,7 @@ enum NetworkFilterOption {
 
 impl NetworkFilterOption {
     pub fn is_content_type(&self) -> bool {
-        match self {
-            Self::Document
+        matches!(self, Self::Document
             | Self::Image(..)
             | Self::Media(..)
             | Self::Object(..)
@@ -259,19 +258,11 @@ impl NetworkFilterOption {
             | Self::Subdocument(..)
             | Self::XmlHttpRequest(..)
             | Self::Websocket(..)
-            | Self::Font(..) => true,
-            _ => false,
-        }
-
+            | Self::Font(..))
     }
 
     pub fn is_redirection(&self) -> bool {
-        match self {
-            Self::Redirect(..) => true,
-            Self::RedirectRule(..) => true,
-            Self::RedirectUrl(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Redirect(..) | Self::RedirectRule(..) | Self::RedirectUrl(..))
     }
 }
 
@@ -295,7 +286,7 @@ impl AbstractNetworkFilter {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = twoway::rfind_str(&line, "$");
+        let maybe_options_index: Option<usize> = twoway::rfind_str(line, "$");
 
         let mut options = None;
         if let Some(options_index) = maybe_options_index {
@@ -685,7 +676,7 @@ impl NetworkFilter {
 
         let pattern = &parsed.pattern.pattern;
 
-        let is_regex = check_is_regex(&pattern);
+        let is_regex = check_is_regex(pattern);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
 
         if pattern.starts_with('/') && pattern.ends_with('/') && pattern.len() > 1 {
@@ -742,7 +733,7 @@ impl NetworkFilter {
                 }
             } else {
                 // Look for next /
-                let slash_index = twoway::find_str(&pattern, "/");
+                let slash_index = twoway::find_str(pattern, "/");
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
@@ -877,7 +868,7 @@ impl NetworkFilter {
                 None
             },
             redirect,
-            id: utils::fast_hash(&line),
+            id: utils::fast_hash(line),
             opt_domains_union,
             opt_not_domains_union,
             regex: RegexStorage::default(),
@@ -904,9 +895,9 @@ impl NetworkFilter {
 
         let mut hostname = "||".to_string();
         if normalized_host.is_ascii() {
-            hostname.push_str(&normalized_host);
+            hostname.push_str(normalized_host);
         } else {
-            hostname.push_str(&idna::domain_to_ascii(&normalized_host).map_err(|_| NetworkFilterError::PunycodeError)?);
+            hostname.push_str(&idna::domain_to_ascii(normalized_host).map_err(|_| NetworkFilterError::PunycodeError)?);
         }
         hostname.push('^');
 
@@ -962,7 +953,7 @@ impl NetworkFilter {
                     let skip_first_token = self.is_right_anchor();
 
                     let mut filter_tokens =
-                        utils::tokenize_filter(&f, skip_first_token, skip_last_token);
+                        utils::tokenize_filter(f, skip_first_token, skip_last_token);
 
                     tokens.append(&mut filter_tokens);
                 }
@@ -974,7 +965,7 @@ impl NetworkFilter {
         // Append tokens from hostname, if any
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref()  {
-                let mut hostname_tokens = utils::tokenize(&hostname);
+                let mut hostname_tokens = utils::tokenize(hostname);
                 tokens.append(&mut hostname_tokens);
             }
         }
@@ -1098,7 +1089,7 @@ pub trait NetworkMatchable {
 
 impl NetworkMatchable for NetworkFilter {
     fn matches(&self, request: &request::Request) -> bool {
-        check_options(&self, request) && check_pattern(&self, request)
+        check_options(self, request) && check_pattern(self, request)
     }
 
     // Lazily get the regex if the filter has one
@@ -1230,7 +1221,7 @@ pub fn compile_regex(
         CompiledRegex::MatchAll
     } else if escaped_patterns.len() == 1 {
         let pattern = &escaped_patterns[0];
-        match Regex::new(&pattern) {
+        match Regex::new(pattern) {
             Ok(compiled) => CompiledRegex::Compiled(compiled),
             Err(e) => {
                 // println!("Regex parsing failed ({:?})", e);
@@ -1302,7 +1293,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
 }
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = twoway::find_str(url, hostname).unwrap_or_else(|| url.len() - hostname.len());
+    let start = twoway::find_str(url, hostname).unwrap_or(url.len() - hostname.len());
     &url[start + hostname.len()..]
 }
 
@@ -1432,7 +1423,7 @@ fn check_pattern_hostname_right_anchor_filter(
                         request.hostname.len() == hostname.len()        // if lengths are equal, hostname equality is implied by anchoring check
                             || request.hostname.ends_with(hostname)
                     }
-                    _ => check_pattern_right_anchor_filter(&filter, request),
+                    _ => check_pattern_right_anchor_filter(filter, request),
                 }
             } else {
                 false
@@ -1594,7 +1585,7 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
     }
     // We first discard requests based on type, protocol and party. This is really
     // cheap and should be done first.
-    if !check_cpt_allowed(&filter, &request.request_type)
+    if !check_cpt_allowed(filter, &request.request_type)
         || (request.is_https && !filter.for_https())
         || (request.is_http && !filter.for_http())
         || (!filter.first_party() && request.is_first_party == Some(true))
@@ -1613,7 +1604,7 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
                     return false
                 }
             }
-            if source_hashes.iter().all(|h| !utils::bin_lookup(&included_domains, *h)) {
+            if source_hashes.iter().all(|h| !utils::bin_lookup(included_domains, *h)) {
                 return false
             }
         }
@@ -1624,10 +1615,10 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
             // If the union of excluded domains is recorded
             if let Some(excluded_domains_union) = filter.opt_not_domains_union {
                 // If there's any source hash that matches the union, check the actual values
-                if source_hashes.iter().any(|h| (h & excluded_domains_union == *h) && utils::bin_lookup(&excluded_domains, *h)) {
+                if source_hashes.iter().any(|h| (h & excluded_domains_union == *h) && utils::bin_lookup(excluded_domains, *h)) {
                     return false
                 }
-            } else if source_hashes.iter().any(|h| utils::bin_lookup(&excluded_domains, *h)) {
+            } else if source_hashes.iter().any(|h| utils::bin_lookup(excluded_domains, *h)) {
                 return false
             }
         }

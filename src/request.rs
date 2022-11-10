@@ -86,10 +86,10 @@ pub struct Request {
     hostname_end: usize
 }
 
-impl<'a> Request {
-    pub fn get_tokens(&self, mut token_buffer: &mut Vec<utils::Hash>) {
+impl Request {
+    pub fn get_tokens(&self, token_buffer: &mut Vec<utils::Hash>) {
         token_buffer.clear();
-        utils::tokenize_pooled(&self.url, &mut token_buffer);
+        utils::tokenize_pooled(&self.url, token_buffer);
         // Add zero token as a fallback to wildcard rule bucket
         token_buffer.push(0);
     }
@@ -113,7 +113,7 @@ impl<'a> Request {
             Some(source_domain != domain)
         };
 
-        let hostname_end = twoway::find_str(url, hostname).unwrap_or_else(|| url.len()) + hostname.len();
+        let hostname_end = twoway::find_str(url, hostname).unwrap_or(url.len()) + hostname.len();
 
         Self::from_detailed_parameters(
             raw_type,
@@ -164,7 +164,7 @@ impl<'a> Request {
 
         let source_hostname_hashes = if !source_hostname.is_empty() {
             let mut hashes = Vec::with_capacity(4);
-            hashes.push(utils::fast_hash(&source_hostname));
+            hashes.push(utils::fast_hash(source_hostname));
             for (i, c) in
                 source_hostname.char_indices()
             {
@@ -197,8 +197,8 @@ impl<'a> Request {
         source_url: &str,
         request_type: &str,
     ) -> Result<Request, RequestError> {
-        if let Some(parsed_url) = url_parser::parse_url(&url) {
-            if let Some(parsed_source) = url_parser::parse_url(&source_url) {
+        if let Some(parsed_url) = url_parser::parse_url(url) {
+            if let Some(parsed_source) = url_parser::parse_url(source_url) {
                 let source_domain = parsed_source.domain();
 
                 let third_party = if source_domain.is_empty() {
@@ -245,10 +245,10 @@ impl<'a> Request {
         let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {
-            let (domain_start, domain_end) = url_parser::get_host_domain(&hostname);
+            let (domain_start, domain_end) = url_parser::get_host_domain(hostname);
             let domain = &hostname[domain_start..domain_end];
 
-            let (source_domain_start, source_domain_end) = url_parser::get_host_domain(&source_hostname);
+            let (source_domain_start, source_domain_end) = url_parser::get_host_domain(source_hostname);
             let source_domain = &source_hostname[source_domain_start..source_domain_end];
 
             if source_domain.is_empty() {
@@ -263,9 +263,9 @@ impl<'a> Request {
         Request::from_detailed_parameters(
             request_type,
             &url_norm,
-            &schema,
-            &hostname,
-            &source_hostname,
+            schema,
+            hostname,
+            source_hostname,
             third_party,
             splitter + 2 + hostname.len()
         )

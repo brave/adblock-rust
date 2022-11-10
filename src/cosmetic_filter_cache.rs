@@ -305,7 +305,7 @@ impl CosmeticFilterCache {
 
         let mut injected_script = String::new();
         script_injections.iter().for_each(|s| {
-            if let Ok(filled_template) = self.scriptlets.get_scriptlet(&s) {
+            if let Ok(filled_template) = self.scriptlets.get_scriptlet(s) {
                 injected_script += "try {\n";
                 injected_script += &filled_template;
                 injected_script += "\n} catch ( e ) { }\n";
@@ -328,7 +328,7 @@ impl CosmeticFilterCache {
         let mut scriptlets = ScriptletResourceStorage::default();
 
         resources.iter().for_each(|resource| {
-            let _result = scriptlets.add_resource(&resource);
+            let _result = scriptlets.add_resource(resource);
         });
 
         self.scriptlets = scriptlets;
@@ -443,7 +443,7 @@ impl HostnameRuleDb {
 
     pub fn retrieve<'a>(&'a self, hostname: &Hash) -> Option<&'a[SpecificFilterType]> {
         if let Some(bucket) = self.db.get(hostname) {
-            Some(&bucket)
+            Some(bucket)
         } else {
             None
         }

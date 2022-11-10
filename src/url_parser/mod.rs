@@ -116,7 +116,7 @@ pub(crate) fn get_host_domain(host: &str) -> (usize, usize) {
 /// UTF characters to plain ASCII ones.  Serialisation then contains this
 /// decoded URL that is used for further matching.
 pub fn parse_url(url: &str) -> Option<RequestUrl> {
-    let parsed = parser::Hostname::parse(&url).ok();
+    let parsed = parser::Hostname::parse(url).ok();
     parsed.and_then(|h| {
         match h.host_str() {
             Some(_host) => Some(RequestUrl {

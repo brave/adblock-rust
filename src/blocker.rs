@@ -452,6 +452,11 @@ impl Blocker {
     }
 
     pub fn add_filter(&mut self, filter: NetworkFilter) -> Result<(), BlockerError> {
+        // Redirects are independent of blocking behavior.
+        if filter.is_redirect() {
+            self.redirects.add_filter(filter.clone());
+        }
+
         if filter.is_badfilter() {
             Err(BlockerError::BadFilterAddUnsupported)
         } else if self.filter_exists(&filter) {
@@ -468,19 +473,16 @@ impl Blocker {
         } else if filter.is_important() {
             self.importants.add_filter(filter);
             Ok(())
-        } else if filter.is_redirect() {
-            self.redirects.add_filter(filter);
-            Ok(())
-        } else if filter.is_redirect_url() {
-            self.redirects.add_filter(filter);
-            Ok(())
-        } else if filter.tag.is_some() {
+        } else if filter.tag.is_some() && !filter.is_redirect() {
+            // `tag` + `redirect` is unsupported
             self.tagged_filters_all.push(filter);
             let tags_enabled = self.tags_enabled().into_iter().collect::<HashSet<_>>();
             self.tags_with_set(tags_enabled);
             Ok(())
-        } else {
+        } else if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
             self.filters.add_filter(filter);
+            Ok(())
+        } else {
             Ok(())
         }
     }

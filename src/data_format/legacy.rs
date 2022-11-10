@@ -191,7 +191,7 @@ impl From<NetworkFilterLegacyDeserializeFmt> for NetworkFilter {
             csp: v.csp,
             bug: v.bug,
             tag: v.tag,
-            raw_line: v.raw_line.map(|raw| Box::new(raw)),
+            raw_line: v.raw_line.map(Box::new),
             id: v.id,
             opt_domains_union: v.opt_domains_union,
             opt_not_domains_union: v.opt_not_domains_union,

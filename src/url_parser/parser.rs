@@ -379,7 +379,7 @@ impl Parser {
         let username_end = path_start;
         let host_start = path_start;
         let host_end = path_start;
-        self.serialization.push_str(&input.chars.as_str());
+        self.serialization.push_str(input.chars.as_str());
         let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
         ser_remaining.map(|s| {
             s.make_ascii_lowercase();
@@ -403,7 +403,7 @@ impl Parser {
         // host state
         let host_start = self.serialization.len();
         let (host_end, remaining) = self.parse_host(remaining, scheme_type)?;
-        self.serialization.push_str(&remaining.chars.as_str());
+        self.serialization.push_str(remaining.chars.as_str());
         let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
         ser_remaining.map(|s| {
             s.make_ascii_lowercase();
@@ -520,7 +520,7 @@ impl Parser {
         if host_str.is_ascii() {
             write!(&mut self.serialization, "{}", host_str).unwrap();
         } else {
-            let encoded = idna::domain_to_ascii(&host_str)?;
+            let encoded = idna::domain_to_ascii(host_str)?;
             write!(&mut self.serialization, "{}", encoded).unwrap();
         }
 

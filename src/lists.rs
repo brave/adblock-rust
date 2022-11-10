@@ -24,19 +24,11 @@ impl Default for RuleTypes {
 
 impl RuleTypes {
     fn loads_network_rules(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::NetworkOnly => true,
-            _ => false,
-        }
+        matches!(self, Self::All | Self::NetworkOnly)
     }
 
     fn loads_cosmetic_rules(&self) -> bool {
-        match self {
-            Self::All => true,
-            Self::CosmeticOnly => true,
-            _ => false,
-        }
+        matches!(self, Self::All | Self::CosmeticOnly)
     }
 }
 
@@ -121,22 +113,22 @@ impl TryFrom<&str> for ExpiresInterval {
         const HOURS_MAX: u16 = DAYS_MAX as u16 * 24;
         // str::parse::<u16> accepts a leading plus sign, but we explicitly forbid it here
         if v.starts_with('+') {
-            return Err(());
+            Err(())
         // Special case for singular hour or day values
         } else if v == "1 hour" {
-            return Ok(Self::Hours(1));
+            Ok(Self::Hours(1))
         } else if v == "1 day" {
-            return Ok(Self::Days(1));
+            Ok(Self::Days(1))
         // Otherwise accept in the range [2, MAX] for values with a matching suffix
-        } if let Some(numstr) = v.strip_suffix(" hours") {
+        } else if let Some(numstr) = v.strip_suffix(" hours") {
             let num = numstr.parse::<u16>().map_err(|_| ())?;
-            if num < 2 || num > HOURS_MAX {
+            if !(2..=HOURS_MAX).contains(&num) {
                 return Err(());
             }
             Ok(Self::Hours(num))
         } else if let Some(numstr) = v.strip_suffix(" days") {
             let num = numstr.parse::<u8>().map_err(|_| ())?;
-            if num < 2 || num > DAYS_MAX {
+            if !(2..=DAYS_MAX).contains(&num) {
                 return Err(());
             }
             Ok(Self::Days(num))
@@ -179,14 +171,14 @@ impl FilterListMetadata {
         if let Some(kv) = line.strip_prefix("! ") {
             if let Some((key, value)) = kv.split_once(": ") {
                 match key {
-                    "Homepage" if self.homepage == None => self.homepage = Some(value.to_string()),
-                    "Title" if self.title == None => self.title = Some(value.to_string()),
-                    "Expires" if self.expires == None => {
+                    "Homepage" if self.homepage.is_none() => self.homepage = Some(value.to_string()),
+                    "Title" if self.title.is_none() => self.title = Some(value.to_string()),
+                    "Expires" if self.expires.is_none() => {
                         if let Ok(expires) = ExpiresInterval::try_from(value) {
                             self.expires = Some(expires);
                         }
                     }
-                    "Redirect" if self.redirect == None => self.redirect = Some(value.to_string()),
+                    "Redirect" if self.redirect.is_none() => self.redirect = Some(value.to_string()),
                     _ => (),
                 }
             }
@@ -217,7 +209,7 @@ impl FilterSet {
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
     /// successfully are ignored. Returns any discovered metadata about the list of rules added.
     pub fn add_filters(&mut self, filters: &[String], opts: ParseOptions) -> FilterListMetadata {
-        let (metadata, mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters_with_metadata(&filters, self.debug, opts);
+        let (metadata, mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters_with_metadata(filters, self.debug, opts);
         self.network_filters.append(&mut parsed_network_filters);
         self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
         metadata

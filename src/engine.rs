@@ -44,7 +44,7 @@ impl Engine {
 
     /// Loads rules, enabling optimizations and including debug information.
     pub fn from_rules_debug(rules: &[String], opts: ParseOptions) -> Self {
-        Self::from_rules_parametrised(&rules, opts, true, true)
+        Self::from_rules_parametrised(rules, opts, true, true)
     }
 
     pub fn from_rules_parametrised(filter_rules: &[String], opts: ParseOptions, debug: bool, optimize: bool) -> Self {
@@ -116,7 +116,7 @@ impl Engine {
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by
     /// `source_url`, should be blocked.
     pub fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str) -> BlockerResult {
-        Request::from_urls(&url, &source_url, &request_type)
+        Request::from_urls(url, source_url, request_type)
         .map(|request| {
             self.blocker.check(&request)
         })

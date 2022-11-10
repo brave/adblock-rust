@@ -95,7 +95,7 @@ impl ScriptletResourceStorage {
         if scriptlet_args.is_empty() {
             return Err(ScriptletResourceError::MissingScriptletName);
         }
-        let scriptlet_name = without_js_extension(&scriptlet_args[0].as_ref());
+        let scriptlet_name = without_js_extension(scriptlet_args[0].as_ref());
         let args = &scriptlet_args[1..];
         let template = self.resources
             .get(scriptlet_name)
@@ -109,7 +109,7 @@ fn without_js_extension(scriptlet_name: &str) -> &str {
     if let Some(stripped) = scriptlet_name.strip_suffix(".js") {
         stripped
     } else {
-        &scriptlet_name
+        scriptlet_name
     }
 }
 
