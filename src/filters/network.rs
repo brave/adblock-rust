@@ -978,7 +978,7 @@ impl NetworkFilter {
         if tokens.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
             if let Some(removeparam) = &self.modifier_option {
                 if VALID_PARAM.is_match(removeparam) {
-                    let mut param_tokens = utils::tokenize(removeparam);
+                    let mut param_tokens = utils::tokenize(&removeparam.to_ascii_lowercase());
                     tokens.append(&mut param_tokens);
                 }
             }

@@ -269,13 +269,14 @@ impl Blocker {
     }
 
     fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: lifeguard::Recycled<Vec<u64>>) -> Option<String> {
+        let url = &request.original_url;
         // Only check for removeparam if there's a query string in the request URL
-        if let Some(i) = request.url.find('?') {
+        if let Some(i) = url.find('?') {
             // String indexing safety: indices come from `.len()` or `.find(..)` on individual
             // ASCII characters (1 byte each), some plus 1.
             let params_start = i + 1;
-            let hash_index = if let Some(j) = request.url[params_start..].find('#') { params_start + j } else { request.url.len() };
-            let qparams = &request.url[params_start..hash_index];
+            let hash_index = if let Some(j) = url[params_start..].find('#') { params_start + j } else { url.len() };
+            let qparams = &url[params_start..hash_index];
             let mut params: Vec<(&str, &str, bool)> = qparams.split('&').map(|pair| {
                 if let Some((k, v)) = pair.split_once('=') {
                     (k, v, true)
@@ -303,7 +304,7 @@ impl Blocker {
                 } else {
                     format!("?{}", p)
                 };
-                Some(format!("{}{}{}", &request.url[0..i], new_param_str, &request.url[hash_index..]))
+                Some(format!("{}{}{}", &url[0..i], new_param_str, &url[hash_index..]))
             } else {
                 None
             }
@@ -1556,6 +1557,7 @@ mod blocker_tests {
             String::from("*$removeparam=fbclid"),
             String::from("/script.js$redirect-rule=noopjs"),
             String::from("^block^$important"),
+            String::from("*$removeparam=testCase"),
         ];
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -1612,6 +1614,10 @@ mod blocker_tests {
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
+        let result = blocker.check(&Request::from_urls("https://test.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://test.com?q=1&test=2".into()));
+        assert!(!result.matched);
+
         let result = blocker.check(&Request::from_urls("https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q2=2&q3=3&q4=4&q5=5".into()));
         assert!(!result.matched);
@@ -1625,10 +1631,18 @@ mod blocker_tests {
         assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/block/script.js?test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::from_urls("https://example.com/block/script.js?test=2", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, None);
         assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
         assert!(result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com/Path/?Test=ABC&testcase=AbC".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC?123#&test=4#b".into()));
+        assert!(!result.matched);
     }
 
     #[test]
