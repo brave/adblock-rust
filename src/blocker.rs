@@ -269,6 +269,23 @@ impl Blocker {
     }
 
     fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: lifeguard::Recycled<Vec<u64>>) -> Option<String> {
+        /// Represents an `&`-separated argument from a URL query parameter string
+        enum QParam<'a> {
+            /// Just a key, e.g. `...&key&...`
+            KeyOnly(&'a str),
+            /// Key-value pair separated by an equal sign, e.g. `...&key=value&...`
+            KeyValue(&'a str, &'a str),
+        }
+
+        impl<'a> std::fmt::Display for QParam<'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    Self::KeyOnly(k) => write!(f, "{}", k),
+                    Self::KeyValue(k, v) => write!(f, "{}={}", k, v),
+                }
+            }
+        }
+
         let url = &request.original_url;
         // Only check for removeparam if there's a query string in the request URL
         if let Some(i) = url.find('?') {
@@ -277,28 +294,34 @@ impl Blocker {
             let params_start = i + 1;
             let hash_index = if let Some(j) = url[params_start..].find('#') { params_start + j } else { url.len() };
             let qparams = &url[params_start..hash_index];
-            let mut params: Vec<(&str, &str, bool)> = qparams.split('&').map(|pair| {
-                if let Some((k, v)) = pair.split_once('=') {
-                    (k, v, true)
-                } else {
-                    (pair, "", true)
-                }
-            }).collect();
+            let mut params: Vec<(QParam, bool)> = qparams
+                .split('&')
+                .map(|pair| {
+                    if let Some((k, v)) = pair.split_once('=') {
+                        QParam::KeyValue(k, v)
+                    } else {
+                        QParam::KeyOnly(pair)
+                    }
+                })
+                .map(|param| (param, true))
+                .collect();
 
             let filters = removeparam_filters.check_all(request, &request_tokens, &NO_TAGS);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
-                    params.iter_mut().for_each(|(k, _, include)| {
-                        if k == removeparam {
-                            *include = false;
-                            rewrite = true;
+                    params.iter_mut().for_each(|(param, include)| {
+                        if let QParam::KeyValue(k, v) = param {
+                            if !v.is_empty() && k == removeparam {
+                                *include = false;
+                                rewrite = true;
+                            }
                         }
                     });
                 }
             }
             if rewrite {
-                let p = itertools::join(params.into_iter().filter(|(_, _, include)| *include).map(|(k, v, _)| format!("{}={}", k, v)), "&");
+                let p = itertools::join(params.into_iter().filter(|(_, include)| *include).map(|(param, _)| param.to_string()), "&");
                 let new_param_str = if p.is_empty() {
                     String::from("")
                 } else {
@@ -1643,6 +1666,80 @@ mod blocker_tests {
         let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC?123#&test=4#b".into()));
         assert!(!result.matched);
+    }
+
+    /// Tests ported from the previous query parameter stripping logic in brave-core
+    #[test]
+    fn removeparam_brave_core_tests() {
+        let testcases = vec![
+            // (original url, expected url after filtering)
+            ("https://example.com/?fbclid=1234", "https://example.com/"),
+            ("https://example.com/?fbclid=1234&", "https://example.com/"),
+            ("https://example.com/?&fbclid=1234", "https://example.com/"),
+            ("https://example.com/?gclid=1234", "https://example.com/"),
+            ("https://example.com/?fbclid=0&gclid=1&msclkid=a&mc_eid=a1",
+             "https://example.com/"),
+            ("https://example.com/?fbclid=&foo=1&bar=2&gclid=abc",
+             "https://example.com/?fbclid=&foo=1&bar=2"),
+            ("https://example.com/?fbclid=&foo=1&gclid=1234&bar=2",
+             "https://example.com/?fbclid=&foo=1&bar=2"),
+            ("http://u:p@example.com/path/file.html?foo=1&fbclid=abcd#fragment",
+             "http://u:p@example.com/path/file.html?foo=1#fragment"),
+            ("https://example.com/?__s=1234-abcd", "https://example.com/"),
+            // Obscure edge cases that break most parsers:
+            ("https://example.com/?fbclid&foo&&gclid=2&bar=&%20",
+             "https://example.com/?fbclid&foo&&bar=&%20"),
+            ("https://example.com/?fbclid=1&1==2&=msclkid&foo=bar&&a=b=c&",
+             "https://example.com/?1==2&=msclkid&foo=bar&&a=b=c&"),
+            ("https://example.com/?fbclid=1&=2&?foo=yes&bar=2+",
+             "https://example.com/?=2&?foo=yes&bar=2+"),
+            ("https://example.com/?fbclid=1&a+b+c=some%20thing&1%202=3+4",
+             "https://example.com/?a+b+c=some%20thing&1%202=3+4"),
+            // Conditional query parameter stripping
+            /*("https://example.com/?mkt_tok=123&foo=bar",
+             "https://example.com/?foo=bar"),*/
+        ];
+
+        let filters = [
+            "fbclid", "gclid", "msclkid", "mc_eid",
+            "dclid",
+            "oly_anon_id", "oly_enc_id",
+            "_openstat",
+            "vero_conv", "vero_id",
+            "wickedid",
+            "yclid",
+            "__s",
+            "rb_clickid",
+            "s_cid",
+            "ml_subscriber", "ml_subscriber_hash",
+            "twclid",
+            "gbraid", "wbraid",
+            "_hsenc", "__hssc", "__hstc", "__hsfp", "hsCtaTracking",
+            "oft_id", "oft_k", "oft_lk", "oft_d", "oft_c", "oft_ck", "oft_ids",
+            "oft_sk",
+            "ss_email_id",
+            "bsft_uid", "bsft_clkid",
+            "vgo_ee",
+            "igshid",
+        ].iter().map(|s| format!("*$removeparam={}", s)).collect::<Vec<_>>();
+
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+
+        let blocker_options = BlockerOptions {
+            enable_optimizations: true,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        for (original, expected) in testcases.into_iter() {
+            let result = blocker.check(&Request::from_urls(original, "https://example.net", "script").unwrap());
+            let expected = if original == expected {
+                None
+            } else {
+                Some(expected.to_string())
+            };
+            assert_eq!(expected, result.rewritten_url, "Filtering parameters on {} failed", original);
+        }
     }
 
     #[test]
