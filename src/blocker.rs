@@ -221,16 +221,43 @@ impl Blocker {
         // 1. Exceptions - can bail immediately if found
         // 2. Any other redirect resource
         let redirect_resource = {
-            let mut resource: Option<&str> = None;
-            for redirect_filter in redirect_filters {
+            let mut exceptions = vec![];
+            for redirect_filter in redirect_filters.iter() {
                 if redirect_filter.is_exception() {
-                    resource = None;
-                    break;
-                } else if resource.is_none() {
-                    resource = redirect_filter.modifier_option.as_deref();
+                    if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
+                        exceptions.push(redirect);
+                    }
                 }
             }
-            resource
+            let mut resource_and_priority = None;
+            for redirect_filter in redirect_filters.iter() {
+                if !redirect_filter.is_exception() {
+                    if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
+                        if !exceptions.contains(&&redirect) {
+                            // parse redirect + priority
+                            let (resource, priority) = if let Some(idx) = redirect.rfind(':') {
+                                let priority_str = &redirect[idx + 1..];
+                                let resource = &redirect[..idx];
+                                if let Ok(priority) = priority_str.parse::<i32>() {
+                                    (resource, priority)
+                                } else {
+                                    (&redirect[..], 0)
+                                }
+                            } else {
+                                (&redirect[..], 0)
+                            };
+                            if let Some((_, p1)) = resource_and_priority {
+                                if priority > p1 {
+                                    resource_and_priority = Some((resource, priority));
+                                }
+                            } else {
+                                resource_and_priority = Some((resource, priority));
+                            }
+                        }
+                    }
+                }
+            }
+            resource_and_priority.map(|(r, _)| r)
         };
 
         let redirect: Option<String> = redirect_resource.and_then(|resource_name| {
@@ -1740,6 +1767,75 @@ mod blocker_tests {
             };
             assert_eq!(expected, result.rewritten_url, "Filtering parameters on {} failed", original);
         }
+    }
+
+    #[test]
+    fn test_redirect_priority() {
+        let filters = vec![
+            String::from(".txt^$redirect-rule=a"),
+            String::from("||example.com^$redirect-rule=b:10"),
+            String::from("/text$redirect-rule=c:20"),
+            String::from("@@^excepta^$redirect-rule=a"),
+            String::from("@@^exceptb10^$redirect-rule=b:10"),
+            String::from("@@^exceptc20^$redirect-rule=c:20"),
+        ];
+
+        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+
+        let blocker_options = BlockerOptions {
+            enable_optimizations: true,
+        };
+
+        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        fn add_simple_resource(blocker: &mut Blocker, identifier: &str) -> Option<String> {
+            let b64 = base64::encode(identifier);
+            blocker.add_resource(&Resource {
+                name: identifier.into(),
+                aliases: vec![],
+                kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::TextPlain),
+                content: base64::encode(identifier),
+            }).unwrap();
+            return Some(format!("data:text/plain;base64,{}", b64));
+        }
+        let a_redirect = add_simple_resource(&mut blocker, "a");
+        let b_redirect = add_simple_resource(&mut blocker, "b");
+        let c_redirect = add_simple_resource(&mut blocker, "c");
+
+        let result = blocker.check(&Request::from_urls("https://example.net/test", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, None);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.net/test.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, a_redirect);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/test.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, b_redirect);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, c_redirect);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, b_redirect);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, c_redirect);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, a_redirect);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/exceptb10/excepta/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, None);
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/exceptb10/text", "https://example.com", "xmlhttprequest").unwrap());
+        assert_eq!(result.redirect, None);
+        assert!(!result.matched);
     }
 
     #[test]
