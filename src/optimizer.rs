@@ -181,7 +181,7 @@ impl Optimization for UnionDomainGroup {
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
-        format!("{:?}:{}:{:b}:{:?}", filter.hostname.as_ref(), filter.filter.string_view().unwrap_or_default(), filter.mask, filter.redirect.as_ref())
+        format!("{:?}:{}:{:b}:{:?}", filter.hostname.as_ref(), filter.filter.string_view().unwrap_or_default(), filter.mask, filter.modifier_option.as_ref())
     }
 
     fn select(&self, filter: &NetworkFilter) -> bool {

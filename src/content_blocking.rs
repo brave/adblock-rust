@@ -155,6 +155,8 @@ pub enum CbRuleCreationFailure {
     NetworkBadFilterUnsupported,
     /// Network rules with csp options cannot be supported in content blocking syntax.
     NetworkCspUnsupported,
+    /// Network rules with removeparam options cannot be supported in content blocking syntax.
+    NetworkRemoveparamUnsupported,
     /// Content blocking syntax only supports a subset of regex features, namely:
     /// - Matching any character with “.”.
     /// - Matching ranges with the range syntax [a-b].
@@ -245,8 +247,8 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
         static SPECIAL_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]])"##).unwrap());
         static REPLACE_WILDCARDS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\*"##).unwrap());
         static TRAILING_SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\^$"##).unwrap());
-        if let Some(raw_line) = v.raw_line {
-            if v.redirect.is_some() {
+        if let Some(raw_line) = &v.raw_line {
+            if v.is_redirect() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
             }
             if v.mask.contains(NetworkFilterMask::GENERIC_HIDE) {
@@ -255,11 +257,14 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             if v.mask.contains(NetworkFilterMask::BAD_FILTER) {
                 return Err(CbRuleCreationFailure::NetworkBadFilterUnsupported);
             }
-            if v.mask.contains(NetworkFilterMask::IS_CSP) {
+            if v.is_csp() {
                 return Err(CbRuleCreationFailure::NetworkCspUnsupported);
             }
             if v.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX) {
                 return Err(CbRuleCreationFailure::FullRegexUnsupported);
+            }
+            if v.is_removeparam() {
+                return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
             }
 
             let load_type = if v.mask.contains(NetworkFilterMask::THIRD_PARTY | NetworkFilterMask::FIRST_PARTY) {

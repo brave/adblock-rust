@@ -81,8 +81,9 @@ pub struct Request {
     pub hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
+    pub(crate) original_url: String,
+
     // mutable fields, set later
-    pub bug: Option<u32>, // TODO - unused, remove in next major version bump
     hostname_end: usize
 }
 
@@ -122,7 +123,8 @@ impl Request {
             hostname,
             source_hostname,
             third_party,
-            hostname_end
+            hostname_end,
+            url.to_string(),
         )
     }
 
@@ -134,7 +136,8 @@ impl Request {
         hostname: &str,
         source_hostname: &str,
         third_party: Option<bool>,
-        hostname_end: usize
+        hostname_end: usize,
+        original_url: String,
     ) -> Request {
         let first_party = third_party.map(|p| !p);
 
@@ -187,8 +190,8 @@ impl Request {
             is_http,
             is_https,
             is_supported,
-            bug: None,
-            hostname_end
+            hostname_end,
+            original_url,
         }
     }
 
@@ -214,7 +217,8 @@ impl Request {
                     parsed_url.hostname(),
                     parsed_source.hostname(),
                     third_party,
-                    parsed_url.hostname_pos.1
+                    parsed_url.hostname_pos.1,
+                    url.to_string(),
                 ))
             } else {
                 Ok(Request::from_detailed_parameters(
@@ -224,7 +228,8 @@ impl Request {
                     parsed_url.hostname(),
                     "",
                     None,
-                    parsed_url.hostname_pos.1
+                    parsed_url.hostname_pos.1,
+                    url.to_string(),
                 ))
             }
         } else {
@@ -267,7 +272,8 @@ impl Request {
             hostname,
             source_hostname,
             third_party,
-            splitter + 2 + hostname.len()
+            splitter + 2 + hostname.len(),
+            url.to_string(),
         )
     }
 

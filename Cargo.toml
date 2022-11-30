@@ -1,6 +1,6 @@
 [package]
 name = "adblock"
-version = "0.5.8"
+version = "0.6.0"
 authors = ["Andrius Aucinas <aaucinas@brave.com>", "Anton Lazarev <alazarev@brave.com>"]
 edition = "2018"
 
@@ -10,10 +10,17 @@ license = "MPL-2.0"
 readme = "README.md"
 
 exclude = [
-    "data/requests.json",
-    "data/matching-tests-requests.json",
-    "data/ublock-matches.tsv",
-    "data/easylist-parse-errors.log",
+    "*.md",
+    ".github/",
+    ".gitignore",
+    ".npmignore",
+    "benches/",
+    "data/",
+    "examples/",
+    "native/",
+    "package-lock.json",
+    "package.json",
+    "tests/",
 ]
 
 [dependencies]

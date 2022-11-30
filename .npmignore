@@ -1,9 +1,9 @@
 data/
 target/
-adblock-rust-wasm/
 native/target/
 native/index.node
 .git/
+.github/
 .DS_Store
 *.code-workspace
 *.diff

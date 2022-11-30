@@ -125,6 +125,7 @@ impl Engine {
                 matched: false,
                 important: false,
                 redirect: None,
+                rewritten_url: None,
                 exception: None,
                 filter: None,
                 error: Some("Error parsing request".to_owned())
@@ -282,7 +283,6 @@ fn _assertions() {
 mod tests {
     use super::*;
     use crate::resources::{ResourceType, MimeType};
-    use crate::blocker::Redirection;
     use crate::lists::FilterFormat;
 
     #[test]
@@ -493,7 +493,7 @@ mod tests {
         // TODO - The failure to match here is considered acceptable for now, as it's part of a
         // breaking change (minor version bump). However, the test should be updated at some point.
         //assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Resource("data:text/plain;base64,".to_owned())), "Expected redirect to contain resource");
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
     }
 
     #[test]
@@ -560,7 +560,7 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let matched_rule = engine.check_network_urls(url, "", "");
         assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some(Redirection::Resource("data:text/plain;base64,".to_owned())), "Expected redirect to contain resource");
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
     }
 
     #[test]

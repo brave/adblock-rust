@@ -60,7 +60,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
 
     network_filters.into_iter()
         .filter(|rule| {
-            if let Some(ref redirect) = rule.redirect {
+            if let Some(ref redirect) = rule.modifier_option {
                 if redirect != "none" {
                     return true;
                 }

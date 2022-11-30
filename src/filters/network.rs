@@ -1,7 +1,6 @@
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
 use once_cell::sync::Lazy;
-use crate::url_parser::parse_url;
 
 use std::fmt;
 use std::sync::Arc;
@@ -12,6 +11,9 @@ use crate::utils::Hash;
 use crate::lists::ParseOptions;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
+
+/// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
+static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum NetworkFilterError {
@@ -26,8 +28,12 @@ pub enum NetworkFilterError {
     NegatedDocument,
     GenericHideWithoutException,
     EmptyRedirection,
+    EmptyRemoveparam,
+    NegatedRemoveparam,
+    RemoveparamWithException,
+    RemoveparamRegexUnsupported,
     RedirectionUrlInvalid,
-    MultipleRedirections,
+    MultipleModifierOptions,
     UnrecognisedOption,
     NoRegex,
     FullRegexUnsupported,
@@ -54,10 +60,10 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const IS_REDIRECT_URL = 1 << 15;
+        const IS_REMOVEPARAM = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
-        const _EXPLICIT_CANCEL = 1 << 26;   // Unused
+        const IS_REDIRECT = 1 << 26;
         const BAD_FILTER = 1 << 27;
         const GENERIC_HIDE = 1 << 30;
 
@@ -228,8 +234,8 @@ enum NetworkFilterOption {
     Tag(String),
     Redirect(String),
     RedirectRule(String),
-    RedirectUrl(String),
     Csp(Option<String>),
+    Removeparam(String),
     Generichide,
     Document,
     Image(bool),
@@ -262,7 +268,7 @@ impl NetworkFilterOption {
     }
 
     pub fn is_redirection(&self) -> bool {
-        matches!(self, Self::Redirect(..) | Self::RedirectRule(..) | Self::RedirectUrl(..))
+        matches!(self, Self::Redirect(..) | Self::RedirectRule(..))
     }
 }
 
@@ -276,7 +282,7 @@ struct AbstractNetworkFilter {
 }
 
 impl AbstractNetworkFilter {
-    fn parse(line: &str, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
+    fn parse(line: &str) -> Result<Self, NetworkFilterError> {
         let mut filter_index_start: usize = 0;
         let mut filter_index_end: usize = line.len();
 
@@ -295,7 +301,7 @@ impl AbstractNetworkFilter {
             // slicing here is safe; the first byte after '$' will be a character boundary
             let raw_options = &line[filter_index_end + 1..];
 
-            options = Some(parse_filter_options(raw_options, opts)?);
+            options = Some(parse_filter_options(raw_options)?);
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
@@ -329,7 +335,7 @@ impl AbstractNetworkFilter {
     }
 }
 
-fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
+fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
     let mut result = vec![];
 
     for raw_option in raw_options.split(',') {
@@ -382,28 +388,21 @@ fn parse_filter_options(raw_options: &str, opts: ParseOptions) -> Result<Vec<Net
 
                 NetworkFilterOption::RedirectRule(String::from(value))
             }
-            ("redirect-url", true) => return Err(NetworkFilterError::NegatedRedirection),
-            ("redirect-url", false) => {
-                // Only parse filter option if parse options allow it
-                if !opts.include_redirect_urls {
-                    return Err(NetworkFilterError::UnrecognisedOption);
-                }
-                // Ignore this filter if no redirection resource is specified
-                if value.is_empty() {
-                    return Err(NetworkFilterError::EmptyRedirection);
-                }
-                // Parse URL
-                let maybe_parsed_url = parse_url(value);
-                if maybe_parsed_url.is_none() {
-                    return Err(NetworkFilterError::RedirectionUrlInvalid)
-                }
-                NetworkFilterOption::RedirectUrl(String::from(value))
-            }
             ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
                 Some(String::from(value))
             } else {
                 None
             }),
+            ("removeparam", true) => return Err(NetworkFilterError::NegatedRemoveparam),
+            ("removeparam", false) => {
+                if value.is_empty() {
+                    return Err(NetworkFilterError::EmptyRemoveparam);
+                }
+                if !VALID_PARAM.is_match(value) {
+                    return Err(NetworkFilterError::RemoveparamRegexUnsupported);
+                }
+                NetworkFilterOption::Removeparam(String::from(value))
+            }
             ("generichide", true) | ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
             ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
             ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
@@ -476,11 +475,11 @@ pub struct NetworkFilter {
     pub filter: FilterPart,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
-    pub redirect: Option<String>,
+    /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
+    /// supported per-rule.
+    pub modifier_option: Option<String>,
     pub hostname: Option<String>,
-    pub csp: Option<String>,
-    pub bug: Option<u32>, // TODO unused, remove in next serialization format
-    pub tag: Option<String>,
+    pub(crate) tag: Option<String>,
 
     pub raw_line: Option<Box<String>>,
 
@@ -516,29 +515,30 @@ impl PartialOrd for NetworkFilter {
 fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilterError> {
     let mut has_csp = false;
     let mut has_content_type = false;
-    let mut has_redirect = false;
+    let mut modifier_options = 0;
     for option in options {
         if matches!(option, NetworkFilterOption::Csp(..)) {
             has_csp = true;
+            modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
-        } else if option.is_redirection() {
-            if has_redirect {
-                return Err(NetworkFilterError::MultipleRedirections);
-            }
-            has_redirect = true;
+        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..)) {
+            modifier_options += 1;
         }
     }
     if has_csp && has_content_type {
         return Err(NetworkFilterError::CspWithContentType);
+    }
+    if modifier_options > 1 {
+        return Err(NetworkFilterError::MultipleModifierOptions);
     }
 
     Ok(())
 }
 
 impl NetworkFilter {
-    pub fn parse(line: &str, debug: bool, opts: ParseOptions) -> Result<Self, NetworkFilterError> {
-        let parsed = AbstractNetworkFilter::parse(line, opts)?;
+    pub fn parse(line: &str, debug: bool, _opts: ParseOptions) -> Result<Self, NetworkFilterError> {
+        let parsed = AbstractNetworkFilter::parse(line)?;
 
         // Represent options as a bitmask
         let mut mask: NetworkFilterMask = NetworkFilterMask::THIRD_PARTY
@@ -558,8 +558,7 @@ impl NetworkFilter {
         let mut opt_domains_union: Option<Hash> = None;
         let mut opt_not_domains_union: Option<Hash> = None;
 
-        let mut redirect: Option<String> = None;
-        let mut csp: Option<String> = None;
+        let mut modifier_option: Option<String> = None;
         let mut tag: Option<String> = None;
 
         if parsed.exception {
@@ -616,21 +615,25 @@ impl NetworkFilter {
                     NetworkFilterOption::ThirdParty(true) | NetworkFilterOption::FirstParty(false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
                     NetworkFilterOption::Tag(value) => tag = Some(value),
                     NetworkFilterOption::Redirect(value) => {
+                        mask.set(NetworkFilterMask::IS_REDIRECT, true);
                         mask.set(NetworkFilterMask::ALSO_BLOCK_REDIRECT, true);
-                        redirect = Some(value);
-                    },
-                    NetworkFilterOption::RedirectRule(value) => redirect = Some(value),
-                    NetworkFilterOption::RedirectUrl(value) => redirect = {
-                        mask.set(NetworkFilterMask::IS_REDIRECT_URL, true);
-                        Some(value)
-                    },
+                        modifier_option = Some(value);
+                    }
+                    NetworkFilterOption::RedirectRule(value) => {
+                        mask.set(NetworkFilterMask::IS_REDIRECT, true);
+                        modifier_option = Some(value);
+                    }
+                    NetworkFilterOption::Removeparam(value) => {
+                        mask.set(NetworkFilterMask::IS_REMOVEPARAM, true);
+                        modifier_option = Some(value);
+                    }
                     NetworkFilterOption::Csp(value) => {
                         mask.set(NetworkFilterMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
                         // subdocument and document rules. Rules do not match against document
                         // requests by default, so this must be explictly added.
                         mask.set(NetworkFilterMask::FROM_DOCUMENT, true);
-                        csp = value;
+                        modifier_option = value;
                     }
                     NetworkFilterOption::Generichide => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
                     NetworkFilterOption::Document => cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true),
@@ -829,6 +832,10 @@ impl NetworkFilter {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
+        if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) && parsed.exception {
+            return Err(NetworkFilterError::RemoveparamWithException);
+        }
+
         // uBlock Origin would block main document `https://example.com` requests with all of the
         // following filters:
         // - ||example.com
@@ -850,8 +857,6 @@ impl NetworkFilter {
         mask &= !cpt_mask_negative;
 
         Ok(NetworkFilter {
-            bug: None,
-            csp,
             filter: if let Some(simple_filter) = filter {
                 FilterPart::Simple(simple_filter)
             } else {
@@ -867,7 +872,7 @@ impl NetworkFilter {
             } else {
                 None
             },
-            redirect,
+            modifier_option,
             id: utils::fast_hash(line),
             opt_domains_union,
             opt_not_domains_union,
@@ -908,7 +913,7 @@ impl NetworkFilter {
         let mut mask = self.mask;
         mask.set(NetworkFilterMask::BAD_FILTER, false);
         compute_filter_id(
-            self.csp.as_deref(),
+            self.modifier_option.as_deref(),
             mask,
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
@@ -919,7 +924,7 @@ impl NetworkFilter {
 
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.csp.as_deref(),
+            self.modifier_option.as_deref(),
             self.mask,
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
@@ -967,6 +972,15 @@ impl NetworkFilter {
             if let Some(hostname) = self.hostname.as_ref()  {
                 let mut hostname_tokens = utils::tokenize(hostname);
                 tokens.append(&mut hostname_tokens);
+            }
+        }
+
+        if tokens.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+            if let Some(removeparam) = &self.modifier_option {
+                if VALID_PARAM.is_match(removeparam) {
+                    let mut param_tokens = utils::tokenize(&removeparam.to_ascii_lowercase());
+                    tokens.append(&mut param_tokens);
+                }
             }
         }
 
@@ -1021,11 +1035,11 @@ impl NetworkFilter {
     }
 
     pub fn is_redirect(&self) -> bool {
-        self.redirect.is_some()
+        self.mask.contains(NetworkFilterMask::IS_REDIRECT)
     }
 
-    pub fn is_redirect_url(&self) -> bool {
-        self.redirect.is_some() && self.mask.contains(NetworkFilterMask::IS_REDIRECT_URL)
+    pub fn is_removeparam(&self) -> bool {
+        self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
     }
 
     pub fn also_block_redirect(&self) -> bool {
@@ -1117,7 +1131,7 @@ impl NetworkMatchable for NetworkFilter {
 // ---------------------------------------------------------------------------
 
 fn compute_filter_id(
-    csp: Option<&str>,
+    modifier_option: Option<&str>,
     mask: NetworkFilterMask,
     filter: Option<&str>,
     hostname: Option<&str>,
@@ -1126,7 +1140,7 @@ fn compute_filter_id(
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits);
 
-    if let Some(s) = csp {
+    if let Some(s) = modifier_option {
         let chars = s.chars();
         for c in chars {
             hash = hash.wrapping_mul(33) ^ (c as Hash);
@@ -1634,11 +1648,10 @@ mod parse_tests {
     #[derive(Debug, PartialEq)]
     struct NetworkFilterBreakdown {
         filter: Option<String>,
-        csp: Option<String>,
         hostname: Option<String>,
         opt_domains: Option<Vec<Hash>>,
         opt_not_domains: Option<Vec<Hash>>,
-        redirect: Option<String>,
+        modifier_option: Option<String>,
 
         // filter type
         is_exception: bool,
@@ -1667,18 +1680,16 @@ mod parse_tests {
         from_document: bool,
         match_case: bool,
         third_party: bool,
-        is_redirect_url: bool,
     }
 
     impl From<&NetworkFilter> for NetworkFilterBreakdown {
         fn from(filter: &NetworkFilter) -> NetworkFilterBreakdown {
             NetworkFilterBreakdown {
                 filter: filter.filter.string_view(),
-                csp: filter.csp.as_ref().cloned(),
                 hostname: filter.hostname.as_ref().cloned(),
                 opt_domains: filter.opt_domains.as_ref().cloned(),
                 opt_not_domains: filter.opt_not_domains.as_ref().cloned(),
-                redirect: filter.redirect.as_ref().cloned(),
+                modifier_option: filter.modifier_option.as_ref().cloned(),
 
                 // filter type
                 is_exception: filter.is_exception(),
@@ -1705,7 +1716,6 @@ mod parse_tests {
                 from_websocket: filter.mask.contains(NetworkFilterMask::FROM_WEBSOCKET),
                 from_xml_http_request: filter.mask.contains(NetworkFilterMask::FROM_XMLHTTPREQUEST),
                 from_document: filter.mask.contains(NetworkFilterMask::FROM_DOCUMENT),
-                is_redirect_url: filter.is_redirect_url(),
                 match_case: filter.match_case(),
                 third_party: filter.third_party(),
             }
@@ -1715,11 +1725,10 @@ mod parse_tests {
     fn default_network_filter_breakdown() -> NetworkFilterBreakdown {
         NetworkFilterBreakdown {
             filter: None,
-            csp: None,
             hostname: None,
             opt_domains: None,
             opt_not_domains: None,
-            redirect: None,
+            modifier_option: None,
 
             // filter type
             is_exception: false,
@@ -1748,7 +1757,6 @@ mod parse_tests {
             from_document: false,
             match_case: false,
             third_party: true,
-            is_redirect_url: false,
         }
     }
 
@@ -2192,19 +2200,19 @@ mod parse_tests {
     fn parses_csp() {
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.csp, None);
+            assert_eq!(filter.modifier_option, None);
         }
         {
             // parses simple CSP
             let filter = NetworkFilter::parse(r#"||foo.com$csp=self bar """#, true, Default::default()).unwrap();
             assert_eq!(filter.is_csp(), true);
-            assert_eq!(filter.csp, Some(String::from(r#"self bar """#)));
+            assert_eq!(filter.modifier_option, Some(String::from(r#"self bar """#)));
         }
         {
             // parses empty CSP
             let filter = NetworkFilter::parse("||foo.com$csp", true, Default::default()).unwrap();
             assert_eq!(filter.is_csp(), true);
-            assert_eq!(filter.csp, None);
+            assert_eq!(filter.modifier_option, None);
         }
         {
             // CSP mixed with content type is an error
@@ -2279,74 +2287,15 @@ mod parse_tests {
     }
 
     #[test]
-    fn parses_redirect_urls() {
-        let opts = ParseOptions { include_redirect_urls: true, ..Default::default() };
-        {
-            // No parsing without parse option
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, Default::default());
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::UnrecognisedOption));
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=http://xyz.com", true, opts).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("http://xyz.com")));
-            assert_eq!(filter.is_redirect_url(), true);
-        }
-        {
-            let filter = NetworkFilter::parse("$redirect-url=http://xyz.com", true, opts).unwrap();
-            assert_eq!(filter.is_redirect_url(), true);
-            assert_eq!(filter.redirect, Some(String::from("http://xyz.com")));
-        }
-        // parses ~redirect-url
-        {
-            // ~redirect-url is not a valid option
-            let filter = NetworkFilter::parse("||foo.com$~redirect-url", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::NegatedRedirection));
-        }
-        // parses redirect-url without a value
-        {
-            // Not valid
-            let filter = NetworkFilter::parse("||foo.com$redirect-url", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::EmptyRedirection));
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::EmptyRedirection))
-        }
-        {
-            // Has to be valid URL
-            let filter = NetworkFilter::parse("||foo.com$redirect-url=xyz.com", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::RedirectionUrlInvalid))
-        }
-        {
-            // only one between redirect and redirect-url can be specified
-            let filter = NetworkFilter::parse("||foo.com$redirect=xyz,redirect-url=http://xyz.com", true, opts);
-            let err = filter.clone().err();
-            assert_eq!(err, Some(NetworkFilterError::MultipleRedirections))
-        }
-        // defaults to false
-        {
-            let filter = NetworkFilter::parse("||foo.com", true, opts).unwrap();
-            assert_eq!(filter.is_redirect_url(), false);
-            assert_eq!(filter.redirect, None);
-        }
-    }
-
-
-    #[test]
     fn parses_redirects() {
         // parses redirect
         {
             let filter = NetworkFilter::parse("||foo.com$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("bar.js")));
+            assert_eq!(filter.modifier_option, Some(String::from("bar.js")));
         }
         {
             let filter = NetworkFilter::parse("$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, Some(String::from("bar.js")));
+            assert_eq!(filter.modifier_option, Some(String::from("bar.js")));
         }
         // parses ~redirect
         {
@@ -2367,7 +2316,48 @@ mod parse_tests {
         // defaults to false
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.redirect, None);
+            assert_eq!(filter.modifier_option, None);
+        }
+    }
+
+    #[test]
+    fn parses_removeparam() {
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("$~removeparam=test", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("@@||foo.com^$removeparam=test", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=test,redirect=test", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=test,removeparam=test2", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=𝐔𝐍𝐈𝐂𝐎𝐃𝐄🧋", true, Default::default());
+            assert!(filter.is_err());
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=/abc.*/", true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::RemoveparamRegexUnsupported));
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$removeparam=test", true, Default::default()).unwrap();
+            assert!(filter.is_removeparam());
+            assert_eq!(filter.modifier_option, Some("test".into()));
         }
     }
 
