@@ -1,6 +1,9 @@
 //! Holds `Blocker`, which handles all network-based adblocking queries.
 
 use once_cell::sync::Lazy;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::ops::DerefMut;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
@@ -8,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::filters::network::{NetworkFilter, NetworkMatchable, RegexManager};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -84,6 +87,11 @@ pub enum BlockerError {
     FilterExists,
 }
 
+pub struct BlockerDebugInfo {
+  active_regex_count: usize,
+  compiled_regex_count: usize,
+}
+
 #[cfg(feature = "object-pooling")]
 pub struct TokenPool {
     pub pool: Pool<Vec<utils::Hash>>
@@ -127,7 +135,10 @@ pub struct Blocker {
     // Not serialized
     #[cfg(feature = "object-pooling")]
     pub(crate) pool: TokenPool,
-}
+
+    // Not serialized
+    pub(crate) regex_manager: RefCell<RegexManager>,
+  }
 
 impl Blocker {
     /// Decide if a network request (usually from WebRequest API) should be
@@ -137,6 +148,7 @@ impl Blocker {
     }
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
+        let mut regex_manager = self.regex_manager.borrow_mut();
         let mut request_tokens;
         #[cfg(feature = "object-pooling")]
         {
@@ -148,10 +160,11 @@ impl Blocker {
         }
         hostname_request.get_tokens(&mut request_tokens);
 
-        self.generic_hide.check(hostname_request, &request_tokens, &HashSet::new()).is_some()
+        self.generic_hide.check(hostname_request, &request_tokens, &HashSet::new(), regex_manager.deref_mut()).is_some()
     }
 
     pub fn check_parameterised(&self, request: &Request, matched_rule: bool, force_check_exceptions: bool) -> BlockerResult {
+        let mut regex_manager = self.regex_manager.borrow_mut();
         if !request.is_supported {
             return BlockerResult::default();
         }
@@ -178,17 +191,17 @@ impl Blocker {
         // Always check important filters
         let important_filter = self
             .importants
-            .check(request, &request_tokens, &NO_TAGS);
+            .check(request, &request_tokens, &NO_TAGS, regex_manager.deref_mut());
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             #[cfg(feature = "metrics")]
             print!("tagged\t");
-            self.filters_tagged.check(request, &request_tokens, &self.tags_enabled)
+            self.filters_tagged.check(request, &request_tokens, &self.tags_enabled, regex_manager.deref_mut())
                 .or_else(|| {
                     #[cfg(feature = "metrics")]
                     print!("filters\t");
-                    self.filters.check(request, &request_tokens, &NO_TAGS)
+                    self.filters.check(request, &request_tokens, &NO_TAGS, regex_manager.deref_mut())
                 })
         } else {
             important_filter
@@ -199,7 +212,7 @@ impl Blocker {
             None if matched_rule || force_check_exceptions => {
                 #[cfg(feature = "metrics")]
                 print!("exceptions\t");
-                self.exceptions.check(request, &request_tokens, &self.tags_enabled)
+                self.exceptions.check(request, &request_tokens, &self.tags_enabled, regex_manager.deref_mut())
             }
             None => None,
             // If matched an important filter, exceptions don't atter
@@ -207,14 +220,14 @@ impl Blocker {
             Some(_) => {
                 #[cfg(feature = "metrics")]
                 print!("exceptions\t");
-                self.exceptions.check(request, &request_tokens, &self.tags_enabled)
+                self.exceptions.check(request, &request_tokens, &self.tags_enabled, regex_manager.deref_mut())
             }
         };
 
         #[cfg(feature = "metrics")]
         println!();
 
-        let redirect_filters = self.redirects.check_all(request, &request_tokens, &NO_TAGS);
+        let redirect_filters = self.redirects.check_all(request, &request_tokens, &NO_TAGS, regex_manager.deref_mut());
 
         // Extract the highest priority redirect directive.
         // So far, priority specifiers are not supported, which means:
@@ -279,7 +292,7 @@ impl Blocker {
         let rewritten_url = if important {
             None
         } else {
-            Self::apply_removeparam(&self.removeparam, request, request_tokens)
+            Self::apply_removeparam(&self.removeparam, request, request_tokens, regex_manager.deref_mut())
         };
 
         // If something has already matched before but we don't know what, still return a match
@@ -295,7 +308,7 @@ impl Blocker {
         }
     }
 
-    fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: lifeguard::Recycled<Vec<u64>>) -> Option<String> {
+    fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: lifeguard::Recycled<Vec<u64>>, regex_manager: &mut RegexManager) -> Option<String> {
         /// Represents an `&`-separated argument from a URL query parameter string
         enum QParam<'a> {
             /// Just a key, e.g. `...&key&...`
@@ -333,7 +346,7 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters = removeparam_filters.check_all(request, &request_tokens, &NO_TAGS);
+            let filters = removeparam_filters.check_all(request, &request_tokens, &NO_TAGS, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
@@ -373,6 +386,8 @@ impl Blocker {
         }
 
         let mut request_tokens;
+        let mut regex_manager = self.regex_manager.borrow_mut();
+
         #[cfg(feature = "object-pooling")]
         {
             request_tokens = self.pool.pool.new();
@@ -383,7 +398,7 @@ impl Blocker {
         }
         request.get_tokens(&mut request_tokens);
 
-        let filters = self.csp.check_all(request, &request_tokens, &self.tags_enabled);
+        let filters = self.csp.check_all(request, &request_tokens, &self.tags_enabled, regex_manager.borrow_mut());
 
         if filters.is_empty() {
             return None;
@@ -511,6 +526,7 @@ impl Blocker {
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
+            regex_manager: std::cell::RefCell::new(RegexManager::default()),
         }
     }
 
@@ -634,6 +650,15 @@ impl Blocker {
     pub fn get_resource(&self, key: &str) -> Option<&RedirectResource> {
         self.resources.get_resource(key)
     }
+
+    pub fn get_debug_info(&self) -> BlockerDebugInfo {
+      let regex_manager = self.regex_manager.borrow();
+      BlockerDebugInfo{
+        active_regex_count: regex_manager.get_active_regex_count(),
+        compiled_regex_count: regex_manager.get_compiled_regex_count()
+      }
+    }
+
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -776,7 +801,7 @@ impl NetworkFilterList {
     /// match from each would be functionally equivalent. For example, if two different exception
     /// filters match a certain request, it doesn't matter _which_ one is matched - the request
     /// will be excepted either way.
-    pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Option<&NetworkFilter> {
+    pub fn check(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>, regex_manager: &mut RegexManager) -> Option<&NetworkFilter> {
         #[cfg(feature = "metrics")]
         let mut filters_checked = 0;
         #[cfg(feature = "metrics")]
@@ -803,7 +828,7 @@ impl NetworkFilterList {
                             filters_checked += 1;
                         }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                        if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                             #[cfg(feature = "metrics")]
                             print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             return Some(filter);
@@ -828,7 +853,7 @@ impl NetworkFilterList {
                         filters_checked += 1;
                     }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                    if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                         #[cfg(feature = "metrics")]
                         print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         return Some(filter);
@@ -847,7 +872,7 @@ impl NetworkFilterList {
     /// filters where a match from each may carry unique information. For example, if two different
     /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
     /// each directive should be combined for the final result.
-    pub fn check_all(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>) -> Vec<&NetworkFilter> {
+    pub fn check_all(&self, request: &Request, request_tokens: &[Hash], active_tags: &HashSet<String>, regex_manager: &mut RegexManager) -> Vec<&NetworkFilter> {
         #[cfg(feature = "metrics")]
         let mut filters_checked = 0;
         #[cfg(feature = "metrics")]
@@ -876,7 +901,7 @@ impl NetworkFilterList {
                             filters_checked += 1;
                         }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                        if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                             #[cfg(feature = "metrics")]
                             print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             filters.push(filter);
@@ -901,7 +926,7 @@ impl NetworkFilterList {
                         filters_checked += 1;
                     }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                    if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
                         #[cfg(feature = "metrics")]
                         print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         filters.push(filter);
@@ -1150,11 +1175,12 @@ mod tests {
             .filter_map(Result::ok)
             .collect();
         let filter_list = NetworkFilterList::new(network_filters, false);
+        let mut regex_manager = RegexManager::default();
 
         requests.into_iter().for_each(|(req, expected_result)| {
             let mut tokens = Vec::new();
             req.get_tokens(&mut tokens);
-            let matched_rule = filter_list.check(&req, &tokens, &HashSet::new());
+            let matched_rule = filter_list.check(&req, &tokens, &HashSet::new(), &mut regex_manager);
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {

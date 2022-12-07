@@ -19,6 +19,10 @@ impl Default for Engine {
     }
 }
 
+pub struct EngineDebugInfo {
+  pub blocker_debug_info: crate::blocker::BlockerDebugInfo,
+}
+
 impl Engine {
     /// Creates a new adblocking `Engine`. `Engine`s created without rules should generally only be
     /// used with deserialization.
@@ -267,10 +271,14 @@ impl Engine {
         let generichide = self.blocker.check_generic_hide(&request);
         self.cosmetic_cache.hostname_cosmetic_resources(&request.hostname, generichide)
     }
+
+    pub fn get_debug_info(&self) -> EngineDebugInfo {
+      EngineDebugInfo { blocker_debug_info: self.blocker.get_debug_info() }
+    }
 }
 
 /// Static assertions for `Engine: Send + Sync` traits.
-#[cfg(not(any(feature = "object-pooling", feature = "optimized-regex-cache")))]
+#[cfg(not(any(feature = "object-pooling")))]
 fn _assertions() {
     fn _assert_send<T: Send>() {}
     fn _assert_sync<T: Sync>() {}

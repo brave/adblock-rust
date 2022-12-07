@@ -193,6 +193,7 @@ impl Optimization for UnionDomainGroup {
 #[cfg(test)]
 mod optimization_tests_pattern_group {
     use super::*;
+    use crate::filters::network::RegexManager;
     use crate::lists;
     use crate::request::Request;
     use regex::RegexSet;
@@ -202,6 +203,11 @@ mod optimization_tests_pattern_group {
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
         let is_match = regex.is_match(pattern);
         assert!(is_match == matches, "Expected {} match {} = {}", regex.to_string(), pattern, matches);
+    }
+
+    fn check_match(regex_manager: &mut RegexManager, filter: &NetworkFilter, pattern: &str, matches: bool) {
+      let is_match = regex_manager.matches(filter, pattern);
+      assert!(is_match == matches, "Expected {} match {} = {}", filter.to_string(), pattern, matches);
     }
 
     #[test]
@@ -258,24 +264,23 @@ mod optimization_tests_pattern_group {
             fused.to_string(),
             "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
         );
-
-        let fused_regex = fused.get_regex();
-        check_regex_match(&fused_regex, "/static/ad-", true);
-        check_regex_match(&fused_regex, "/static/ad.", true);
-        check_regex_match(&fused_regex, "/static/ad%", false);
-        check_regex_match(&fused_regex, "/static/ads-", false);
-        check_regex_match(&fused_regex, "/static/ad/", true);
-        check_regex_match(&fused_regex, "/static/ad", false);
-        check_regex_match(&fused_regex, "/static/ad/foobar", true);
-        check_regex_match(&fused_regex, "/static/ad/foobar/asd?q=1", true);
-        check_regex_match(&fused_regex, "/static/ads/", true);
-        check_regex_match(&fused_regex, "/static/ads", false);
-        check_regex_match(&fused_regex, "/static/ads/foobar", true);
-        check_regex_match(&fused_regex, "/static/ads/foobar/asd?q=1", true);
-        check_regex_match(&fused_regex, "/static/adv/", true);
-        check_regex_match(&fused_regex, "/static/adv", false);
-        check_regex_match(&fused_regex, "/static/adv/foobar", true);
-        check_regex_match(&fused_regex, "/static/adv/foobar/asd?q=1", true);
+        let mut regex_manager = RegexManager::default();
+        check_match(&mut regex_manager, &fused, "/static/ad-", true);
+        check_match(&mut regex_manager, &fused, "/static/ad.", true);
+        check_match(&mut regex_manager, &fused, "/static/ad%", false);
+        check_match(&mut regex_manager, &fused, "/static/ads-", false);
+        check_match(&mut regex_manager, &fused, "/static/ad/", true);
+        check_match(&mut regex_manager, &fused, "/static/ad", false);
+        check_match(&mut regex_manager, &fused, "/static/ad/foobar", true);
+        check_match(&mut regex_manager, &fused, "/static/ad/foobar/asd?q=1", true);
+        check_match(&mut regex_manager, &fused, "/static/ads/", true);
+        check_match(&mut regex_manager, &fused, "/static/ads", false);
+        check_match(&mut regex_manager, &fused, "/static/ads/foobar", true);
+        check_match(&mut regex_manager, &fused, "/static/ads/foobar/asd?q=1", true);
+        check_match(&mut regex_manager, &fused, "/static/adv/", true);
+        check_match(&mut regex_manager, &fused, "/static/adv", false);
+        check_match(&mut regex_manager, &fused, "/static/adv/foobar", true);
+        check_match(&mut regex_manager, &fused, "/static/adv/foobar/asd?q=1", true);
     }
 
     #[test]
@@ -301,7 +306,7 @@ mod optimization_tests_pattern_group {
             "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
         );
 
-        assert!(filter.matches(&Request::from_urls("https://example.com/v1/pixel?", "https://my.leadpages.net", "").unwrap()));
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/v1/pixel?", "https://my.leadpages.net", "").unwrap()));
 
         assert_eq!(skipped.len(), 1);
         let filter = skipped.get(0).unwrap();
@@ -310,7 +315,7 @@ mod optimization_tests_pattern_group {
             "/analytics/v1/*$domain=~my.leadpages.net"
         );
 
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics/v1/foobar", "https://foo.leadpages.net", "").unwrap()))
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics/v1/foobar", "https://foo.leadpages.net", "").unwrap()))
     }
 
 }
@@ -349,8 +354,8 @@ mod optimization_tests_union_domain {
             assert!(filter_domains.contains(&dom));
         }
 
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
     }
 
     #[test]
@@ -402,10 +407,10 @@ mod optimization_tests_union_domain {
             "/analytics-v1"
         );
 
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://example.com", "").unwrap()) == true);
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://exampletwo.com", "").unwrap()) == true);
-        assert!(filter.matches(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://example.com", "").unwrap()) == true);
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://exampletwo.com", "").unwrap()) == true);
+        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
     }
 
 }
