@@ -2,6 +2,7 @@ mod legacy_test_filters {
     use adblock::filters::network::NetworkFilter;
     use adblock::filters::network::NetworkMatchable;
     use adblock::filters::network::NetworkFilterMask;
+    use adblock::filters::network::RegexManager;
     use adblock::request::Request;
 
     fn test_filter<'a>(
@@ -37,7 +38,7 @@ mod legacy_test_filters {
 
         for to_block in blocked {
             assert!(
-                filter.matches(&Request::from_url(&to_block).unwrap()),
+                filter.matches(&Request::from_url(&to_block).unwrap(), &mut RegexManager::default()),
                 "Expected filter {} to match {}",
                 raw_filter,
                 &to_block
@@ -46,7 +47,7 @@ mod legacy_test_filters {
 
         for to_pass in not_blocked {
             assert!(
-                !filter.matches(&Request::from_url(&to_pass).unwrap()),
+                !filter.matches(&Request::from_url(&to_pass).unwrap(), &mut RegexManager::default()),
                 "Expected filter {} to pass {}",
                 raw_filter,
                 &to_pass
@@ -292,7 +293,7 @@ mod legacy_test_filters {
         // explicit, separate testcase construction of the "script" option as it is not the deafult
         let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true, Default::default()).unwrap();
         let request = Request::from_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "", "script").unwrap();
-        assert!(filter.matches(&request));
+        assert!(filter.matches(&request, &mut RegexManager::default()));
     }
 }
 
