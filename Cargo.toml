@@ -24,7 +24,7 @@ exclude = [
 ]
 
 [dependencies]
-ahash = "0.8.2"
+ahash = "0.8.0"
 addr = { version = "0.14", default-features = false, features = ["psl"], optional = true }
 url = "2.2"
 percent-encoding = "2.1"
