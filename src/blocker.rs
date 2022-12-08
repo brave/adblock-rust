@@ -88,8 +88,8 @@ pub enum BlockerError {
 }
 
 pub struct BlockerDebugInfo {
-  active_regex_count: usize,
-  compiled_regex_count: usize,
+  pub active_regex_count: usize,
+  pub compiled_regex_count: usize,
 }
 
 #[cfg(feature = "object-pooling")]
