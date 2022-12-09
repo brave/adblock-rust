@@ -274,16 +274,26 @@ impl NetworkFilterOption {
     }
 }
 
+pub struct RegexEntry {
+  regex: CompiledRegex,
+  last_used: std::time::Instant,
+  usage_count: u64,
+}
+
 pub struct RegexManager {
-  map: HashMap<usize, CompiledRegex, RandomState>,
-  compiled_regex_count : usize,
+  map: HashMap<usize, RegexEntry, RandomState>,
+  compiled_regex_count : u64,
+  now: std::time::Instant,
+  last_cleanup: std::time::Instant,
 }
 
 impl Default for RegexManager {
   fn default() -> RegexManager {
     RegexManager {
-      map: HashMap::<usize, CompiledRegex, RandomState>::default(),
+      map: HashMap::<usize, RegexEntry, RandomState>::default(),
       compiled_regex_count: 0,
+      now: std::time::Instant::now(),
+      last_cleanup: std::time::Instant::now(),
     }
   }
 }
@@ -296,27 +306,50 @@ impl RegexManager {
       let key = filter as *const NetworkFilter as usize;
       use std::collections::hash_map::Entry;
       match self.map.entry(key) {
-        Entry::Occupied(e) => {
-          return e.get().is_match(pattern);
+        Entry::Occupied(mut e) => {
+          let v = e.get_mut();
+          v.usage_count +=1 ;
+          v.last_used = self.now;
+          return v.regex.is_match(pattern);
         },
         Entry::Vacant(e) => {
-          let regex = compile_regex(
-            &filter.filter,
-            filter.is_right_anchor(),
-            filter.is_left_anchor(),
-            filter.is_complete_regex(),
-          );
-          self.compiled_regex_count += 1;
-          return e.insert(regex).is_match(pattern);
+          return false;
+          // let regex = compile_regex(
+          //   &filter.filter,
+          //   filter.is_right_anchor(),
+          //   filter.is_left_anchor(),
+          //   filter.is_complete_regex(),
+          // );
+          // self.compiled_regex_count += 1;
+          // let new_entry = RegexEntry{
+          //   regex,
+          //   // unused: 1,
+          //   last_used: self.now,
+          //   usage_count: 1
+          // };
+          // return e.insert(new_entry).regex.is_match(pattern);
         },
       };
   }
 
-  pub fn get_active_regex_count(&self) -> usize {
-    self.map.len()
+  pub fn update_time(&mut self) {
+    self.now = std::time::Instant::now();
+    if self.now - self.last_cleanup > std::time::Duration::from_secs(30) {
+      self.last_cleanup = self.now;
+      self.cleanup();
+    }
   }
 
-  pub fn get_compiled_regex_count(&self) -> usize{
+  pub fn cleanup(&mut self) {
+    let now = self.now;
+    self.map.retain(|_, v| now - v.last_used < std::time::Duration::from_secs(30));
+  }
+
+  pub fn get_active_regex_count(&self) -> u64 {
+    self.map.len() as u64
+  }
+
+  pub fn get_compiled_regex_count(&self) -> u64{
     self.compiled_regex_count
   }
 
