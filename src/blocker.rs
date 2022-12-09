@@ -88,8 +88,8 @@ pub enum BlockerError {
 }
 
 pub struct BlockerDebugInfo {
-  pub active_regex_count: usize,
-  pub compiled_regex_count: usize,
+    pub active_regex_count: u64,
+    pub compiled_regex_count: u64,
 }
 
 #[cfg(feature = "object-pooling")]
@@ -149,6 +149,7 @@ impl Blocker {
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.regex_manager.borrow_mut();
+        regex_manager.borrow_mut().update_time();
         let mut request_tokens;
         #[cfg(feature = "object-pooling")]
         {
@@ -165,6 +166,7 @@ impl Blocker {
 
     pub fn check_parameterised(&self, request: &Request, matched_rule: bool, force_check_exceptions: bool) -> BlockerResult {
         let mut regex_manager = self.regex_manager.borrow_mut();
+        regex_manager.borrow_mut().update_time();
         if !request.is_supported {
             return BlockerResult::default();
         }
@@ -387,6 +389,7 @@ impl Blocker {
 
         let mut request_tokens;
         let mut regex_manager = self.regex_manager.borrow_mut();
+        regex_manager.borrow_mut().update_time();
 
         #[cfg(feature = "object-pooling")]
         {
