@@ -78,6 +78,31 @@ pub struct FilterSet {
     pub(crate) cosmetic_filters: Vec<CosmeticFilter>,
 }
 
+/// Collects metadata for the list by reading just until the first non-comment line.
+pub fn read_list_metadata(list: &str) -> FilterListMetadata {
+    let mut metadata = FilterListMetadata::default();
+
+    // uBO only searches within the first 1024 characters; the same optimization can be useful here
+    let mut cutoff = list.len().min(1024);
+
+    while !list.is_char_boundary(cutoff) {
+        cutoff -= 1;
+    }
+
+    // String slice is safe here because `cutoff` is guaranteed to be a character boundary
+    for line in list[0..cutoff].lines() {
+        if line.starts_with('!') {
+            metadata.try_add(line);
+        } else if line.starts_with("[") {
+            continue;
+        } else {
+            break;
+        }
+    }
+
+    metadata
+}
+
 impl Default for FilterSet {
     /// Equivalent to `FilterSet::new(false)`, or `FilterSet::new(true)` when compiled in test
     /// configuration.
@@ -693,5 +718,52 @@ mod tests {
         assert_eq!(metadata.homepage, Some("https://www.haopro.net/".to_string()));
         assert_eq!(metadata.expires, None);
         assert_eq!(metadata.redirect, None);
+    }
+
+    #[test]
+    fn test_read_metadata() {
+        {
+            let list =
+r##"! Title: uBlock₀ filters – Annoyances
+! Description: Filters optimized for uBlock Origin, to be used with Fanboy's
+!              and/or Adguard's "Annoyances" list(s)
+! Expires: 4 days
+! Last modified: %timestamp%
+! License: https://github.com/uBlockOrigin/uAssets/blob/master/LICENSE
+! Homepage: https://github.com/uBlockOrigin/uAssets
+! Forums: https://github.com/uBlockOrigin/uAssets/issues"##;
+            let metadata = read_list_metadata(&list);
+
+            assert_eq!(metadata.title, Some("uBlock₀ filters – Annoyances".to_string()));
+            assert_eq!(metadata.homepage, Some("https://github.com/uBlockOrigin/uAssets".to_string()));
+            assert_eq!(metadata.expires, Some(ExpiresInterval::Days(4)));
+            assert_eq!(metadata.redirect, None);
+        }
+        {
+            let list =
+r##"[uBlock Origin]
+! Title: PersianBlocker
+! Description: سرانجام، یک لیست بهینه و گسترده برای مسدودسازی تبلیغ ها و ردیاب ها در سایت های پارسی زبان!
+! Expires: 2 days
+! Last modified: 2022-12-11
+! Homepage: https://github.com/MasterKia/PersianBlocker
+! License: AGPLv3 (https://github.com/MasterKia/PersianBlocker/blob/main/LICENSE)
+
+! مشکل/پیشنهاد: https://github.com/MasterKia/PersianBlocker/issues
+! مشارکت: https://github.com/MasterKia/PersianBlocker/pulls
+
+!  لیستی برای برگرداندن آزادی کاربران، چون هر کاربر این آزادی را دارد که چه چیزی وارد مرورگرش می‌شود و چه چیزی وارد نمی‌شود
+!-------------------------v Experimental Generic Filters v-----------------------!
+! applicationha.com, androidgozar.com, downloadkral.com, gold-team.org, iranecar.com, icoff.ee, koolakmag.ir,
+!! mybia4music.com, my-film.pw, pedal.ir, vgdl.ir, sakhamusic.ir
+/wp-admin/admin-ajax.php?postviews_id=$xhr
+"##;
+            let metadata = read_list_metadata(&list);
+
+            assert_eq!(metadata.title, Some("PersianBlocker".to_string()));
+            assert_eq!(metadata.homepage, Some("https://github.com/MasterKia/PersianBlocker".to_string()));
+            assert_eq!(metadata.expires, Some(ExpiresInterval::Days(2)));
+            assert_eq!(metadata.redirect, None);
+        }
     }
 }
