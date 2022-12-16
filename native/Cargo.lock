@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "neon"
-version = "0.8.3"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05c562b89fa7f9707f02056abe25a37ec290ca4a4f1596edbd7aa1aa7b87af1d"
+checksum = "5e85820b585bf3360bf158ac87a75764c48e361c91bbeb69873e6613cc78c023"
 dependencies = [
  "cslice",
  "neon-build",
@@ -383,15 +383,15 @@ dependencies = [
 
 [[package]]
 name = "neon-build"
-version = "0.8.3"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9c55f6d310757b9fe6cd96a376609548a252da31828f935a7f59106533a89e9"
+checksum = "ad9febc63f515156d4311a0c43899d3ace46352ecdd591c21b98ca3974f2a0d0"
 
 [[package]]
 name = "neon-macros"
-version = "0.8.3"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47065bc93b16f41fcfe29cad7d4d2a3e299b4389a3c9b429ba7a55f69a057fff"
+checksum = "987f12c91eb6ce0b67819f7c5fb4d391de64cf411c605ed027f03507a33943b2"
 dependencies = [
  "quote",
  "syn",
@@ -399,9 +399,9 @@ dependencies = [
 
 [[package]]
 name = "neon-runtime"
-version = "0.8.3"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be313e6cf11f469653ee1b137b9203f5d604f2b496d423e96c5e251b51eead03"
+checksum = "02662cd2e62b131937bdef85d0918b05bc3c204daf4c64af62845403eccb60f3"
 dependencies = [
  "cfg-if 1.0.0",
  "libloading",
@@ -411,7 +411,7 @@ dependencies = [
 [[package]]
 name = "neon-serde"
 version = "0.4.0"
-source = "git+https://github.com/antonok-edm/neon-serde?branch=refactor/update-neon-0.8#ee44a7e465e8082f7d7e5a7fe2980188930a50cf"
+source = "git+https://github.com/antonok-edm/neon-serde?branch=refactor/update-neon-0.9#ebddeb249ee58224a98e2e36b1c9f63e29318131"
 dependencies = [
  "error-chain",
  "neon",

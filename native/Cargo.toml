@@ -11,7 +11,7 @@ name = "adblock_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-neon-serde = { git = "https://github.com/antonok-edm/neon-serde", branch = "refactor/update-neon-0.8" }
+neon-serde = { git = "https://github.com/antonok-edm/neon-serde", branch = "refactor/update-neon-0.9" }
 serde =  { version = "1.0", features = ["derive", "rc"] }
 adblock = { path = "../", features = ["css-validation", "content-blocking", "resource-assembler"] }
-neon = { version = "^ 0.8", default-features = false, features = ["napi-1"] }
+neon = { version = "^ 0.9", default-features = false, features = ["napi-1"] }
