@@ -8,7 +8,6 @@ native/index.node
 *.code-workspace
 *.diff
 *.tgz
-docs/
 fuzz/
 tests/
 examples/
