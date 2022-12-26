@@ -275,9 +275,9 @@ impl NetworkFilterOption {
 }
 
 pub struct RegexEntry {
-  regex: CompiledRegex,
-  last_used: std::time::Instant,
-  usage_count: u64,
+    regex: CompiledRegex,
+    last_used: std::time::Instant,
+    usage_count: u64,
 }
 
 pub struct RegexManager {
@@ -301,7 +301,7 @@ impl Default for RegexManager {
 impl RegexManager {
     pub fn matches(&mut self, filter: &NetworkFilter, pattern: &str) -> bool {
         if !filter.is_regex() && !filter.is_complete_regex() {
-              return true;
+            return true;
         }
         let key = filter as *const NetworkFilter;
         use std::collections::hash_map::Entry;
@@ -320,13 +320,13 @@ impl RegexManager {
                     filter.is_complete_regex(),
                 );
                 self.compiled_regex_count += 1;
-                let new_entry = RegexEntry{
+                let new_entry = RegexEntry {
                     regex,
                     last_used: self.now,
                     usage_count: 1,
                 };
                 return e.insert(new_entry).regex.is_match(pattern);
-            },
+            }
         };
     }
 
@@ -1418,7 +1418,11 @@ fn check_pattern_regex_filter_at(
     regex_manager.matches(filter, &request.url[start_from..])
 }
 
-fn check_pattern_regex_filter(filter: &NetworkFilter, request: &request::Request,regex_manager: &mut RegexManager) -> bool {
+fn check_pattern_regex_filter(
+    filter: &NetworkFilter,
+    request: &request::Request,
+    regex_manager: &mut RegexManager,
+) -> bool {
     check_pattern_regex_filter_at(filter, request, 0, regex_manager)
 }
 
@@ -1584,7 +1588,11 @@ fn check_pattern_hostname_anchor_filter(
 
 /// Efficiently checks if a certain network filter matches against a network
 /// request.
-fn check_pattern(filter: &NetworkFilter, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
+fn check_pattern(
+    filter: &NetworkFilter,
+    request: &request::Request,
+    regex_manager: &mut RegexManager,
+) -> bool {
     if filter.is_hostname_anchor() {
         if filter.is_regex() {
             check_pattern_hostname_anchor_regex_filter(filter, request, regex_manager)
