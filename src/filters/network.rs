@@ -5,8 +5,6 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::fmt;
 
-use ahash::RandomState;
-
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
@@ -274,11 +272,19 @@ impl NetworkFilterOption {
     }
 }
 
-pub struct RegexEntry {
+pub struct RegexDebugEntry {
+    regex: String,
+    last_used: std::time::Instant,
+    usage_count: u64,
+}
+
+struct RegexEntry {
     regex: CompiledRegex,
     last_used: std::time::Instant,
     usage_count: u64,
 }
+
+type RandomState = std::hash::BuildHasherDefault<seahash::SeaHasher>;
 
 pub struct RegexManager {
     map: HashMap<*const NetworkFilter, RegexEntry, RandomState>,
@@ -290,7 +296,7 @@ pub struct RegexManager {
 impl Default for RegexManager {
     fn default() -> RegexManager {
         RegexManager {
-            map: HashMap::<*const NetworkFilter, RegexEntry, RandomState>::default(),
+            map: Default::default(),
             compiled_regex_count: 0,
             now: std::time::Instant::now(),
             last_cleanup: std::time::Instant::now(),
@@ -343,10 +349,17 @@ impl RegexManager {
         self.map.retain(|_, v| now - v.last_used < std::time::Duration::from_secs(180));
     }
 
-    pub fn get_active_regex_count(&self) -> u64 {
-        self.map.len() as u64
+    #[cfg(feature = "debug-info")]
+    pub fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
+        use itertools::Itertools;
+        self.map.values().map(
+            |e| RegexDebugEntry{regex: e.regex.to_string(),
+                                            last_used : e.last_used,
+                                            usage_count: e.usage_count})
+            .collect_vec()
     }
 
+    #[cfg(feature = "debug-info")]
     pub fn get_compiled_regex_count(&self) -> u64 {
         self.compiled_regex_count
     }

@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable, RegexManager};
+use crate::filters::network::{NetworkFilter, NetworkMatchable, RegexManager, RegexDebugEntry};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -86,7 +86,7 @@ pub enum BlockerError {
 }
 
 pub struct BlockerDebugInfo {
-    pub active_regex_count: u64,
+    pub regex_data: Vec<RegexDebugEntry>,
     pub compiled_regex_count: u64,
 }
 
@@ -722,10 +722,11 @@ impl Blocker {
         self.resources.get_resource(key)
     }
 
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_info(&self) -> BlockerDebugInfo {
         let regex_manager = self.borrow_regex_manager();
         BlockerDebugInfo {
-            active_regex_count: regex_manager.get_active_regex_count(),
+            regex_data: regex_manager.get_debug_regex_data(),
             compiled_regex_count: regex_manager.get_compiled_regex_count(),
         }
     }

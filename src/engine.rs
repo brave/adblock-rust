@@ -272,6 +272,7 @@ impl Engine {
         self.cosmetic_cache.hostname_cosmetic_resources(&request.hostname, generichide)
     }
 
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_info(&self) -> EngineDebugInfo {
         EngineDebugInfo { blocker_debug_info: self.blocker.get_debug_info() }
     }

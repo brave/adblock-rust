@@ -24,7 +24,6 @@ exclude = [
 ]
 
 [dependencies]
-ahash = "0.8.0"
 addr = { version = "0.14", default-features = false, features = ["psl"], optional = true }
 url = "2.2"
 percent-encoding = "2.1"
@@ -87,11 +86,12 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling"]
+default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "unsync-regex-caching"]
 metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.
 unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.
+debug-info = []
 css-validation = ["cssparser", "selectors"]
 content-blocking = ["serde_json"]
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
