@@ -1,8 +1,6 @@
 //! Holds `Blocker`, which handles all network-based adblocking queries.
 
 use once_cell::sync::Lazy;
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use std::ops::DerefMut;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -137,7 +135,10 @@ pub struct Blocker {
     pub(crate) pool: TokenPool,
 
     // Not serialized
-    pub(crate) regex_manager: RefCell<RegexManager>,
+    #[cfg(feature = "unsync-regex-caching")]
+    pub(crate) regex_manager: std::cell::RefCell<RegexManager>,
+    #[cfg(not(feature = "unsync-regex-caching"))]
+    pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 }
 
 impl Blocker {
@@ -147,9 +148,22 @@ impl Blocker {
         self.check_parameterised(request, false, false)
     }
 
+    #[cfg(feature = "unsync-regex-caching")]
+    fn borrow_regex_manager(&self) -> std::cell::RefMut<RegexManager> {
+        let mut manager = self.regex_manager.borrow_mut();
+        manager.update_time();
+        manager
+    }
+
+    #[cfg(not(feature = "unsync-regex-caching"))]
+    fn borrow_regex_manager(&self) -> std::sync::MutexGuard<RegexManager> {
+        let mut manager = self.regex_manager.lock().unwrap();
+        manager.update_time();
+        manager
+    }
+
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
-        let mut regex_manager = self.regex_manager.borrow_mut();
-        regex_manager.borrow_mut().update_time();
+        let mut regex_manager = self.borrow_regex_manager();
         let mut request_tokens;
         #[cfg(feature = "object-pooling")]
         {
@@ -166,7 +180,7 @@ impl Blocker {
                 hostname_request,
                 &request_tokens,
                 &HashSet::new(),
-                regex_manager.deref_mut(),
+                &mut regex_manager,
             )
             .is_some()
     }
@@ -177,8 +191,7 @@ impl Blocker {
         matched_rule: bool,
         force_check_exceptions: bool,
     ) -> BlockerResult {
-        let mut regex_manager = self.regex_manager.borrow_mut();
-        regex_manager.borrow_mut().update_time();
+        let mut regex_manager = self.borrow_regex_manager();
         if !request.is_supported {
             return BlockerResult::default();
         }
@@ -207,7 +220,7 @@ impl Blocker {
             request,
             &request_tokens,
             &NO_TAGS,
-            regex_manager.deref_mut(),
+            &mut regex_manager,
         );
 
         // only check the rest of the rules if not previously matched
@@ -219,7 +232,7 @@ impl Blocker {
                     request,
                     &request_tokens,
                     &self.tags_enabled,
-                    regex_manager.deref_mut(),
+                    &mut regex_manager,
                 )
                 .or_else(|| {
                     #[cfg(feature = "metrics")]
@@ -228,7 +241,7 @@ impl Blocker {
                         request,
                         &request_tokens,
                         &NO_TAGS,
-                        regex_manager.deref_mut(),
+                        &mut regex_manager,
                     )
                 })
         } else {
@@ -244,7 +257,7 @@ impl Blocker {
                     request,
                     &request_tokens,
                     &self.tags_enabled,
-                    regex_manager.deref_mut(),
+                    &mut regex_manager,
                 )
             }
             None => None,
@@ -257,7 +270,7 @@ impl Blocker {
                     request,
                     &request_tokens,
                     &self.tags_enabled,
-                    regex_manager.deref_mut(),
+                    &mut regex_manager,
                 )
             }
         };
@@ -439,8 +452,7 @@ impl Blocker {
         }
 
         let mut request_tokens;
-        let mut regex_manager = self.regex_manager.borrow_mut();
-        regex_manager.borrow_mut().update_time();
+        let mut regex_manager = self.borrow_regex_manager();
 
         #[cfg(feature = "object-pooling")]
         {
@@ -456,7 +468,7 @@ impl Blocker {
             request,
             &request_tokens,
             &self.tags_enabled,
-            regex_manager.borrow_mut(),
+            &mut regex_manager,
         );
 
         if filters.is_empty() {
@@ -585,7 +597,7 @@ impl Blocker {
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
-            regex_manager: std::cell::RefCell::new(RegexManager::default()),
+            regex_manager:Default::default(),
         }
     }
 
@@ -711,7 +723,7 @@ impl Blocker {
     }
 
     pub fn get_debug_info(&self) -> BlockerDebugInfo {
-        let regex_manager = self.regex_manager.borrow();
+        let regex_manager = self.borrow_regex_manager();
         BlockerDebugInfo {
             active_regex_count: regex_manager.get_active_regex_count(),
             compiled_regex_count: regex_manager.get_compiled_regex_count(),

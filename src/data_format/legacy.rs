@@ -19,7 +19,7 @@ use rmp_serde_legacy as rmps;
 
 use crate::blocker::{Blocker, NetworkFilterList};
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
-use crate::filters::network::{NetworkFilter, RegexManager};
+use crate::filters::network::NetworkFilter;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
 use crate::utils::is_eof_error;
 
@@ -341,7 +341,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             resources: v.part1.resources,
             #[cfg(feature = "object-pooling")]
             pool: Default::default(),
-            regex_manager: std::cell::RefCell::new(RegexManager::default()),
+            regex_manager: Default::default(),
 
             generic_hide: v.rest.generic_hide.into(),
         }, CosmeticFilterCache {
