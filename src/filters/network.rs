@@ -3019,6 +3019,12 @@ mod match_tests {
     }
 
     #[test]
+    fn check_pattern_match_case() {
+        filter_match_url("*/BannerAd.gif$match-case", "https://example.com/BannerAd.gif", true);
+        filter_match_url("*/BannerAd.gif$match-case", "https://example.com/bannerad.gif", false);
+    }
+
+    #[test]
     fn check_ws_vs_http_matching() {
         let network_filter = NetworkFilter::parse("|ws://$domain=4shared.com", true, Default::default()).unwrap();
 
