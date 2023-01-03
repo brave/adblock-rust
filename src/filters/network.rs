@@ -757,7 +757,11 @@ impl NetworkFilter {
                 NetworkFilterMask::IS_REGEX,
                 check_is_regex(&pattern[filter_index_start..filter_index_end]),
             );
-            Some(String::from(&pattern[filter_index_start..filter_index_end]).to_ascii_lowercase())
+            if mask.contains(NetworkFilterMask::MATCH_CASE) {
+                Some(String::from(&pattern[filter_index_start..filter_index_end]))
+            } else {
+                Some(String::from(&pattern[filter_index_start..filter_index_end]).to_ascii_lowercase())
+            }
         } else {
             None
         };
