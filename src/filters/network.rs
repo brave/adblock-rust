@@ -1269,10 +1269,10 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
+        FilterPart::Simple(f) => twoway::find_str(if filter.match_case() {&request.original_url} else {&request.url}, f).is_some(),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if twoway::find_str(&request.url, f).is_some() {
+                if twoway::find_str(if filter.match_case() {&request.original_url} else {&request.url}, f).is_some() {
                     return true;
                 }
             }
@@ -1285,11 +1285,17 @@ fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::
 fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.ends_with(f),
+        FilterPart::Simple(f) => if filter.match_case() {request.original_url.ends_with(f)} else {request.url.ends_with(f)},
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.ends_with(f) {
-                    return true;
+                if filter.match_case() {
+                    if request.original_url.ends_with(f) {
+                        return true;
+                    }
+                } else {
+                    if request.url.ends_with(f) {
+                        return true;
+                    }
                 }
             }
             false
@@ -1301,11 +1307,17 @@ fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::
 fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.starts_with(f),
+        FilterPart::Simple(f) => if filter.match_case() {request.original_url.starts_with(f)} else {request.url.starts_with(f)},
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.starts_with(f) {
-                    return true;
+                if filter.match_case() {
+                    if request.original_url.starts_with(f) {
+                        return true;
+                    }
+                } else {
+                    if request.url.starts_with(f) {
+                        return true;
+                    }
                 }
             }
             false
@@ -1320,11 +1332,31 @@ fn check_pattern_left_right_anchor_filter(
 ) -> bool {
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => &request.url == f,
-        FilterPart::AnyOf(filters) => {
-            for f in filters {
+        FilterPart::Simple(f) => {
+            if filter.match_case() {
+                if &request.original_url == f {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
                 if &request.url == f {
                     return true;
+                } else {
+                    return false;
+                }
+            }
+        },
+        FilterPart::AnyOf(filters) => {
+            for f in filters {
+                if filter.match_case() {
+                    if &request.original_url == f {
+                        return true;
+                    }
+                } else {
+                    if &request.url == f {
+                        return true;
+                    }
                 }
             }
             false
@@ -1339,7 +1371,7 @@ fn check_pattern_regex_filter_at(
     start_from: usize,
     regex_manager: &mut RegexManager,
 ) -> bool {
-    regex_manager.matches(filter, &request.url[start_from..])
+    regex_manager.matches(filter, if filter.match_case() {&request.original_url[start_from..]} else {&request.url[start_from..]})
 }
 
 fn check_pattern_regex_filter(
@@ -1364,7 +1396,7 @@ fn check_pattern_hostname_anchor_regex_filter(
                 check_pattern_regex_filter_at(
                     filter,
                     request,
-                    request.url.find(hostname).unwrap_or_default() + hostname.len(),
+                    if filter.match_case() {&request.original_url} else {&request.url}.find(hostname).unwrap_or_default() + hostname.len(),
                     regex_manager,
                 )
             } else {
@@ -1422,9 +1454,9 @@ fn check_pattern_hostname_left_right_anchor_filter(
                     // Since it must follow immediatly after the hostname and be a suffix of
                     // the URL, we conclude that filter must be equal to the part of the
                     // url following the hostname.
-                    FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname) == f,
+                    FilterPart::Simple(f) => get_url_after_hostname(if filter.match_case() {&request.original_url} else {&request.url}, hostname) == f,
                     FilterPart::AnyOf(filters) => {
-                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
+                        let url_after_hostname = get_url_after_hostname(if filter.match_case() {&request.original_url} else {&request.url}, hostname);
                         for f in filters {
                             if url_after_hostname == f {
                                 return true;
@@ -1458,10 +1490,10 @@ fn check_pattern_hostname_left_anchor_filter(
                     // with nothing in between. So we extract the part of the URL following
                     // after hostname and will perform the matching on it.
                     FilterPart::Simple(f) => {
-                        get_url_after_hostname(&request.url, hostname).starts_with(f)
+                        get_url_after_hostname(if filter.match_case() {&request.original_url} else {&request.url}, hostname).starts_with(f)
                     }
                     FilterPart::AnyOf(filters) => {
-                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
+                        let url_after_hostname = get_url_after_hostname(if filter.match_case() {&request.original_url} else {&request.url}, hostname);
                         for f in filters {
                             if url_after_hostname.starts_with(f) {
                                 return true;
@@ -1491,10 +1523,10 @@ fn check_pattern_hostname_anchor_filter(
                     // if no filter, we have a match
                     FilterPart::Empty => true,
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
-                    FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname)
+                    FilterPart::Simple(f) => get_url_after_hostname(if filter.match_case() {&request.original_url} else {&request.url}, hostname)
                         .contains(f),
                     FilterPart::AnyOf(filters) => {
-                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
+                        let url_after_hostname = get_url_after_hostname(if filter.match_case() {&request.original_url} else {&request.url}, hostname);
                         for f in filters {
                             if url_after_hostname.contains(f) {
                                 return true;
