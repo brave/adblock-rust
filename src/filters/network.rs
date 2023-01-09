@@ -152,6 +152,7 @@ impl From<&request::RequestType> for NetworkFilterMask {
 pub enum CompiledRegex {
     Compiled(Regex),
     CompiledSet(RegexSet),
+    None,
     MatchAll,
     RegexParsingError(regex::Error),
 }
@@ -159,6 +160,7 @@ pub enum CompiledRegex {
 impl CompiledRegex {
     pub fn is_match(&self, pattern: &str) -> bool {
         match &self {
+            CompiledRegex::None => {panic!("use of CompiledRegex::None")} // No value, invalid call.
             CompiledRegex::MatchAll => true, // simple case for matching everything, e.g. for empty filter
             CompiledRegex::RegexParsingError(_e) => false, // no match if regex didn't even compile
             CompiledRegex::Compiled(r) => r.is_match(pattern),
@@ -174,6 +176,7 @@ impl CompiledRegex {
 impl fmt::Display for CompiledRegex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
+            CompiledRegex::None => write!(f, "None"), // No value
             CompiledRegex::MatchAll => write!(f, ".*"), // simple case for matching everything, e.g. for empty filter
             CompiledRegex::RegexParsingError(_e) => write!(f, "ERROR"), // no match if regex didn't even compile
             CompiledRegex::Compiled(r) => write!(f, "{}", r.as_str()),
