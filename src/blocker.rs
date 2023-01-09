@@ -9,7 +9,8 @@ use std::collections::{HashMap, HashSet};
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable, RegexManager, RegexDebugEntry};
+use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::filters::regex_manager::{RegexManager, RegexDebugEntry};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;

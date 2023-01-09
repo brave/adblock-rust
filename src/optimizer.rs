@@ -193,7 +193,7 @@ impl Optimization for UnionDomainGroup {
 #[cfg(test)]
 mod optimization_tests_pattern_group {
     use super::*;
-    use crate::filters::network::RegexManager;
+    use crate::filters::regex_manager::RegexManager;
     use crate::lists;
     use crate::request::Request;
     use regex::RegexSet;
