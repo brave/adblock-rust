@@ -130,7 +130,9 @@ impl RegexManager {
 #[cfg(feature = "debug-info")]
 mod tests {
     use super::*;
-    use crate::{filters::network::NetworkMatchable, request};
+    #[cfg(test)]
+    use crate::filters::network::NetworkMatchable;
+    use crate::request;
 
     fn make_filter(line: &str) -> NetworkFilter {
         NetworkFilter::parse(line, true, Default::default()).unwrap()
