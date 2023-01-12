@@ -20,7 +20,7 @@ pub struct RegexDebugEntry {
 }
 
 struct RegexEntry {
-    regex: CompiledRegex,
+    regex: Option<CompiledRegex>,
     last_used: Instant,
     usage_count: u64,
 }
@@ -66,21 +66,21 @@ impl RegexManager {
                 let v = e.get_mut();
                 v.usage_count += 1;
                 v.last_used = self.now;
-                if matches!(v.regex, CompiledRegex::None) {
+                if v.regex.is_none() {
                     // A discarded entry, recreate it:
-                    v.regex = make_regexp(filter);
+                    v.regex = Some(make_regexp(filter));
                     self.compiled_regex_count += 1;
                 }
-                return v.regex.is_match(pattern);
+                return v.regex.as_ref().unwrap().is_match(pattern);
             }
             Entry::Vacant(e) => {
                 self.compiled_regex_count += 1;
                 let new_entry = RegexEntry {
-                    regex: make_regexp(filter),
+                    regex: Some(make_regexp(filter)),
                     last_used: self.now,
                     usage_count: 1
                 };
-                return e.insert(new_entry).regex.is_match(pattern);
+                return e.insert(new_entry).regex.as_ref().unwrap().is_match(pattern);
             }
         };
     }
@@ -98,7 +98,7 @@ impl RegexManager {
         for (_, v) in &mut self.map {
             if now - v.last_used >= REGEX_MANAGER_DISCARD_TIME {
                 // Discard the regex to save memory.
-                v.regex = CompiledRegex::None;
+                v.regex = None;
             }
         }
     }
