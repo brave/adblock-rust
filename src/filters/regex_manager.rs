@@ -14,7 +14,7 @@ const REGEX_MANAGER_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const REGEX_MANAGER_DISCARD_TIME: Duration = Duration::from_secs(180);
 
 pub struct RegexDebugEntry {
-    regex: String,
+    regex: Option<String>,
     last_used: Instant,
     usage_count: u64,
 }
@@ -108,13 +108,13 @@ impl RegexManager {
         }
     }
 
-    #[cfg(any(feature = "debug-info", test))]
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
         use itertools::Itertools;
         self.map
             .values()
             .map(|e| RegexDebugEntry {
-                regex: e.regex.to_string(),
+                regex: e.regex.as_ref().map(|x| x.to_string()),
                 last_used: e.last_used,
                 usage_count: e.usage_count,
             })
@@ -127,7 +127,7 @@ impl RegexManager {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "debug-info")]
 mod tests {
     use super::*;
     use crate::{filters::network::NetworkMatchable, request};
@@ -144,13 +144,7 @@ mod tests {
         regex_manager
             .get_debug_regex_data()
             .iter()
-            .fold(0, |acc, x| {
-                if x.regex == CompiledRegex::None.to_string() {
-                    acc
-                } else {
-                    acc + 1
-                }
-            })
+            .fold(0, |acc, x| if x.regex.is_some() { acc + 1 } else { acc })
     }
 
     #[test]
