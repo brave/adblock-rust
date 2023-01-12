@@ -1,11 +1,11 @@
 //! A manager that creates/stores all regular expressions used by filters.
 //! Rarely used entries could be discarded to save memory.
 //! Non thread safe, the access must be synchronized externally.
-use std::collections::HashMap;
 use crate::filters::network::{compile_regex, CompiledRegex, NetworkFilter};
-use std::time::Duration;
 #[cfg(test)]
 use mock_instant::{Instant, MockClock};
+use std::collections::HashMap;
+use std::time::Duration;
 
 #[cfg(not(test))]
 use std::time::Instant;
@@ -46,12 +46,12 @@ impl Default for RegexManager {
 }
 
 fn make_regexp(filter: &NetworkFilter) -> CompiledRegex {
-  compile_regex(
-      &filter.filter,
-      filter.is_right_anchor(),
-      filter.is_left_anchor(),
-      filter.is_complete_regex(),
-  )
+    compile_regex(
+        &filter.filter,
+        filter.is_right_anchor(),
+        filter.is_left_anchor(),
+        filter.is_complete_regex(),
+    )
 }
 
 impl RegexManager {
@@ -78,9 +78,14 @@ impl RegexManager {
                 let new_entry = RegexEntry {
                     regex: Some(make_regexp(filter)),
                     last_used: self.now,
-                    usage_count: 1
+                    usage_count: 1,
                 };
-                return e.insert(new_entry).regex.as_ref().unwrap().is_match(pattern);
+                return e
+                    .insert(new_entry)
+                    .regex
+                    .as_ref()
+                    .unwrap()
+                    .is_match(pattern);
             }
         };
     }
@@ -106,10 +111,13 @@ impl RegexManager {
     #[cfg(any(feature = "debug-info", test))]
     pub fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
         use itertools::Itertools;
-        self.map.values().map(
-            |e| RegexDebugEntry{regex: e.regex.to_string(),
-                                            last_used : e.last_used,
-                                            usage_count: e.usage_count})
+        self.map
+            .values()
+            .map(|e| RegexDebugEntry {
+                regex: e.regex.to_string(),
+                last_used: e.last_used,
+                usage_count: e.usage_count,
+            })
             .collect_vec()
     }
 
@@ -117,15 +125,14 @@ impl RegexManager {
     pub fn get_compiled_regex_count(&self) -> u64 {
         self.compiled_regex_count
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{request, filters::network::NetworkMatchable};
+    use crate::{filters::network::NetworkMatchable, request};
 
-    fn make_filter(line: &str) -> NetworkFilter{
+    fn make_filter(line: &str) -> NetworkFilter {
         NetworkFilter::parse(line, true, Default::default()).unwrap()
     }
 
@@ -134,8 +141,16 @@ mod tests {
     }
 
     fn get_active_regex_count(regex_manager: &RegexManager) -> i32 {
-        regex_manager.get_debug_regex_data().iter().fold(0,
-            |acc, x| if x.regex == CompiledRegex::None.to_string() {acc} else {acc + 1})
+        regex_manager
+            .get_debug_regex_data()
+            .iter()
+            .fold(0, |acc, x| {
+                if x.regex == CompiledRegex::None.to_string() {
+                    acc
+                } else {
+                    acc + 1
+                }
+            })
     }
 
     #[test]
@@ -144,12 +159,10 @@ mod tests {
         regex_manager.update_time();
 
         let filter = make_filter("||geo*.hltv.org^");
-        assert!(filter.matches(
-            &make_request("https://geo2.hltv.org/"),
-            &mut regex_manager));
+        assert!(filter.matches(&make_request("https://geo2.hltv.org/"), &mut regex_manager));
         assert_eq!(get_active_regex_count(&regex_manager), 1);
         assert_eq!(regex_manager.get_debug_regex_data().len(), 1);
-  }
+    }
 
     #[test]
     fn discard_and_recreate() {
@@ -157,9 +170,7 @@ mod tests {
         regex_manager.update_time();
 
         let filter = make_filter("||geo*.hltv.org^");
-        assert!(filter.matches(
-            &make_request("https://geo2.hltv.org/"),
-            &mut regex_manager));
+        assert!(filter.matches(&make_request("https://geo2.hltv.org/"), &mut regex_manager));
         assert_eq!(regex_manager.get_compiled_regex_count(), 1);
         assert_eq!(get_active_regex_count(&regex_manager), 1);
 
@@ -182,11 +193,8 @@ mod tests {
         assert_eq!(get_active_regex_count(&regex_manager), 0);
 
         // The entry is recreated, get_compiled_regex_count() increased +1.
-        assert!(filter.matches(
-            &make_request("https://geo2.hltv.org/"),
-            &mut regex_manager));
+        assert!(filter.matches(&make_request("https://geo2.hltv.org/"), &mut regex_manager));
         assert_eq!(regex_manager.get_compiled_regex_count(), 2);
         assert_eq!(get_active_regex_count(&regex_manager), 1);
     }
-
 }
