@@ -127,7 +127,7 @@ impl RegexManager {
     }
 }
 
-#[cfg(feature = "debug-info")]
+#[cfg(all(test, feature = "debug-info"))]
 mod tests {
     use super::*;
     #[cfg(test)]
@@ -144,9 +144,8 @@ mod tests {
 
     fn get_active_regex_count(regex_manager: &RegexManager) -> i32 {
         regex_manager
-            .get_debug_regex_data()
-            .iter()
-            .fold(0, |acc, x| if x.regex.is_some() { acc + 1 } else { acc })
+            .get_debug_regex_data().iter().filter(|x| x.regex.is_some())
+            .count() as i32
     }
 
     #[test]
