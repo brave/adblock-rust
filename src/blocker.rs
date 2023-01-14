@@ -1607,7 +1607,7 @@ mod blocker_tests {
             String::from("*$removeparam=fbclid"),
             String::from("/script.js$redirect-rule=noopjs"),
             String::from("^block^$important"),
-            String::from("*$removeparam=testCase"),
+            String::from("$removeparam=testCase,~image"),
         ];
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -1692,6 +1692,14 @@ mod blocker_tests {
 
         let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC?123#&test=4#b".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "document").unwrap());
+        assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC".into()));
+        assert!(!result.matched);
+
+        let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "image").unwrap());
+        assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
     }
 

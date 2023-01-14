@@ -836,6 +836,13 @@ impl NetworkFilter {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
 
+        // `removeparam` rules apply to all request types by default, including document.
+        if mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+            && (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty()
+        {
+            mask |= NetworkFilterMask::FROM_ALL_TYPES;
+        }
+
         // uBlock Origin would block main document `https://example.com` requests with all of the
         // following filters:
         // - ||example.com
