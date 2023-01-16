@@ -17,6 +17,7 @@ dependencies = [
  "idna 0.2.3",
  "itertools",
  "lifeguard",
+ "mock_instant",
  "once_cell",
  "percent-encoding",
  "regex",
@@ -756,6 +757,15 @@ dependencies = [
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.36.1",
+]
+
+[[package]]
+name = "mock_instant"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "717e29a243b81f8130e31e24e04fb151b04a44b5a7d05370935f7d937e9de06d"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]

@@ -1,3 +1,4 @@
+use adblock::filters::regex_manager::RegexManager;
 use adblock::request::Request;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
@@ -69,7 +70,7 @@ fn check_filter_matching() {
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if request_res.is_ok() {
                 let request = request_res.unwrap();
-                assert!(network_filter.matches(&request), "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+                assert!(network_filter.matches(&request, &mut RegexManager::default()), "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
                 requests_checked += 1;
             }
         }
@@ -106,7 +107,7 @@ fn check_engine_matching() {
             } else {
                 assert!(result.matched, "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
             }
-            
+
             if network_filter.is_redirect() {
                 assert!(result.redirect.is_some(), "Expected {} to trigger redirect rule {}", req.url, filter);
                 let resource = result.redirect.unwrap();

@@ -193,7 +193,6 @@ impl From<NetworkFilterLegacyDeserializeFmt> for NetworkFilter {
             id: v.id,
             opt_domains_union: v.opt_domains_union,
             opt_not_domains_union: v.opt_not_domains_union,
-            regex: crate::filters::network::RegexStorage::default(),
         }
     }
 }
@@ -342,6 +341,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             resources: v.part1.resources,
             #[cfg(feature = "object-pooling")]
             pool: Default::default(),
+            regex_manager: Default::default(),
 
             generic_hide: v.rest.generic_hide.into(),
         }, CosmeticFilterCache {

@@ -2,3 +2,4 @@
 
 pub mod network;
 pub mod cosmetic;
+pub mod regex_manager;
