@@ -38,7 +38,7 @@ pub struct ScriptletResource {
 
 impl ScriptletResource {
     /// Omit the 0th element of `args` (the scriptlet name) when calling this method.
-    fn patch<'a>(&self, args: &[Cow<'a, str>]) -> String {
+    fn patch(&self, args: &[Cow<str>]) -> String {
         let mut scriptlet = self.scriptlet.to_owned();
         args.iter().enumerate().for_each(|(i, arg)| {
             scriptlet = TEMPLATE_ARGUMENT_RE[i]

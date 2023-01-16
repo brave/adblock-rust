@@ -303,7 +303,7 @@ impl Blocker {
             for redirect_filter in redirect_filters.iter() {
                 if !redirect_filter.is_exception() {
                     if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
-                        if !exceptions.contains(&&redirect) {
+                        if !exceptions.contains(&redirect) {
                             // parse redirect + priority
                             let (resource, priority) = if let Some(idx) = redirect.rfind(':') {
                                 let priority_str = &redirect[idx + 1..];

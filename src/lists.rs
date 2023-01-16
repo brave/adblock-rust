@@ -93,7 +93,7 @@ pub fn read_list_metadata(list: &str) -> FilterListMetadata {
     for line in list[0..cutoff].lines() {
         if line.starts_with('!') {
             metadata.try_add(line);
-        } else if line.starts_with("[") {
+        } else if line.starts_with('[') {
             continue;
         } else {
             break;

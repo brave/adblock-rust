@@ -334,7 +334,7 @@ impl Parser {
     }
 
     pub fn parse_scheme<'i>(&mut self, mut input: Input<'i>) -> Result<Input<'i>, ()> {
-        if input.is_empty() || !input.starts_with(ascii_alpha) {
+        if input.is_empty() || !input.starts_with(|c: char| c.is_ascii_alphabetic()) {
             return Err(());
         }
         debug_assert!(self.serialization.is_empty());
@@ -556,10 +556,4 @@ impl Parser {
 #[inline]
 fn c0_control_or_space(ch: char) -> bool {
     ch <= ' ' // U+0000 to U+0020
-}
-
-/// https://url.spec.whatwg.org/#ascii-alpha
-#[inline]
-pub fn ascii_alpha(ch: char) -> bool {
-    matches!(ch, 'a'..='z' | 'A'..='Z')
 }
