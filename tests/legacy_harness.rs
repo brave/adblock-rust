@@ -299,11 +299,10 @@ mod legacy_test_filters {
 
 mod legacy_check_match {
     use adblock::engine::Engine;
-    use adblock::lists::{FilterFormat, ParseOptions};
 
-    fn check_match<'a>(rules: &[&'a str], format: FilterFormat, blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
+    fn check_match<'a>(rules: &[&'a str], blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let mut engine = Engine::from_rules(&rules_owned, ParseOptions { format, ..Default::default() });          // first one with the provided rules
+        let mut engine = Engine::from_rules(&rules_owned, Default::default());          // first one with the provided rules
         engine.use_tags(tags);
 
         let mut engine_deserialized = Engine::default();                    // second empty
@@ -352,7 +351,6 @@ mod legacy_check_match {
             "adv",
             "@@advice."
         ],
-        FilterFormat::Standard,
         &["http://example.com/advert.html"],
         &["http://example.com/advice.html"],
         &[]);
@@ -363,7 +361,6 @@ mod legacy_check_match {
             "adv",
             "!foo"
         ],
-        FilterFormat::Standard,
         &[
             "http://examples.com/advert.html",
         ], &[
@@ -396,7 +393,6 @@ mod legacy_check_match {
 
         check_match(
             &["^promotion^"],
-            FilterFormat::Standard,
             &["http://yahoo.co.jp/promotion/imgs"],
             &[],
             &[]
@@ -404,7 +400,6 @@ mod legacy_check_match {
 
         check_match(
             &["^ads^"],
-            FilterFormat::Standard,
             &[
                 "http://yahoo.co.jp/ads/imgs",
                 "http://yahoo.co.jp/ads",
@@ -431,7 +426,6 @@ mod legacy_check_match {
                 "||brianbondy.com/$tag=brian",
                 "||brave.com$tag=brian",
             ],
-            FilterFormat::Standard,
             &[],
             &[
                 "http://example.com/advert.html",
@@ -449,7 +443,6 @@ mod legacy_check_match {
                 "||brianbondy.com/$tag=brian",
                 "||brave.com$tag=brian",
             ],
-            FilterFormat::Standard,
             &[
                 "http://example.com/advert.html",
                 "http://example.com/somelongpath/test/2.html",
@@ -468,7 +461,6 @@ mod legacy_check_match {
                 "||brianbondy.com/$tag=brian",
                 "||brave.com$tag=brian"
             ],
-            FilterFormat::Standard,
             &[],
             &[
                 "http://example.com/advert.html",
@@ -483,11 +475,10 @@ mod legacy_check_match {
 
 mod legacy_check_options {
     use adblock::engine::Engine;
-    use adblock::lists::{FilterFormat, ParseOptions};
 
-    fn check_option_rule<'a>(rules: &[&'a str], format: FilterFormat, tests: &[(&'a str, &'a str, &'a str, bool)]) {
+    fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let engine = Engine::from_rules(&rules_owned, ParseOptions { format, ..Default::default() });              // first one with the provided rules
+        let engine = Engine::from_rules(&rules_owned, Default::default());              // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
             assert!(engine.check_network_urls(url, source_url, request_type).matched == *expectation,
@@ -497,7 +488,7 @@ mod legacy_check_options {
 
     #[test]
     fn option_no_option() {
-        check_option_rule(&["||example.com"], FilterFormat::Standard, &[
+        check_option_rule(&["||example.com"], &[
             ("http://example.com", "https://example.com", "", true),
             ("http://example2.com", "https://example.com", "", false),
             ("http://example.com", "https://example.com", "", true)
@@ -507,7 +498,7 @@ mod legacy_check_options {
     #[test]
     fn check_options_third_party() {
 
-        check_option_rule(&["||example.com^$third-party"], FilterFormat::Standard, &[
+        check_option_rule(&["||example.com^$third-party"], &[
             ("http://example.com", "http://brianbondy.com","script", true),
             ("http://example.com", "http://example.com", "script",false),
             ("http://ad.example.com", "http://brianbondy.com","script", true),
@@ -522,7 +513,7 @@ mod legacy_check_options {
     #[test]
     fn check_options_ping() {
         // We should block ping rules if the resource type is FOPing
-        check_option_rule(&["||example.com^$ping"], FilterFormat::Standard, &[
+        check_option_rule(&["||example.com^$ping"], &[
             ("http://example.com", "http://example.com", "ping", true),
             ("http://example.com", "http://example.com", "image", false),
         ]);
@@ -531,14 +522,14 @@ mod legacy_check_options {
     #[test]
     fn check_options_popup() {
         // Make sure we ignore popup rules for now
-        check_option_rule(&["||example.com^$popup"], FilterFormat::Standard, &[
+        check_option_rule(&["||example.com^$popup"], &[
                ("http://example.com", "http://example.com", "popup", false),
         ]);
     }
 
     #[test]
     fn check_options_third_party_notscript() {
-        check_option_rule(&["||example.com^$third-party,~script"], FilterFormat::Standard, &[
+        check_option_rule(&["||example.com^$third-party,~script"], &[
             ("http://example.com", "http://example2.com", "script", false),
             ("http://example.com", "http://example2.com", "other", true),
             ("http://example2.com", "http://example2.com", "other", false),
@@ -548,7 +539,7 @@ mod legacy_check_options {
 
     #[test]
     fn check_options_domain_list() {
-        check_option_rule(&["adv$domain=example.com|example.net"], FilterFormat::Standard, &[
+        check_option_rule(&["adv$domain=example.com|example.net"], &[
             ("http://example.net/adv", "http://example.com", "", true),
             ("http://somewebsite.com/adv", "http://example.com", "", true),
             ("http://www.example.net/adv", "http://www.example.net", "", true),
@@ -559,12 +550,12 @@ mod legacy_check_options {
             ("http://example.net/ad", "http://example.com", "", false),
         ]);
 
-        check_option_rule(&["adv$domain=~example.com"], FilterFormat::Standard, &[
+        check_option_rule(&["adv$domain=~example.com"], &[
             ("http://example.net/adv", "http://otherdomain.com", "", true),
             ("http://somewebsite.com/adv", "http://example.com", "", false),
         ]);
 
-        check_option_rule(&["adv$domain=~example.com|~example.net"], FilterFormat::Standard, &[
+        check_option_rule(&["adv$domain=~example.com|~example.net"], &[
             ("http://example.net/adv", "http://example.net", "", false),
             ("http://somewebsite.com/adv", "http://example.com", "", false),
             ("http://www.example.net/adv", "http://www.example.net", "", false),
@@ -574,7 +565,7 @@ mod legacy_check_options {
             ("http://example.net/ad", "http://example.net", "", false),
         ]);
 
-        check_option_rule(&["adv$domain=example.com|~example.net"], FilterFormat::Standard, &[
+        check_option_rule(&["adv$domain=example.com|~example.net"], &[
             ("http://example.net/adv", "http://example.net", "", false),
             ("http://somewebsite.com/adv", "http://example.com", "", true),
             ("http://www.example.net/adv", "http://www.example.net", "", false),
@@ -587,19 +578,19 @@ mod legacy_check_options {
 
     #[test]
     fn check_options_domain_not_subdomain() {
-        check_option_rule(&["adv$domain=example.com|~foo.example.com"], FilterFormat::Standard, &[
+        check_option_rule(&["adv$domain=example.com|~foo.example.com"], &[
             ("http://example.net/adv", "http://example.com", "", true),
             ("http://example.net/adv", "http://foo.example.com", "", false),
             ("http://example.net/adv", "http://www.foo.example.com", "", false),
         ]);
 
-        // check_option_rule(&["adv$domain=~example.com|foo.example.com"], FilterFormat::Standard, &[
-        //     ("http://example.net/adv", "http://example.com", "", false),
-        //     ("http://example.net/adv", "http://foo.example.com", "", true),
-        //     ("http://example.net/adv", "http://www.foo.example.com", "", true),
-        // ]);
+        check_option_rule(&["adv$domain=~example.com|foo.example.com"], &[
+            ("http://example.net/adv", "http://example.com", "", false),
+            ("http://example.net/adv", "http://foo.example.com", "", false),
+            ("http://example.net/adv", "http://www.foo.example.com", "", false),
+        ]);
 
-        check_option_rule(&["adv$domain=example.com|~foo.example.com,script"], FilterFormat::Standard, &[
+        check_option_rule(&["adv$domain=example.com|~foo.example.com,script"], &[
             ("http://example.net/adv", "http://example.com", "script", true),
             ("http://example.net/adv", "http://foo.example.com", "script", false),
             ("http://example.net/adv", "http://www.foo.example.com", "script", false),
@@ -611,7 +602,7 @@ mod legacy_check_options {
 
     #[test]
     fn check_options_exception_notscript() {
-        check_option_rule(&["adv", "@@advice.$~script"], FilterFormat::Standard, &[
+        check_option_rule(&["adv", "@@advice.$~script"], &[
             ("http://example.com/advice.html", "", "other", false),
             ("http://example.com/advice.html", "", "script", true),
             ("http://example.com/advert.html", "", "other", true),
@@ -622,17 +613,17 @@ mod legacy_check_options {
     #[test]
     fn check_options_third_party_flags() {
         // Single matching context domain to domain list
-        check_option_rule(&["||mzstatic.com^$image,object-subrequest,domain=dailymotion.com"], FilterFormat::Standard, &[
+        check_option_rule(&["||mzstatic.com^$image,object-subrequest,domain=dailymotion.com"], &[
             ("http://www.dailymotion.com", "http://dailymotion.com", "", false),
         ]);
 
         // Third party flags work correctly
-        check_option_rule(&["||s1.wp.com^$subdocument,third-party"], FilterFormat::Standard, &[
+        check_option_rule(&["||s1.wp.com^$subdocument,third-party"], &[
             ("http://s1.wp.com/_static", "http://windsorstar.com", "", false),
         ]);
 
         // Third party flags work correctly
-        check_option_rule(&["/scripts/ad."], FilterFormat::Standard, &[
+        check_option_rule(&["/scripts/ad."], &[
             ("http://a.fsdn.com/sd/js/scripts/ad.js?release_20160112", "http://slashdot.org", "script", true),
         ]);
     }
