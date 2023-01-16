@@ -1,14 +1,16 @@
 //! A manager that creates/stores all regular expressions used by filters.
 //! Rarely used entries could be discarded to save memory.
 //! Non thread safe, the access must be synchronized externally.
+
 use crate::filters::network::{compile_regex, CompiledRegex, NetworkFilter};
-#[cfg(test)]
-use mock_instant::{Instant, MockClock};
+
 use std::collections::HashMap;
 use std::time::Duration;
 
 #[cfg(not(test))]
 use std::time::Instant;
+#[cfg(test)]
+use mock_instant::Instant;
 
 const REGEX_MANAGER_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const REGEX_MANAGER_DISCARD_TIME: Duration = Duration::from_secs(180);
@@ -100,7 +102,7 @@ impl RegexManager {
 
     pub fn cleanup(&mut self) {
         let now = self.now;
-        for (_, v) in &mut self.map {
+        for v in self.map.values_mut() {
             if now - v.last_used >= REGEX_MANAGER_DISCARD_TIME {
                 // Discard the regex to save memory.
                 v.regex = None;
@@ -121,7 +123,7 @@ impl RegexManager {
             .collect_vec()
     }
 
-    #[cfg(any(feature = "debug-info", test))]
+    #[cfg(feature = "debug-info")]
     pub fn get_compiled_regex_count(&self) -> u64 {
         self.compiled_regex_count
     }
@@ -130,9 +132,11 @@ impl RegexManager {
 #[cfg(all(test, feature = "debug-info"))]
 mod tests {
     use super::*;
-    #[cfg(test)]
+
     use crate::filters::network::NetworkMatchable;
     use crate::request;
+
+    use mock_instant::MockClock;
 
     fn make_filter(line: &str) -> NetworkFilter {
         NetworkFilter::parse(line, true, Default::default()).unwrap()
