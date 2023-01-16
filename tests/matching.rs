@@ -1,15 +1,15 @@
-use adblock::filters::regex_manager::RegexManager;
-use adblock::request::Request;
+use adblock::engine::Engine;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
-use adblock::engine::Engine;
-use adblock::resources::{Resource, ResourceType, MimeType};
+use adblock::filters::regex_manager::RegexManager;
+use adblock::request::Request;
+use adblock::resources::{MimeType, Resource, ResourceType};
 
 use serde::{Deserialize, Serialize};
 
+use adblock::lists::ParseOptions;
 use std::fs::File;
 use std::io::prelude::*;
-use adblock::lists::ParseOptions;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
@@ -17,7 +17,7 @@ struct TestRuleRequest {
     sourceUrl: String,
     url: String,
     r#type: String,
-    filters: Vec<String>
+    filters: Vec<String>,
 }
 
 fn load_requests() -> Vec<TestRuleRequest> {
@@ -32,7 +32,8 @@ fn load_requests() -> Vec<TestRuleRequest> {
 }
 
 fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
-    filters.iter()
+    filters
+        .iter()
         .map(|r| NetworkFilter::parse(&r, true, Default::default()))
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
@@ -49,7 +50,6 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
         .collect()
 }
 
-
 #[test]
 fn check_filter_matching() {
     let requests = load_requests();
@@ -63,14 +63,25 @@ fn check_filter_matching() {
     for req in requests {
         for filter in req.filters {
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
-            assert!(network_filter_res.is_ok(), "Could not parse filter {}", filter);
+            assert!(
+                network_filter_res.is_ok(),
+                "Could not parse filter {}",
+                filter
+            );
             let network_filter = network_filter_res.unwrap();
 
             let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if request_res.is_ok() {
                 let request = request_res.unwrap();
-                assert!(network_filter.matches(&request, &mut RegexManager::default()), "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+                assert!(
+                    network_filter.matches(&request, &mut RegexManager::default()),
+                    "Expected {} to match {} at {}, typed {}",
+                    filter,
+                    req.url,
+                    req.sourceUrl,
+                    req.r#type
+                );
                 requests_checked += 1;
             }
         }
@@ -96,20 +107,37 @@ fn check_engine_matching() {
             engine.use_resources(&resources);
 
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
-            assert!(network_filter_res.is_ok(), "Could not parse filter {}", filter);
+            assert!(
+                network_filter_res.is_ok(),
+                "Could not parse filter {}",
+                filter
+            );
             let network_filter = network_filter_res.unwrap();
 
             let result = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
 
             if network_filter.is_exception() {
-                assert!(!result.matched, "Expected {} to NOT match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+                assert!(
+                    !result.matched,
+                    "Expected {} to NOT match {} at {}, typed {}",
+                    filter, req.url, req.sourceUrl, req.r#type
+                );
                 // assert!(result.exception.is_some(), "Expected exception {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
             } else {
-                assert!(result.matched, "Expected {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
+                assert!(
+                    result.matched,
+                    "Expected {} to match {} at {}, typed {}",
+                    filter, req.url, req.sourceUrl, req.r#type
+                );
             }
 
             if network_filter.is_redirect() {
-                assert!(result.redirect.is_some(), "Expected {} to trigger redirect rule {}", req.url, filter);
+                assert!(
+                    result.redirect.is_some(),
+                    "Expected {} to trigger redirect rule {}",
+                    req.url,
+                    filter
+                );
                 let resource = result.redirect.unwrap();
                 // each redirect resource is base64 encoded
                 assert!(resource.contains("base64"));

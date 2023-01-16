@@ -14,7 +14,7 @@ struct RequestRuleMatch {
     sourceUrl: String,
     r#type: String,
     blocked: u8,
-    filter: Option<String>
+    filter: Option<String>,
 }
 
 fn load_requests() -> Vec<RequestRuleMatch> {
@@ -57,7 +57,9 @@ fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
         // String::from("data/test/abpjf.txt"),
     ]);
 
-    extra_rules.iter().for_each(|rule| rules.push(rule.to_string()));
+    extra_rules
+        .iter()
+        .for_each(|rule| rules.push(rule.to_string()));
 
     Engine::from_rules_parametrised(&rules, Default::default(), true, false)
 }
@@ -67,13 +69,12 @@ fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
         let engine = Engine::from_rules_debug(
-            &[
-                String::from("||www.facebook.com/*/plugin"),
-            ],
+            &[String::from("||www.facebook.com/*/plugin")],
             Default::default(),
         );
 
-        let checked = engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
+        let checked =
+            engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
 
         assert_eq!(checked.matched, true);
     }
@@ -91,11 +92,15 @@ fn check_specific_rules() {
         );
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
-            Path::new("data/test/fake-uBO-files/redirect-resources.js")
+            Path::new("data/test/fake-uBO-files/redirect-resources.js"),
         );
         engine.use_resources(&resources);
 
-        let checked = engine.check_network_urls("http://cdn.taboola.com/libtrc/test/loader.js", "http://cnet.com", "script");
+        let checked = engine.check_network_urls(
+            "http://cdn.taboola.com/libtrc/test/loader.js",
+            "http://cnet.com",
+            "script",
+        );
         assert_eq!(checked.matched, true);
         assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
@@ -133,11 +138,15 @@ fn check_specifics_default() {
         let checked = engine.check_network_urls("https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
                 "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
                 "main_frame");
-            assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
         engine.use_tags(&["fb-embeds", "twitter-embeds"]);
-        let checked = engine.check_network_urls("https://platform.twitter.com/widgets.js", "https://fmarier.github.io/brave-testing/social-widgets.html", "script");
+        let checked = engine.check_network_urls(
+            "https://platform.twitter.com/widgets.js",
+            "https://fmarier.github.io/brave-testing/social-widgets.html",
+            "script",
+        );
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.exception)
@@ -178,31 +187,60 @@ fn check_matching_equivalent() {
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
-                false_negative_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+                false_negative_rules.insert(
+                    f.clone(),
+                    (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
+                )
             });
-            println!("Expected match, uBo matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, req.filter);
+            println!(
+                "Expected match, uBo matched {} at {}, type {} ON {:?}",
+                req.url, req.sourceUrl, req.r#type, req.filter
+            );
         } else if req.blocked == 2 && checked.exception.is_none() {
             mismatch_expected_exception += 1;
             checked.filter.as_ref().map(|f| {
-                false_negative_exceptions.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+                false_negative_exceptions.insert(
+                    f.clone(),
+                    (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
+                )
             });
-            println!("Expected exception to match for {} at {}, type {}, got rule match {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
+            println!(
+                "Expected exception to match for {} at {}, type {}, got rule match {:?}",
+                req.url, req.sourceUrl, req.r#type, checked.filter
+            );
         } else if req.blocked == 0 && checked.matched != false {
             mismatch_expected_pass += 1;
             checked.filter.as_ref().map(|f| {
-                false_positive_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+                false_positive_rules.insert(
+                    f.clone(),
+                    (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
+                )
             });
-            println!("Expected pass, matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
-        }        
+            println!(
+                "Expected pass, matched {} at {}, type {} ON {:?}",
+                req.url, req.sourceUrl, req.r#type, checked.filter
+            );
+        }
     }
 
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
     assert!(ratio < 0.01);
-    assert!(false_positive_rules.len() < 3, "False positive rules higher than expected: {:?}", false_positive_rules);
-    assert!(false_negative_rules.len() < 3, "False negative rules higher than expected: {:?}", false_negative_rules);
-    assert!(false_negative_exceptions.len() < 3, "False negative exceptions higher than expected: {:?}", false_negative_exceptions);
-
+    assert!(
+        false_positive_rules.len() < 3,
+        "False positive rules higher than expected: {:?}",
+        false_positive_rules
+    );
+    assert!(
+        false_negative_rules.len() < 3,
+        "False negative rules higher than expected: {:?}",
+        false_negative_rules
+    );
+    assert!(
+        false_negative_exceptions.len() < 3,
+        "False negative exceptions higher than expected: {:?}",
+        false_negative_exceptions
+    );
 }
 
 #[test]
@@ -224,9 +262,15 @@ fn check_matching_hostnames() {
         } else {
             Some(source_domain != domain)
         };
-        
+
         let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
-        let checked_hostnames = engine.check_network_urls_with_hostnames(&req.url, url_host.hostname(), source_host.hostname(), &req.r#type, third_party);
+        let checked_hostnames = engine.check_network_urls_with_hostnames(
+            &req.url,
+            url_host.hostname(),
+            source_host.hostname(),
+            &req.r#type,
+            third_party,
+        );
 
         assert_eq!(checked.matched, checked_hostnames.matched);
         assert_eq!(checked.filter, checked_hostnames.filter);
@@ -234,4 +278,3 @@ fn check_matching_hostnames() {
         assert_eq!(checked.redirect, checked_hostnames.redirect);
     }
 }
-

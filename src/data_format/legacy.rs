@@ -9,18 +9,18 @@
 //! dependency updates, and the lack of a version field makes upgrades difficult. It will be
 //! removed in a future release.
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
-use serde::{Deserialize, Serialize};
-use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 use flate2::Compression;
 use rmp_serde_legacy as rmps;
+use serde::{Deserialize, Serialize};
 
 use crate::blocker::{Blocker, NetworkFilterList};
-use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
-use crate::filters::network::NetworkFilter;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
+use crate::filters::network::NetworkFilter;
+use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 use crate::utils::is_eof_error;
 
 use super::{DeserializationError, SerializationError};
@@ -46,7 +46,10 @@ struct NetworkFilterLegacySerializeFmt<'a> {
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
 /// while `NetworkFilterList` requires `&'a Arc<NetworkFilter>`.
-impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt<'a> where T: std::borrow::Borrow<NetworkFilter> {
+impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt<'a>
+where
+    T: std::borrow::Borrow<NetworkFilter>,
+{
     fn from(v: &'a T) -> NetworkFilterLegacySerializeFmt<'a> {
         let v = v.borrow();
         NetworkFilterLegacySerializeFmt {
@@ -54,9 +57,17 @@ impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt<'a> where T: std::bo
             filter: &v.filter,
             opt_domains: &v.opt_domains,
             opt_not_domains: &v.opt_not_domains,
-            redirect: if v.is_redirect() { &v.modifier_option } else { &None },
+            redirect: if v.is_redirect() {
+                &v.modifier_option
+            } else {
+                &None
+            },
             hostname: &v.hostname,
-            csp: if v.is_csp() { &v.modifier_option } else { &None },
+            csp: if v.is_csp() {
+                &v.modifier_option
+            } else {
+                &None
+            },
             bug: None,
             tag: &v.tag,
             raw_line: v.raw_line.as_ref().map(|raw| *raw.clone()),
@@ -70,7 +81,13 @@ impl<'a, T> From<&'a T> for NetworkFilterLegacySerializeFmt<'a> where T: std::bo
 
 /// Forces a `NetworkFilterList` to be serialized with the legacy filter format by converting to an
 /// intermediate representation that is constructed with `NetworkFilterLegacyFmt` instead.
-fn serialize_legacy_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+fn serialize_legacy_network_filter_list<S>(
+    list: &NetworkFilterList,
+    s: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
     #[derive(Serialize, Default)]
     struct NetworkFilterListLegacySerializeFmt<'a> {
         #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
@@ -78,9 +95,11 @@ fn serialize_legacy_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Re
     }
 
     let legacy_list = NetworkFilterListLegacySerializeFmt {
-        filter_map: list.filter_map.iter().map(|(k, v)| {
-            (*k, v.iter().map(|f| f.into()).collect())
-        }).collect(),
+        filter_map: list
+            .filter_map
+            .iter()
+            .map(|(k, v)| (*k, v.iter().map(|f| f.into()).collect()))
+            .collect(),
     };
 
     legacy_list.serialize(s)
@@ -88,8 +107,14 @@ fn serialize_legacy_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Re
 
 /// Forces a `NetworkFilter` slice to be serialized with the legacy filter format by converting to
 /// an intermediate representation that is constructed with `NetworkFilterLegacyFmt` instead.
-fn serialize_legacy_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-    let legacy_vec: Vec<_> = vec.iter().map(NetworkFilterLegacySerializeFmt::from).collect();
+fn serialize_legacy_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let legacy_vec: Vec<_> = vec
+        .iter()
+        .map(NetworkFilterLegacySerializeFmt::from)
+        .collect();
 
     legacy_vec.serialize(s)
 }
@@ -205,7 +230,18 @@ pub(crate) struct NetworkFilterListLegacyDeserializeFmt {
 impl From<NetworkFilterListLegacyDeserializeFmt> for NetworkFilterList {
     fn from(v: NetworkFilterListLegacyDeserializeFmt) -> Self {
         Self {
-            filter_map: v.filter_map.into_iter().map(|(k, v)| (k, v.into_iter().map(|f| std::sync::Arc::new(f.into())).collect())).collect(),
+            filter_map: v
+                .filter_map
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        v.into_iter()
+                            .map(|f| std::sync::Arc::new(f.into()))
+                            .collect(),
+                    )
+                })
+                .collect(),
         }
     }
 }
@@ -324,37 +360,45 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
 impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
     fn from(v: DeserializeFormat) -> Self {
-        (Blocker {
-            csp: v.part1.csp.into(),
-            exceptions: v.part1.exceptions.into(),
-            importants: v.part1.importants.into(),
-            redirects: v.part1.redirects.into(),
-            removeparam: NetworkFilterList::default(),
-            filters_tagged: v.part1.filters_tagged.into(),
-            filters: v.part1.filters.into(),
+        (
+            Blocker {
+                csp: v.part1.csp.into(),
+                exceptions: v.part1.exceptions.into(),
+                importants: v.part1.importants.into(),
+                redirects: v.part1.redirects.into(),
+                removeparam: NetworkFilterList::default(),
+                filters_tagged: v.part1.filters_tagged.into(),
+                filters: v.part1.filters.into(),
 
-            tags_enabled: Default::default(),
-            tagged_filters_all: v.part1.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
+                tags_enabled: Default::default(),
+                tagged_filters_all: v
+                    .part1
+                    .tagged_filters_all
+                    .into_iter()
+                    .map(|f| f.into())
+                    .collect(),
 
-            enable_optimizations: v.part1.enable_optimizations,
+                enable_optimizations: v.part1.enable_optimizations,
 
-            resources: v.part1.resources,
-            #[cfg(feature = "object-pooling")]
-            pool: Default::default(),
-            regex_manager: Default::default(),
+                resources: v.part1.resources,
+                #[cfg(feature = "object-pooling")]
+                pool: Default::default(),
+                regex_manager: Default::default(),
 
-            generic_hide: v.rest.generic_hide.into(),
-        }, CosmeticFilterCache {
-            simple_class_rules: v.rest.simple_class_rules,
-            simple_id_rules: v.rest.simple_id_rules,
-            complex_class_rules: v.rest.complex_class_rules,
-            complex_id_rules: v.rest.complex_id_rules,
+                generic_hide: v.rest.generic_hide.into(),
+            },
+            CosmeticFilterCache {
+                simple_class_rules: v.rest.simple_class_rules,
+                simple_id_rules: v.rest.simple_id_rules,
+                complex_class_rules: v.rest.complex_class_rules,
+                complex_id_rules: v.rest.complex_id_rules,
 
-            specific_rules: v.rest.specific_rules,
+                specific_rules: v.rest.specific_rules,
 
-            misc_generic_selectors: v.rest.misc_generic_selectors,
+                misc_generic_selectors: v.rest.misc_generic_selectors,
 
-            scriptlets: v.rest.scriptlets,
-        })
+                scriptlets: v.rest.scriptlets,
+            },
+        )
     }
 }

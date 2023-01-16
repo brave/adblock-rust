@@ -7,10 +7,10 @@ use crate::filters::network::{compile_regex, CompiledRegex, NetworkFilter};
 use std::collections::HashMap;
 use std::time::Duration;
 
-#[cfg(not(test))]
-use std::time::Instant;
 #[cfg(test)]
 use mock_instant::Instant;
+#[cfg(not(test))]
+use std::time::Instant;
 
 const REGEX_MANAGER_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const REGEX_MANAGER_DISCARD_TIME: Duration = Duration::from_secs(180);
@@ -148,7 +148,9 @@ mod tests {
 
     fn get_active_regex_count(regex_manager: &RegexManager) -> i32 {
         regex_manager
-            .get_debug_regex_data().iter().filter(|x| x.regex.is_some())
+            .get_debug_regex_data()
+            .iter()
+            .filter(|x| x.regex.is_some())
             .count() as i32
     }
 

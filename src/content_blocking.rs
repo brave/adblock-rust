@@ -1,7 +1,7 @@
 //! Transforms filter rules into content blocking syntax used on iOS and MacOS.
 
-use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::filters::cosmetic::CosmeticFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::lists::ParsedFilter;
 
 use once_cell::sync::Lazy;
@@ -192,7 +192,11 @@ impl TryFrom<ParsedFilter> for CbRuleEquivalent {
 }
 
 fn non_empty(v: Vec<String>) -> Option<Vec<String>> {
-    if v.len() > 0 { Some(v) } else { None }
+    if v.len() > 0 {
+        Some(v)
+    } else {
+        None
+    }
 }
 
 /// Some adblock rules cannot be directly represented by a single content blocking rule. This enum
@@ -216,8 +220,14 @@ impl IntoIterator for CbRuleEquivalent {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Self::SingleRule(r) => CbRuleEquivalentIterator { rules: [Some(r), None], index: 0 },
-            Self::SplitDocument(r1, r2) => CbRuleEquivalentIterator { rules: [Some(r1), Some(r2)], index: 0 },
+            Self::SingleRule(r) => CbRuleEquivalentIterator {
+                rules: [Some(r), None],
+                index: 0,
+            },
+            Self::SplitDocument(r1, r2) => CbRuleEquivalentIterator {
+                rules: [Some(r1), Some(r2)],
+                index: 0,
+            },
         }
     }
 }
@@ -244,7 +254,8 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: NetworkFilter) -> Result<Self, Self::Error> {
-        static SPECIAL_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]])"##).unwrap());
+        static SPECIAL_CHARS: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]])"##).unwrap());
         static REPLACE_WILDCARDS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\*"##).unwrap());
         static TRAILING_SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\^$"##).unwrap());
         if let Some(raw_line) = &v.raw_line {
@@ -267,7 +278,10 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
             }
 
-            let load_type = if v.mask.contains(NetworkFilterMask::THIRD_PARTY | NetworkFilterMask::FIRST_PARTY) {
+            let load_type = if v
+                .mask
+                .contains(NetworkFilterMask::THIRD_PARTY | NetworkFilterMask::FIRST_PARTY)
+            {
                 vec![]
             } else if v.mask.contains(NetworkFilterMask::THIRD_PARTY) {
                 vec![CbLoadType::ThirdParty]
@@ -278,13 +292,20 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             };
 
             let url_filter = match (v.filter, v.hostname) {
-                (crate::filters::network::FilterPart::AnyOf(_), _) => return Err(CbRuleCreationFailure::OptimizedRulesUnsupported),
+                (crate::filters::network::FilterPart::AnyOf(_), _) => {
+                    return Err(CbRuleCreationFailure::OptimizedRulesUnsupported)
+                }
                 (crate::filters::network::FilterPart::Simple(part), Some(hostname)) => {
                     let without_trailing_separator = TRAILING_SEPARATOR.replace_all(&part, "");
-                    let escaped_special_chars = SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
-                    let with_fixed_wildcards = REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+                    let escaped_special_chars =
+                        SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
+                    let with_fixed_wildcards =
+                        REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
 
-                    let mut url_filter = format!("^[^:]+:(//)?([^/]+\\.)?{}", SPECIAL_CHARS.replace_all(&hostname, r##"\$1"##));
+                    let mut url_filter = format!(
+                        "^[^:]+:(//)?([^/]+\\.)?{}",
+                        SPECIAL_CHARS.replace_all(&hostname, r##"\$1"##)
+                    );
 
                     if v.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
                         url_filter += ".*";
@@ -300,12 +321,17 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 }
                 (crate::filters::network::FilterPart::Simple(part), None) => {
                     let without_trailing_separator = TRAILING_SEPARATOR.replace_all(&part, "");
-                    let escaped_special_chars = SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
-                    let with_fixed_wildcards = REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+                    let escaped_special_chars =
+                        SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
+                    let with_fixed_wildcards =
+                        REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
                     let mut url_filter = if v.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
                         format!("^{}", with_fixed_wildcards)
                     } else {
-                        let scheme_part = if v.mask.contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS) {
+                        let scheme_part = if v
+                            .mask
+                            .contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS)
+                        {
                             ""
                         } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
                             "^http://.*"
@@ -425,7 +451,9 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 // TODO - Popup, Document when implemented
 
                 if !unsupported_flags.is_empty() && types.is_empty() {
-                    return Err(CbRuleCreationFailure::NoSupportedNetworkOptions(unsupported_flags));
+                    return Err(CbRuleCreationFailure::NoSupportedNetworkOptions(
+                        unsupported_flags,
+                    ));
                 }
 
                 Some(types)
@@ -437,9 +465,11 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 None
             };
 
-
             let single_rule = CbRule {
-                action: CbAction { typ: blocking_type, selector: None },
+                action: CbAction {
+                    typ: blocking_type,
+                    selector: None,
+                },
                 trigger: CbTrigger {
                     url_filter,
                     load_type,
@@ -452,7 +482,10 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             };
 
             if let Some(resource_types) = &single_rule.trigger.resource_type {
-                if resource_types.len() > 1 && resource_types.contains(&CbResourceType::Document) && single_rule.trigger.load_type.is_empty() {
+                if resource_types.len() > 1
+                    && resource_types.contains(&CbResourceType::Document)
+                    && single_rule.trigger.load_type.is_empty()
+                {
                     let mut non_doc_types = resource_types.clone();
                     non_doc_types.remove(&CbResourceType::Document);
                     let rule_clone = single_rule.clone();
@@ -479,8 +512,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             }
 
             Ok(Self::SingleRule(single_rule))
-        }
-        else {
+        } else {
             Err(CbRuleCreationFailure::NeedsDebugMode)
         }
     }
@@ -490,7 +522,7 @@ impl TryFrom<CosmeticFilter> for CbRule {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: CosmeticFilter) -> Result<Self, Self::Error> {
-        use crate::filters::cosmetic::{CosmeticFilterMask, CosmeticFilterLocationType};
+        use crate::filters::cosmetic::{CosmeticFilterLocationType, CosmeticFilterMask};
 
         if v.style.is_some() {
             return Err(CbRuleCreationFailure::CosmeticStyleRulesNotSupported);
@@ -507,14 +539,18 @@ impl TryFrom<CosmeticFilter> for CbRule {
 
             // Unwrap is okay here - cosmetic rules must have a '#' character
             let sharp_index = raw_line.find('#').unwrap();
-            CosmeticFilter::locations_before_sharp(&raw_line, sharp_index).for_each(|(location_type, location)| {
-                match location_type {
+            CosmeticFilter::locations_before_sharp(&raw_line, sharp_index).for_each(
+                |(location_type, location)| match location_type {
                     CosmeticFilterLocationType::Entity => any_entities = true,
                     CosmeticFilterLocationType::NotEntity => any_entities = true,
-                    CosmeticFilterLocationType::Hostname => hostnames_vec.push(location.to_string()),
-                    CosmeticFilterLocationType::NotHostname => not_hostnames_vec.push(location.to_string()),
-                }
-            });
+                    CosmeticFilterLocationType::Hostname => {
+                        hostnames_vec.push(location.to_string())
+                    }
+                    CosmeticFilterLocationType::NotHostname => {
+                        not_hostnames_vec.push(location.to_string())
+                    }
+                },
+            );
 
             if any_entities {
                 return Err(CbRuleCreationFailure::CosmeticEntitiesUnsupported);
@@ -534,7 +570,10 @@ impl TryFrom<CosmeticFilter> for CbRule {
             };
 
             Ok(Self {
-                action: CbAction { typ: CbType::CssDisplayNone, selector: Some(v.selector) },
+                action: CbAction {
+                    typ: CbType::CssDisplayNone,
+                    selector: Some(v.selector),
+                },
                 trigger: CbTrigger {
                     url_filter: ".*".to_string(),
                     if_domain,
@@ -553,61 +592,89 @@ mod ab2cb_tests {
     use super::*;
 
     fn test_from_abp(abp_rule: &str, cb: &str) {
-        let filter = crate::lists::parse_filter(abp_rule, true, Default::default()).expect("Rule under test could not be parsed");
-        assert_eq!(CbRuleEquivalent::try_from(filter).unwrap().into_iter().collect::<Vec<_>>(), serde_json::from_str::<Vec<CbRule>>(cb).expect("content blocking rule under test could not be deserialized"));
+        let filter = crate::lists::parse_filter(abp_rule, true, Default::default())
+            .expect("Rule under test could not be parsed");
+        assert_eq!(
+            CbRuleEquivalent::try_from(filter)
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>(),
+            serde_json::from_str::<Vec<CbRule>>(cb)
+                .expect("content blocking rule under test could not be deserialized")
+        );
     }
 
     #[test]
     fn ad_tests() {
-        test_from_abp("&ad_box_", r####"[{
+        test_from_abp(
+            "&ad_box_",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "&ad_box_"
             }
-        }]"####);
-        test_from_abp("&ad_channel=", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "&ad_channel=",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "&ad_channel="
             }
-        }]"####);
-        test_from_abp("+advertorial.", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "+advertorial.",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "\\+advertorial\\."
             }
-        }]"####);
-        test_from_abp("&prvtof=*&poru=", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "&prvtof=*&poru=",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "&prvtof=.*&poru="
             }
-        }]"####);
-        test_from_abp("-ad-180x150px.", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "-ad-180x150px.",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "-ad-180x150px\\."
             }
-        }]"####);
-        test_from_abp("://findnsave.*.*/api/groupon.json?", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "://findnsave.*.*/api/groupon.json?",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "://findnsave\\..*\\..*/api/groupon\\.json\\?"
             }
-        }]"####);
-        test_from_abp("|https://$script,third-party,domain=tamilrockers.ws", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "|https://$script,third-party,domain=tamilrockers.ws",
+            r####"[{
             "action": {
                 "type": "block"
             },
@@ -617,7 +684,8 @@ mod ab2cb_tests {
                 "resource-type": ["script"],
                 "url-filter": "^https://"
             }
-        }]"####);
+        }]"####,
+        );
         test_from_abp("||com/banners/$image,object,subdocument,domain=~pingdom.com|~thetvdb.com|~tooltrucks.com", r####"[{
             "action": {
                 "type": "block"
@@ -652,7 +720,9 @@ mod ab2cb_tests {
                 "type": "block"
             }
         }]"####);
-        test_from_abp("$image,third-party,xmlhttprequest,domain=rd.com", r####"[{
+        test_from_abp(
+            "$image,third-party,xmlhttprequest,domain=rd.com",
+            r####"[{
             "action": {
                 "type": "block"
             },
@@ -669,16 +739,22 @@ mod ab2cb_tests {
                     "third-party"
                 ]
             }
-        }]"####);
-        test_from_abp("|https://r.i.ua^", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "|https://r.i.ua^",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "^https://r\\.i\\.ua"
             }
-        }]"####);
-        test_from_abp("|ws://$domain=4shared.com", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "|ws://$domain=4shared.com",
+            r####"[{
             "action": {
                 "type": "block"
             },
@@ -688,12 +764,15 @@ mod ab2cb_tests {
                     "*4shared.com"
                 ]
             }
-        }]"####);
+        }]"####,
+        );
     }
 
     #[test]
     fn element_hiding_tests() {
-        test_from_abp("###A9AdsMiddleBoxTop", r####"[{
+        test_from_abp(
+            "###A9AdsMiddleBoxTop",
+            r####"[{
             "action": {
                 "type": "css-display-none",
                 "selector": "#A9AdsMiddleBoxTop"
@@ -701,8 +780,11 @@ mod ab2cb_tests {
             "trigger": {
                 "url-filter": ".*"
             }
-        }]"####);
-        test_from_abp("thedailygreen.com#@##AD_banner", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "thedailygreen.com#@##AD_banner",
+            r####"[{
             "action": {
                 "type": "css-display-none",
                 "selector": "#AD_banner"
@@ -713,8 +795,11 @@ mod ab2cb_tests {
                     "thedailygreen.com"
                 ]
             }
-        }]"####);
-        test_from_abp("sprouts.com,tbns.com.au#@##AdImage", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "sprouts.com,tbns.com.au#@##AdImage",
+            r####"[{
             "action": {
                 "type": "css-display-none",
                 "selector": "#AdImage"
@@ -726,8 +811,11 @@ mod ab2cb_tests {
                     "tbns.com.au"
                 ]
             }
-        }]"####);
-        test_from_abp(r#"santander.co.uk#@#a[href^="http://ad-emea.doubleclick.net/"]"#, r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            r#"santander.co.uk#@#a[href^="http://ad-emea.doubleclick.net/"]"#,
+            r####"[{
             "action": {
                 "type": "css-display-none",
                 "selector": "a[href^=\"http://ad-emea.doubleclick.net/\"]"
@@ -738,8 +826,11 @@ mod ab2cb_tests {
                     "santander.co.uk"
                 ]
             }
-        }]"####);
-        test_from_abp("search.safefinder.com,search.snapdo.com###ABottomD", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "search.safefinder.com,search.snapdo.com###ABottomD",
+            r####"[{
             "action": {
                 "type": "css-display-none",
                 "selector": "#ABottomD"
@@ -751,8 +842,11 @@ mod ab2cb_tests {
                     "search.snapdo.com"
                 ]
             }
-        }]"####);
-        test_from_abp(r#"tweakguides.com###adbar > br + p[style="text-align: center"] + p[style="text-align: center"]"#, r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            r#"tweakguides.com###adbar > br + p[style="text-align: center"] + p[style="text-align: center"]"#,
+            r####"[{
             "action": {
                 "type": "css-display-none",
                 "selector": "#adbar > br + p[style=\"text-align: center\"] + p[style=\"text-align: center\"]"
@@ -763,7 +857,8 @@ mod ab2cb_tests {
                     "tweakguides.com"
                 ]
             }
-        }]"####);
+        }]"####,
+        );
     }
 
     /* TODO - `$popup` is currently unsupported by NetworkFilter
@@ -799,7 +894,9 @@ mod ab2cb_tests {
 
     #[test]
     fn third_party() {
-        test_from_abp("||007-gateway.com^$third-party", r####"[{
+        test_from_abp(
+            "||007-gateway.com^$third-party",
+            r####"[{
             "action": {
                 "type": "block"
             },
@@ -809,8 +906,11 @@ mod ab2cb_tests {
                     "third-party"
                 ]
             }
-        }]"####);
-        test_from_abp("||allestörungen.at^$third-party", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "||allestörungen.at^$third-party",
+            r####"[{
             "action": {
                 "type": "block"
             },
@@ -820,8 +920,11 @@ mod ab2cb_tests {
                     "third-party"
                 ]
             }
-        }]"####);
-        test_from_abp("||anet*.tradedoubler.com^$third-party", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "||anet*.tradedoubler.com^$third-party",
+            r####"[{
             "action": {
                 "type": "block"
             },
@@ -831,7 +934,8 @@ mod ab2cb_tests {
                     "third-party"
                 ]
             }
-        }]"####);
+        }]"####,
+        );
         test_from_abp("||doubleclick.net^$third-party,domain=3news.co.nz|92q.com|abc-7.com|addictinggames.com|allbusiness.com|allthingsd.com|bizjournals.com|bloomberg.com|bnn.ca|boom92houston.com|boom945.com|boomphilly.com|break.com|cbc.ca|cbs19.tv|cbs3springfield.com|cbsatlanta.com|cbslocal.com|complex.com|dailymail.co.uk|darkhorizons.com|doubleviking.com|euronews.com|extratv.com|fandango.com|fox19.com|fox5vegas.com|gorillanation.com|hawaiinewsnow.com|hellobeautiful.com|hiphopnc.com|hot1041stl.com|hothiphopdetroit.com|hotspotatl.com|hulu.com|imdb.com|indiatimes.com|indyhiphop.com|ipowerrichmond.com|joblo.com|kcra.com|kctv5.com|ketv.com|koat.com|koco.com|kolotv.com|kpho.com|kptv.com|ksat.com|ksbw.com|ksfy.com|ksl.com|kypost.com|kysdc.com|live5news.com|livestation.com|livestream.com|metro.us|metronews.ca|miamiherald.com|my9nj.com|myboom1029.com|mycolumbusmagic.com|mycolumbuspower.com|myfoxdetroit.com|myfoxorlando.com|myfoxphilly.com|myfoxphoenix.com|myfoxtampabay.com|nbcrightnow.com|neatorama.com|necn.com|neopets.com|news.com.au|news4jax.com|newsone.com|nintendoeverything.com|oldschoolcincy.com|own3d.tv|pagesuite-professional.co.uk|pandora.com|player.theplatform.com|ps3news.com|radio.com|radionowindy.com|rottentomatoes.com|sbsun.com|shacknews.com|sk-gaming.com|ted.com|thebeatdfw.com|theboxhouston.com|theglobeandmail.com|timesnow.tv|tv2.no|twitch.tv|universalsports.com|ustream.tv|wapt.com|washingtonpost.com|wate.com|wbaltv.com|wcvb.com|wdrb.com|wdsu.com|wflx.com|wfmz.com|wfsb.com|wgal.com|whdh.com|wired.com|wisn.com|wiznation.com|wlky.com|wlns.com|wlwt.com|wmur.com|wnem.com|wowt.com|wral.com|wsj.com|wsmv.com|wsvn.com|wtae.com|wthr.com|wxii12.com|wyff4.com|yahoo.com|youtube.com|zhiphopcleveland.com", r####"[{
             "action": {
                 "type": "block"
@@ -1010,19 +1114,24 @@ mod ab2cb_tests {
                 ]
             }
         }]"####);
-        test_from_abp("||d1noellhv8fksc.cloudfront.net^", r####"[{
+        test_from_abp(
+            "||d1noellhv8fksc.cloudfront.net^",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
                 "url-filter": "^[^:]+:(//)?([^/]+\\.)?d1noellhv8fksc\\.cloudfront\\.net"
             }
-        }]"####);
+        }]"####,
+        );
     }
 
     #[test]
     fn whitelist() {
-        test_from_abp("@@||google.com/recaptcha/$domain=mediafire.com", r####"[{
+        test_from_abp(
+            "@@||google.com/recaptcha/$domain=mediafire.com",
+            r####"[{
             "action": {
                 "type": "ignore-previous-rules"
             },
@@ -1032,8 +1141,11 @@ mod ab2cb_tests {
                     "*mediafire.com"
                 ]
             }
-        }]"####);
-        test_from_abp("@@||ad4.liverail.com/?compressed|$domain=majorleaguegaming.com|pbs.org|wikihow.com", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "@@||ad4.liverail.com/?compressed|$domain=majorleaguegaming.com|pbs.org|wikihow.com",
+            r####"[{
             "action": {
                 "type": "ignore-previous-rules"
             },
@@ -1045,8 +1157,11 @@ mod ab2cb_tests {
                     "*wikihow.com"
                 ]
             }
-        }]"####);
-        test_from_abp("@@||googletagservices.com/tag/js/gpt.js$domain=allestoringen.nl|allestörungen.at", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "@@||googletagservices.com/tag/js/gpt.js$domain=allestoringen.nl|allestörungen.at",
+            r####"[{
             "action": {
                 "type": "ignore-previous-rules"
             },
@@ -1057,8 +1172,11 @@ mod ab2cb_tests {
                     "*xn--allestrungen-9ib.at"
                 ]
             }
-        }]"####);
-        test_from_abp("@@||advertising.autotrader.co.uk^$~third-party", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "@@||advertising.autotrader.co.uk^$~third-party",
+            r####"[{
             "action": {
                 "type": "ignore-previous-rules"
             },
@@ -1068,8 +1186,11 @@ mod ab2cb_tests {
                 ],
                 "url-filter": "^[^:]+:(//)?([^/]+\\.)?advertising\\.autotrader\\.co\\.uk"
             }
-        }]"####);
-        test_from_abp("@@||advertising.racingpost.com^$image,script,stylesheet,~third-party,xmlhttprequest", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "@@||advertising.racingpost.com^$image,script,stylesheet,~third-party,xmlhttprequest",
+            r####"[{
             "action": {
                 "type": "ignore-previous-rules"
             },
@@ -1085,35 +1206,44 @@ mod ab2cb_tests {
                     "raw"
                 ]
             }
-        }]"####);
+        }]"####,
+        );
     }
 
     #[test]
     fn test_ignore_previous_fp_documents() {
-        assert_eq!(vec![ignore_previous_fp_documents()], serde_json::from_str::<Vec<CbRule>>(r####"[{
+        assert_eq!(
+            vec![ignore_previous_fp_documents()],
+            serde_json::from_str::<Vec<CbRule>>(
+                r####"[{
             "trigger":{
                 "url-filter":".*",
                 "resource-type":["document"],
                 "load-type":["first-party"]
             },
             "action":{"type":"ignore-previous-rules"}
-        }]"####).expect("content blocking rule under test could not be deserialized"));
+        }]"####
+            )
+            .expect("content blocking rule under test could not be deserialized")
+        );
     }
 }
 
 #[cfg(test)]
 mod filterset_tests {
-    use once_cell::sync::Lazy;
     use crate::lists::{FilterSet, ParseOptions, RuleTypes};
+    use once_cell::sync::Lazy;
 
-    static FILTER_LIST: Lazy<[String; 6]> = Lazy::new(|| [
-        String::from("||example.com^$script"),
-        String::from("||test.net^$image,third-party"),
-        String::from("/trackme.js^$script"),
-        String::from("example.com##.ad-banner"),
-        String::from("##.ad-640x480"),
-        String::from("##p.sponsored"),
-    ]);
+    static FILTER_LIST: Lazy<[String; 6]> = Lazy::new(|| {
+        [
+            String::from("||example.com^$script"),
+            String::from("||test.net^$image,third-party"),
+            String::from("/trackme.js^$script"),
+            String::from("example.com##.ad-banner"),
+            String::from("##.ad-640x480"),
+            String::from("##p.sponsored"),
+        ]
+    });
 
     #[test]
     fn convert_all_rules() -> Result<(), ()> {

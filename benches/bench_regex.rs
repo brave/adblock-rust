@@ -14,20 +14,17 @@ fn bench_simple_regexes(c: &mut Criterion) {
         Regex::new(r"(?:[^\\w\\d\\._%-])/static/adv/.*").unwrap(),
     ];
 
-    group.bench_function(
-        "list",
-        move |b| {
-            b.iter(|| {
-                for rule in rules.iter() {
-                    if rule.is_match(&pattern) {
-                        true;
-                    } else {
-                        false;
-                    }
+    group.bench_function("list", move |b| {
+        b.iter(|| {
+            for rule in rules.iter() {
+                if rule.is_match(&pattern) {
+                    true;
+                } else {
+                    false;
                 }
-            })
-        },
-    );
+            }
+        })
+    });
 
     group.finish();
 }
@@ -39,12 +36,7 @@ fn bench_joined_regex(c: &mut Criterion) {
 
     let rule = Regex::new(r"(?:([^\\w\\d\\._%-])/static/ad-)|(?:([^\\w\\d\\._%-])/static/ad/.*)(?:([^\\w\\d\\._%-])/static/ads/.*)(?:([^\\w\\d\\._%-])/static/adv/.*)").unwrap();
 
-    group.bench_function(
-        "joined",
-        move |b| {
-            b.iter(|| rule.is_match(&pattern))
-        },
-    );
+    group.bench_function("joined", move |b| b.iter(|| rule.is_match(&pattern)));
 
     group.finish();
 }
@@ -56,12 +48,7 @@ fn bench_joined_bytes_regex(c: &mut Criterion) {
 
     let rule = BytesRegex::new(r"(?:([^\\w\\d\\._%-])/static/ad-)|(?:([^\\w\\d\\._%-])/static/ad/.*)(?:([^\\w\\d\\._%-])/static/ads/.*)(?:([^\\w\\d\\._%-])/static/adv/.*)").unwrap();
 
-    group.bench_function(
-        "u8",
-        move |b| {
-            b.iter(|| rule.is_match(pattern.as_bytes()))
-        },
-    );
+    group.bench_function("u8", move |b| b.iter(|| rule.is_match(pattern.as_bytes())));
 
     group.finish();
 }
@@ -76,18 +63,19 @@ fn bench_regex_set(c: &mut Criterion) {
         r"(?:[^\\w\\d\\._%-])/static/ad/.*",
         r"(?:[^\\w\\d\\._%-])/static/ads/.*",
         r"(?:[^\\w\\d\\._%-])/static/adv/.*",
-    ]).unwrap();
+    ])
+    .unwrap();
 
-    group.bench_function(
-        "set",
-        move |b| {
-            b.iter(|| set.is_match(&pattern))
-        },
-    );
+    group.bench_function("set", move |b| b.iter(|| set.is_match(&pattern)));
 
     group.finish();
 }
 
-
-criterion_group!(benches, bench_simple_regexes, bench_joined_regex, bench_joined_bytes_regex, bench_regex_set);
+criterion_group!(
+    benches,
+    bench_simple_regexes,
+    bench_joined_regex,
+    bench_joined_bytes_regex,
+    bench_regex_set
+);
 criterion_main!(benches);

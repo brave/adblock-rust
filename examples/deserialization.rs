@@ -14,7 +14,7 @@ struct RequestRuleMatch {
     sourceUrl: String,
     r#type: String,
     blocked: u8,
-    filter: Option<String>
+    filter: Option<String>,
 }
 
 fn load_requests() -> Vec<RequestRuleMatch> {
@@ -41,11 +41,15 @@ fn main() {
     println!("Deserializing engine");
     let mut engine;
     {
-        let mut file = File::open("data/rs-ABPFilterParserData.dat").expect("Opening serialization file failed");
+        let mut file = File::open("data/rs-ABPFilterParserData.dat")
+            .expect("Opening serialization file failed");
         let mut serialized = Vec::<u8>::new();
-        file.read_to_end(&mut serialized).expect("Reading from serialization file failed");
+        file.read_to_end(&mut serialized)
+            .expect("Reading from serialization file failed");
         engine = Engine::default();
-        engine.deserialize(&serialized).expect("Deserialization failed");
+        engine
+            .deserialize(&serialized)
+            .expect("Deserialization failed");
         // engine = get_blocker_engine();
     }
     engine.use_tags(&["twitter-embeds"]);
@@ -74,19 +78,28 @@ fn main() {
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
-                false_negative_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+                false_negative_rules.insert(
+                    f.clone(),
+                    (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
+                )
             });
             // println!("Expected match, uBo matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, req.filter);
         } else if req.blocked == 2 && checked.exception.is_none() {
             mismatch_expected_exception += 1;
             checked.filter.as_ref().map(|f| {
-                false_negative_exceptions.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+                false_negative_exceptions.insert(
+                    f.clone(),
+                    (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
+                )
             });
             // println!("Expected exception to match for {} at {}, type {}, got rule match {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         } else if req.blocked == 0 && checked.matched != false {
             mismatch_expected_pass += 1;
             checked.filter.as_ref().map(|f| {
-                false_positive_rules.insert(f.clone(), (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()))
+                false_positive_rules.insert(
+                    f.clone(),
+                    (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
+                )
             });
             // println!("Expected pass, matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         }
@@ -96,9 +109,19 @@ fn main() {
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
     assert!(ratio < 0.04, "Mismatch ratio was {}", ratio);
-    assert!(false_positive_rules.len() < 3, "False positive rules higher than expected: {:?}", false_positive_rules.len());
-    assert!(false_negative_rules.len() < 70, "False negative rules higher than expected: {:?}", false_negative_rules.len());
-    assert!(false_negative_exceptions.len() < 3, "False negative exceptions higher than expected: {:?}", false_negative_exceptions.len());
-
+    assert!(
+        false_positive_rules.len() < 3,
+        "False positive rules higher than expected: {:?}",
+        false_positive_rules.len()
+    );
+    assert!(
+        false_negative_rules.len() < 70,
+        "False negative rules higher than expected: {:?}",
+        false_negative_rules.len()
+    );
+    assert!(
+        false_negative_exceptions.len() < 3,
+        "False negative exceptions higher than expected: {:?}",
+        false_negative_exceptions.len()
+    );
 }
-

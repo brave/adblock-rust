@@ -13,7 +13,7 @@ use crate::filters::cosmetic::CosmeticFilterMask;
 use crate::resources::{Resource, ScriptletResourceStorage};
 use crate::utils::Hash;
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +60,9 @@ impl UrlSpecificResources {
 /// - a mapping from CSS selectors to any additional (i.e. not `display: none`) CSS styles that
 ///   should be applied to those elements
 /// - a list of any scriptlets that should be injected into the page's JavaScript context
-fn hostname_specific_rules(rules: &[&SpecificFilterType]) -> (HashSet<String>, HashMap<String, Vec<String>>, Vec<String>) {
+fn hostname_specific_rules(
+    rules: &[&SpecificFilterType],
+) -> (HashSet<String>, HashMap<String, Vec<String>>, Vec<String>) {
     if rules.is_empty() {
         (HashSet::default(), HashMap::default(), vec![])
     } else {
@@ -69,25 +71,22 @@ fn hostname_specific_rules(rules: &[&SpecificFilterType]) -> (HashSet<String>, H
         let mut hide_rules = HashSet::with_capacity(rules.len());
         let mut style_rules: HashMap<String, Vec<String>> = HashMap::with_capacity(rules.len());
 
-        rules.iter()
-            .for_each(|rule| {
-                match rule {
-                    SpecificFilterType::Hide(sel) => {
-                        hide_rules.insert(sel.to_owned());
-                    }
-                    SpecificFilterType::Style(sel, style) => {
-                        if let Some(entry) = style_rules.get_mut(sel) {
-                            entry.push(style.to_owned());
-                        } else {
-                            style_rules.insert(sel.to_owned(), vec![style.to_owned()]);
-                        }
-                    }
-                    SpecificFilterType::ScriptInject(sel) => {
-                        script_rules.push(sel.to_owned());
-                    }
-                    _ => unreachable!()
+        rules.iter().for_each(|rule| match rule {
+            SpecificFilterType::Hide(sel) => {
+                hide_rules.insert(sel.to_owned());
+            }
+            SpecificFilterType::Style(sel, style) => {
+                if let Some(entry) = style_rules.get_mut(sel) {
+                    entry.push(style.to_owned());
+                } else {
+                    style_rules.insert(sel.to_owned(), vec![style.to_owned()]);
                 }
-            });
+            }
+            SpecificFilterType::ScriptInject(sel) => {
+                script_rules.push(sel.to_owned());
+            }
+            _ => unreachable!(),
+        });
 
         (hide_rules, style_rules, script_rules)
     }
@@ -224,19 +223,24 @@ impl CosmeticFilterCache {
     /// `UrlSpecificResources`. The exceptions, along with the set of already-seen classes and ids,
     /// must be cached externally as the cosmetic filtering subsystem here is designed to be
     /// stateless with regard to active page sessions.
-    pub fn hidden_class_id_selectors(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Vec<String> {
+    pub fn hidden_class_id_selectors(
+        &self,
+        classes: &[String],
+        ids: &[String],
+        exceptions: &HashSet<String>,
+    ) -> Vec<String> {
         let mut simple_classes = vec![];
         let mut simple_ids = vec![];
         let mut complex_selectors = vec![];
 
         classes.iter().for_each(|class| {
-            if self.simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
+            if self.simple_class_rules.contains(class)
+                && !exceptions.contains(&format!(".{}", class))
+            {
                 simple_classes.push(class);
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
-                complex_selectors.extend(bucket.iter().filter(|sel| {
-                    !exceptions.contains(*sel)
-                }));
+                complex_selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)));
             }
         });
         ids.iter().for_each(|id| {
@@ -244,9 +248,7 @@ impl CosmeticFilterCache {
                 simple_ids.push(id);
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
-                complex_selectors.extend(bucket.iter().filter(|sel| {
-                    !exceptions.contains(*sel)
-                }));
+                complex_selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)));
             }
         });
 
@@ -254,7 +256,9 @@ impl CosmeticFilterCache {
             return vec![];
         }
 
-        simple_classes.into_iter().map(|class| format!(".{}", class))
+        simple_classes
+            .into_iter()
+            .map(|class| format!(".{}", class))
             .chain(simple_ids.into_iter().map(|id| format!("#{}", id)))
             .chain(complex_selectors.into_iter().cloned())
             .collect::<Vec<_>>()
@@ -268,7 +272,11 @@ impl CosmeticFilterCache {
     /// id selector, like `div[class*="Ads"]`), or any rule that is only applicable to a particular
     /// hostname or set of hostnames (like `example.com##.a-class`). The first category is always
     /// injected into every page, and makes up a relatively small number of rules in practice.
-    pub fn hostname_cosmetic_resources(&self, hostname: &str, generichide: bool) -> UrlSpecificResources {
+    pub fn hostname_cosmetic_resources(
+        &self,
+        hostname: &str,
+        generichide: bool,
+    ) -> UrlSpecificResources {
         let domain_str = {
             let (start, end) = crate::url_parser::get_host_domain(hostname);
             &hostname[start..end]
@@ -281,7 +289,7 @@ impl CosmeticFilterCache {
             if let Some(specific_rules) = self.specific_rules.retrieve(hash) {
                 rules_that_apply.extend(specific_rules);
             }
-        };
+        }
 
         let mut exceptions = HostnameExceptionsBuilder::default();
 
@@ -289,17 +297,26 @@ impl CosmeticFilterCache {
             exceptions.insert_if_exception(r);
         });
 
-        let rules_that_apply = rules_that_apply.iter().map(|r| r.to_owned()).filter(|r| {
-            exceptions.allow_specific_rule(r)
-        }).collect::<Vec<_>>();
+        let rules_that_apply = rules_that_apply
+            .iter()
+            .map(|r| r.to_owned())
+            .filter(|r| exceptions.allow_specific_rule(r))
+            .collect::<Vec<_>>();
 
-        let (hostname_hide_selectors, style_selectors, script_injections) = hostname_specific_rules(&rules_that_apply[..]);
+        let (hostname_hide_selectors, style_selectors, script_injections) =
+            hostname_specific_rules(&rules_that_apply[..]);
 
         let hide_selectors = if generichide {
             hostname_hide_selectors
         } else {
-            let mut hide_selectors = self.misc_generic_selectors.difference(&exceptions.hide_exceptions).cloned().collect::<HashSet<_>>();
-            hostname_hide_selectors.into_iter().for_each(|sel| { hide_selectors.insert(sel); });
+            let mut hide_selectors = self
+                .misc_generic_selectors
+                .difference(&exceptions.hide_exceptions)
+                .cloned()
+                .collect::<HashSet<_>>();
+            hostname_hide_selectors.into_iter().for_each(|sel| {
+                hide_selectors.insert(sel);
+            });
             hide_selectors
         };
 
@@ -335,7 +352,10 @@ impl CosmeticFilterCache {
     }
 
     /// Adds a single scriptlet resource.
-    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), crate::resources::AddResourceError> {
+    pub fn add_resource(
+        &mut self,
+        resource: &Resource,
+    ) -> Result<(), crate::resources::AddResourceError> {
         self.scriptlets.add_resource(resource)
     }
 }
@@ -379,7 +399,9 @@ impl HostnameExceptionsBuilder {
     pub fn allow_specific_rule(&self, rule: &SpecificFilterType) -> bool {
         match rule {
             SpecificFilterType::Hide(sel) => !self.hide_exceptions.contains(sel),
-            SpecificFilterType::Style(sel, style) => !self.style_exceptions.contains(&(sel.to_string(), style.to_string())),
+            SpecificFilterType::Style(sel, style) => !self
+                .style_exceptions
+                .contains(&(sel.to_string(), style.to_string())),
             SpecificFilterType::ScriptInject(sel) => !self.script_inject_exceptions.contains(sel),
             _ => false,
         }
@@ -400,36 +422,30 @@ pub(crate) struct HostnameRuleDb {
 
 impl HostnameRuleDb {
     pub fn new() -> Self {
-        HostnameRuleDb {
-            db: HashMap::new(),
-        }
+        HostnameRuleDb { db: HashMap::new() }
     }
 
     pub fn store_rule(&mut self, rule: CosmeticFilter) {
         let kind = SpecificFilterType::from(&rule);
 
         if let Some(hostnames) = rule.hostnames {
-            hostnames.iter().for_each(|h| {
-                self.store(h, kind.clone())
-            });
+            hostnames.iter().for_each(|h| self.store(h, kind.clone()));
         }
         if let Some(entities) = rule.entities {
-            entities.iter().for_each(|e| {
-                self.store(e, kind.clone())
-            });
+            entities.iter().for_each(|e| self.store(e, kind.clone()));
         }
 
         let kind = kind.negated();
 
         if let Some(not_hostnames) = rule.not_hostnames {
-            not_hostnames.iter().for_each(|h| {
-                self.store(h, kind.clone())
-            });
+            not_hostnames
+                .iter()
+                .for_each(|h| self.store(h, kind.clone()));
         }
         if let Some(not_entities) = rule.not_entities {
-            not_entities.iter().for_each(|e| {
-                self.store(e, kind.clone())
-            });
+            not_entities
+                .iter()
+                .for_each(|e| self.store(e, kind.clone()));
         }
     }
 
@@ -441,7 +457,7 @@ impl HostnameRuleDb {
         }
     }
 
-    pub fn retrieve<'a>(&'a self, hostname: &Hash) -> Option<&'a[SpecificFilterType]> {
+    pub fn retrieve<'a>(&'a self, hostname: &Hash) -> Option<&'a [SpecificFilterType]> {
         if let Some(bucket) = self.db.get(hostname) {
             Some(bucket)
         } else {
@@ -525,16 +541,21 @@ impl SpecificFilterType {
             SpecificFilterType::Unhide(sel) => SpecificFilterType::Hide(sel),
             SpecificFilterType::Style(sel, style) => SpecificFilterType::UnhideStyle(sel, style),
             SpecificFilterType::UnhideStyle(sel, style) => SpecificFilterType::Style(sel, style),
-            SpecificFilterType::ScriptInject(script) => SpecificFilterType::UnhideScriptInject(script),
-            SpecificFilterType::UnhideScriptInject(script) => SpecificFilterType::ScriptInject(script),
-
+            SpecificFilterType::ScriptInject(script) => {
+                SpecificFilterType::UnhideScriptInject(script)
+            }
+            SpecificFilterType::UnhideScriptInject(script) => {
+                SpecificFilterType::ScriptInject(script)
+            }
         }
     }
 }
 
 fn hostname_domain_hashes(hostname: &str, domain: &str) -> (Vec<Hash>, Vec<Hash>) {
-    let request_entities = crate::filters::cosmetic::get_entity_hashes_from_labels(hostname, domain);
-    let request_hostnames = crate::filters::cosmetic::get_hostname_hashes_from_labels(hostname, domain);
+    let request_entities =
+        crate::filters::cosmetic::get_entity_hashes_from_labels(hostname, domain);
+    let request_hostnames =
+        crate::filters::cosmetic::get_hostname_hashes_from_labels(hostname, domain);
 
     (request_entities, request_hostnames)
 }
@@ -554,10 +575,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn exceptions() {
-        let cfcache = cache_from_rules(vec![
-            "~example.com##.item",
-            "sub.example.com#@#.item2",
-        ]);
+        let cfcache = cache_from_rules(vec!["~example.com##.item", "sub.example.com#@#.item2"]);
 
         let out = cfcache.hostname_cosmetic_resources("test.com", false);
         let mut expected = UrlSpecificResources::empty();
@@ -574,9 +592,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn exceptions2() {
-        let cfcache = cache_from_rules(vec![
-            "example.com,~sub.example.com##.item",
-        ]);
+        let cfcache = cache_from_rules(vec!["example.com,~sub.example.com##.item"]);
 
         let out = cfcache.hostname_cosmetic_resources("test.com", false);
         let mut expected = UrlSpecificResources::empty();
@@ -614,18 +630,22 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
         expected.hide_selectors.clear();
-        expected.style_selectors.insert(".element".to_owned(), vec!["background: #fff".to_owned()]);
+        expected
+            .style_selectors
+            .insert(".element".to_owned(), vec!["background: #fff".to_owned()]);
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("a2.sub.example.com", false);
         expected.style_selectors.clear();
-        expected.style_selectors.insert(".element".to_owned(), vec!["background: #000".to_owned()]);
+        expected
+            .style_selectors
+            .insert(".element".to_owned(), vec!["background: #000".to_owned()]);
         assert_eq!(out, expected);
     }
 
     #[test]
     fn script_exceptions() {
-        use crate::resources::{ResourceType, MimeType};
+        use crate::resources::{MimeType, ResourceType};
 
         let mut cfcache = cache_from_rules(vec![
             "example.com,~sub.example.com##+js(set-constant.js, atob, trueFunc)",
@@ -645,17 +665,13 @@ mod cosmetic_cache_tests {
             Resource {
                 name: "nowebrtc.js".into(),
                 aliases: vec![],
-                kind: ResourceType::Mime(
-                    MimeType::ApplicationJavascript,
-                ),
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
                 content: base64::encode("nowebrtc.js"),
             },
             Resource {
                 name: "window.open-defuser.js".into(),
                 aliases: vec![],
-                kind: ResourceType::Mime(
-                    MimeType::ApplicationJavascript,
-                ),
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
                 content: base64::encode("window.open-defuser.js"),
             },
         ]);
@@ -668,7 +684,8 @@ mod cosmetic_cache_tests {
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
-        expected.injected_script = "try {\nset-constant.js, atob, trueFunc\n} catch ( e ) { }\n".to_owned();
+        expected.injected_script =
+            "try {\nset-constant.js, atob, trueFunc\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources("cosmetic.net", false);
@@ -693,7 +710,12 @@ mod cosmetic_cache_tests {
             "##.children .including #simple-id",
             "##a.a-class",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        let cfcache = CosmeticFilterCache::from_rules(
+            rules
+                .iter()
+                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .collect::<Vec<_>>(),
+        );
 
         let out = cfcache.hidden_class_id_selectors(&["with".into()], &[], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
@@ -704,20 +726,45 @@ mod cosmetic_cache_tests {
         let out = cfcache.hidden_class_id_selectors(&[], &["a-class".into()], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.hidden_class_id_selectors(&["simple-id".into()], &[], &HashSet::default());
+        let out =
+            cfcache.hidden_class_id_selectors(&["simple-id".into()], &[], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
         let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &HashSet::default());
         assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
-        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &[], &HashSet::default());
-        assert_eq!(out, [".a-class", ".children .including #simple-id", ".a-class .with .children"]);
+        let out = cfcache.hidden_class_id_selectors(
+            &["children".into(), "a-class".into()],
+            &[],
+            &HashSet::default(),
+        );
+        assert_eq!(
+            out,
+            [
+                ".a-class",
+                ".children .including #simple-id",
+                ".a-class .with .children"
+            ]
+        );
 
-        let out = cfcache.hidden_class_id_selectors(&[], &["simple-id".into()], &HashSet::default());
+        let out =
+            cfcache.hidden_class_id_selectors(&[], &["simple-id".into()], &HashSet::default());
         assert_eq!(out, ["#simple-id"]);
 
-        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &["simple-id".into()], &HashSet::default());
-        assert_eq!(out, [".a-class", "#simple-id", ".children .including #simple-id", ".a-class .with .children"]);
+        let out = cfcache.hidden_class_id_selectors(
+            &["children".into(), "a-class".into()],
+            &["simple-id".into()],
+            &HashSet::default(),
+        );
+        assert_eq!(
+            out,
+            [
+                ".a-class",
+                "#simple-id",
+                ".children .including #simple-id",
+                ".a-class .with .children"
+            ]
+        );
     }
 
     #[test]
@@ -731,25 +778,57 @@ mod cosmetic_cache_tests {
             "example.*#@#.a-class",
             "~test.com###test-element",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
-        let exceptions = cfcache.hostname_cosmetic_resources("example.co.uk", false).exceptions;
+        let cfcache = CosmeticFilterCache::from_rules(
+            rules
+                .iter()
+                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .collect::<Vec<_>>(),
+        );
+        let exceptions = cfcache
+            .hostname_cosmetic_resources("example.co.uk", false)
+            .exceptions;
 
         let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
         assert_eq!(out, [".a-class .with .children"]);
 
-        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &["simple-id".into()], &exceptions);
-        assert_eq!(out, ["#simple-id", ".children .including #simple-id", ".a-class .with .children"]);
+        let out = cfcache.hidden_class_id_selectors(
+            &["children".into(), "a-class".into()],
+            &["simple-id".into()],
+            &exceptions,
+        );
+        assert_eq!(
+            out,
+            [
+                "#simple-id",
+                ".children .including #simple-id",
+                ".a-class .with .children"
+            ]
+        );
 
         let out = cfcache.hidden_class_id_selectors(&[], &["test-element".into()], &exceptions);
         assert_eq!(out, ["#test-element"]);
 
-        let exceptions = cfcache.hostname_cosmetic_resources("a1.test.com", false).exceptions;
+        let exceptions = cfcache
+            .hostname_cosmetic_resources("a1.test.com", false)
+            .exceptions;
 
         let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
         assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
-        let out = cfcache.hidden_class_id_selectors(&["children".into(), "a-class".into()], &["simple-id".into()], &exceptions);
-        assert_eq!(out, [".a-class", "#simple-id", ".children .including #simple-id", ".a-class .with .children"]);
+        let out = cfcache.hidden_class_id_selectors(
+            &["children".into(), "a-class".into()],
+            &["simple-id".into()],
+            &exceptions,
+        );
+        assert_eq!(
+            out,
+            [
+                ".a-class",
+                "#simple-id",
+                ".children .including #simple-id",
+                ".a-class .with .children"
+            ]
+        );
 
         let out = cfcache.hidden_class_id_selectors(&[], &["test-element".into()], &exceptions);
         assert_eq!(out, Vec::<String>::new());
@@ -764,16 +843,25 @@ mod cosmetic_cache_tests {
             "example.com#@#div > p",
             "~example.com##a[href=\"notbad.com\"]",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
+        let cfcache = CosmeticFilterCache::from_rules(
+            rules
+                .iter()
+                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .collect::<Vec<_>>(),
+        );
 
-        let hide_selectors = cfcache.hostname_cosmetic_resources("test.com", false).hide_selectors;
+        let hide_selectors = cfcache
+            .hostname_cosmetic_resources("test.com", false)
+            .hide_selectors;
         let mut expected_hides = HashSet::new();
         expected_hides.insert("a[href=\"bad.com\"]".to_owned());
         expected_hides.insert("div > p".to_owned());
         expected_hides.insert("a[href=\"notbad.com\"]".to_owned());
         assert_eq!(hide_selectors, expected_hides);
 
-        let hide_selectors = cfcache.hostname_cosmetic_resources("example.com", false).hide_selectors;
+        let hide_selectors = cfcache
+            .hostname_cosmetic_resources("example.com", false)
+            .hide_selectors;
         let mut expected_hides = HashSet::new();
         expected_hides.insert("a[href=\"bad.com\"]".to_owned());
         assert_eq!(hide_selectors, expected_hides);
@@ -789,20 +877,30 @@ mod cosmetic_cache_tests {
             "toolforge.org##+js(abort-on-property-read, noAdBlockers)",
             "github.io##div.adToBlock",
         ];
-        let mut cfcache = CosmeticFilterCache::from_rules(rules.iter().map(|r| CosmeticFilter::parse(r, false).unwrap()).collect::<Vec<_>>());
-        cfcache.use_resources(&[
-            Resource {
-                name: "abort-on-property-read.js".into(),
-                aliases: vec!["aopr".to_string()],
-                kind: ResourceType::Template,
-                content: base64::encode("abort-on-property-read.js, {{1}}"),
-            },
-        ]);
+        let mut cfcache = CosmeticFilterCache::from_rules(
+            rules
+                .iter()
+                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .collect::<Vec<_>>(),
+        );
+        cfcache.use_resources(&[Resource {
+            name: "abort-on-property-read.js".into(),
+            aliases: vec!["aopr".to_string()],
+            kind: ResourceType::Template,
+            content: base64::encode("abort-on-property-read.js, {{1}}"),
+        }]);
 
-        let injected_script = cfcache.hostname_cosmetic_resources("antonok.toolforge.org", false).injected_script;
-        assert_eq!(injected_script, "try {\nabort-on-property-read.js, noAdBlockers\n} catch ( e ) { }\n");
+        let injected_script = cfcache
+            .hostname_cosmetic_resources("antonok.toolforge.org", false)
+            .injected_script;
+        assert_eq!(
+            injected_script,
+            "try {\nabort-on-property-read.js, noAdBlockers\n} catch ( e ) { }\n"
+        );
 
-        let hide_selectors = cfcache.hostname_cosmetic_resources("antonok.github.io", false).hide_selectors;
+        let hide_selectors = cfcache
+            .hostname_cosmetic_resources("antonok.github.io", false)
+            .hide_selectors;
         let mut expected_hides = HashSet::new();
         expected_hides.insert("div.adToBlock".to_owned());
         assert_eq!(hide_selectors, expected_hides);

@@ -1,7 +1,7 @@
 mod legacy_test_filters {
     use adblock::filters::network::NetworkFilter;
-    use adblock::filters::network::NetworkMatchable;
     use adblock::filters::network::NetworkFilterMask;
+    use adblock::filters::network::NetworkMatchable;
     use adblock::filters::regex_manager::RegexManager;
     use adblock::request::Request;
 
@@ -38,7 +38,10 @@ mod legacy_test_filters {
 
         for to_block in blocked {
             assert!(
-                filter.matches(&Request::from_url(&to_block).unwrap(), &mut RegexManager::default()),
+                filter.matches(
+                    &Request::from_url(&to_block).unwrap(),
+                    &mut RegexManager::default()
+                ),
                 "Expected filter {} to match {}",
                 raw_filter,
                 &to_block
@@ -47,7 +50,10 @@ mod legacy_test_filters {
 
         for to_pass in not_blocked {
             assert!(
-                !filter.matches(&Request::from_url(&to_pass).unwrap(), &mut RegexManager::default()),
+                !filter.matches(
+                    &Request::from_url(&to_pass).unwrap(),
+                    &mut RegexManager::default()
+                ),
                 "Expected filter {} to pass {}",
                 raw_filter,
                 &to_pass
@@ -159,8 +165,8 @@ mod legacy_test_filters {
         test_filter(
             "||example.com/banner.gif",
             NetworkFilterMask::DEFAULT_OPTIONS
-            | NetworkFilterMask::IS_LEFT_ANCHOR                 // filter part of the rule is left-anchored (to hostname)
-            | NetworkFilterMask::IS_HOSTNAME_ANCHOR,            // FTHostAnchored, FONoFilterOption
+            | NetworkFilterMask::IS_LEFT_ANCHOR      // filter part of the rule is left-anchored (to hostname)
+            | NetworkFilterMask::IS_HOSTNAME_ANCHOR, // FTHostAnchored, FONoFilterOption
             Some("/banner.gif"),
             &[
                 "http://example.com/banner.gif",
@@ -246,9 +252,9 @@ mod legacy_test_filters {
         test_filter(
             "||static.tumblr.com/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg",
             NetworkFilterMask::DEFAULT_OPTIONS
-            | NetworkFilterMask::IS_LEFT_ANCHOR         // filter part left-anchored to hostname
-            | NetworkFilterMask::IS_HOSTNAME_ANCHOR,    // FTHostAnchored, FONoFilterOption
-            Some(&"/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg".to_lowercase()),        // by default rules are case-insensitive, everything gets lowercased
+            | NetworkFilterMask::IS_LEFT_ANCHOR      // filter part left-anchored to hostname
+            | NetworkFilterMask::IS_HOSTNAME_ANCHOR, // FTHostAnchored, FONoFilterOption
+            Some(&"/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg".to_lowercase()), // by default rules are case-insensitive, everything gets lowercased
             &["http://static.tumblr.com/dhqhfum/WgAn39721/cfh_header_banner_v2.jpg"],
             &[],
         );
@@ -262,8 +268,8 @@ mod legacy_test_filters {
             | NetworkFilterMask::FROM_HTTP
             | NetworkFilterMask::FROM_HTTPS
             | NetworkFilterMask::THIRD_PARTY
-            | NetworkFilterMask::IS_LEFT_ANCHOR         // filter part left-anchored to hostname
-            | NetworkFilterMask::IS_HOSTNAME_ANCHOR,    // FTHostAnchored, FOThirdParty
+            | NetworkFilterMask::IS_LEFT_ANCHOR      // filter part left-anchored to hostname
+            | NetworkFilterMask::IS_HOSTNAME_ANCHOR, // FTHostAnchored, FOThirdParty
             Some("/safeframe/"),
             &[concat!(
                 "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
@@ -280,8 +286,8 @@ mod legacy_test_filters {
             | NetworkFilterMask::FROM_HTTP
             | NetworkFilterMask::FROM_HTTPS
             | NetworkFilterMask::THIRD_PARTY
-            | NetworkFilterMask::IS_LEFT_ANCHOR         // filter part left-anchored to hostname
-            | NetworkFilterMask::IS_HOSTNAME_ANCHOR,    // FTHostAnchored, FOThirdParty, FOScript
+            | NetworkFilterMask::IS_LEFT_ANCHOR      // filter part left-anchored to hostname
+            | NetworkFilterMask::IS_HOSTNAME_ANCHOR, // FTHostAnchored, FOThirdParty, FOScript
             Some("/safeframe/"),
             &[
                 // handle the sample below to avoid hacking code around just to pass the request that matches script option
@@ -300,16 +306,21 @@ mod legacy_test_filters {
 mod legacy_check_match {
     use adblock::engine::Engine;
 
-    fn check_match<'a>(rules: &[&'a str], blocked: &[&'a str], not_blocked: &[&'a str], tags: &[&'a str]) {
+    fn check_match<'a>(
+        rules: &[&'a str],
+        blocked: &[&'a str],
+        not_blocked: &[&'a str],
+        tags: &[&'a str],
+    ) {
         let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let mut engine = Engine::from_rules(&rules_owned, Default::default());          // first one with the provided rules
+        let mut engine = Engine::from_rules(&rules_owned, Default::default()); // first one with the provided rules
         engine.use_tags(tags);
 
-        let mut engine_deserialized = Engine::default();                    // second empty
+        let mut engine_deserialized = Engine::default(); // second empty
         engine_deserialized.use_tags(tags);
         {
             let engine_serialized = engine.serialize_compressed().unwrap();
-            engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy
+            engine_deserialized.deserialize(&engine_serialized).unwrap(); // override from serialized copy
         }
 
         for to_block in blocked {
@@ -395,7 +406,7 @@ mod legacy_check_match {
             &["^promotion^"],
             &["http://yahoo.co.jp/promotion/imgs"],
             &[],
-            &[]
+            &[],
         );
 
         check_match(
@@ -412,7 +423,7 @@ mod legacy_check_match {
                 "http://yahoo.co.jp/adsshmads/imgs",
                 "ads://ads.co.ads/aads",
             ],
-            &[]
+            &[],
         );
     }
 
@@ -450,7 +461,7 @@ mod legacy_check_match {
                 "https://brave.com/about",
             ],
             &[],
-            &["stuff", "brian"]
+            &["stuff", "brian"],
         );
 
         // A tag which doesn't match shouldn't match
@@ -459,16 +470,16 @@ mod legacy_check_match {
                 "adv$tag=stuff",
                 "somelongpath/test$tag=stuff",
                 "||brianbondy.com/$tag=brian",
-                "||brave.com$tag=brian"
+                "||brave.com$tag=brian",
             ],
             &[],
             &[
                 "http://example.com/advert.html",
                 "http://example.com/somelongpath/test/2.html",
                 "https://brianbondy.com/about",
-                "https://brave.com/about"
+                "https://brave.com/about",
             ],
-            &["filtertag1", "filtertag2"]
+            &["filtertag1", "filtertag2"],
         );
     }
 }
@@ -714,7 +725,7 @@ mod legacy_misc_tests {
             &[
                 String::from("||googlesyndication.com/safeframe/$third-party"),
                 String::from("||brianbondy.com/ads"),
-                String::from("@@safeframe")
+                String::from("@@safeframe"),
             ],
             Default::default(),
         );

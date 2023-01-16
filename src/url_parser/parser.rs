@@ -36,8 +36,8 @@ pub struct Hostname {
     serialization: String,
 
     // Components
-    pub scheme_end: usize,  // Before ':'
-    pub username_end: usize,  // Before ':' (if a password is given) or '@' (if not)
+    pub scheme_end: usize,   // Before ':'
+    pub username_end: usize, // Before ':' (if a password is given) or '@' (if not)
     pub host_start: usize,
     pub host_end: usize,
 }
@@ -46,7 +46,8 @@ impl Hostname {
     pub fn parse(input: &str) -> Result<Hostname, ParseError> {
         Parser {
             serialization: String::with_capacity(input.len()),
-        }.parse_url(input)
+        }
+        .parse_url(input)
     }
 
     /// Equivalent to `url.host().is_some()`.
@@ -120,7 +121,10 @@ impl Hostname {
 
     // Private helper methods:
 
-    fn slice<R>(&self, range: R) -> &str where R: RangeArg {
+    fn slice<R>(&self, range: R) -> &str
+    where
+        R: RangeArg,
+    {
         range.slice_of(&self.serialization)
     }
 }
@@ -131,19 +135,19 @@ trait RangeArg {
 
 impl RangeArg for Range<usize> {
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
-        &s[self.start .. self.end ]
+        &s[self.start..self.end]
     }
 }
 
 impl RangeArg for RangeFrom<usize> {
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
-        &s[self.start ..]
+        &s[self.start..]
     }
 }
 
 impl RangeArg for RangeTo<usize> {
     fn slice_of<'a>(&self, s: &'a str) -> &'a str {
-        &s[.. self.end]
+        &s[..self.end]
     }
 }
 
@@ -193,7 +197,9 @@ simple_enum_error! {
 known_heap_size!(0, ParseError);
 
 impl From<idna::Errors> for ParseError {
-    fn from(_: idna::Errors) -> ParseError { ParseError::IdnaError }
+    fn from(_: idna::Errors) -> ParseError {
+        ParseError::IdnaError
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -225,7 +231,9 @@ pub struct Input<'i> {
 impl<'i> Input<'i> {
     pub fn new(input: &'i str) -> Self {
         let input = input.trim_matches(c0_control_or_space);
-        Input { chars: input.chars() }
+        Input {
+            chars: input.chars(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -254,7 +262,7 @@ impl<'i> Input<'i> {
                 remaining = input;
                 count += 1;
             } else {
-                return (count, remaining)
+                return (count, remaining);
             }
         }
     }
@@ -265,10 +273,10 @@ impl<'i> Input<'i> {
             match self.chars.next() {
                 Some(c) => {
                     if !matches!(c, '\t' | '\n' | '\r') {
-                        return Some((c, &utf8[..c.len_utf8()]))
+                        return Some((c, &utf8[..c.len_utf8()]));
                     }
                 }
-                None => return None
+                None => return None,
             }
         }
     }
@@ -279,14 +287,16 @@ pub trait Pattern {
 }
 
 impl Pattern for char {
-    fn split_prefix(self, input: &mut Input) -> bool { input.next() == Some(self) }
+    fn split_prefix(self, input: &mut Input) -> bool {
+        input.next() == Some(self)
+    }
 }
 
 impl<'a> Pattern for &'a str {
     fn split_prefix(self, input: &mut Input) -> bool {
         for c in self.chars() {
             if input.next() != Some(c) {
-                return false
+                return false;
             }
         }
         true
@@ -294,7 +304,9 @@ impl<'a> Pattern for &'a str {
 }
 
 impl<F: FnMut(char) -> bool> Pattern for F {
-    fn split_prefix(self, input: &mut Input) -> bool { input.next().map_or(false, self) }
+    fn split_prefix(self, input: &mut Input) -> bool {
+        input.next().map_or(false, self)
+    }
 }
 
 impl<'i> Iterator for Input<'i> {
@@ -309,13 +321,12 @@ pub struct Parser {
 }
 
 impl Parser {
-
     /// https://url.spec.whatwg.org/#concept-basic-url-parser
     pub fn parse_url(mut self, input: &str) -> ParseResult<Hostname> {
         // println!("Parse {}", input);
         let input = Input::new(input);
         if let Ok(remaining) = self.parse_scheme(input.clone()) {
-            return self.parse_with_scheme(remaining)
+            return self.parse_with_scheme(remaining);
         }
 
         // No-scheme state
@@ -324,7 +335,7 @@ impl Parser {
 
     pub fn parse_scheme<'i>(&mut self, mut input: Input<'i>) -> Result<Input<'i>, ()> {
         if input.is_empty() || !input.starts_with(ascii_alpha) {
-            return Err(())
+            return Err(());
         }
         debug_assert!(self.serialization.is_empty());
         while let Some(c) = input.next() {
@@ -335,7 +346,7 @@ impl Parser {
                 ':' => return Ok(input),
                 _ => {
                     self.serialization.clear();
-                    return Err(())
+                    return Err(());
                 }
             }
         }
@@ -368,11 +379,15 @@ impl Parser {
     }
 
     /// Scheme other than file, http, https, ws, ws, ftp, gopher.
-    fn parse_non_special(mut self, input: Input, scheme_type: SchemeType, scheme_end: usize)
-                         -> ParseResult<Hostname> {
+    fn parse_non_special(
+        mut self,
+        input: Input,
+        scheme_type: SchemeType,
+        scheme_end: usize,
+    ) -> ParseResult<Hostname> {
         // path or authority state (
         if let Some(input) = input.split_prefix("//") {
-            return self.after_double_slash(input, scheme_type, scheme_end)
+            return self.after_double_slash(input, scheme_type, scheme_end);
         }
         // Anarchist URL (no authority)
         let path_start = self.serialization.len();
@@ -395,8 +410,12 @@ impl Parser {
         })
     }
 
-    fn after_double_slash(mut self, input: Input, scheme_type: SchemeType, scheme_end: usize)
-                          -> ParseResult<Hostname> {
+    fn after_double_slash(
+        mut self,
+        input: Input,
+        scheme_type: SchemeType,
+        scheme_end: usize,
+    ) -> ParseResult<Hostname> {
         self.serialization.push_str("//");
         // authority state
         let (username_end, remaining) = self.parse_userinfo(input, scheme_type)?;
@@ -419,16 +438,17 @@ impl Parser {
     }
 
     /// Return (username_end, remaining)
-    fn parse_userinfo<'i>(&mut self, mut input: Input<'i>, scheme_type: SchemeType)
-                          -> ParseResult<(usize, Input<'i>)> {
+    fn parse_userinfo<'i>(
+        &mut self,
+        mut input: Input<'i>,
+        scheme_type: SchemeType,
+    ) -> ParseResult<(usize, Input<'i>)> {
         let mut last_at = None;
         let mut remaining = input.clone();
         let mut char_count = 0;
         while let Some(c) = remaining.next() {
             match c {
-                '@' => {
-                    last_at = Some((char_count, remaining.clone()))
-                },
+                '@' => last_at = Some((char_count, remaining.clone())),
                 '/' | '?' | '#' => break,
                 '\\' if scheme_type.is_special() => break,
                 _ => (),
@@ -438,7 +458,7 @@ impl Parser {
         let (mut userinfo_char_count, remaining) = match last_at {
             None => return Ok((self.serialization.len(), input)),
             Some((0, remaining)) => return Ok((self.serialization.len(), remaining)),
-            Some(x) => x
+            Some(x) => x,
         };
 
         let mut username_end = None;
@@ -473,8 +493,11 @@ impl Parser {
         Ok((username_end, remaining))
     }
 
-    pub fn parse_host<'i>(&mut self, mut input: Input<'i>, scheme_type: SchemeType)
-                             -> ParseResult<(usize, Input<'i>)> {
+    pub fn parse_host<'i>(
+        &mut self,
+        mut input: Input<'i>,
+        scheme_type: SchemeType,
+    ) -> ParseResult<(usize, Input<'i>)> {
         // Undo the Input abstraction here to avoid allocating in the common case
         // where the host part of the input does not contain any tab or newline
         let input_str = input.chars.as_str();
@@ -499,7 +522,7 @@ impl Parser {
                     inside_square_brackets = false;
                     non_ignored_chars += 1
                 }
-                _ => non_ignored_chars += 1
+                _ => non_ignored_chars += 1,
             }
             remaining.next();
             bytes += c.len_utf8();
@@ -527,13 +550,12 @@ impl Parser {
         let host_end = self.serialization.len();
         Ok((host_end, remaining))
     }
-
 }
 
 /// https://url.spec.whatwg.org/#c0-controls-and-space
 #[inline]
 fn c0_control_or_space(ch: char) -> bool {
-    ch <= ' '  // U+0000 to U+0020
+    ch <= ' ' // U+0000 to U+0020
 }
 
 /// https://url.spec.whatwg.org/#ascii-alpha
@@ -541,4 +563,3 @@ fn c0_control_or_space(ch: char) -> bool {
 pub fn ascii_alpha(ch: char) -> bool {
     matches!(ch, 'a'..='z' | 'A'..='Z')
 }
-

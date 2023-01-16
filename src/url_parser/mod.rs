@@ -5,7 +5,8 @@ mod parser;
 // mod parser_regex;
 
 #[cfg(not(feature = "embedded-domain-resolver"))]
-static DOMAIN_RESOLVER: once_cell::sync::OnceCell<Box<dyn ResolvesDomain>> = once_cell::sync::OnceCell::new();
+static DOMAIN_RESOLVER: once_cell::sync::OnceCell<Box<dyn ResolvesDomain>> =
+    once_cell::sync::OnceCell::new();
 
 /// Sets the library's domain resolver implementation.
 ///
@@ -14,7 +15,9 @@ static DOMAIN_RESOLVER: once_cell::sync::OnceCell<Box<dyn ResolvesDomain>> = onc
 ///
 /// Will return the resolver if it has already been previously set.
 #[cfg(not(feature = "embedded-domain-resolver"))]
-pub fn set_domain_resolver(resolver: Box<dyn ResolvesDomain>) -> Result<(), Box<dyn ResolvesDomain>> {
+pub fn set_domain_resolver(
+    resolver: Box<dyn ResolvesDomain>,
+) -> Result<(), Box<dyn ResolvesDomain>> {
     DOMAIN_RESOLVER.set(resolver)
 }
 
@@ -36,9 +39,7 @@ impl ResolvesDomain for DefaultResolver {
                 Err(_e) => (0, host.len()),
                 Ok(domain) => {
                     let host_len = host.len();
-                    let domain_len = domain.root()
-                        .unwrap_or_else(|| domain.suffix())
-                        .len();
+                    let domain_len = domain.root().unwrap_or_else(|| domain.suffix()).len();
                     (host_len - domain_len, host_len)
                 }
             }
@@ -95,7 +96,7 @@ impl RequestUrl {
         &self.url[self.hostname_pos.0..self.hostname_pos.1]
     }
     pub fn domain(&self) -> &str {
-        &self.url[self.hostname_pos.0 + self.domain.0 .. self.hostname_pos.0 + self.domain.1]
+        &self.url[self.hostname_pos.0 + self.domain.0..self.hostname_pos.0 + self.domain.1]
     }
 }
 
@@ -117,16 +118,14 @@ pub(crate) fn get_host_domain(host: &str) -> (usize, usize) {
 /// decoded URL that is used for further matching.
 pub fn parse_url(url: &str) -> Option<RequestUrl> {
     let parsed = parser::Hostname::parse(url).ok();
-    parsed.and_then(|h| {
-        match h.host_str() {
-            Some(_host) => Some(RequestUrl {
-                url: h.url_str().to_owned(),
-                schema_end: h.scheme_end,
-                hostname_pos: (h.host_start, h.host_end),
-                domain: get_host_domain(&h.url_str()[h.host_start..h.host_end])
-            }),
-            _ => None
-        }
+    parsed.and_then(|h| match h.host_str() {
+        Some(_host) => Some(RequestUrl {
+            url: h.url_str().to_owned(),
+            schema_end: h.scheme_end,
+            hostname_pos: (h.host_start, h.host_end),
+            domain: get_host_domain(&h.url_str()[h.host_start..h.host_end]),
+        }),
+        _ => None,
     })
 }
 

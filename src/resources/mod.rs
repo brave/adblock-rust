@@ -9,7 +9,7 @@ pub mod resource_assembler;
 mod scriptlet_resource_storage;
 pub(crate) use scriptlet_resource_storage::ScriptletResourceStorage;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Struct representing a resource that can be used by an adblocking engine.
@@ -78,7 +78,7 @@ impl From<std::string::FromUtf8Error> for AddResourceError {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RedirectResource {
     pub content_type: String,
-    pub data: String
+    pub data: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
@@ -86,7 +86,6 @@ pub struct RedirectResourceStorage {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub resources: HashMap<String, RedirectResource>,
 }
-
 
 impl MimeType {
     /// Infers a resource's MIME type according to the extension of its path
@@ -117,22 +116,29 @@ impl RedirectResourceStorage {
     pub fn from_resources(resources: &[Resource]) -> Self {
         let mut redirectable_resources: HashMap<String, RedirectResource> = HashMap::new();
 
-        resources.iter().filter_map(|descriptor| {
-            if let ResourceType::Mime(ref content_type) = descriptor.kind {
-                let resource = RedirectResource {
-                    content_type: content_type.clone().into(),
-                    data: descriptor.content.to_owned(),
-                };
-                Some((descriptor.name.to_owned(), descriptor.aliases.to_owned(), resource))
-            } else {
-                None
-            }
-        }).for_each(|(name, res_aliases, resource)| {
-            res_aliases.iter().for_each(|alias| {
-                redirectable_resources.insert(alias.to_owned(), resource.clone());
+        resources
+            .iter()
+            .filter_map(|descriptor| {
+                if let ResourceType::Mime(ref content_type) = descriptor.kind {
+                    let resource = RedirectResource {
+                        content_type: content_type.clone().into(),
+                        data: descriptor.content.to_owned(),
+                    };
+                    Some((
+                        descriptor.name.to_owned(),
+                        descriptor.aliases.to_owned(),
+                        resource,
+                    ))
+                } else {
+                    None
+                }
+            })
+            .for_each(|(name, res_aliases, resource)| {
+                res_aliases.iter().for_each(|alias| {
+                    redirectable_resources.insert(alias.to_owned(), resource.clone());
+                });
+                redirectable_resources.insert(name, resource);
             });
-            redirectable_resources.insert(name, resource);
-        });
 
         Self {
             resources: redirectable_resources,
@@ -150,7 +156,10 @@ impl RedirectResourceStorage {
             let decoded = base64::decode(&resource.content)?;
             match content_type {
                 // Ensure any text contents are also valid utf8
-                MimeType::ApplicationJavascript | MimeType::TextPlain | MimeType::TextHtml | MimeType::TextXml => {
+                MimeType::ApplicationJavascript
+                | MimeType::TextPlain
+                | MimeType::TextHtml
+                | MimeType::TextXml => {
                     let _ = String::from_utf8(decoded)?;
                 }
                 _ => (),
@@ -162,7 +171,8 @@ impl RedirectResourceStorage {
                 data: resource.content.to_owned(),
             };
             resource.aliases.iter().for_each(|alias| {
-                self.resources.insert(alias.to_owned(), redirect_resource.clone());
+                self.resources
+                    .insert(alias.to_owned(), redirect_resource.clone());
             });
             self.resources.insert(name, redirect_resource);
         }
@@ -198,7 +208,8 @@ impl From<MimeType> for String {
             MimeType::TextPlain => "text/plain",
             MimeType::TextXml => "text/xml",
             MimeType::Unknown => "application/octet-stream",
-        }.to_owned()
+        }
+        .to_owned()
     }
 }
 
@@ -209,33 +220,42 @@ mod tests {
     #[test]
     fn get_resource_by_name() {
         let mut storage = RedirectResourceStorage::default();
-        storage.add_resource(&Resource {
-            name: "name.js".to_owned(),
-            aliases: vec![],
-            kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-            content: base64::encode("resource data"),
-        }).unwrap();
+        storage
+            .add_resource(&Resource {
+                name: "name.js".to_owned(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+                content: base64::encode("resource data"),
+            })
+            .unwrap();
 
-        assert_eq!(storage.get_resource("name.js"), Some(&RedirectResource {
-            content_type: "application/javascript".to_owned(),
-            data: base64::encode("resource data"),
-        }));
+        assert_eq!(
+            storage.get_resource("name.js"),
+            Some(&RedirectResource {
+                content_type: "application/javascript".to_owned(),
+                data: base64::encode("resource data"),
+            })
+        );
     }
 
     #[test]
     fn get_resource_by_alias() {
         let mut storage = RedirectResourceStorage::default();
-        storage.add_resource(&Resource {
-            name: "name.js".to_owned(),
-            aliases: vec!["alias.js".to_owned()],
-            kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-            content: base64::encode("resource data"),
-        }).unwrap();
+        storage
+            .add_resource(&Resource {
+                name: "name.js".to_owned(),
+                aliases: vec!["alias.js".to_owned()],
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+                content: base64::encode("resource data"),
+            })
+            .unwrap();
 
-        assert_eq!(storage.get_resource("alias.js"), Some(&RedirectResource {
-            content_type: "application/javascript".to_owned(),
-            data: base64::encode("resource data"),
-        }));
+        assert_eq!(
+            storage.get_resource("alias.js"),
+            Some(&RedirectResource {
+                content_type: "application/javascript".to_owned(),
+                data: base64::encode("resource data"),
+            })
+        );
     }
 }
-

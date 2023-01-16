@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::resources::{MimeType, Resource, ResourceType, AddResourceError};
+use crate::resources::{AddResourceError, MimeType, Resource, ResourceType};
 
 static ESCAPE_SCRIPTLET_ARG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[\\'"]"#).unwrap());
 
@@ -41,7 +41,9 @@ impl ScriptletResource {
     fn patch<'a>(&self, args: &[Cow<'a, str>]) -> String {
         let mut scriptlet = self.scriptlet.to_owned();
         args.iter().enumerate().for_each(|(i, arg)| {
-            scriptlet = TEMPLATE_ARGUMENT_RE[i].replace(&scriptlet, arg as &str).to_string();
+            scriptlet = TEMPLATE_ARGUMENT_RE[i]
+                .replace(&scriptlet, arg as &str)
+                .to_string();
         });
         scriptlet
     }
@@ -60,9 +62,11 @@ impl ScriptletResourceStorage {
     pub fn from_resources(resources: &[Resource]) -> Self {
         let mut self_ = Self::default();
 
-        resources.iter().for_each(|resource| self_.add_resource(&resource).unwrap_or_else(|_e| {
-            eprintln!("Failed to add resource: {:?}", _e)
-        }));
+        resources.iter().for_each(|resource| {
+            self_
+                .add_resource(&resource)
+                .unwrap_or_else(|_e| eprintln!("Failed to add resource: {:?}", _e))
+        });
 
         self_
     }
@@ -75,16 +79,22 @@ impl ScriptletResourceStorage {
                 let scriptlet = ScriptletResource {
                     scriptlet: String::from_utf8(base64::decode(&resource.content)?)?,
                 };
-                Some((resource.name.to_owned(), resource.aliases.to_owned(), scriptlet))
+                Some((
+                    resource.name.to_owned(),
+                    resource.aliases.to_owned(),
+                    scriptlet,
+                ))
             }
-            _ => None
+            _ => None,
         };
 
         if let Some((name, res_aliases, resource)) = scriptlet {
             res_aliases.iter().for_each(|alias| {
-                self.resources.insert(without_js_extension(alias).to_owned(), resource.clone());
+                self.resources
+                    .insert(without_js_extension(alias).to_owned(), resource.clone());
             });
-            self.resources.insert(without_js_extension(&name).to_owned(), resource);
+            self.resources
+                .insert(without_js_extension(&name).to_owned(), resource);
         };
 
         Ok(())
@@ -97,7 +107,8 @@ impl ScriptletResourceStorage {
         }
         let scriptlet_name = without_js_extension(scriptlet_args[0].as_ref());
         let args = &scriptlet_args[1..];
-        let template = self.resources
+        let template = self
+            .resources
             .get(scriptlet_name)
             .ok_or(ScriptletResourceError::NoMatchingScriptlet)?;
 
@@ -127,7 +138,9 @@ pub fn parse_scriptlet_args(args: &str) -> Vec<Cow<str>> {
             find_start = comma_loc + 1;
             continue;
         }
-        args_vec.push(ESCAPE_SCRIPTLET_ARG_RE.replace_all(args[after_last_delim..comma_loc].trim(), ""));
+        args_vec.push(
+            ESCAPE_SCRIPTLET_ARG_RE.replace_all(args[after_last_delim..comma_loc].trim(), ""),
+        );
         after_last_delim = comma_loc + 1;
         find_start = comma_loc + 1;
     }
@@ -168,31 +181,83 @@ mod tests {
 
     #[test]
     fn parse_argslist_badchars() {
-        let args = parse_scriptlet_args(r##"scriptlet, "; window.location.href = bad.com; , '; alert("you're\, hacked");    ,    \u\r\l(bad.com) "##);
-        assert_eq!(args, vec!["scriptlet", "; window.location.href = bad.com;", "; alert(youre, hacked);", "url(bad.com)"]);
+        let args = parse_scriptlet_args(
+            r##"scriptlet, "; window.location.href = bad.com; , '; alert("you're\, hacked");    ,    \u\r\l(bad.com) "##,
+        );
+        assert_eq!(
+            args,
+            vec![
+                "scriptlet",
+                "; window.location.href = bad.com;",
+                "; alert(youre, hacked);",
+                "url(bad.com)"
+            ]
+        );
     }
 
     #[test]
     fn get_patched_scriptlets() {
         let mut resources = HashMap::new();
-        resources.insert("greet".to_owned(), ScriptletResource { scriptlet: "console.log('Hello {{1}}, my name is {{2}}')".to_owned() });
-        resources.insert("alert".to_owned(), ScriptletResource { scriptlet: "alert('{{1}}')".to_owned() });
-        resources.insert("blocktimer".to_owned(), ScriptletResource { scriptlet: "setTimeout(blockAds, {{1}})".to_owned() });
-        resources.insert("null".to_owned(), ScriptletResource { scriptlet: "(()=>{})()".to_owned() });
-        let scriptlets = ScriptletResourceStorage {
-            resources,
-        };
+        resources.insert(
+            "greet".to_owned(),
+            ScriptletResource {
+                scriptlet: "console.log('Hello {{1}}, my name is {{2}}')".to_owned(),
+            },
+        );
+        resources.insert(
+            "alert".to_owned(),
+            ScriptletResource {
+                scriptlet: "alert('{{1}}')".to_owned(),
+            },
+        );
+        resources.insert(
+            "blocktimer".to_owned(),
+            ScriptletResource {
+                scriptlet: "setTimeout(blockAds, {{1}})".to_owned(),
+            },
+        );
+        resources.insert(
+            "null".to_owned(),
+            ScriptletResource {
+                scriptlet: "(()=>{})()".to_owned(),
+            },
+        );
+        let scriptlets = ScriptletResourceStorage { resources };
 
-        assert_eq!(scriptlets.get_scriptlet("greet, world, adblock-rust"), Ok("console.log('Hello world, my name is adblock-rust')".into()));
-        assert_eq!(scriptlets.get_scriptlet("alert, All systems are go!! "), Ok("alert('All systems are go!!')".into()));
-        assert_eq!(scriptlets.get_scriptlet("alert, Uh oh\\, check the logs..."), Ok("alert('Uh oh, check the logs...')".into()));
-        assert_eq!(scriptlets.get_scriptlet("blocktimer, 3000"), Ok("setTimeout(blockAds, 3000)".into()));
+        assert_eq!(
+            scriptlets.get_scriptlet("greet, world, adblock-rust"),
+            Ok("console.log('Hello world, my name is adblock-rust')".into())
+        );
+        assert_eq!(
+            scriptlets.get_scriptlet("alert, All systems are go!! "),
+            Ok("alert('All systems are go!!')".into())
+        );
+        assert_eq!(
+            scriptlets.get_scriptlet("alert, Uh oh\\, check the logs..."),
+            Ok("alert('Uh oh, check the logs...')".into())
+        );
+        assert_eq!(
+            scriptlets.get_scriptlet("blocktimer, 3000"),
+            Ok("setTimeout(blockAds, 3000)".into())
+        );
         assert_eq!(scriptlets.get_scriptlet("null"), Ok("(()=>{})()".into()));
-        assert_eq!(scriptlets.get_scriptlet("null, null"), Ok("(()=>{})()".into()));
-        assert_eq!(scriptlets.get_scriptlet("greet, everybody"), Ok("console.log('Hello everybody, my name is {{2}}')".into()));
+        assert_eq!(
+            scriptlets.get_scriptlet("null, null"),
+            Ok("(()=>{})()".into())
+        );
+        assert_eq!(
+            scriptlets.get_scriptlet("greet, everybody"),
+            Ok("console.log('Hello everybody, my name is {{2}}')".into())
+        );
 
-        assert_eq!(scriptlets.get_scriptlet("unit-testing"), Err(ScriptletResourceError::NoMatchingScriptlet));
-        assert_eq!(scriptlets.get_scriptlet(""), Err(ScriptletResourceError::MissingScriptletName));
+        assert_eq!(
+            scriptlets.get_scriptlet("unit-testing"),
+            Err(ScriptletResourceError::NoMatchingScriptlet)
+        );
+        assert_eq!(
+            scriptlets.get_scriptlet(""),
+            Err(ScriptletResourceError::MissingScriptletName)
+        );
     }
 
     #[test]

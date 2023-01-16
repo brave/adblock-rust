@@ -4,18 +4,18 @@
 //!
 //! Any new fields should be added to the _end_ of both `SerializeFormat` and `DeserializeFormat`.
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
-use serde::{Deserialize, Serialize};
 use rmp_serde as rmps;
+use serde::{Deserialize, Serialize};
 
 use crate::blocker::{Blocker, NetworkFilterList};
-use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
-use crate::filters::network::NetworkFilter;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
+use crate::filters::network::NetworkFilter;
+use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 
-use super::{DeserializationError, SerializationError};
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
+use super::{DeserializationError, SerializationError};
 
 /// `_bug` is no longer used, and is removed from future format versions.
 #[derive(Debug, Clone, Serialize)]
@@ -37,7 +37,10 @@ pub struct NetworkFilterV0SerializeFmt<'a> {
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
 /// while `NetworkFilterList` requires `&'a Arc<NetworkFilter>`.
-impl<'a, T> From<&'a T> for NetworkFilterV0SerializeFmt<'a> where T: std::borrow::Borrow<NetworkFilter> {
+impl<'a, T> From<&'a T> for NetworkFilterV0SerializeFmt<'a>
+where
+    T: std::borrow::Borrow<NetworkFilter>,
+{
     fn from(v: &'a T) -> NetworkFilterV0SerializeFmt<'a> {
         let v = v.borrow();
         NetworkFilterV0SerializeFmt {
@@ -45,9 +48,17 @@ impl<'a, T> From<&'a T> for NetworkFilterV0SerializeFmt<'a> where T: std::borrow
             filter: &v.filter,
             opt_domains: &v.opt_domains,
             opt_not_domains: &v.opt_not_domains,
-            redirect: if v.is_redirect() { &v.modifier_option } else { &None },
+            redirect: if v.is_redirect() {
+                &v.modifier_option
+            } else {
+                &None
+            },
             hostname: &v.hostname,
-            csp: if v.is_csp() { &v.modifier_option } else { &None },
+            csp: if v.is_csp() {
+                &v.modifier_option
+            } else {
+                &None
+            },
             _bug: None,
             tag: &v.tag,
             raw_line: v.raw_line.as_ref().map(|raw| *raw.clone()),
@@ -60,7 +71,10 @@ impl<'a, T> From<&'a T> for NetworkFilterV0SerializeFmt<'a> where T: std::borrow
 
 /// Forces a `NetworkFilterList` to be serialized with the v0 filter format by converting to an
 /// intermediate representation that is constructed with `NetworkFilterV0Fmt` instead.
-fn serialize_v0_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+fn serialize_v0_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
     #[derive(Serialize, Default)]
     struct NetworkFilterListV0SerializeFmt<'a> {
         #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
@@ -68,9 +82,11 @@ fn serialize_v0_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result
     }
 
     let v0_list = NetworkFilterListV0SerializeFmt {
-        filter_map: list.filter_map.iter().map(|(k, v)| {
-            (*k, v.iter().map(|f| f.into()).collect())
-        }).collect(),
+        filter_map: list
+            .filter_map
+            .iter()
+            .map(|(k, v)| (*k, v.iter().map(|f| f.into()).collect()))
+            .collect(),
     };
 
     v0_list.serialize(s)
@@ -78,7 +94,10 @@ fn serialize_v0_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result
 
 /// Forces a `NetworkFilter` slice to be serialized with the v0 filter format by converting to
 /// an intermediate representation that is constructed with `NetworkFilterV0Fmt` instead.
-fn serialize_v0_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+fn serialize_v0_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
     let v0_vec: Vec<_> = vec.iter().map(NetworkFilterV0SerializeFmt::from).collect();
 
     v0_vec.serialize(s)
@@ -180,7 +199,18 @@ pub(crate) struct NetworkFilterListV0DeserializeFmt {
 impl From<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
     fn from(v: NetworkFilterListV0DeserializeFmt) -> Self {
         Self {
-            filter_map: v.filter_map.into_iter().map(|(k, v)| (k, v.into_iter().map(|f| std::sync::Arc::new(f.into())).collect())).collect(),
+            filter_map: v
+                .filter_map
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        v.into_iter()
+                            .map(|f| std::sync::Arc::new(f.into()))
+                            .collect(),
+                    )
+                })
+                .collect(),
         }
     }
 }
@@ -219,7 +249,8 @@ impl DeserializeFormat {
     pub fn deserialize(serialized: &[u8]) -> Result<Self, DeserializationError> {
         assert!(serialized.starts_with(&super::ADBLOCK_RUST_DAT_MAGIC));
         assert!(serialized[super::ADBLOCK_RUST_DAT_MAGIC.len()] == 0);
-        let format: Self = rmps::decode::from_read(&serialized[super::ADBLOCK_RUST_DAT_MAGIC.len() + 1..])?;
+        let format: Self =
+            rmps::decode::from_read(&serialized[super::ADBLOCK_RUST_DAT_MAGIC.len() + 1..])?;
         Ok(format)
     }
 }
@@ -258,37 +289,39 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
 impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
     fn from(v: DeserializeFormat) -> Self {
-        (Blocker {
-            csp: v.csp.into(),
-            exceptions: v.exceptions.into(),
-            importants: v.importants.into(),
-            redirects: v.redirects.into(),
-            removeparam: NetworkFilterList::default(),
-            filters_tagged: v.filters_tagged.into(),
-            filters: v.filters.into(),
-            generic_hide: v.generic_hide.into(),
+        (
+            Blocker {
+                csp: v.csp.into(),
+                exceptions: v.exceptions.into(),
+                importants: v.importants.into(),
+                redirects: v.redirects.into(),
+                removeparam: NetworkFilterList::default(),
+                filters_tagged: v.filters_tagged.into(),
+                filters: v.filters.into(),
+                generic_hide: v.generic_hide.into(),
 
-            tags_enabled: Default::default(),
-            tagged_filters_all: v.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
+                tags_enabled: Default::default(),
+                tagged_filters_all: v.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
 
-            enable_optimizations: v.enable_optimizations,
+                enable_optimizations: v.enable_optimizations,
 
-            resources: v.resources,
-            #[cfg(feature = "object-pooling")]
-            pool: Default::default(),
-            regex_manager: Default::default(),
+                resources: v.resources,
+                #[cfg(feature = "object-pooling")]
+                pool: Default::default(),
+                regex_manager: Default::default(),
+            },
+            CosmeticFilterCache {
+                simple_class_rules: v.simple_class_rules,
+                simple_id_rules: v.simple_id_rules,
+                complex_class_rules: v.complex_class_rules,
+                complex_id_rules: v.complex_id_rules,
 
-        }, CosmeticFilterCache {
-            simple_class_rules: v.simple_class_rules,
-            simple_id_rules: v.simple_id_rules,
-            complex_class_rules: v.complex_class_rules,
-            complex_id_rules: v.complex_id_rules,
+                specific_rules: v.specific_rules,
 
-            specific_rules: v.specific_rules,
+                misc_generic_selectors: v.misc_generic_selectors,
 
-            misc_generic_selectors: v.misc_generic_selectors,
-
-            scriptlets: v.scriptlets,
-        })
+                scriptlets: v.scriptlets,
+            },
+        )
     }
 }

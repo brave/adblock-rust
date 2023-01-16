@@ -1,12 +1,12 @@
 //! Contains methods useful for building `Resource` descriptors from resources directly from files
 //! in the uBlock Origin repository.
 
-use regex::Regex;
+use crate::resources::{MimeType, Resource, ResourceType};
 use once_cell::sync::Lazy;
-use std::io::Read;
+use regex::Regex;
 use std::fs::File;
+use std::io::Read;
 use std::path::Path;
-use crate::resources::{Resource, ResourceType, MimeType};
 
 static TOP_COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap());
 static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap());
@@ -63,7 +63,8 @@ const REDIRECTABLE_RESOURCES_DECLARATION: &str = "export default new Map([";
 static MAP_END_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\]\s*\)"#).unwrap());
 
 static TRAILING_COMMA_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#",([\],\}])"#).unwrap());
-static UNQUOTED_FIELD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"([\{,])([a-zA-Z][a-zA-Z0-9_]*):"#).unwrap());
+static UNQUOTED_FIELD_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"([\{,])([a-zA-Z][a-zA-Z0-9_]*):"#).unwrap());
 
 /// Reads data from a a file in the format of uBlock Origin's `redirect-resources.js` file to
 /// determine the files in the `web_accessible_resources` directory, as well as any of their
@@ -81,10 +82,12 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
         .skip_while(|line| *line != REDIRECTABLE_RESOURCES_DECLARATION)
         .take_while(|line| !MAP_END_RE.is_match(line))
         // Strip any trailing comments from each line.
-        .map(|line| if let Some(i) = line.find("//") {
-            &line[..i]
-        } else {
-            line
+        .map(|line| {
+            if let Some(i) = line.find("//") {
+                &line[..i]
+            } else {
+                line
+            }
         })
         // Remove all newlines from the entire string.
         .fold(String::new(), |s, line| s + line);
@@ -95,33 +98,42 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
     // Trim out the beginning `export default new Map(`.
     // Also, replace all single quote characters with double quotes.
     assert!(map.starts_with(REDIRECTABLE_RESOURCES_DECLARATION));
-    map = map[REDIRECTABLE_RESOURCES_DECLARATION.len()-1..].replace('\'', "\"");
+    map = map[REDIRECTABLE_RESOURCES_DECLARATION.len() - 1..].replace('\'', "\"");
 
     // Remove all whitespace from the entire string.
     map.retain(|c| !c.is_whitespace());
 
     // Replace all matches for `,]` or `,}` with `]` or `}`, respectively.
-    map = TRAILING_COMMA_RE.replace_all(&map, |caps: &regex::Captures| caps[1].to_string()).to_string();
+    map = TRAILING_COMMA_RE
+        .replace_all(&map, |caps: &regex::Captures| caps[1].to_string())
+        .to_string();
 
     // Replace all property keys directly preceded by a `{` or a `,` and followed by a `:` with
     // double-quoted versions.
-    map = UNQUOTED_FIELD_RE.replace_all(&map, |caps: &regex::Captures| format!("{}\"{}\":", &caps[1], &caps[2])).to_string();
+    map = UNQUOTED_FIELD_RE
+        .replace_all(&map, |caps: &regex::Captures| {
+            format!("{}\"{}\":", &caps[1], &caps[2])
+        })
+        .to_string();
 
     // It *should* be valid JSON now, so parse it with serde_json.
     let parsed: Vec<JsResourceEntry> = serde_json::from_str(&map).unwrap();
 
-    parsed.into_iter().filter_map(|(name, props)| {
-        // Ignore resources with params for now, since there's no support for them currently.
-        if props.params.is_some() {
-            None
-        } else {
-            Some(ResourceProperties {
-                name,
-                alias: props.alias.map(|a| a.to_vec()).unwrap_or_default(),
-                data: props.data,
-            })
-        }
-    }).collect()
+    parsed
+        .into_iter()
+        .filter_map(|(name, props)| {
+            // Ignore resources with params for now, since there's no support for them currently.
+            if props.params.is_some() {
+                None
+            } else {
+                Some(ResourceProperties {
+                    name,
+                    alias: props.alias.map(|a| a.to_vec()).unwrap_or_default(),
+                    data: props.data,
+                })
+            }
+        })
+        .collect()
 }
 
 /// Reads data from a file in the form of uBlock Origin's `scriptlets.js` file and produces
@@ -150,7 +162,10 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
             let mut line = stripped.split_whitespace();
             let prop = line.next().expect("Detail line has property name");
             let value = line.next().expect("Detail line has property value");
-            details.entry(prop).and_modify(|v| v.push(value)).or_insert_with(|| vec![value]);
+            details
+                .entry(prop)
+                .and_modify(|v| v.push(value))
+                .or_insert_with(|| vec![value]);
             continue;
         }
 
@@ -166,10 +181,12 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
             ResourceType::Mime(MimeType::ApplicationJavascript)
         };
 
-
         resources.push(Resource {
             name: name.expect("Resource name must be specified").to_owned(),
-            aliases: details.get("alias").map(|aliases| aliases.iter().map(|alias| alias.to_string()).collect()).unwrap_or_default(),
+            aliases: details
+                .get("alias")
+                .map(|aliases| aliases.iter().map(|alias| alias.to_string()).collect())
+                .unwrap_or_default(),
             kind,
             content: base64::encode(&script),
         });
@@ -184,18 +201,23 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
 
 /// Reads byte data from an arbitrary resource file, and assembles a `Resource` from it with the
 /// provided `resource_info`.
-fn build_resource_from_file_contents(resource_contents: &[u8], resource_info: &ResourceProperties) -> Resource {
+fn build_resource_from_file_contents(
+    resource_contents: &[u8],
+    resource_info: &ResourceProperties,
+) -> Resource {
     let name = resource_info.name.to_owned();
-    let aliases = resource_info.alias.iter().map(|alias| alias.to_string()).collect();
+    let aliases = resource_info
+        .alias
+        .iter()
+        .map(|alias| alias.to_string())
+        .collect();
     let mimetype = MimeType::from_extension(&resource_info.name[..]);
     let content = match mimetype {
         MimeType::ApplicationJavascript | MimeType::TextHtml | MimeType::TextPlain => {
             let utf8string = std::str::from_utf8(resource_contents).unwrap();
             base64::encode(&utf8string.replace('\r', ""))
         }
-        _ => {
-            base64::encode(&resource_contents)
-        }
+        _ => base64::encode(&resource_contents),
     };
 
     Resource {
@@ -208,14 +230,19 @@ fn build_resource_from_file_contents(resource_contents: &[u8], resource_info: &R
 
 /// Produces a `Resource` from the `web_accessible_resource_dir` directory according to the
 /// information in `resource_info.
-fn read_resource_from_web_accessible_dir(web_accessible_resource_dir: &Path, resource_info: &ResourceProperties) -> Resource {
+fn read_resource_from_web_accessible_dir(
+    web_accessible_resource_dir: &Path,
+    resource_info: &ResourceProperties,
+) -> Resource {
     let resource_path = web_accessible_resource_dir.join(&resource_info.name);
     if !resource_path.is_file() {
         panic!("Expected {:?} to be a file", resource_path);
     }
     let mut resource_file = File::open(resource_path).expect("open resource file for reading");
     let mut resource_contents = Vec::new();
-    resource_file.read_to_end(&mut resource_contents).expect("read resource file contents");
+    resource_file
+        .read_to_end(&mut resource_contents)
+        .expect("read resource file contents");
 
     build_resource_from_file_contents(&resource_contents, resource_info)
 }
@@ -231,13 +258,19 @@ fn read_resource_from_web_accessible_dir(web_accessible_resource_dir: &Path, res
 /// templatable scriptlet files for use in cosmetic filtering
 ///
 /// The resulting resources can be serialized into JSON using `serde_json`.
-pub fn assemble_web_accessible_resources(web_accessible_resource_dir: &Path, redirect_resources_path: &Path) -> Vec<Resource> {
+pub fn assemble_web_accessible_resources(
+    web_accessible_resource_dir: &Path,
+    redirect_resources_path: &Path,
+) -> Vec<Resource> {
     let mapfile_data = std::fs::read_to_string(redirect_resources_path).expect("read aliases path");
     let resource_properties = read_redirectable_resource_mapping(&mapfile_data);
 
-    resource_properties.iter().map(|resource_info| {
-        read_resource_from_web_accessible_dir(web_accessible_resource_dir, resource_info)
-    }).collect()
+    resource_properties
+        .iter()
+        .map(|resource_info| {
+            read_resource_from_web_accessible_dir(web_accessible_resource_dir, resource_info)
+        })
+        .collect()
 }
 
 pub fn assemble_scriptlet_resources(scriptlets_path: &Path) -> Vec<Resource> {
@@ -251,9 +284,11 @@ mod tests {
 
     #[test]
     fn test_war_resource_assembly() {
-        let web_accessible_resource_dir = Path::new("data/test/fake-uBO-files/web_accessible_resources");
+        let web_accessible_resource_dir =
+            Path::new("data/test/fake-uBO-files/web_accessible_resources");
         let redirect_resources_path = Path::new("data/test/fake-uBO-files/redirect-resources.js");
-        let resources = assemble_web_accessible_resources(web_accessible_resource_dir, redirect_resources_path);
+        let resources =
+            assemble_web_accessible_resources(web_accessible_resource_dir, redirect_resources_path);
 
         let expected_resource_names = vec![
             "1x1.gif",
@@ -303,32 +338,50 @@ mod tests {
 
         for name in expected_resource_names {
             dbg!(&name);
-            assert!(resources.iter()
-                .find(|resource| {
-                    if let ResourceType::Mime(_) = resource.kind {
-                        resource.name == name
-                    } else {
-                        false
-                    }
-                }).is_some(), "{:?}", name);
+            assert!(
+                resources
+                    .iter()
+                    .find(|resource| {
+                        if let ResourceType::Mime(_) = resource.kind {
+                            resource.name == name
+                        } else {
+                            false
+                        }
+                    })
+                    .is_some(),
+                "{:?}",
+                name
+            );
         }
 
         let serialized = serde_json::to_string(&resources).expect("serialize resources");
 
-        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+        let reserialized: Vec<Resource> =
+            serde_json::from_str(&serialized).expect("deserialize resources");
 
         assert_eq!(reserialized[0].name, "1x1.gif");
         assert_eq!(reserialized[0].aliases, vec!["1x1-transparent.gif"]);
         assert_eq!(reserialized[0].kind, ResourceType::Mime(MimeType::ImageGif));
 
         assert_eq!(reserialized[33].name, "noop.js");
-        assert_eq!(reserialized[33].aliases, vec!["noopjs", "abp-resource:blank-js"]);
-        assert_eq!(reserialized[33].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
-        let noopjs_contents = std::fs::read_to_string(Path::new("data/test/fake-uBO-files/web_accessible_resources/noop.js")).unwrap().replace('\r', "");
+        assert_eq!(
+            reserialized[33].aliases,
+            vec!["noopjs", "abp-resource:blank-js"]
+        );
+        assert_eq!(
+            reserialized[33].kind,
+            ResourceType::Mime(MimeType::ApplicationJavascript)
+        );
+        let noopjs_contents = std::fs::read_to_string(Path::new(
+            "data/test/fake-uBO-files/web_accessible_resources/noop.js",
+        ))
+        .unwrap()
+        .replace('\r', "");
         assert_eq!(
             std::str::from_utf8(
                 &base64::decode(&reserialized[33].content).expect("decode base64 content")
-            ).expect("convert to utf8 string"),
+            )
+            .expect("convert to utf8 string"),
             noopjs_contents,
         );
     }
@@ -375,31 +428,46 @@ mod tests {
         ];
 
         for name in expected_resource_names {
-            assert!(resources.iter()
-                .find(|resource| {
-                    match resource.kind {
-                        ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript) => resource.name == name,
-                        _ => false,
-                    }
-                })
-                .is_some(), "failed to find {}", name);
+            assert!(
+                resources
+                    .iter()
+                    .find(|resource| {
+                        match resource.kind {
+                            ResourceType::Template
+                            | ResourceType::Mime(MimeType::ApplicationJavascript) => {
+                                resource.name == name
+                            }
+                            _ => false,
+                        }
+                    })
+                    .is_some(),
+                "failed to find {}",
+                name
+            );
         }
 
         let serialized = serde_json::to_string(&resources).expect("serialize resources");
 
-        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+        let reserialized: Vec<Resource> =
+            serde_json::from_str(&serialized).expect("deserialize resources");
 
         assert_eq!(reserialized[0].name, "abort-current-inline-script.js");
         assert_eq!(reserialized[0].aliases, vec!["acis.js"]);
         assert_eq!(reserialized[0].kind, ResourceType::Template);
 
         assert_eq!(reserialized[17].name, "no-setTimeout-if.js");
-        assert_eq!(reserialized[17].aliases, vec!["nostif.js", "setTimeout-defuser.js"]);
+        assert_eq!(
+            reserialized[17].aliases,
+            vec!["nostif.js", "setTimeout-defuser.js"]
+        );
         assert_eq!(reserialized[17].kind, ResourceType::Template);
 
         assert_eq!(reserialized[20].name, "overlay-buster.js");
         assert_eq!(reserialized[20].aliases, Vec::<String>::new());
-        assert_eq!(reserialized[20].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
+        assert_eq!(
+            reserialized[20].kind,
+            ResourceType::Mime(MimeType::ApplicationJavascript)
+        );
         assert_eq!(
             std::str::from_utf8(
                 &base64::decode(&reserialized[20].content).expect("decode base64 content")
@@ -458,19 +526,28 @@ mod tests {
         ];
 
         for name in expected_resource_names {
-            assert!(resources.iter()
-                .find(|resource| {
-                    match resource.kind {
-                        ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript) => resource.name == name,
-                        _ => false,
-                    }
-                })
-                .is_some(), "failed to find {}", name);
+            assert!(
+                resources
+                    .iter()
+                    .find(|resource| {
+                        match resource.kind {
+                            ResourceType::Template
+                            | ResourceType::Mime(MimeType::ApplicationJavascript) => {
+                                resource.name == name
+                            }
+                            _ => false,
+                        }
+                    })
+                    .is_some(),
+                "failed to find {}",
+                name
+            );
         }
 
         let serialized = serde_json::to_string(&resources).expect("serialize resources");
 
-        let reserialized: Vec<Resource> = serde_json::from_str(&serialized).expect("deserialize resources");
+        let reserialized: Vec<Resource> =
+            serde_json::from_str(&serialized).expect("deserialize resources");
 
         assert_eq!(reserialized[0].name, "abort-current-inline-script.js");
         assert_eq!(reserialized[0].aliases, vec!["acis.js"]);
@@ -478,7 +555,10 @@ mod tests {
 
         assert_eq!(reserialized[18].name, "overlay-buster.js");
         assert_eq!(reserialized[18].aliases, Vec::<String>::new());
-        assert_eq!(reserialized[18].kind, ResourceType::Mime(MimeType::ApplicationJavascript));
+        assert_eq!(
+            reserialized[18].kind,
+            ResourceType::Mime(MimeType::ApplicationJavascript)
+        );
         assert_eq!(
             std::str::from_utf8(
                 &base64::decode(&reserialized[18].content).expect("decode base64 content")

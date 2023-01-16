@@ -64,7 +64,7 @@ fn cpt_match_type(cpt: &str) -> RequestType {
         "xbl" => RequestType::Other,
         "xml_dtd" => RequestType::Other,
         "xslt" => RequestType::Other,
-        _ => RequestType::Other
+        _ => RequestType::Other,
     }
 }
 
@@ -84,7 +84,7 @@ pub struct Request {
     pub(crate) original_url: String,
 
     // mutable fields, set later
-    hostname_end: usize
+    hostname_end: usize,
 }
 
 impl Request {
@@ -168,9 +168,7 @@ impl Request {
         let source_hostname_hashes = if !source_hostname.is_empty() {
             let mut hashes = Vec::with_capacity(4);
             hashes.push(utils::fast_hash(source_hostname));
-            for (i, c) in
-                source_hostname.char_indices()
-            {
+            for (i, c) in source_hostname.char_indices() {
                 if c == '.' && i + 1 < source_hostname.len() {
                     hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
                 }
@@ -242,7 +240,7 @@ impl Request {
         hostname: &str,
         source_hostname: &str,
         request_type: &str,
-        third_party_request: Option<bool>
+        third_party_request: Option<bool>,
     ) -> Request {
         let url_norm = url.to_ascii_lowercase();
 
@@ -253,7 +251,8 @@ impl Request {
             let (domain_start, domain_end) = url_parser::get_host_domain(hostname);
             let domain = &hostname[domain_start..domain_end];
 
-            let (source_domain_start, source_domain_end) = url_parser::get_host_domain(source_hostname);
+            let (source_domain_start, source_domain_end) =
+                url_parser::get_host_domain(source_hostname);
             let source_domain = &source_hostname[source_domain_start..source_domain_end];
 
             if source_domain.is_empty() {
@@ -305,7 +304,10 @@ mod tests {
         assert_eq!(simple_example.request_type, RequestType::Document);
         assert_eq!(
             simple_example.source_hostname_hashes,
-            Some(vec![utils::fast_hash("example.com"), utils::fast_hash("com")]),
+            Some(vec![
+                utils::fast_hash("example.com"),
+                utils::fast_hash("com")
+            ]),
         );
 
         let unsupported_example = Request::new(
@@ -397,26 +399,18 @@ mod tests {
             "example.com",
         );
         assert_eq!(
-            simple_example.source_hostname_hashes.as_ref().unwrap().as_slice(),
-            tokenize(&[
-                "subdomain.example.com",
-                "example.com",
-                "com",
-            ], &[])
-            .as_slice()
+            simple_example
+                .source_hostname_hashes
+                .as_ref()
+                .unwrap()
+                .as_slice(),
+            tokenize(&["subdomain.example.com", "example.com", "com",], &[]).as_slice()
         );
         let mut tokens = Vec::new();
         simple_example.get_tokens(&mut tokens);
         assert_eq!(
             tokens.as_slice(),
-            tokenize(&[
-                "https",
-                "subdomain",
-                "example",
-                "com",
-                "ad"
-            ], &[0])
-            .as_slice()
+            tokenize(&["https", "subdomain", "example", "com", "ad"], &[0]).as_slice()
         )
     }
 
@@ -440,7 +434,10 @@ mod tests {
         // assert_eq!(parsed.source_domain, "example.com");
         assert_eq!(
             parsed.source_hostname_hashes,
-            Some(vec![utils::fast_hash("example.com"), utils::fast_hash("com")]),
+            Some(vec![
+                utils::fast_hash("example.com"),
+                utils::fast_hash("com")
+            ]),
         );
         // assert_eq!(parsed.source_hostname, "example.com");
 
@@ -456,27 +453,57 @@ mod tests {
     fn handles_explicit_third_party_param() {
         {
             // domain matches
-            let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "example.com", "document", None);
+            let parsed = Request::from_urls_with_hostname(
+                "https://subdomain.example.com/ad",
+                "subdomain.example.com",
+                "example.com",
+                "document",
+                None,
+            );
             assert_eq!(parsed.is_third_party, Some(false));
         }
         {
             // domain does not match
-            let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "anotherexample.com", "document", None);
+            let parsed = Request::from_urls_with_hostname(
+                "https://subdomain.example.com/ad",
+                "subdomain.example.com",
+                "anotherexample.com",
+                "document",
+                None,
+            );
             assert_eq!(parsed.is_third_party, Some(true));
         }
         {
             // cannot parse domain
-            let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "", "document", None);
+            let parsed = Request::from_urls_with_hostname(
+                "https://subdomain.example.com/ad",
+                "subdomain.example.com",
+                "",
+                "document",
+                None,
+            );
             assert_eq!(parsed.is_third_party, None);
         }
         {
             // third-partiness set to false
-            let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "example.com", "document", Some(true));
+            let parsed = Request::from_urls_with_hostname(
+                "https://subdomain.example.com/ad",
+                "subdomain.example.com",
+                "example.com",
+                "document",
+                Some(true),
+            );
             assert_eq!(parsed.is_third_party, Some(true));
         }
         {
             // third-partiness set to true
-            let parsed = Request::from_urls_with_hostname("https://subdomain.example.com/ad", "subdomain.example.com", "anotherexample.com", "document", Some(false));
+            let parsed = Request::from_urls_with_hostname(
+                "https://subdomain.example.com/ad",
+                "subdomain.example.com",
+                "anotherexample.com",
+                "document",
+                Some(false),
+            );
             assert_eq!(parsed.is_third_party, Some(false));
         }
     }
@@ -488,8 +515,10 @@ mod tests {
             assert!(parsed.is_ok());
         }
         {
-            let parsed = Request::from_url(
-                &format!("https://{}", std::str::from_utf8(&[9, 9, 64]).unwrap()));
+            let parsed = Request::from_url(&format!(
+                "https://{}",
+                std::str::from_utf8(&[9, 9, 64]).unwrap()
+            ));
             assert!(parsed.is_err());
         }
     }

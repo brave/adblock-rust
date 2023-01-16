@@ -77,7 +77,10 @@ struct CosmeticFilterLocations {
 
 impl CosmeticFilter {
     #[inline]
-    pub fn locations_before_sharp(line: &str, sharp_index: usize) -> impl Iterator<Item=(CosmeticFilterLocationType, &str)> {
+    pub fn locations_before_sharp(
+        line: &str,
+        sharp_index: usize,
+    ) -> impl Iterator<Item = (CosmeticFilterLocationType, &str)> {
         line[0..sharp_index].split(',').filter_map(|part| {
             if part.is_empty() {
                 return None;
@@ -85,11 +88,7 @@ impl CosmeticFilter {
             let hostname = part;
             let negation = hostname.starts_with('~');
             let entity = hostname.ends_with(".*");
-            let start = if negation {
-                1
-            } else {
-                0
-            };
+            let start = if negation { 1 } else { 0 };
             let end = if entity {
                 hostname.len() - 2
             } else {
@@ -116,7 +115,7 @@ impl CosmeticFilter {
     fn parse_before_sharp(
         line: &str,
         sharp_index: usize,
-        mask: &mut CosmeticFilterMask
+        mask: &mut CosmeticFilterMask,
     ) -> Result<CosmeticFilterLocations, CosmeticFilterError> {
         let mut entities_vec = vec![];
         let mut not_entities_vec = vec![];
@@ -146,7 +145,7 @@ impl CosmeticFilter {
         /// Sorts `vec` and wraps it in `Some` if it's not empty, or returns `None` if it is.
         #[inline]
         fn sorted_or_none<T: std::cmp::Ord>(mut vec: Vec<T>) -> Option<Vec<T>> {
-            if!vec.is_empty() {
+            if !vec.is_empty() {
                 vec.sort();
                 Some(vec)
             } else {
@@ -159,7 +158,12 @@ impl CosmeticFilter {
         let not_entities = sorted_or_none(not_entities_vec);
         let not_hostnames = sorted_or_none(not_hostnames_vec);
 
-        Ok(CosmeticFilterLocations { entities, not_entities, hostnames, not_hostnames })
+        Ok(CosmeticFilterLocations {
+            entities,
+            not_entities,
+            hostnames,
+            not_hostnames,
+        })
     }
 
     /// Parses the contents of a cosmetic filter rule following the `##` or `#@#` separator.
@@ -173,7 +177,7 @@ impl CosmeticFilter {
         line: &'a str,
         suffix_start_index: usize,
         selector: &mut &'a str,
-        style: &mut Option<String>
+        style: &mut Option<String>,
     ) -> Result<(), CosmeticFilterError> {
         let mut index_after_colon = suffix_start_index;
         while let Some(colon_index) = line[index_after_colon..].find(':') {
@@ -181,26 +185,32 @@ impl CosmeticFilter {
             index_after_colon = colon_index + 1;
             let content_after_colon = &line[index_after_colon..];
             if content_after_colon.starts_with("style") {
-                if content_after_colon.chars().nth(5) == Some('(') && content_after_colon.chars().nth(content_after_colon.len() - 1) == Some(')') {
+                if content_after_colon.chars().nth(5) == Some('(')
+                    && content_after_colon
+                        .chars()
+                        .nth(content_after_colon.len() - 1)
+                        == Some(')')
+                {
                     *selector = &line[suffix_start_index..colon_index];
-                    *style = Some(content_after_colon[6..content_after_colon.len()-1].to_string());
+                    *style =
+                        Some(content_after_colon[6..content_after_colon.len() - 1].to_string());
                 } else {
                     return Err(CosmeticFilterError::InvalidStyleSpecifier);
                 }
             } else if content_after_colon.starts_with("-abp-")
-            || content_after_colon.starts_with("contains")
-            || content_after_colon.starts_with("has")
-            || content_after_colon.starts_with("if")
-            || content_after_colon.starts_with("if-not")
-            || content_after_colon.starts_with("matches-css")
-            || content_after_colon.starts_with("matches-css-after")
-            || content_after_colon.starts_with("matches-css-before")
-            || content_after_colon.starts_with("properties")
-            || content_after_colon.starts_with("subject")
-            || content_after_colon.starts_with("xpath")
-            || content_after_colon.starts_with("nth-ancestor")
-            || content_after_colon.starts_with("upward")
-            || content_after_colon.starts_with("remove")
+                || content_after_colon.starts_with("contains")
+                || content_after_colon.starts_with("has")
+                || content_after_colon.starts_with("if")
+                || content_after_colon.starts_with("if-not")
+                || content_after_colon.starts_with("matches-css")
+                || content_after_colon.starts_with("matches-css-after")
+                || content_after_colon.starts_with("matches-css-before")
+                || content_after_colon.starts_with("properties")
+                || content_after_colon.starts_with("subject")
+                || content_after_colon.starts_with("xpath")
+                || content_after_colon.starts_with("nth-ancestor")
+                || content_after_colon.starts_with("upward")
+                || content_after_colon.starts_with("remove")
             {
                 return Err(CosmeticFilterError::UnsupportedSyntax);
             }
@@ -234,7 +244,12 @@ impl CosmeticFilter {
             // hostnames#@#selector
             //          12 3
 
-            let CosmeticFilterLocations { entities, not_entities, hostnames, not_hostnames } = if sharp_index > 0 {
+            let CosmeticFilterLocations {
+                entities,
+                not_entities,
+                hostnames,
+                not_hostnames,
+            } = if sharp_index > 0 {
                 CosmeticFilter::parse_before_sharp(line, sharp_index, &mut mask)?
             } else {
                 CosmeticFilterLocations::default()
@@ -246,17 +261,26 @@ impl CosmeticFilter {
                 return Err(CosmeticFilterError::EmptyRule);
             }
             let mut style = None;
-            if line.len() - suffix_start_index > 4 && line[suffix_start_index..].starts_with("+js(") && line.ends_with(')') {
+            if line.len() - suffix_start_index > 4
+                && line[suffix_start_index..].starts_with("+js(")
+                && line.ends_with(')')
+            {
                 if sharp_index == 0 {
                     return Err(CosmeticFilterError::GenericScriptInject);
                 }
                 mask |= CosmeticFilterMask::SCRIPT_INJECT;
                 selector = &line[suffix_start_index + 4..line.len() - 1];
             } else {
-                CosmeticFilter::parse_after_sharp_nonscript(line, suffix_start_index, &mut selector, &mut style)?;
+                CosmeticFilter::parse_after_sharp_nonscript(
+                    line,
+                    suffix_start_index,
+                    &mut selector,
+                    &mut style,
+                )?;
             }
 
-            if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) && !is_valid_css_selector(selector) {
+            if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) && !is_valid_css_selector(selector)
+            {
                 return Err(CosmeticFilterError::InvalidCssSelector);
             } else if let Some(ref style) = style {
                 if !is_valid_css_style(style) {
@@ -266,7 +290,9 @@ impl CosmeticFilter {
                 }
             }
 
-            if (not_entities.is_some() || not_hostnames.is_some()) && mask.contains(CosmeticFilterMask::UNHIDE) {
+            if (not_entities.is_some() || not_hostnames.is_some())
+                && mask.contains(CosmeticFilterMask::UNHIDE)
+            {
                 return Err(CosmeticFilterError::DoubleNegation);
             }
 
@@ -319,10 +345,10 @@ impl CosmeticFilter {
     /// Any cosmetic filter rule that specifies (possibly negated) hostnames or entities has a
     /// hostname constraint.
     pub fn has_hostname_constraint(&self) -> bool {
-        self.hostnames.is_some() ||
-            self.entities.is_some() ||
-            self.not_entities.is_some() ||
-            self.not_hostnames.is_some()
+        self.hostnames.is_some()
+            || self.entities.is_some()
+            || self.not_entities.is_some()
+            || self.not_hostnames.is_some()
     }
 
     /// In general, adding a hostname or entity to a rule *increases* the number of situations in
@@ -338,8 +364,8 @@ impl CosmeticFilter {
     pub fn hidden_generic_rule(&self) -> Option<CosmeticFilter> {
         if self.hostnames.is_some() || self.entities.is_some() {
             None
-        } else if (self.not_hostnames.is_some() || self.not_entities.is_some()) &&
-            (self.style.is_none() && !self.mask.contains(CosmeticFilterMask::SCRIPT_INJECT))
+        } else if (self.not_hostnames.is_some() || self.not_entities.is_some())
+            && (self.style.is_none() && !self.mask.contains(CosmeticFilterMask::SCRIPT_INJECT))
         {
             let mut generic_rule = self.clone();
             generic_rule.not_hostnames = None;
@@ -354,12 +380,18 @@ impl CosmeticFilter {
 /// Returns a slice of `hostname` up to and including the segment that overlaps with the first
 /// segment of `domain`, which has the effect of stripping ".com", ".co.uk", etc., as well as the
 /// public suffix itself.
-fn get_hostname_without_public_suffix<'a>(hostname: &'a str, domain: &str) -> Option<(&'a str, &'a str)> {
+fn get_hostname_without_public_suffix<'a>(
+    hostname: &'a str,
+    domain: &str,
+) -> Option<(&'a str, &'a str)> {
     let index_of_dot = domain.find('.');
 
     if let Some(index_of_dot) = index_of_dot {
         let public_suffix = &domain[index_of_dot + 1..];
-        Some((&hostname[0..hostname.len() - public_suffix.len() - 1], &hostname[hostname.len() - domain.len() + index_of_dot + 1..]))
+        Some((
+            &hostname[0..hostname.len() - public_suffix.len() - 1],
+            &hostname[hostname.len() - domain.len() + index_of_dot + 1..],
+        ))
     } else {
         None
     }
@@ -390,7 +422,9 @@ fn get_hashes_from_labels(hostname: &str, end: usize, start_of_domain: usize) ->
 /// Returns a `Vec` of the hashes of all segments of `hostname` that may match an
 /// entity-constrained rule.
 pub fn get_entity_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
-    if let Some((hostname_without_public_suffix, public_suffix)) = get_hostname_without_public_suffix(hostname, domain) {
+    if let Some((hostname_without_public_suffix, public_suffix)) =
+        get_hostname_without_public_suffix(hostname, domain)
+    {
         let mut hashes = get_hashes_from_labels(
             hostname_without_public_suffix,
             hostname_without_public_suffix.len(),
@@ -409,7 +443,7 @@ pub fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash
     get_hashes_from_labels(hostname, hostname.len(), hostname.len() - domain.len())
 }
 
-#[cfg(not(feature="css-validation"))]
+#[cfg(not(feature = "css-validation"))]
 mod css_validation {
     pub fn is_valid_css_selector(_selector: &str) -> bool {
         true
@@ -420,11 +454,11 @@ mod css_validation {
     }
 }
 
-#[cfg(feature="css-validation")]
+#[cfg(feature = "css-validation")]
 mod css_validation {
     //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
-    use cssparser::{CowRcStr, ParserInput, Parser, ParseError, SourceLocation};
-    use core::fmt::{Write, Result as FmtResult};
+    use core::fmt::{Result as FmtResult, Write};
+    use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation};
 
     /// Checks whether the given string represents a valid CSS selector.
     ///
@@ -437,7 +471,8 @@ mod css_validation {
     pub fn is_valid_css_selector(selector: &str) -> bool {
         use once_cell::sync::Lazy;
         use regex::Regex;
-        static RE_SIMPLE_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.]?[A-Za-z_][\w-]*$").unwrap());
+        static RE_SIMPLE_SELECTOR: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"^[#.]?[A-Za-z_][\w-]*$").unwrap());
 
         if RE_SIMPLE_SELECTOR.is_match(selector) {
             return true;
@@ -448,7 +483,8 @@ mod css_validation {
         let mock_stylesheet = format!("{}{{mock-stylesheet-marker}}", selector);
         let mut pi = ParserInput::new(&mock_stylesheet);
         let mut parser = Parser::new(&mut pi);
-        let mut rule_list_parser = cssparser::RuleListParser::new_for_stylesheet(&mut parser, QualifiedRuleParserImpl);
+        let mut rule_list_parser =
+            cssparser::RuleListParser::new_for_stylesheet(&mut parser, QualifiedRuleParserImpl);
 
         if let Some(first_rule) = rule_list_parser.next() {
             match first_rule {
@@ -471,15 +507,29 @@ mod css_validation {
         type QualifiedRule = ();
         type Error = ();
 
-        fn parse_prelude<'t>(&mut self, input: &mut Parser<'i, 't>) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
+        fn parse_prelude<'t>(
+            &mut self,
+            input: &mut Parser<'i, 't>,
+        ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
             selectors::SelectorList::parse(&SelectorParseImpl, input)
                 .map(|_| ())
-                .map_err(|_| ParseError { kind: cssparser::ParseErrorKind::Custom(()), location: SourceLocation { line: 0, column: 0 } })
+                .map_err(|_| ParseError {
+                    kind: cssparser::ParseErrorKind::Custom(()),
+                    location: SourceLocation { line: 0, column: 0 },
+                })
         }
 
         /// Check that the block is exactly equal to "mock-stylesheet-marker"
-        fn parse_block<'t>(&mut self, _prelude: Self::Prelude, _start: &cssparser::ParserState, input: &mut Parser<'i, 't>) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-            let err = Err(ParseError { kind: cssparser::ParseErrorKind::Custom(()), location: SourceLocation { line: 0, column: 0 } });
+        fn parse_block<'t>(
+            &mut self,
+            _prelude: Self::Prelude,
+            _start: &cssparser::ParserState,
+            input: &mut Parser<'i, 't>,
+        ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
+            let err = Err(ParseError {
+                kind: cssparser::ParseErrorKind::Custom(()),
+                location: SourceLocation { line: 0, column: 0 },
+            });
             match input.next() {
                 Ok(cssparser::Token::Ident(i)) if i.as_ref() == "mock-stylesheet-marker" => (),
                 _ => return err,
@@ -519,21 +569,57 @@ mod css_validation {
         type Impl = SelectorImpl;
         type Error = selectors::parser::SelectorParseErrorKind<'i>;
 
-        fn parse_slotted(&self) -> bool { true }
-        fn parse_part(&self) -> bool { true }
-        fn parse_is_and_where(&self) -> bool { true }
-        fn parse_host(&self) -> bool { true }
-        fn parse_non_ts_pseudo_class(&self, _location: SourceLocation, _name: CowRcStr<'i>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass, ParseError<'i, Self::Error>> {
+        fn parse_slotted(&self) -> bool {
+            true
+        }
+        fn parse_part(&self) -> bool {
+            true
+        }
+        fn parse_is_and_where(&self) -> bool {
+            true
+        }
+        fn parse_host(&self) -> bool {
+            true
+        }
+        fn parse_non_ts_pseudo_class(
+            &self,
+            _location: SourceLocation,
+            _name: CowRcStr<'i>,
+        ) -> Result<
+            <Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass,
+            ParseError<'i, Self::Error>,
+        > {
             Ok(NonTSPseudoClass)
         }
-        fn parse_non_ts_functional_pseudo_class<'t>(&self, _name: CowRcStr<'i>, arguments: &mut Parser<'i, 't>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass, ParseError<'i, Self::Error>> {
+        fn parse_non_ts_functional_pseudo_class<'t>(
+            &self,
+            _name: CowRcStr<'i>,
+            arguments: &mut Parser<'i, 't>,
+        ) -> Result<
+            <Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass,
+            ParseError<'i, Self::Error>,
+        > {
             while arguments.next().is_ok() {}
             Ok(NonTSPseudoClass)
         }
-        fn parse_pseudo_element(&self, _location: SourceLocation, _name: CowRcStr<'i>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::PseudoElement, ParseError<'i, Self::Error>> {
+        fn parse_pseudo_element(
+            &self,
+            _location: SourceLocation,
+            _name: CowRcStr<'i>,
+        ) -> Result<
+            <Self::Impl as selectors::parser::SelectorImpl>::PseudoElement,
+            ParseError<'i, Self::Error>,
+        > {
             Ok(PseudoElement)
         }
-        fn parse_functional_pseudo_element<'t>(&self, _name: CowRcStr<'i>, arguments: &mut Parser<'i, 't>) -> Result<<Self::Impl as selectors::parser::SelectorImpl>::PseudoElement, ParseError<'i, Self::Error>> {
+        fn parse_functional_pseudo_element<'t>(
+            &self,
+            _name: CowRcStr<'i>,
+            arguments: &mut Parser<'i, 't>,
+        ) -> Result<
+            <Self::Impl as selectors::parser::SelectorImpl>::PseudoElement,
+            ParseError<'i, Self::Error>,
+        > {
             while arguments.next().is_ok() {}
             Ok(PseudoElement)
         }
@@ -571,7 +657,9 @@ mod css_validation {
     }
 
     impl<'a> From<&'a str> for DummyValue {
-        fn from(_: &'a str) -> Self { DummyValue }
+        fn from(_: &'a str) -> Self {
+            DummyValue
+        }
     }
 
     /// Dummy struct for non-tree-structural pseudo-classes.
@@ -580,12 +668,18 @@ mod css_validation {
 
     impl selectors::parser::NonTSPseudoClass for NonTSPseudoClass {
         type Impl = SelectorImpl;
-        fn is_active_or_hover(&self) -> bool { false }
-        fn is_user_action_state(&self) -> bool { false }
+        fn is_active_or_hover(&self) -> bool {
+            false
+        }
+        fn is_user_action_state(&self) -> bool {
+            false
+        }
     }
 
     impl cssparser::ToCss for NonTSPseudoClass {
-        fn to_css<W: Write>(&self, _: &mut W) -> FmtResult { Ok(()) }
+        fn to_css<W: Write>(&self, _: &mut W) -> FmtResult {
+            Ok(())
+        }
     }
 
     /// Dummy struct for pseudo-elements.
@@ -595,11 +689,15 @@ mod css_validation {
     impl selectors::parser::PseudoElement for PseudoElement {
         type Impl = SelectorImpl;
 
-        fn valid_after_slotted(&self) -> bool { true }
+        fn valid_after_slotted(&self) -> bool {
+            true
+        }
     }
 
     impl cssparser::ToCss for PseudoElement {
-        fn to_css<W: Write>(&self, _dest: &mut W) -> FmtResult { Ok(()) }
+        fn to_css<W: Write>(&self, _dest: &mut W) -> FmtResult {
+            Ok(())
+        }
     }
 
     #[test]
@@ -620,7 +718,8 @@ mod css_validation {
 }
 
 static RE_PLAIN_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.][\w\\-]+").unwrap());
-static RE_PLAIN_SELECTOR_ESCAPED: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap());
+static RE_PLAIN_SELECTOR_ESCAPED: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap());
 static RE_ESCAPE_SEQUENCE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap());
 
 /// Returns the first token of a CSS selector.
@@ -796,7 +895,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: "div.popup".to_string(),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             "###selector",
@@ -805,7 +904,7 @@ mod parse_tests {
                 is_id_selector: true,
                 key: Some("selector".to_string()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             "##.selector",
@@ -814,21 +913,21 @@ mod parse_tests {
                 is_class_selector: true,
                 key: Some("selector".to_string()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             "##a[href=\"foo.com\"]",
             CosmeticFilterBreakdown {
                 selector: "a[href=\"foo.com\"]".to_string(),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             "##[href=\"foo.com\"]",
             CosmeticFilterBreakdown {
                 selector: "[href=\"foo.com\"]".to_string(),
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -850,7 +949,7 @@ mod parse_tests {
                 selector: r#"div[class^="adv-box"]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["u00p.com"]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"distractify.com##div[class*="AdInArticle"]"#,
@@ -858,7 +957,7 @@ mod parse_tests {
                 selector: r#"div[class*="AdInArticle"]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["distractify.com"]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"soundtrackcollector.com,the-numbers.com##a[href^="http://affiliates.allposters.com/"]"#,
@@ -866,47 +965,47 @@ mod parse_tests {
                 selector: r#"a[href^="http://affiliates.allposters.com/"]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["soundtrackcollector.com", "the-numbers.com"]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"thelocal.at,thelocal.ch,thelocal.de,thelocal.dk,thelocal.es,thelocal.fr,thelocal.it,thelocal.no,thelocal.se##div[class*="-widget"]"#,
             CosmeticFilterBreakdown {
                 selector: r#"div[class*="-widget"]"#.to_string(),
                 hostnames: sort_hash_domains(vec![
-                     "thelocal.at",
-                     "thelocal.ch",
-                     "thelocal.de",
-                     "thelocal.dk",
-                     "thelocal.es",
-                     "thelocal.fr",
-                     "thelocal.it",
-                     "thelocal.no",
-                     "thelocal.se",
+                    "thelocal.at",
+                    "thelocal.ch",
+                    "thelocal.de",
+                    "thelocal.dk",
+                    "thelocal.es",
+                    "thelocal.fr",
+                    "thelocal.it",
+                    "thelocal.no",
+                    "thelocal.se",
                 ]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"base64decode.org,base64encode.org,beautifyjson.org,minifyjson.org,numgen.org,pdfmrg.com,pdfspl.com,prettifycss.com,pwdgen.org,strlength.com,strreverse.com,uglifyjs.net,urldecoder.org##div[class^="banner_"]"#,
             CosmeticFilterBreakdown {
                 selector: r#"div[class^="banner_"]"#.to_string(),
                 hostnames: sort_hash_domains(vec![
-                     "base64decode.org",
-                     "base64encode.org",
-                     "beautifyjson.org",
-                     "minifyjson.org",
-                     "numgen.org",
-                     "pdfmrg.com",
-                     "pdfspl.com",
-                     "prettifycss.com",
-                     "pwdgen.org",
-                     "strlength.com",
-                     "strreverse.com",
-                     "uglifyjs.net",
-                     "urldecoder.org"
+                    "base64decode.org",
+                    "base64encode.org",
+                    "beautifyjson.org",
+                    "minifyjson.org",
+                    "numgen.org",
+                    "pdfmrg.com",
+                    "pdfspl.com",
+                    "prettifycss.com",
+                    "pwdgen.org",
+                    "strlength.com",
+                    "strreverse.com",
+                    "uglifyjs.net",
+                    "urldecoder.org",
                 ]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"adforum.com,alliednews.com,americustimesrecorder.com,andovertownsman.com,athensreview.com,batesvilleheraldtribune.com,bdtonline.com,channel24.pk,chickashanews.com,claremoreprogress.com,cleburnetimesreview.com,clintonherald.com,commercejournal.com,commercial-news.com,coopercrier.com,cordeledispatch.com,corsicanadailysun.com,crossville-chronicle.com,cullmantimes.com,dailyiowegian.com,dailyitem.com,daltondailycitizen.com,derrynews.com,duncanbanner.com,eagletribune.com,edmondsun.com,effinghamdailynews.com,enewscourier.com,enidnews.com,farmtalknewspaper.com,fayettetribune.com,flasharcade.com,flashgames247.com,flyergroup.com,foxsportsasia.com,gainesvilleregister.com,gloucestertimes.com,goshennews.com,greensburgdailynews.com,heraldbanner.com,heraldbulletin.com,hgazette.com,homemagonline.com,itemonline.com,jacksonvilleprogress.com,jerusalemonline.com,joplinglobe.com,journal-times.com,journalexpress.net,kexp.org,kokomotribune.com,lockportjournal.com,mankatofreepress.com,mcalesternews.com,mccrearyrecord.com,mcleansborotimesleader.com,meadvilletribune.com,meridianstar.com,mineralwellsindex.com,montgomery-herald.com,mooreamerican.com,moultrieobserver.com,muskogeephoenix.com,ncnewsonline.com,newburyportnews.com,newsaegis.com,newsandtribune.com,niagara-gazette.com,njeffersonnews.com,normantranscript.com,opposingviews.com,orangeleader.com,oskaloosa.com,ottumwacourier.com,outlookmoney.com,palestineherald.com,panews.com,paulsvalleydailydemocrat.com,pellachronicle.com,pharostribune.com,pressrepublican.com,pryordailytimes.com,randolphguide.com,record-eagle.com,register-herald.com,register-news.com,reporter.net,rockwallheraldbanner.com,roysecityheraldbanner.com,rushvillerepublican.com,salemnews.com,sentinel-echo.com,sharonherald.com,shelbyvilledailyunion.com,siteslike.com,standardmedia.co.ke,starbeacon.com,stwnewspress.com,suwanneedemocrat.com,tahlequahdailypress.com,theadanews.com,theawesomer.com,thedailystar.com,thelandonline.com,themoreheadnews.com,thesnaponline.com,tiftongazette.com,times-news.com,timesenterprise.com,timessentinel.com,timeswv.com,tonawanda-news.com,tribdem.com,tribstar.com,unionrecorder.com,valdostadailytimes.com,washtimesherald.com,waurikademocrat.com,wcoutlook.com,weatherforddemocrat.com,woodwardnews.net,wrestlinginc.com##div[style="width:300px; height:250px;"]"#,
@@ -1037,7 +1136,7 @@ mod parse_tests {
                     "wrestlinginc.com",
                 ]),
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -1048,28 +1147,28 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#"a[href$="/vghd.shtml"]"#.to_string(),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"##a[href*=".adk2x.com/"]"#,
             CosmeticFilterBreakdown {
                 selector: r#"a[href*=".adk2x.com/"]"#.to_string(),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"##a[href^="//40ceexln7929.com/"]"#,
             CosmeticFilterBreakdown {
                 selector: r#"a[href^="//40ceexln7929.com/"]"#.to_string(),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"##a[href*=".trust.zone"]"#,
             CosmeticFilterBreakdown {
                 selector: r#"a[href*=".trust.zone"]"#.to_string(),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"tf2maps.net##a[href="http://forums.tf2maps.net/payments.php"]"#,
@@ -1077,25 +1176,25 @@ mod parse_tests {
                 selector: r#"a[href="http://forums.tf2maps.net/payments.php"]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["tf2maps.net"]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"rarbg.to,rarbg.unblockall.org,rarbgaccess.org,rarbgmirror.com,rarbgmirror.org,rarbgmirror.xyz,rarbgproxy.com,rarbgproxy.org,rarbgunblock.com##a[href][target="_blank"] > button"#,
             CosmeticFilterBreakdown {
                 selector: r#"a[href][target="_blank"] > button"#.to_string(),
                 hostnames: sort_hash_domains(vec![
-                     "rarbg.to",
-                     "rarbg.unblockall.org",
-                     "rarbgaccess.org",
-                     "rarbgmirror.com",
-                     "rarbgmirror.org",
-                     "rarbgmirror.xyz",
-                     "rarbgproxy.com",
-                     "rarbgproxy.org",
-                     "rarbgunblock.com",
+                    "rarbg.to",
+                    "rarbg.unblockall.org",
+                    "rarbgaccess.org",
+                    "rarbgmirror.com",
+                    "rarbgmirror.org",
+                    "rarbgmirror.xyz",
+                    "rarbgproxy.com",
+                    "rarbgproxy.org",
+                    "rarbgunblock.com",
                 ]),
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -1113,16 +1212,19 @@ mod parse_tests {
                 ]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"haus-garten-test.de,sozialversicherung-kompetent.de##+js(set-constant.js, Object.keys, trueFunc)"#,
             CosmeticFilterBreakdown {
                 selector: r#"set-constant.js, Object.keys, trueFunc"#.to_string(),
-                hostnames: sort_hash_domains(vec!["haus-garten-test.de", "sozialversicherung-kompetent.de"]),
+                hostnames: sort_hash_domains(vec![
+                    "haus-garten-test.de",
+                    "sozialversicherung-kompetent.de",
+                ]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"airliners.de,auszeit.bio,autorevue.at,clever-tanken.de,fanfiktion.de,finya.de,frag-mutti.de,frustfrei-lernen.de,fussballdaten.de,gameswelt.*,liga3-online.de,lz.de,mt.de,psychic.de,rimondo.com,spielen.de,weltfussball.at,weristdeinfreund.de##+js(abort-current-inline-script.js, Number.isNaN)"#,
@@ -1147,12 +1249,10 @@ mod parse_tests {
                     "weltfussball.at",
                     "weristdeinfreund.de",
                 ]),
-                entities: sort_hash_domains(vec![
-                    "gameswelt",
-                ]),
+                entities: sort_hash_domains(vec!["gameswelt"]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"prad.de##+js(abort-on-property-read.js, document.cookie)"#,
@@ -1161,7 +1261,7 @@ mod parse_tests {
                 hostnames: sort_hash_domains(vec!["prad.de"]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"computerbild.de##+js(abort-on-property-read.js, Date.prototype.toUTCString)"#,
@@ -1170,7 +1270,7 @@ mod parse_tests {
                 hostnames: sort_hash_domains(vec!["computerbild.de"]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"computerbild.de##+js(setTimeout-defuser.js, ())return)"#,
@@ -1179,7 +1279,7 @@ mod parse_tests {
                 hostnames: sort_hash_domains(vec!["computerbild.de"]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -1192,7 +1292,7 @@ mod parse_tests {
                 entities: sort_hash_domains(vec!["monova"]),
                 script_inject: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"monova.*##tr.success.desktop"#,
@@ -1200,7 +1300,7 @@ mod parse_tests {
                 selector: r#"tr.success.desktop"#.to_string(),
                 entities: sort_hash_domains(vec!["monova"]),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"monova.*#@#script + [class] > [class]:first-child"#,
@@ -1209,7 +1309,7 @@ mod parse_tests {
                 entities: sort_hash_domains(vec!["monova"]),
                 unhide: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"adshort.im,adsrt.*#@#[id*="ScriptRoot"]"#,
@@ -1219,7 +1319,7 @@ mod parse_tests {
                 entities: sort_hash_domains(vec!["adsrt"]),
                 unhide: true,
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"downloadsource.*##.date:not(dt):style(display: block !important;)"#,
@@ -1230,7 +1330,7 @@ mod parse_tests {
                 is_class_selector: true,
                 key: Some("date".to_string()),
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -1245,7 +1345,7 @@ mod parse_tests {
                 is_class_selector: true,
                 key: Some("video-wrapper".to_string()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"allmusic.com##.advertising.medium-rectangle:style(min-height: 1px !important;)"#,
@@ -1256,7 +1356,7 @@ mod parse_tests {
                 is_class_selector: true,
                 key: Some("advertising".to_string()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"quora.com##.signup_wall_prevent_scroll .SiteHeader,.signup_wall_prevent_scroll .LoggedOutFooter,.signup_wall_prevent_scroll .ContentWrapper:style(filter: none !important;)"#,
@@ -1276,7 +1376,7 @@ mod parse_tests {
                 hostnames: sort_hash_domains(vec!["imdb.com"]),
                 style: Some("background-color: #e3e2dd !important; background-image: none !important;".into()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"streamcloud.eu###login > div[style^="width"]:style(display: block !important)"#,
@@ -1287,16 +1387,20 @@ mod parse_tests {
                 is_id_selector: true,
                 key: Some("login".to_string()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             r#"moonbit.co.in,moondoge.co.in,moonliteco.in##[src^="//coinad.com/ads/"]:style(visibility: collapse !important)"#,
             CosmeticFilterBreakdown {
                 selector: r#"[src^="//coinad.com/ads/"]"#.to_string(),
-                hostnames: sort_hash_domains(vec!["moonbit.co.in", "moondoge.co.in", "moonliteco.in"]),
+                hostnames: sort_hash_domains(vec![
+                    "moonbit.co.in",
+                    "moondoge.co.in",
+                    "moonliteco.in",
+                ]),
                 style: Some("visibility: collapse !important".into()),
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -1310,7 +1414,7 @@ mod parse_tests {
                 is_id_selector: true,
                 key: Some("неделя".to_string()),
                 ..Default::default()
-            }
+            },
         );
         check_parse_result(
             "неlloworlд.com#@##week",
@@ -1468,31 +1572,46 @@ mod matching_tests {
             if !has_hostname_constraint {
                 return true;
             }
-            if request_entities.is_empty() && request_hostnames.is_empty() && has_hostname_constraint {
+            if request_entities.is_empty()
+                && request_hostnames.is_empty()
+                && has_hostname_constraint
+            {
                 return false;
             }
 
             if let Some(ref filter_not_hostnames) = self.not_hostnames {
-                if request_hostnames.iter().any(|hash| bin_lookup(filter_not_hostnames, *hash)) {
+                if request_hostnames
+                    .iter()
+                    .any(|hash| bin_lookup(filter_not_hostnames, *hash))
+                {
                     return false;
                 }
             }
 
             if let Some(ref filter_not_entities) = self.not_entities {
-                if request_entities.iter().any(|hash| bin_lookup(filter_not_entities, *hash)) {
+                if request_entities
+                    .iter()
+                    .any(|hash| bin_lookup(filter_not_entities, *hash))
+                {
                     return false;
                 }
             }
 
             if self.hostnames.is_some() || self.entities.is_some() {
                 if let Some(ref filter_hostnames) = self.hostnames {
-                    if request_hostnames.iter().any(|hash| bin_lookup(filter_hostnames, *hash)) {
+                    if request_hostnames
+                        .iter()
+                        .any(|hash| bin_lookup(filter_hostnames, *hash))
+                    {
                         return true;
                     }
                 }
 
                 if let Some(ref filter_entities) = self.entities {
-                    if request_entities.iter().any(|hash| bin_lookup(filter_entities, *hash)) {
+                    if request_entities
+                        .iter()
+                        .any(|hash| bin_lookup(filter_entities, *hash))
+                    {
                         return true;
                     }
                 }

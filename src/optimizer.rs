@@ -1,4 +1,4 @@
-use crate::filters::network::{NetworkFilter, NetworkFilterMask, FilterPart};
+use crate::filters::network::{FilterPart, NetworkFilter, NetworkFilterMask};
 use itertools::*;
 use std::collections::{HashMap, HashSet};
 
@@ -78,7 +78,10 @@ impl Optimization for SimplePatternGroup {
         let mut filter = base_filter.clone();
 
         // if any filter is empty (meaning matches anything), the entire combiation matches anything
-        if filters.iter().any(|f| matches!(f.filter, FilterPart::Empty)) {
+        if filters
+            .iter()
+            .any(|f| matches!(f.filter, FilterPart::Empty))
+        {
             filter.filter = FilterPart::Empty
         } else {
             let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
@@ -86,7 +89,7 @@ impl Optimization for SimplePatternGroup {
                 match &f.filter {
                     FilterPart::Empty => (),
                     FilterPart::Simple(s) => flat_patterns.push(s.clone()),
-                    FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s)
+                    FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s),
                 }
             }
 
@@ -103,15 +106,17 @@ impl Optimization for SimplePatternGroup {
         let is_regex = true;
         filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
         let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
-        filter.mask.set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
+        filter
+            .mask
+            .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 
         if base_filter.raw_line.is_some() {
             filter.raw_line = Some(Box::new(
                 filters
                     .iter()
                     .flat_map(|f| f.raw_line.clone())
-                    .join(" <+> ")),
-            )
+                    .join(" <+> "),
+            ))
         }
 
         filter
@@ -132,7 +137,6 @@ impl Optimization for SimplePatternGroup {
 struct UnionDomainGroup {}
 
 impl Optimization for UnionDomainGroup {
-
     fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
         let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
@@ -167,47 +171,68 @@ impl Optimization for UnionDomainGroup {
             filter.opt_not_domains_union = opt_not_domains_union;
         }
 
-
         if base_filter.raw_line.is_some() {
             filter.raw_line = Some(Box::new(
                 filters
                     .iter()
                     .flat_map(|f| f.raw_line.clone())
-                    .join(" <+> ")),
-            )
+                    .join(" <+> "),
+            ))
         }
 
         filter
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
-        format!("{:?}:{}:{:b}:{:?}", filter.hostname.as_ref(), filter.filter.string_view().unwrap_or_default(), filter.mask, filter.modifier_option.as_ref())
+        format!(
+            "{:?}:{}:{:b}:{:?}",
+            filter.hostname.as_ref(),
+            filter.filter.string_view().unwrap_or_default(),
+            filter.mask,
+            filter.modifier_option.as_ref()
+        )
     }
 
     fn select(&self, filter: &NetworkFilter) -> bool {
-        !filter.is_csp()
-            && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
+        !filter.is_csp() && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
     }
 }
 
 #[cfg(test)]
 mod optimization_tests_pattern_group {
     use super::*;
+    use crate::filters::network::CompiledRegex;
+    use crate::filters::network::NetworkMatchable;
     use crate::filters::regex_manager::RegexManager;
     use crate::lists;
     use crate::request::Request;
     use regex::RegexSet;
-    use crate::filters::network::CompiledRegex;
-    use crate::filters::network::NetworkMatchable;
 
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
         let is_match = regex.is_match(pattern);
-        assert!(is_match == matches, "Expected {} match {} = {}", regex.to_string(), pattern, matches);
+        assert!(
+            is_match == matches,
+            "Expected {} match {} = {}",
+            regex.to_string(),
+            pattern,
+            matches
+        );
     }
 
-    fn check_match(regex_manager: &mut RegexManager, filter: &NetworkFilter, pattern: &str, matches: bool) {
-      let is_match = regex_manager.matches(filter, pattern);
-      assert!(is_match == matches, "Expected {} match {} = {}", filter.to_string(), pattern, matches);
+    fn check_match(
+        regex_manager: &mut RegexManager,
+        filter: &NetworkFilter,
+        pattern: &str,
+        matches: bool,
+    ) {
+        let is_match = regex_manager.matches(filter, pattern);
+        assert!(
+            is_match == matches,
+            "Expected {} match {} = {}",
+            filter.to_string(),
+            pattern,
+            matches
+        );
     }
 
     #[test]
@@ -272,15 +297,30 @@ mod optimization_tests_pattern_group {
         check_match(&mut regex_manager, &fused, "/static/ad/", true);
         check_match(&mut regex_manager, &fused, "/static/ad", false);
         check_match(&mut regex_manager, &fused, "/static/ad/foobar", true);
-        check_match(&mut regex_manager, &fused, "/static/ad/foobar/asd?q=1", true);
+        check_match(
+            &mut regex_manager,
+            &fused,
+            "/static/ad/foobar/asd?q=1",
+            true,
+        );
         check_match(&mut regex_manager, &fused, "/static/ads/", true);
         check_match(&mut regex_manager, &fused, "/static/ads", false);
         check_match(&mut regex_manager, &fused, "/static/ads/foobar", true);
-        check_match(&mut regex_manager, &fused, "/static/ads/foobar/asd?q=1", true);
+        check_match(
+            &mut regex_manager,
+            &fused,
+            "/static/ads/foobar/asd?q=1",
+            true,
+        );
         check_match(&mut regex_manager, &fused, "/static/adv/", true);
         check_match(&mut regex_manager, &fused, "/static/adv", false);
         check_match(&mut regex_manager, &fused, "/static/adv/foobar", true);
-        check_match(&mut regex_manager, &fused, "/static/adv/foobar/asd?q=1", true);
+        check_match(
+            &mut regex_manager,
+            &fused,
+            "/static/adv/foobar/asd?q=1",
+            true,
+        );
     }
 
     #[test]
@@ -306,7 +346,14 @@ mod optimization_tests_pattern_group {
             "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
         );
 
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/v1/pixel?", "https://my.leadpages.net", "").unwrap()));
+        assert!(filter.matches_test(
+            &Request::from_urls(
+                "https://example.com/v1/pixel?",
+                "https://my.leadpages.net",
+                ""
+            )
+            .unwrap()
+        ));
 
         assert_eq!(skipped.len(), 1);
         let filter = skipped.get(0).unwrap();
@@ -315,18 +362,23 @@ mod optimization_tests_pattern_group {
             "/analytics/v1/*$domain=~my.leadpages.net"
         );
 
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics/v1/foobar", "https://foo.leadpages.net", "").unwrap()))
+        assert!(filter.matches_test(
+            &Request::from_urls(
+                "https://example.com/analytics/v1/foobar",
+                "https://foo.leadpages.net",
+                ""
+            )
+            .unwrap()
+        ))
     }
-
 }
-
 
 #[cfg(test)]
 mod optimization_tests_union_domain {
     use super::*;
+    use crate::filters::network::NetworkMatchable;
     use crate::lists;
     use crate::request::Request;
-    use crate::filters::network::NetworkMatchable;
     use crate::utils;
 
     #[test]
@@ -347,15 +399,36 @@ mod optimization_tests_union_domain {
             "/analytics-v1$domain=google.com <+> /analytics-v1$domain=example.com"
         );
 
-        let expected_domains = vec![utils::fast_hash("example.com"), utils::fast_hash("google.com")];
+        let expected_domains = vec![
+            utils::fast_hash("example.com"),
+            utils::fast_hash("google.com"),
+        ];
         assert!(filter.opt_domains.is_some());
         let filter_domains = filter.opt_domains.as_ref().unwrap();
         for dom in expected_domains {
             assert!(filter_domains.contains(&dom));
         }
 
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
+        assert!(
+            filter.matches_test(
+                &Request::from_urls(
+                    "https://example.com/analytics-v1/foobar",
+                    "https://google.com",
+                    ""
+                )
+                .unwrap()
+            ) == true
+        );
+        assert!(
+            filter.matches_test(
+                &Request::from_urls(
+                    "https://example.com/analytics-v1/foobar",
+                    "https://foo.leadpages.net",
+                    ""
+                )
+                .unwrap()
+            ) == false
+        );
     }
 
     #[test]
@@ -372,10 +445,7 @@ mod optimization_tests_union_domain {
 
         assert_eq!(skipped.len(), 1);
         let filter = skipped.get(0).unwrap();
-        assert_eq!(
-            filter.to_string(),
-            "/analytics-v1"
-        );
+        assert_eq!(filter.to_string(), "/analytics-v1");
     }
 
     #[test]
@@ -402,15 +472,47 @@ mod optimization_tests_union_domain {
 
         assert_eq!(skipped.len(), 1);
         let skipped_filter = skipped.get(0).unwrap();
-        assert_eq!(
-            skipped_filter.to_string(),
-            "/analytics-v1"
+        assert_eq!(skipped_filter.to_string(), "/analytics-v1");
+
+        assert!(
+            filter.matches_test(
+                &Request::from_urls(
+                    "https://example.com/analytics-v1/foobar",
+                    "https://google.com",
+                    ""
+                )
+                .unwrap()
+            ) == true
         );
-
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://google.com", "").unwrap()) == true);
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://example.com", "").unwrap()) == true);
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://exampletwo.com", "").unwrap()) == true);
-        assert!(filter.matches_test(&Request::from_urls("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "").unwrap()) == false);
+        assert!(
+            filter.matches_test(
+                &Request::from_urls(
+                    "https://example.com/analytics-v1/foobar",
+                    "https://example.com",
+                    ""
+                )
+                .unwrap()
+            ) == true
+        );
+        assert!(
+            filter.matches_test(
+                &Request::from_urls(
+                    "https://example.com/analytics-v1/foobar",
+                    "https://exampletwo.com",
+                    ""
+                )
+                .unwrap()
+            ) == true
+        );
+        assert!(
+            filter.matches_test(
+                &Request::from_urls(
+                    "https://example.com/analytics-v1/foobar",
+                    "https://foo.leadpages.net",
+                    ""
+                )
+                .unwrap()
+            ) == false
+        );
     }
-
 }

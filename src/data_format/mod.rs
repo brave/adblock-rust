@@ -37,8 +37,8 @@ pub enum SerializationError {
 /// single implementation.
 impl From<rmp_serde_legacy::encode::Error> for SerializationError {
     fn from(e: rmp_serde_legacy::encode::Error) -> Self {
-        use rmp_serde_legacy::encode::Error as LegacyEncodeError;
         use rmp_serde::encode::Error as EncodeError;
+        use rmp_serde_legacy::encode::Error as LegacyEncodeError;
 
         let new_error = match e {
             LegacyEncodeError::InvalidValueWrite(e) => EncodeError::InvalidValueWrite(e),
@@ -51,11 +51,15 @@ impl From<rmp_serde_legacy::encode::Error> for SerializationError {
 }
 
 impl From<rmp_serde::encode::Error> for SerializationError {
-    fn from(e: rmp_serde::encode::Error) -> Self { Self::RmpSerdeError(e) }
+    fn from(e: rmp_serde::encode::Error) -> Self {
+        Self::RmpSerdeError(e)
+    }
 }
 
 impl From<std::io::Error> for SerializationError {
-    fn from(e: std::io::Error) -> Self { Self::GzError(e) }
+    fn from(e: std::io::Error) -> Self {
+        Self::GzError(e)
+    }
 }
 
 impl<'a> SerializeFormat<'a> {
@@ -96,8 +100,8 @@ pub enum DeserializationError {
 /// single implementation.
 impl From<rmp_serde_legacy::decode::Error> for DeserializationError {
     fn from(e: rmp_serde_legacy::decode::Error) -> Self {
-        use rmp_serde_legacy::decode::Error as LegacyDecodeError;
         use rmp_serde::decode::Error as DecodeError;
+        use rmp_serde_legacy::decode::Error as LegacyDecodeError;
 
         let new_error = match e {
             LegacyDecodeError::InvalidMarkerRead(e) => DecodeError::InvalidMarkerRead(e),
@@ -115,7 +119,9 @@ impl From<rmp_serde_legacy::decode::Error> for DeserializationError {
 }
 
 impl From<rmp_serde::decode::Error> for DeserializationError {
-    fn from(e: rmp_serde::decode::Error) -> Self { Self::RmpSerdeError(e) }
+    fn from(e: rmp_serde::decode::Error) -> Self {
+        Self::RmpSerdeError(e)
+    }
 }
 
 impl DeserializeFormat {
@@ -132,7 +138,9 @@ impl DeserializeFormat {
         const FLATE2_GZ_HEADER_BYTES: [u8; 10] = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255];
 
         if serialized.starts_with(&FLATE2_GZ_HEADER_BYTES) {
-            Ok(Self::Legacy(legacy::DeserializeFormat::deserialize(serialized)?))
+            Ok(Self::Legacy(legacy::DeserializeFormat::deserialize(
+                serialized,
+            )?))
         } else if serialized.starts_with(&ADBLOCK_RUST_DAT_MAGIC) {
             let version = serialized[ADBLOCK_RUST_DAT_MAGIC.len()];
             match version {

@@ -2,17 +2,17 @@
 #![forbid(unsafe_code)]
 
 // Own modules, currently everything is exposed, will need to limit
-#[doc(hidden)]
-pub mod utils;
-pub mod request;
-pub mod lists;
-pub mod filters;
 pub mod blocker;
-pub mod optimizer;
-pub mod url_parser;
-pub mod engine;
-pub mod resources;
-pub mod cosmetic_filter_cache;
-mod data_format;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
+pub mod cosmetic_filter_cache;
+mod data_format;
+pub mod engine;
+pub mod filters;
+pub mod lists;
+pub mod optimizer;
+pub mod request;
+pub mod resources;
+pub mod url_parser;
+#[doc(hidden)]
+pub mod utils;
