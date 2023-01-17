@@ -16,9 +16,9 @@ const REGEX_MANAGER_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const REGEX_MANAGER_DISCARD_TIME: Duration = Duration::from_secs(180);
 
 pub struct RegexDebugEntry {
-    regex: Option<String>,
-    last_used: Instant,
-    usage_count: u64,
+    pub regex: Option<String>,
+    pub last_used: Instant,
+    pub usage_count: u64,
 }
 
 struct RegexEntry {
