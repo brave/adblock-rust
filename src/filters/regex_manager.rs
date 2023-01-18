@@ -16,6 +16,7 @@ const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
 pub struct RegexDebugEntry {
+    pub id: u64,
     pub regex: Option<String>,
     pub last_used: Instant,
     pub usage_count: usize,
@@ -136,8 +137,9 @@ impl RegexManager {
     pub fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
         use itertools::Itertools;
         self.map
-            .values()
-            .map(|e| RegexDebugEntry {
+            .iter()
+            .map(|(k, e)| RegexDebugEntry {
+                id: *k as u64,
                 regex: e.regex.as_ref().map(|x| x.to_string()),
                 last_used: e.last_used,
                 usage_count: e.usage_count,
