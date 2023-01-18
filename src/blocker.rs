@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use lifeguard::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable};
-use crate::filters::regex_manager::{RegexManager, RegexDebugEntry};
+use crate::filters::regex_manager::{RegexManager, RegexDebugEntry, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -88,7 +88,7 @@ pub enum BlockerError {
 
 pub struct BlockerDebugInfo {
     pub regex_data: Vec<RegexDebugEntry>,
-    pub compiled_regex_count: u64,
+    pub compiled_regex_count: usize,
 }
 
 #[cfg(feature = "object-pooling")]
@@ -721,6 +721,14 @@ impl Blocker {
 
     pub fn get_resource(&self, key: &str) -> Option<&RedirectResource> {
         self.resources.get_resource(key)
+    }
+
+    pub fn set_regex_discard_policy(
+        &self,
+        new_discard_policy: RegexManagerDiscardPolicy
+    ) {
+        let mut regex_manager = self.borrow_regex_manager();
+        regex_manager.set_discard_policy(new_discard_policy);
     }
 
     #[cfg(feature = "debug-info")]

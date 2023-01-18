@@ -12,37 +12,53 @@ use mock_instant::Instant;
 #[cfg(not(test))]
 use std::time::Instant;
 
-const REGEX_MANAGER_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
-const REGEX_MANAGER_DISCARD_TIME: Duration = Duration::from_secs(180);
+const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
+const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
 pub struct RegexDebugEntry {
     pub regex: Option<String>,
     pub last_used: Instant,
-    pub usage_count: u64,
+    pub usage_count: usize,
 }
 
 struct RegexEntry {
     regex: Option<CompiledRegex>,
     last_used: Instant,
-    usage_count: u64,
+    usage_count: usize,
+}
+
+pub struct RegexManagerDiscardPolicy {
+    pub cleanup_interval: Duration,
+    pub discard_unused_time: Duration,
+}
+
+impl Default for RegexManagerDiscardPolicy {
+    fn default() -> Self {
+        Self {
+            cleanup_interval: DEFAULT_CLEAN_UP_INTERVAL,
+            discard_unused_time: DEFAULT_DISCARD_UNUSED_TIME,
+        }
+    }
 }
 
 type RandomState = std::hash::BuildHasherDefault<seahash::SeaHasher>;
 
 pub struct RegexManager {
     map: HashMap<*const NetworkFilter, RegexEntry, RandomState>,
-    compiled_regex_count: u64,
+    compiled_regex_count: usize,
     now: Instant,
     last_cleanup: Instant,
+    discard_policy: RegexManagerDiscardPolicy,
 }
 
 impl Default for RegexManager {
-    fn default() -> RegexManager {
-        RegexManager {
+    fn default() -> Self {
+        Self {
             map: Default::default(),
             compiled_regex_count: 0,
             now: Instant::now(),
             last_cleanup: Instant::now(),
+            discard_policy: Default::default(),
         }
     }
 }
@@ -94,7 +110,9 @@ impl RegexManager {
 
     pub fn update_time(&mut self) {
         self.now = Instant::now();
-        if self.now - self.last_cleanup >= REGEX_MANAGER_CLEAN_UP_INTERVAL {
+        if !self.discard_policy.cleanup_interval.is_zero()
+            && self.now - self.last_cleanup >= self.discard_policy.cleanup_interval
+        {
             self.last_cleanup = self.now;
             self.cleanup();
         }
@@ -103,11 +121,15 @@ impl RegexManager {
     pub fn cleanup(&mut self) {
         let now = self.now;
         for v in self.map.values_mut() {
-            if now - v.last_used >= REGEX_MANAGER_DISCARD_TIME {
+            if now - v.last_used >= self.discard_policy.discard_unused_time {
                 // Discard the regex to save memory.
                 v.regex = None;
             }
         }
+    }
+
+    pub fn set_discard_policy(&mut self, new_discard_policy: RegexManagerDiscardPolicy) {
+        self.discard_policy = new_discard_policy;
     }
 
     #[cfg(feature = "debug-info")]
@@ -124,7 +146,7 @@ impl RegexManager {
     }
 
     #[cfg(feature = "debug-info")]
-    pub fn get_compiled_regex_count(&self) -> u64 {
+    pub fn get_compiled_regex_count(&self) -> usize {
         self.compiled_regex_count
     }
 }
@@ -146,12 +168,12 @@ mod tests {
         request::Request::from_url(url).unwrap()
     }
 
-    fn get_active_regex_count(regex_manager: &RegexManager) -> i32 {
+    fn get_active_regex_count(regex_manager: &RegexManager) -> usize {
         regex_manager
             .get_debug_regex_data()
             .iter()
             .filter(|x| x.regex.is_some())
-            .count() as i32
+            .count()
     }
 
     #[test]
