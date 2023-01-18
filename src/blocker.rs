@@ -732,6 +732,12 @@ impl Blocker {
     }
 
     #[cfg(feature = "debug-info")]
+    pub fn discard_regex(&self, regex_id: u64) {
+        let mut regex_manager = self.borrow_regex_manager();
+        regex_manager.discard_regex(regex_id);
+    }
+
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_info(&self) -> BlockerDebugInfo {
         let regex_manager = self.borrow_regex_manager();
         BlockerDebugInfo {

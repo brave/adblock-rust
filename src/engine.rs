@@ -281,6 +281,11 @@ impl Engine {
     }
 
     #[cfg(feature = "debug-info")]
+    pub fn discard_regex(&mut self, regex_id: u64) {
+        self.blocker.discard_regex(regex_id);
+    }
+
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_info(&self) -> EngineDebugInfo {
         EngineDebugInfo { blocker_debug_info: self.blocker.get_debug_info() }
     }

@@ -134,6 +134,16 @@ impl RegexManager {
     }
 
     #[cfg(feature = "debug-info")]
+    pub fn discard_regex(&mut self, regex_id: u64) {
+        self.map
+            .iter_mut()
+            .filter(|(k, _)| **k as u64 == regex_id)
+            .for_each(|(_, v)| {
+                v.regex = None;
+            });
+    }
+
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
         use itertools::Itertools;
         self.map
