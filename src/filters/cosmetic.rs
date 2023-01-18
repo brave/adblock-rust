@@ -199,7 +199,6 @@ impl CosmeticFilter {
                 }
             } else if content_after_colon.starts_with("-abp-")
                 || content_after_colon.starts_with("contains")
-                || content_after_colon.starts_with("has")
                 || content_after_colon.starts_with("if")
                 || content_after_colon.starts_with("if-not")
                 || content_after_colon.starts_with("matches-css")
@@ -1434,11 +1433,13 @@ mod parse_tests {
     fn unsupported() {
         assert!(CosmeticFilter::parse("yandex.*##.serp-item:if(:scope > div.organic div.organic__subtitle:matches-css-after(content: /[Рр]еклама/))", false).is_err());
         assert!(CosmeticFilter::parse(r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#, false).is_err());
-        assert!(CosmeticFilter::parse(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#, false).is_err());
         assert!(CosmeticFilter::parse(r#"readcomiconline.to##^script:has-text(this[atob)"#, false).is_err());
         assert!(CosmeticFilter::parse("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)", false).is_err());
         assert!(CosmeticFilter::parse("##", false).is_err());
         assert!(CosmeticFilter::parse("", false).is_err());
+
+        // `:has` was previously limited to procedural filtering, but is now a native CSS feature.
+        assert!(CosmeticFilter::parse(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#, false).is_ok());
     }
 
     #[test]
