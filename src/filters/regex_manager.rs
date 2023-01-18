@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(regex_manager.get_compiled_regex_count(), 1);
         assert_eq!(get_active_regex_count(&regex_manager), 1);
 
-        MockClock::advance(REGEX_MANAGER_DISCARD_TIME - Duration::from_secs(1));
+        MockClock::advance(DEFAULT_DISCARD_UNUSED_TIME - Duration::from_secs(1));
         regex_manager.update_time();
         // The entry shouldn't be discarded because was used during
         // last REGEX_MANAGER_DISCARD_TIME.
@@ -208,7 +208,7 @@ mod tests {
         // The entry is entry is outdated, but should be discarded only
         // in the next cleanup() call. The call was 2 sec ago and is throttled
         // now.
-        MockClock::advance(REGEX_MANAGER_CLEAN_UP_INTERVAL - Duration::from_secs(1));
+        MockClock::advance(DEFAULT_CLEAN_UP_INTERVAL - Duration::from_secs(1));
         regex_manager.update_time();
         assert_eq!(get_active_regex_count(&regex_manager), 1);
 
