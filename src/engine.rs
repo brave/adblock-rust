@@ -1,5 +1,6 @@
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
+use crate::filters::regex_manager::RegexManagerDiscardPolicy;
 use crate::lists::{FilterSet, ParseOptions};
 use crate::request::Request;
 use crate::resources::{Resource, RedirectResource};
@@ -270,6 +271,18 @@ impl Engine {
 
         let generichide = self.blocker.check_generic_hide(&request);
         self.cosmetic_cache.hostname_cosmetic_resources(&request.hostname, generichide)
+    }
+
+    pub fn set_regex_discard_policy(
+        &mut self,
+        new_discard_policy: RegexManagerDiscardPolicy
+    ) {
+        self.blocker.set_regex_discard_policy(new_discard_policy);
+    }
+
+    #[cfg(feature = "debug-info")]
+    pub fn discard_regex(&mut self, regex_id: u64) {
+        self.blocker.discard_regex(regex_id);
     }
 
     #[cfg(feature = "debug-info")]
