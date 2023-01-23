@@ -4,12 +4,11 @@ use once_cell::sync::Lazy;
 
 use std::fmt;
 
+use crate::lists::ParseOptions;
+use crate::regex_manager::RegexManager;
 use crate::request;
 use crate::utils;
 use crate::utils::Hash;
-use crate::lists::ParseOptions;
-
-use crate::filters::regex_manager::RegexManager;
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 

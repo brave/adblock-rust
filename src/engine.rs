@@ -1,7 +1,7 @@
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::filters::regex_manager::RegexManagerDiscardPolicy;
 use crate::lists::{FilterSet, ParseOptions};
+use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, RedirectResource};
 

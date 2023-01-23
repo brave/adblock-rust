@@ -203,8 +203,8 @@ mod optimization_tests_pattern_group {
     use super::*;
     use crate::filters::network::CompiledRegex;
     use crate::filters::network::NetworkMatchable;
-    use crate::filters::regex_manager::RegexManager;
     use crate::lists;
+    use crate::regex_manager::RegexManager;
     use crate::request::Request;
     use regex::RegexSet;
 

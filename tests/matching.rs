@@ -1,7 +1,7 @@
 use adblock::engine::Engine;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
-use adblock::filters::regex_manager::RegexManager;
+use adblock::regex_manager::RegexManager;
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
 

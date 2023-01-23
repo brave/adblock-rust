@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use lifeguard::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable};
-use crate::filters::regex_manager::{RegexManager, RegexDebugEntry, RegexManagerDiscardPolicy};
+use crate::regex_manager::{RegexManager, RegexDebugEntry, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -598,7 +598,7 @@ impl Blocker {
             resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
-            regex_manager:Default::default(),
+            regex_manager: Default::default(),
         }
     }
 

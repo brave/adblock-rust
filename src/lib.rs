@@ -11,6 +11,7 @@ pub mod engine;
 pub mod filters;
 pub mod lists;
 pub mod optimizer;
+pub mod regex_manager;
 pub mod request;
 pub mod resources;
 pub mod url_parser;

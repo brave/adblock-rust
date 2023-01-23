@@ -2,7 +2,7 @@ mod legacy_test_filters {
     use adblock::filters::network::NetworkFilter;
     use adblock::filters::network::NetworkFilterMask;
     use adblock::filters::network::NetworkMatchable;
-    use adblock::filters::regex_manager::RegexManager;
+    use adblock::regex_manager::RegexManager;
     use adblock::request::Request;
 
     fn test_filter<'a>(
