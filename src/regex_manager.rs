@@ -8,9 +8,21 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 #[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
 use mock_instant::Instant;
 #[cfg(not(test))]
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Copy)]
+pub struct Instant;
+#[cfg(target_arch = "wasm32")]
+impl Instant {
+    pub fn now() -> Self {
+        Self
+    }
+}
 
 const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
@@ -109,6 +121,7 @@ impl RegexManager {
         };
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn update_time(&mut self) {
         self.now = Instant::now();
         if !self.discard_policy.cleanup_interval.is_zero()
@@ -119,6 +132,7 @@ impl RegexManager {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn cleanup(&mut self) {
         let now = self.now;
         for v in self.map.values_mut() {

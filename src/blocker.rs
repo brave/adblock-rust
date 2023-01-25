@@ -151,8 +151,12 @@ impl Blocker {
 
     #[cfg(feature = "unsync-regex-caching")]
     fn borrow_regex_manager(&self) -> std::cell::RefMut<RegexManager> {
+        #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
+
+        #[cfg(not(target_arch = "wasm32"))]
         manager.update_time();
+
         manager
     }
 
