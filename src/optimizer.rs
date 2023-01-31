@@ -102,8 +102,7 @@ impl Optimization for SimplePatternGroup {
             }
         }
 
-        // let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
-        let is_regex = true;
+        let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
         filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
         let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
         filter
@@ -222,15 +221,19 @@ mod optimization_tests_pattern_group {
     fn check_match(
         regex_manager: &mut RegexManager,
         filter: &NetworkFilter,
-        pattern: &str,
+        url_path: &str,
         matches: bool,
     ) {
-        let is_match = regex_manager.matches(filter, pattern);
+        let is_match = filter.matches(&Request::from_urls(
+          ("https://example.com/".to_string() + url_path).as_str(),
+          "https://google.com",
+          ""
+        ).unwrap(), regex_manager);
         assert!(
             is_match == matches,
             "Expected {} match {} = {}",
             filter.to_string(),
-            pattern,
+            url_path,
             matches
         );
     }
@@ -284,7 +287,7 @@ mod optimization_tests_pattern_group {
 
         let fused = optimization.fusion(&filters);
 
-        assert!(fused.is_regex(), "Expected rule to be regex");
+        assert!(fused.is_regex() == false, "Expected rule to not be a regex");
         assert_eq!(
             fused.to_string(),
             "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
