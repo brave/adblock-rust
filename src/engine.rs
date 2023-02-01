@@ -630,7 +630,7 @@ mod tests {
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$first-party,match-case")], Default::default());
+            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$first-party")], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
@@ -706,5 +706,152 @@ mod tests {
         let result = engine.check_network_urls("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script");
 
         assert!(result.redirect.is_some());
+    }
+
+    #[test]
+    fn check_match_case_regex_filtering() {
+        {
+            // match case without regex is discarded
+            let engine = Engine::from_rules_debug(&vec![String::from("ad.png$match-case")], Default::default());
+            assert!(!engine.check_network_urls("https://example.com/ad.png", "https://example.com", "image").matched);
+        }
+        {
+            // /^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#)], Default::default());
+            assert!(engine.check_network_urls("https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "document").matched);
+        }
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz"#)], Default::default());
+            assert!(engine.check_network_urls("https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb", 
+                                              "https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb", 
+                                              "document").matched);
+        }*/
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#)], Default::default());
+            assert!(engine.check_network_urls("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a", 
+                                              "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a", 
+                                              "document").matched);
+        }*/
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?sid=[_0-9a-f]{1,32}(?:&qs\d=\S+)?&cid=[-_0-9a-zA-Z]{16,36}$/$doc,match-case,domain=com|info|net|org
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#)], Default::default());
+            assert!(engine.check_network_urls("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb", 
+                                              "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb", 
+                                              "document").matched);
+        }*/
+        {
+            // /^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#)], Default::default());
+            assert!(engine.check_network_urls("http://abcde.abcde.com/aaaaabbbbb.apk", "http://abcde.abcde.com/aaaaabbbbb.apk", "document").matched);
+        }
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js", 
+                                              "/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js", 
+                                              "script").matched);
+        }*/
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://aa.example.com/aAaaa/12222", 
+                                              "https://aa.example.net/aAaaa/12222", 
+                                              "frame").matched);
+        }*/
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://aa.example.website/aAaaa/12222", 
+                                              "https://aa.example.website/aAaaa/12222", 
+                                              "frame").matched);
+        }*/
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://examples.top/articles.html", 
+                                              "https://examples.top/articles.html", 
+                                              "frame").matched);
+        }*/
+        {
+            // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://examples.top/abcd.json", "https://examples.com/abcd.json", "xhr").matched);
+        }
+        // fails - inferring unescaped `$` inside regex pattern
+        /*{
+            // /^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://examples.top/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
+                                              "https://examples.com/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
+                                              "stylesheet").matched);
+        }*/
+        // fails - inferring unescaped `$` inside regex pattern
+        /*{
+            // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://examples.top/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
+                                              "https://examples.com/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
+                                              "image").matched);
+        }*/
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://examples.xyz/articles.html", 
+                                              "https://examples.xyz/articles.html", 
+                                              "frame").matched);
+        }*/
+        {
+            // /^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://cdn.abcde.xyz/app.js", 
+                                              "https://cdn.abcde.com/app.js", 
+                                              "script").matched);
+        }
+        // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
+        /*{
+            // /^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://a.abcd.club/aaaaaaA.js", 
+                                              "https://a.abcd.club/aaaaaaA.js", 
+                                              "script").matched);
+        }*/
+        {
+            // /^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://cdn.jsdelivr.net/npm/abcd@latest/dist/script.min.js", 
+                                              "https://cdn.jsdelivr.com/npm/abcd@latest/dist/script.min.js", 
+                                              "script").matched);
+        }
+        // fails - inferring unescaped `$` inside regex pattern
+        /*{
+            // /^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case"#)], Default::default());
+            assert!(engine.check_network_urls("https://www.example.com/script.js", 
+                                              "https://www.abc.com/script.js", 
+                                              "script").matched);
+        }*/
+        {
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/tesT߶/$domain=example.com"#)], Default::default());
+            assert!(engine.check_network_urls("https://example.com/tesT߶",
+                                              "https://example.com",
+                                              "script").matched);
+        }
+        // fails - punycoded domain
+        /*{
+            let engine = Engine::from_rules_debug(&vec![String::from(r#"/tesT߶/$domain=example.com"#)], Default::default());
+            assert!(engine.check_network_urls("https://example-tesT߶.com/tesT",
+                                              "https://example.com",
+                                              "script").matched);
+        }*/
     }
 }

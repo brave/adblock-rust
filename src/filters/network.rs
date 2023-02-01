@@ -40,6 +40,7 @@ pub enum NetworkFilterError {
     RegexParsingError(regex::Error),
     PunycodeError,
     CspWithContentType,
+    MatchCaseWithoutFullRegex,
 }
 
 bitflags::bitflags! {
@@ -644,6 +645,10 @@ impl NetworkFilter {
             {
                 return Err(NetworkFilterError::FullRegexUnsupported);
             }
+        } else {
+            if !(mask & NetworkFilterMask::MATCH_CASE).is_empty() {
+                return Err(NetworkFilterError::MatchCaseWithoutFullRegex);
+            }
         }
 
         let (mut filter_index_start, mut filter_index_end) = (0, pattern.len());
@@ -753,11 +758,16 @@ impl NetworkFilter {
         }
 
         let filter: Option<String> = if filter_index_end > filter_index_start {
+            let filter_str = &pattern[filter_index_start..filter_index_end];
             mask.set(
                 NetworkFilterMask::IS_REGEX,
-                check_is_regex(&pattern[filter_index_start..filter_index_end]),
+                check_is_regex(filter_str),
             );
-            Some(String::from(&pattern[filter_index_start..filter_index_end]).to_ascii_lowercase())
+            if mask.contains(NetworkFilterMask::MATCH_CASE) {
+                Some(String::from(filter_str))
+            } else {
+                Some(filter_str.to_ascii_lowercase())
+            }
         } else {
             None
         };
@@ -1263,12 +1273,13 @@ fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
 
 // pattern
 fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
+    let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => twoway::find_str(&request.url, f).is_some(),
+        FilterPart::Simple(f) => twoway::find_str(&request_url, f).is_some(),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if twoway::find_str(&request.url, f).is_some() {
+                if twoway::find_str(&request_url, f).is_some() {
                     return true;
                 }
             }
@@ -1279,12 +1290,13 @@ fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::
 
 // pattern|
 fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
+    let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.ends_with(f),
+        FilterPart::Simple(f) => request_url.ends_with(f),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.ends_with(f) {
+                if request_url.ends_with(f) {
                     return true;
                 }
             }
@@ -1295,12 +1307,13 @@ fn check_pattern_right_anchor_filter(filter: &NetworkFilter, request: &request::
 
 // |pattern
 fn check_pattern_left_anchor_filter(filter: &NetworkFilter, request: &request::Request) -> bool {
+    let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => request.url.starts_with(f),
+        FilterPart::Simple(f) => request_url.starts_with(f),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if request.url.starts_with(f) {
+                if request_url.starts_with(f) {
                     return true;
                 }
             }
@@ -1314,12 +1327,13 @@ fn check_pattern_left_right_anchor_filter(
     filter: &NetworkFilter,
     request: &request::Request,
 ) -> bool {
+    let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => &request.url == f,
+        FilterPart::Simple(f) => return &request_url == f,
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if &request.url == f {
+                if &request_url == f {
                     return true;
                 }
             }
@@ -1335,7 +1349,8 @@ fn check_pattern_regex_filter_at(
     start_from: usize,
     regex_manager: &mut RegexManager,
 ) -> bool {
-    regex_manager.matches(filter, &request.url[start_from..])
+    let request_url = request.get_url(filter.match_case());
+    regex_manager.matches(filter, &request_url[start_from..])
 }
 
 fn check_pattern_regex_filter(
@@ -1352,6 +1367,7 @@ fn check_pattern_hostname_anchor_regex_filter(
     request: &request::Request,
     regex_manager: &mut RegexManager,
 ) -> bool {
+    let request_url = request.get_url(filter.match_case());
     filter
         .hostname
         .as_ref()
@@ -1360,7 +1376,7 @@ fn check_pattern_hostname_anchor_regex_filter(
                 check_pattern_regex_filter_at(
                     filter,
                     request,
-                    request.url.find(hostname).unwrap_or_default() + hostname.len(),
+                    request_url.find(hostname).unwrap_or_default() + hostname.len(),
                     regex_manager,
                 )
             } else {
@@ -1412,15 +1428,16 @@ fn check_pattern_hostname_left_right_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+                let request_url = request.get_url(filter.match_case());
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
                     // Since it must follow immediatly after the hostname and be a suffix of
                     // the URL, we conclude that filter must be equal to the part of the
                     // url following the hostname.
-                    FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname) == f,
+                    FilterPart::Simple(f) => get_url_after_hostname(&request_url, hostname) == f,
                     FilterPart::AnyOf(filters) => {
-                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
+                        let url_after_hostname = get_url_after_hostname(&request_url, hostname);
                         for f in filters {
                             if url_after_hostname == f {
                                 return true;
@@ -1447,17 +1464,16 @@ fn check_pattern_hostname_left_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+                let request_url = request.get_url(filter.match_case());
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
                     // Since this is not a regex, the filter pattern must follow the hostname
                     // with nothing in between. So we extract the part of the URL following
                     // after hostname and will perform the matching on it.
-                    FilterPart::Simple(f) => {
-                        get_url_after_hostname(&request.url, hostname).starts_with(f)
-                    }
+                    FilterPart::Simple(f) => get_url_after_hostname(&request_url, hostname).starts_with(f),
                     FilterPart::AnyOf(filters) => {
-                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
+                        let url_after_hostname = get_url_after_hostname(&request_url, hostname);
                         for f in filters {
                             if url_after_hostname.starts_with(f) {
                                 return true;
@@ -1483,14 +1499,15 @@ fn check_pattern_hostname_anchor_filter(
         .as_ref()
         .map(|hostname| {
             if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+                let request_url = request.get_url(filter.match_case());
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
-                    FilterPart::Simple(f) => get_url_after_hostname(&request.url, hostname)
+                    FilterPart::Simple(f) => get_url_after_hostname(&request_url, hostname)
                         .contains(f),
                     FilterPart::AnyOf(filters) => {
-                        let url_after_hostname = get_url_after_hostname(&request.url, hostname);
+                        let url_after_hostname = get_url_after_hostname(&request_url, hostname);
                         for f in filters {
                             if url_after_hostname.contains(f) {
                                 return true;
@@ -2121,14 +2138,13 @@ mod parse_tests {
         }
         {
             let filter =
-                NetworkFilter::parse("||foo.com$domain=test.com,match-case", true, Default::default()).unwrap();
+                NetworkFilter::parse("||foo.com$domain=test.com", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.from_network_types = true;
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
             defaults.is_plain = true;
             defaults.opt_domains = Some(vec![utils::fast_hash("test.com")]);
-            defaults.match_case = true;
 
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
         }
@@ -2319,17 +2335,23 @@ mod parse_tests {
 
     #[test]
     fn parses_match_case() {
-        // parses match-case
+        // match-case on non-regex rules is invalid
         {
-            let filter = NetworkFilter::parse("||foo.com$match-case", true, Default::default()).unwrap();
+            assert!(NetworkFilter::parse("||foo.com$match-case", true, Default::default()).is_err());
+        }
+        {
+            assert!(NetworkFilter::parse("||foo.com$image,match-case", true, Default::default()).is_err());
+        }
+        {
+            assert!(NetworkFilter::parse("||foo.com$media,match-case,image", true, Default::default()).is_err());
+        }
+        // match-case on regex rules is ok
+        {
+            let filter = NetworkFilter::parse(r#"/foo[0-9]*\.com/$media,match-case,image"#, true, Default::default()).unwrap();
             assert_eq!(filter.match_case(), true);
         }
         {
-            let filter = NetworkFilter::parse("||foo.com$image,match-case", true, Default::default()).unwrap();
-            assert_eq!(filter.match_case(), true);
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com$media,match-case,image", true, Default::default()).unwrap();
+            let filter = NetworkFilter::parse(r#"/^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?\$/$css,3p,match-case"#, true, Default::default()).unwrap();
             assert_eq!(filter.match_case(), true);
         }
 
@@ -3016,6 +3038,12 @@ mod match_tests {
                 url
             );
         }
+    }
+
+    #[test]
+    fn check_pattern_match_case() {
+        filter_match_url(r#"/BannerAd[0-9]/$match-case"#, "https://example.com/BannerAd0.gif", true);
+        filter_match_url(r#"/BannerAd[0-9]/$match-case"#, "https://example.com/bannerad0.gif", false);
     }
 
     #[test]
