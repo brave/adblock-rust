@@ -356,7 +356,7 @@ impl Blocker {
             Self::apply_removeparam(
                 &self.removeparam,
                 request,
-                request_tokens,
+                &request_tokens,
                 regex_manager.deref_mut(),
             )
         };
@@ -377,7 +377,7 @@ impl Blocker {
     fn apply_removeparam(
         removeparam_filters: &NetworkFilterList,
         request: &Request,
-        request_tokens: lifeguard::Recycled<Vec<u64>>,
+        request_tokens: &[Hash],
         regex_manager: &mut RegexManager,
     ) -> Option<String> {
         /// Represents an `&`-separated argument from a URL query parameter string
