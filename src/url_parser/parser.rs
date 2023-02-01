@@ -423,11 +423,6 @@ impl Parser {
         let host_start = self.serialization.len();
         let (host_end, remaining) = self.parse_host(remaining, scheme_type)?;
         self.serialization.push_str(remaining.chars.as_str());
-        let ser_remaining = self.serialization.as_mut_str().get_mut(host_end..);
-        ser_remaining.map(|s| {
-            s.make_ascii_lowercase();
-            &*s
-        });
         Ok(Hostname {
             serialization: self.serialization,
             scheme_end,

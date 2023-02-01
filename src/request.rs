@@ -1,5 +1,7 @@
 //! Contains structures needed to describe network requests.
 
+use std::borrow::Cow;
+
 use crate::url_parser;
 use crate::utils;
 
@@ -88,9 +90,17 @@ pub struct Request {
 }
 
 impl Request {
+    pub(crate) fn get_url(&self, case_sensitive: bool) -> std::borrow::Cow<str> {
+        if case_sensitive {
+            Cow::Borrowed(&self.url)
+        } else {
+            Cow::Owned(self.url.to_ascii_lowercase())
+        }
+    }
+
     pub fn get_tokens(&self, token_buffer: &mut Vec<utils::Hash>) {
         token_buffer.clear();
-        utils::tokenize_pooled(&self.url, token_buffer);
+        utils::tokenize_pooled(&self.url.to_ascii_lowercase(), token_buffer);
         // Add zero token as a fallback to wildcard rule bucket
         token_buffer.push(0);
     }
@@ -242,9 +252,7 @@ impl Request {
         request_type: &str,
         third_party_request: Option<bool>,
     ) -> Request {
-        let url_norm = url.to_ascii_lowercase();
-
-        let splitter = url_norm.find(':').unwrap_or(0);
+        let splitter = url.find(':').unwrap_or(0);
         let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {
@@ -266,7 +274,7 @@ impl Request {
 
         Request::from_detailed_parameters(
             request_type,
-            &url_norm,
+            url,
             schema,
             hostname,
             source_hostname,
