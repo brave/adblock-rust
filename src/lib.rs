@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![forbid(unsafe_code)]
 
 // Own modules, currently everything is exposed, will need to limit
 pub mod blocker;
@@ -17,3 +16,17 @@ pub mod resources;
 pub mod url_parser;
 #[doc(hidden)]
 pub mod utils;
+
+#[cfg(test)]
+mod sync_tests {
+    #[allow(unused)]
+    fn static_assert_sync<S: Sync>() {
+        let _ = core::marker::PhantomData::<S>::default();
+    }
+
+    #[test]
+    #[cfg(not(any(feature = "object-pooling", feature = "unsync-regex-caching")))]
+    fn assert_engine_sync() {
+        static_assert_sync::<crate::engine::Engine>();
+    }
+}

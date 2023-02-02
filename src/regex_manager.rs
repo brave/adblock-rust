@@ -24,6 +24,10 @@ impl Instant {
     }
 }
 
+/// `*const NetworkFilter` could technically leak across threads through `RegexDebugEntry::id`, but
+/// it's disguised as a unique identifier and not intended to be dereferenced.
+unsafe impl Send for RegexManager {}
+
 const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
