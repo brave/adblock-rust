@@ -12,8 +12,7 @@ fn by_hostname(c: &mut Criterion) {
     group.sample_size(20);
 
     group.bench_function("easylist", move |b| {
-        let rules =
-            rules_from_lists(&vec!["data/easylist.to/easylist/easylist.txt".to_owned()]);
+        let rules = rules_from_lists(&vec!["data/easylist.to/easylist/easylist.txt".to_owned()]);
         let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
         let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
         b.iter(|| cfcache.hostname_cosmetic_resources("google.com"))
@@ -51,8 +50,7 @@ fn by_classes_ids(c: &mut Criterion) {
     group.sample_size(20);
 
     group.bench_function("easylist", move |b| {
-        let rules =
-            rules_from_lists(&vec!["data/easylist.to/easylist/easylist.txt".to_owned()]);
+        let rules = rules_from_lists(&vec!["data/easylist.to/easylist/easylist.txt".to_owned()]);
         let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
         let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
         let exceptions = Default::default();
