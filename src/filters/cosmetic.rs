@@ -198,18 +198,19 @@ impl CosmeticFilter {
                     return Err(CosmeticFilterError::InvalidStyleSpecifier);
                 }
             } else if content_after_colon.starts_with("-abp-")
-                || content_after_colon.starts_with("contains")
-                || content_after_colon.starts_with("if")
-                || content_after_colon.starts_with("if-not")
-                || content_after_colon.starts_with("matches-css")
-                || content_after_colon.starts_with("matches-css-after")
-                || content_after_colon.starts_with("matches-css-before")
-                || content_after_colon.starts_with("properties")
-                || content_after_colon.starts_with("subject")
-                || content_after_colon.starts_with("xpath")
-                || content_after_colon.starts_with("nth-ancestor")
-                || content_after_colon.starts_with("upward")
-                || content_after_colon.starts_with("remove")
+                || content_after_colon.starts_with("contains(")
+                || content_after_colon.starts_with("has-text(")
+                || content_after_colon.starts_with("if(")
+                || content_after_colon.starts_with("if-not(")
+                || content_after_colon.starts_with("matches-css(")
+                || content_after_colon.starts_with("matches-css-after(")
+                || content_after_colon.starts_with("matches-css-before(")
+                || content_after_colon.starts_with("nth-ancestor(")
+                || content_after_colon.starts_with("properties(")
+                || content_after_colon.starts_with("remove(")
+                || content_after_colon.starts_with("subject(")
+                || content_after_colon.starts_with("upward(")
+                || content_after_colon.starts_with("xpath(")
             {
                 return Err(CosmeticFilterError::UnsupportedSyntax);
             }
