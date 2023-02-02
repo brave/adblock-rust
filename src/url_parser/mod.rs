@@ -129,12 +129,11 @@ pub fn parse_url(url: &str) -> Option<RequestUrl> {
     })
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(all(test, feature = "embedded-domain-resolver"))]
+mod embedded_domain_resolver_tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "embedded-domain-resolver")]
     fn test_get_host_domain() {
         fn domain(host: &str) -> &str {
             let resolver = DefaultResolver;
