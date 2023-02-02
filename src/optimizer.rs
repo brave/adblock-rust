@@ -3,7 +3,7 @@ use itertools::*;
 use std::collections::{HashMap, HashSet};
 
 trait Optimization {
-    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
+    fn fusion(&self, filters: &[NetworkFilter], output: &mut Vec<NetworkFilter>);
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String;
     fn select(&self, filter: &NetworkFilter) -> bool;
 }
@@ -50,7 +50,7 @@ fn apply_optimisation<T: Optimization>(
     for (_, group) in to_fuse {
         if group.len() > 1 {
             // println!("Fusing {} filters together", group.len());
-            fused.push(optimization.fusion(group.as_slice()));
+            optimization.fusion(group.as_slice(), &mut fused);
         } else {
             group.into_iter().for_each(|f| negative.push(f));
         }
@@ -68,57 +68,94 @@ where
     map.entry(k).or_insert_with(Vec::new).push(v)
 }
 
+fn make_filter(
+    source: &NetworkFilter,
+    flat_patterns: Vec<String>,
+    raw_line: String,
+    is_regex: bool,
+    is_complete_regex: bool,
+) -> Option<NetworkFilter> {
+    if flat_patterns.is_empty() {
+        return None;
+    }
+    let mut filter = source.clone();
+
+    if flat_patterns.len() == 1 {
+        filter.filter = FilterPart::Simple(flat_patterns[0].clone())
+    } else {
+        filter.filter = FilterPart::AnyOf(flat_patterns)
+    }
+    filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
+    filter
+        .mask
+        .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
+
+    if source.raw_line.is_some() {
+        filter.raw_line = Some(Box::new(raw_line));
+    }
+
+    Some(filter)
+}
 struct SimplePatternGroup {}
 
 impl Optimization for SimplePatternGroup {
     // Group simple patterns, into a single filter
 
-    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
-        let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
-        let mut filter = base_filter.clone();
+    fn fusion(&self, filters: &[NetworkFilter], output: &mut Vec<NetworkFilter>) {
+        if filters.is_empty() {
+            return;
+        }
 
-        // if any filter is empty (meaning matches anything), the entire combiation matches anything
-        if filters
-            .iter()
-            .any(|f| matches!(f.filter, FilterPart::Empty))
-        {
-            filter.filter = FilterPart::Empty
-        } else {
-            let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
-            for f in filters {
-                match &f.filter {
-                    FilterPart::Empty => (),
-                    FilterPart::Simple(s) => flat_patterns.push(s.clone()),
-                    FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s),
-                }
-            }
+        let mut non_regex_patterns: Vec<String> = Vec::with_capacity(filters.len());
+        let mut regex_patterns: Vec<String> = Vec::with_capacity(filters.len());
+        let mut non_regex_raw_line = "".to_string();
+        let mut regex_raw_line = "".to_string();
 
-            if flat_patterns.is_empty() {
-                filter.filter = FilterPart::Empty;
-            } else if flat_patterns.len() == 1 {
-                filter.filter = FilterPart::Simple(flat_patterns[0].clone())
+        let mut is_complete_regex = false;
+        for f in filters {
+            let is_regex_bucket = f.is_regex() || f.is_complete_regex();
+            is_complete_regex |= f.is_complete_regex();
+            let (target_patterns, target_raw_line) = if is_regex_bucket {
+                (&mut regex_patterns, &mut regex_raw_line)
             } else {
-                filter.filter = FilterPart::AnyOf(flat_patterns)
+                (&mut non_regex_patterns, &mut non_regex_raw_line)
+            };
+            if let Some(raw_line) = &f.raw_line {
+                if !target_raw_line.is_empty() {
+                    *target_raw_line += " <+> ";
+                }
+                *target_raw_line += raw_line.as_str();
+            }
+            match &f.filter {
+                FilterPart::Empty => {
+                    let mut filter = filters[0].clone();
+                    filter.filter = FilterPart::Empty;
+                    output.push(filter);
+                    return;
+                }
+                FilterPart::Simple(s) => target_patterns.push(s.clone()),
+                FilterPart::AnyOf(s) => target_patterns.extend_from_slice(s),
             }
         }
 
-        let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
-        filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
-        let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
-        filter
-            .mask
-            .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
-
-        if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Box::new(
-                filters
-                    .iter()
-                    .flat_map(|f| f.raw_line.clone())
-                    .join(" <+> "),
-            ))
+        if let Some(regex_filter) = make_filter(
+            &filters[0],
+            regex_patterns,
+            regex_raw_line,
+            true,
+            is_complete_regex,
+        ) {
+            output.push(regex_filter)
         }
-
-        filter
+        if let Some(non_regex_filter) = make_filter(
+            &filters[0],
+            non_regex_patterns,
+            non_regex_raw_line,
+            false,
+            false,
+        ) {
+            output.push(non_regex_filter)
+        }
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
@@ -136,7 +173,7 @@ impl Optimization for SimplePatternGroup {
 struct UnionDomainGroup {}
 
 impl Optimization for UnionDomainGroup {
-    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
+    fn fusion(&self, filters: &[NetworkFilter], output: &mut Vec<NetworkFilter>) {
         let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
         let mut domains = HashSet::new();
@@ -179,7 +216,7 @@ impl Optimization for UnionDomainGroup {
             ))
         }
 
-        filter
+        output.push(filter)
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
@@ -227,8 +264,11 @@ mod optimization_tests_pattern_group {
         let is_match = filter.matches(&Request::from_urls(
           ("https://example.com/".to_string() + url_path).as_str(),
           "https://google.com",
-          ""
-        ).unwrap(), regex_manager);
+                "",
+            )
+            .unwrap(),
+            regex_manager,
+        );
         assert!(
             is_match == matches,
             "Expected {} match {} = {}",
@@ -285,8 +325,9 @@ mod optimization_tests_pattern_group {
             .iter()
             .for_each(|f| assert!(optimization.select(f), "Expected rule to be selected"));
 
-        let fused = optimization.fusion(&filters);
-
+        let mut fused_list = Vec::<NetworkFilter>::new();
+        optimization.fusion(&filters, &mut fused_list);
+        let fused = &fused_list[0];
         assert!(fused.is_regex() == false, "Expected rule to not be a regex");
         assert_eq!(
             fused.to_string(),
