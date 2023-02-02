@@ -1,5 +1,5 @@
-use addr::parser::DomainName;
-use addr::psl::List;
+#[cfg(feature = "embedded-domain-resolver")]
+use addr::{parser::DomainName, psl::List};
 use criterion::*;
 use tokio::runtime::Runtime;
 
@@ -157,28 +157,36 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
             let domain = &rule_hostname[..rule_hostname.find('/').unwrap()];
             let hostname = domain;
 
+            #[allow(unused)]
             let raw_line = rule.raw_line.clone().unwrap();
             let (source_hostname, source_domain) = if rule.opt_domains.is_some() {
-                let domain_start = raw_line.rfind("domain=").unwrap() + "domain=".len();
-                let from_start = &raw_line[domain_start..];
-                let domain_end = from_start
-                    .find('|')
-                    .or_else(|| from_start.find(","))
-                    .or_else(|| Some(from_start.len()))
-                    .unwrap()
-                    + domain_start;
-                let source_hostname = &raw_line[domain_start..domain_end];
+                #[cfg(not(feature = "embedded-domain-resolver"))]
+                {
+                    panic!("this test requires the `embedded-domain-resolver` feature");
+                }
+                #[cfg(feature = "embedded-domain-resolver")]
+                {
+                    let domain_start = raw_line.rfind("domain=").unwrap() + "domain=".len();
+                    let from_start = &raw_line[domain_start..];
+                    let domain_end = from_start
+                        .find('|')
+                        .or_else(|| from_start.find(","))
+                        .or_else(|| Some(from_start.len()))
+                        .unwrap()
+                        + domain_start;
+                    let source_hostname = &raw_line[domain_start..domain_end];
 
-                let domain = List.parse_domain_name(source_hostname).unwrap();
-                let suffix = domain.suffix();
-                let domain_start =
-                    source_hostname[..source_hostname.len() - suffix.len() - 1].rfind('.');
-                let source_domain = if let Some(domain_start) = domain_start {
-                    &source_hostname[domain_start + 1..]
-                } else {
-                    source_hostname
-                };
-                (source_hostname, source_domain)
+                    let domain = List.parse_domain_name(source_hostname).unwrap();
+                    let suffix = domain.suffix();
+                    let domain_start =
+                        source_hostname[..source_hostname.len() - suffix.len() - 1].rfind('.');
+                    let source_domain = if let Some(domain_start) = domain_start {
+                        &source_hostname[domain_start + 1..]
+                    } else {
+                        source_hostname
+                    };
+                    (source_hostname, source_domain)
+                }
             } else {
                 (hostname, domain)
             };
