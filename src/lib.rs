@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![forbid(unsafe_code)]
 
 // Own modules, currently everything is exposed, will need to limit
 pub mod blocker;
