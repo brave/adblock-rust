@@ -6,6 +6,7 @@ use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 
 use itertools::{Either, Itertools};
+use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -411,7 +412,7 @@ pub fn parse_filter(
                 return Err(FilterParseError::Unsupported);
             }
             // Discard contents after first `#` character
-            let filter = if let Some(hash_loc) = filter.find('#') {
+            let filter = if let Some(hash_loc) = find_char(b'#', filter.as_bytes()) {
                 let filter = &filter[..hash_loc];
                 let filter = filter.trim();
 
@@ -512,13 +513,13 @@ fn detect_filter_type(filter: &str) -> FilterType {
     }
 
     // Check if filter is cosmetics
-    if let Some(sharp_index) = filter.find('#') {
+    if let Some(sharp_index) = find_char(b'#', filter.as_bytes()) {
         let after_sharp_index = sharp_index + 1;
 
         // Check the next few bytes for a second `#`
         // Indexing is safe here because it uses the filter's byte
         // representation and guards against short strings
-        if filter.as_bytes()[after_sharp_index..(after_sharp_index+4).min(filter.len())].contains(&b'#') {
+        if find_char(b'#', &filter.as_bytes()[after_sharp_index..(after_sharp_index+4).min(filter.len())]).is_some() {
             return FilterType::Cosmetic;
         }
     }

@@ -4,6 +4,7 @@ use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::lists::ParsedFilter;
 
+use memchr::{memchr as find_char, memmem};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -377,9 +378,10 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
 
                 // Unwraps are okay here - any rules with opt_domains or opt_not_domains must have
                 // an options section delimited by a '$' character, followed by a `domain=` option.
-                let opts = &raw_line[raw_line.find('$').unwrap() + "$".len()..];
-                let domains_start = &opts[opts.find("domain=").unwrap() + "domain=".len()..];
-                let domains = if let Some(comma) = domains_start.find(',') {
+                let opts = &raw_line[find_char(b'$', raw_line.as_bytes()).unwrap() + "$".len()..];
+                let domains_start =
+                    &opts[memmem::find(opts.as_bytes(), b"domain=").unwrap() + "domain=".len()..];
+                let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
                     &domains_start[..comma]
                 } else {
                     domains_start
@@ -538,7 +540,7 @@ impl TryFrom<CosmeticFilter> for CbRule {
             let mut any_entities = false;
 
             // Unwrap is okay here - cosmetic rules must have a '#' character
-            let sharp_index = raw_line.find('#').unwrap();
+            let sharp_index = find_char(b'#', raw_line.as_bytes()).unwrap();
             CosmeticFilter::locations_before_sharp(&raw_line, sharp_index).for_each(
                 |(location_type, location)| match location_type {
                     CosmeticFilterLocationType::Entity => any_entities = true,

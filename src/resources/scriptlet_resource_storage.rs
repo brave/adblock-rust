@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use memchr::memchr as find_char;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -132,7 +133,7 @@ pub fn parse_scriptlet_args(args: &str) -> Vec<Cow<str>> {
     let mut args_vec = vec![];
     let mut find_start = 0;
     let mut after_last_delim = 0;
-    while let Some(comma_loc) = args[find_start..].find(',') {
+    while let Some(comma_loc) = find_char(b',', args[find_start..].as_bytes()) {
         let comma_loc = find_start + comma_loc;
         if &args[comma_loc - 1..comma_loc] == "\\" {
             find_start = comma_loc + 1;

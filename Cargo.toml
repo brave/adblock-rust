@@ -35,7 +35,7 @@ idna = "0.2"
 serde =  { version = "1.0", features = ["derive", "rc"] }
 flate2 = { version = "1.0", features = ["rust_backend"], default-features = false }
 seahash = "3"   # seahash 4 introduces a breaking hash algorithm change
-twoway = "0.2"
+memchr = "2.4"
 base64 = "0.13"
 rmp-serde-legacy = { package = "rmp-serde", version = "0.13.7" }    # rmp-serde 0.14.0 breaks deserialization by changing how enums are deserialized
 rmp-serde = "0.15"
