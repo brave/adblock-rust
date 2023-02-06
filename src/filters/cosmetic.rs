@@ -173,30 +173,37 @@ impl CosmeticFilter {
     /// This should only be called if the rule part after the separator has been confirmed not to
     /// be a script injection rule using `+js()`.
     #[inline]
-    fn parse_after_sharp_nonscript<'a>(
-        line: &'a str,
-        suffix_start_index: usize,
-        selector: &mut &'a str,
-        style: &mut Option<String>,
-    ) -> Result<(), CosmeticFilterError> {
-        let mut index_after_colon = suffix_start_index;
-        while let Some(colon_index) = line[index_after_colon..].find(':') {
+    fn parse_after_sharp_nonscript(
+        after_sharp: &str,
+    ) -> Result<(String, Option<String>), CosmeticFilterError> {
+        let style;
+        let selector;
+
+        // get the style, if it exists
+        if let Some(i) = after_sharp.find(":style(") {
+            if after_sharp.ends_with(')') {
+                // indexing safe because of find and ends_with
+                style = Some(after_sharp[i + 7..after_sharp.len() - 1].to_string());
+                selector = &after_sharp[..i];
+            } else {
+                return Err(CosmeticFilterError::InvalidStyleSpecifier);
+            }
+        } else {
+            style = None;
+            selector = after_sharp;
+        }
+
+        let mut index_after_colon = 0;
+
+        // go through every colon.
+        //   if it's something else, make sure it's not an unsupported pseudoselector.
+        while let Some(colon_index) = selector[index_after_colon..].find(':') {
             let colon_index = colon_index + index_after_colon;
             index_after_colon = colon_index + 1;
-            let content_after_colon = &line[index_after_colon..];
+            // indexing safe because of find
+            let content_after_colon = &selector[index_after_colon..];
             if content_after_colon.starts_with("style") {
-                if content_after_colon.chars().nth(5) == Some('(')
-                    && content_after_colon
-                        .chars()
-                        .nth(content_after_colon.len() - 1)
-                        == Some(')')
-                {
-                    *selector = &line[suffix_start_index..colon_index];
-                    *style =
-                        Some(content_after_colon[6..content_after_colon.len() - 1].to_string());
-                } else {
-                    return Err(CosmeticFilterError::InvalidStyleSpecifier);
-                }
+                return Err(CosmeticFilterError::InvalidStyleSpecifier);
             } else if content_after_colon.starts_with("-abp-")
                 || content_after_colon.starts_with("contains(")
                 || content_after_colon.starts_with("has-text(")
@@ -215,7 +222,7 @@ impl CosmeticFilter {
                 return Err(CosmeticFilterError::UnsupportedSyntax);
             }
         }
-        Ok(())
+        Ok((String::from(selector), style))
     }
 
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
@@ -255,13 +262,13 @@ impl CosmeticFilter {
                 CosmeticFilterLocations::default()
             };
 
-            let mut selector = &line[suffix_start_index..];
+            let after_sharp = &line[suffix_start_index..].trim();
 
-            if selector.trim().is_empty() {
+            if after_sharp.is_empty() {
                 return Err(CosmeticFilterError::EmptyRule);
             }
-            let mut style = None;
-            if line.len() - suffix_start_index > 4
+
+            let (selector, style) = if line.len() - suffix_start_index > 4
                 && line[suffix_start_index..].starts_with("+js(")
                 && line.ends_with(')')
             {
@@ -269,17 +276,16 @@ impl CosmeticFilter {
                     return Err(CosmeticFilterError::GenericScriptInject);
                 }
                 mask |= CosmeticFilterMask::SCRIPT_INJECT;
-                selector = &line[suffix_start_index + 4..line.len() - 1];
+                (
+                    String::from(&line[suffix_start_index + 4..line.len() - 1]),
+                    None,
+                )
             } else {
-                CosmeticFilter::parse_after_sharp_nonscript(
-                    line,
-                    suffix_start_index,
-                    &mut selector,
-                    &mut style,
-                )?;
-            }
+                CosmeticFilter::parse_after_sharp_nonscript(&after_sharp)?
+            };
 
-            if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) && !is_valid_css_selector(selector)
+            if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT)
+                && !is_valid_css_selector(&selector)
             {
                 return Err(CosmeticFilterError::InvalidCssSelector);
             } else if let Some(ref style) = style {
@@ -302,14 +308,14 @@ impl CosmeticFilter {
 
             let key = if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
                 if selector.starts_with('.') {
-                    let key = key_from_selector(selector)?;
+                    let key = key_from_selector(&selector)?;
                     mask |= CosmeticFilterMask::IS_CLASS_SELECTOR;
                     if key == selector {
                         mask |= CosmeticFilterMask::IS_SIMPLE;
                     }
                     Some(String::from(&key[1..]))
                 } else if selector.starts_with('#') {
-                    let key = key_from_selector(selector)?;
+                    let key = key_from_selector(&selector)?;
                     mask |= CosmeticFilterMask::IS_ID_SELECTOR;
                     if key == selector {
                         mask |= CosmeticFilterMask::IS_SIMPLE;
