@@ -22,6 +22,7 @@ pub enum CosmeticFilterError {
     GenericStyle,
     DoubleNegation,
     EmptyRule,
+    HtmlFilteringUnsupported,
 }
 
 bitflags::bitflags! {
@@ -176,6 +177,10 @@ impl CosmeticFilter {
     fn parse_after_sharp_nonscript(
         after_sharp: &str,
     ) -> Result<(String, Option<String>), CosmeticFilterError> {
+        if after_sharp.starts_with('^') {
+            return Err(CosmeticFilterError::HtmlFilteringUnsupported);
+        }
+
         let style;
         let selector;
 
