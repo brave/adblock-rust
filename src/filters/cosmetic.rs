@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::Hash;
 
-use css_validation::{is_valid_css_selector, is_valid_css_style};
+use css_validation::{is_valid_css_style, validate_css_selector};
 
 #[derive(Debug, PartialEq)]
 pub enum CosmeticFilterError {
@@ -169,14 +169,14 @@ impl CosmeticFilter {
 
     /// Parses the contents of a cosmetic filter rule following the `##` or `#@#` separator.
     ///
-    /// On success, updates the contents of `selector` and `style` according to the rule.
+    /// On success, returns `selector` and `style` according to the rule.
     ///
     /// This should only be called if the rule part after the separator has been confirmed not to
     /// be a script injection rule using `+js()`.
     #[inline]
     fn parse_after_sharp_nonscript(
         after_sharp: &str,
-    ) -> Result<(String, Option<String>), CosmeticFilterError> {
+    ) -> Result<(&str, Option<&str>), CosmeticFilterError> {
         if after_sharp.starts_with('^') {
             return Err(CosmeticFilterError::HtmlFilteringUnsupported);
         }
@@ -188,7 +188,7 @@ impl CosmeticFilter {
         if let Some(i) = after_sharp.find(":style(") {
             if after_sharp.ends_with(')') {
                 // indexing safe because of find and ends_with
-                style = Some(after_sharp[i + 7..after_sharp.len() - 1].to_string());
+                style = Some(&after_sharp[i + 7..after_sharp.len() - 1]);
                 selector = &after_sharp[..i];
             } else {
                 return Err(CosmeticFilterError::InvalidStyleSpecifier);
@@ -209,25 +209,9 @@ impl CosmeticFilter {
             let content_after_colon = &selector[index_after_colon..];
             if content_after_colon.starts_with("style") {
                 return Err(CosmeticFilterError::InvalidStyleSpecifier);
-            } else if content_after_colon.starts_with("-abp-")
-                || content_after_colon.starts_with("contains(")
-                || content_after_colon.starts_with("has-text(")
-                || content_after_colon.starts_with("if(")
-                || content_after_colon.starts_with("if-not(")
-                || content_after_colon.starts_with("matches-css(")
-                || content_after_colon.starts_with("matches-css-after(")
-                || content_after_colon.starts_with("matches-css-before(")
-                || content_after_colon.starts_with("nth-ancestor(")
-                || content_after_colon.starts_with("properties(")
-                || content_after_colon.starts_with("remove(")
-                || content_after_colon.starts_with("subject(")
-                || content_after_colon.starts_with("upward(")
-                || content_after_colon.starts_with("xpath(")
-            {
-                return Err(CosmeticFilterError::UnsupportedSyntax);
             }
         }
-        Ok((String::from(selector), style))
+        Ok((selector, style))
     }
 
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
@@ -236,25 +220,40 @@ impl CosmeticFilter {
         let mut mask = CosmeticFilterMask::NONE;
         if let Some(sharp_index) = line.find('#') {
             let after_sharp_index = sharp_index + 1;
-            let mut suffix_start_index = after_sharp_index + 1;
 
-            if line[after_sharp_index..].starts_with('@') {
+            let second_sharp_index = match line[after_sharp_index..].find('#') {
+                Some(i) => i + after_sharp_index,
+                None => return Err(CosmeticFilterError::UnsupportedSyntax),
+            };
+
+            let mut translate_abp_syntax = false;
+
+            // Consume filter options embedded in the `##` marker:
+            let mut between_sharps = &line[after_sharp_index..second_sharp_index];
+            if between_sharps.starts_with('@') {
+                // Exception marker will always come first.
                 if sharp_index == 0 {
                     return Err(CosmeticFilterError::GenericUnhide);
                 }
                 mask |= CosmeticFilterMask::UNHIDE;
-                suffix_start_index += 1;
+                between_sharps = &between_sharps[1..];
+            }
+            if between_sharps.starts_with('$') {
+                // AdGuard `:style` syntax - not supported for now
+                // `#$?#` for CSS rules, `#@$?#` — for exceptions
+                return Err(CosmeticFilterError::UnsupportedSyntax);
+            }
+            if between_sharps.starts_with('?') {
+                // ABP/ADG extended CSS syntax:
+                // - #?# — for element hiding, #@?# — for exceptions
+                translate_abp_syntax = true;
+                between_sharps = &between_sharps[1..];
+            }
+            if !between_sharps.is_empty() {
+                return Err(CosmeticFilterError::UnsupportedSyntax);
             }
 
-            // 1 - sharp_index
-            // 2 - after_sharp_index
-            // 3 - suffix_start_index
-            //
-            // hostnames##selector
-            //          123
-            //
-            // hostnames#@#selector
-            //          12 3
+            let suffix_start_index = second_sharp_index + 1;
 
             let CosmeticFilterLocations {
                 entities,
@@ -286,20 +285,21 @@ impl CosmeticFilter {
                     None,
                 )
             } else {
-                CosmeticFilter::parse_after_sharp_nonscript(&after_sharp)?
-            };
-
-            if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT)
-                && !is_valid_css_selector(&selector)
-            {
-                return Err(CosmeticFilterError::InvalidCssSelector);
-            } else if let Some(ref style) = style {
-                if !is_valid_css_style(style) {
-                    return Err(CosmeticFilterError::InvalidCssStyle);
-                } else if sharp_index == 0 {
-                    return Err(CosmeticFilterError::GenericStyle);
+                let (selector, style) = CosmeticFilter::parse_after_sharp_nonscript(after_sharp)?;
+                let validated_selector = match validate_css_selector(selector, translate_abp_syntax)
+                {
+                    Some(s) => s,
+                    None => return Err(CosmeticFilterError::InvalidCssSelector),
+                };
+                if let Some(style) = &style {
+                    if !is_valid_css_style(style) {
+                        return Err(CosmeticFilterError::InvalidCssStyle);
+                    } else if sharp_index == 0 {
+                        return Err(CosmeticFilterError::GenericStyle);
+                    }
                 }
-            }
+                (validated_selector, style)
+            };
 
             if (not_entities.is_some() || not_hostnames.is_some())
                 && mask.contains(CosmeticFilterMask::UNHIDE)
@@ -344,9 +344,9 @@ impl CosmeticFilter {
                 } else {
                     None
                 },
-                selector: String::from(selector),
+                selector,
                 key,
-                style,
+                style: style.map(String::from),
             })
         } else {
             Err(CosmeticFilterError::MissingSharp)
@@ -456,8 +456,8 @@ pub fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash
 
 #[cfg(not(feature = "css-validation"))]
 mod css_validation {
-    pub fn is_valid_css_selector(_selector: &str) -> bool {
-        true
+    pub fn validate_css_selector(selector: &str, _accept_abp_selectors: bool) -> Option<String> {
+        Some(selector.to_string())
     }
 
     pub fn is_valid_css_style(_style: &str) -> bool {
@@ -469,24 +469,25 @@ mod css_validation {
 mod css_validation {
     //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
     use core::fmt::{Result as FmtResult, Write};
-    use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation};
+    use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation, ToCss, Token};
+    use selectors::parser::SelectorParseErrorKind;
 
-    /// Checks whether the given string represents a valid CSS selector.
+    /// Returns a validated canonical CSS selector for the given input, or nothing if one can't be
+    /// determined.
     ///
     /// For the majority of filters, this works by trivial regex matching. More complex filters are
     /// assembled into a mock stylesheet which is then parsed using `cssparser` and validated.
     ///
-    /// This function does not attempt to validate specific types of pseudoclasses, since the list
-    /// of valid ones is large and constantly evolving. However, it should still catch any kind of
-    /// comment escaping that would allow injection of `url()` styles.
-    pub fn is_valid_css_selector(selector: &str) -> bool {
+    /// In addition to normalizing formatting, this function will remove unsupported procedural
+    /// selectors and convert others to canonical representations (i.e. `:-abp-has` -> `:has`).
+    pub fn validate_css_selector(selector: &str, accept_abp_selectors: bool) -> Option<String> {
         use once_cell::sync::Lazy;
         use regex::Regex;
         static RE_SIMPLE_SELECTOR: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[#.]?[A-Za-z_][\w-]*$").unwrap());
 
         if RE_SIMPLE_SELECTOR.is_match(selector) {
-            return true;
+            return Some(selector.to_string());
         }
 
         // Use `mock-stylesheet-marker` where uBO uses `color: red` since we have control over the
@@ -494,46 +495,55 @@ mod css_validation {
         let mock_stylesheet = format!("{}{{mock-stylesheet-marker}}", selector);
         let mut pi = ParserInput::new(&mock_stylesheet);
         let mut parser = Parser::new(&mut pi);
-        let mut rule_list_parser =
-            cssparser::RuleListParser::new_for_stylesheet(&mut parser, QualifiedRuleParserImpl);
+        let mut rule_list_parser = cssparser::RuleListParser::new_for_stylesheet(
+            &mut parser,
+            QualifiedRuleParserImpl {
+                accept_abp_selectors,
+            },
+        );
 
-        if let Some(first_rule) = rule_list_parser.next() {
-            match first_rule {
-                Ok(()) => (),
-                Err(_) => return false,
-            }
-        } else {
-            return false;
+        let prelude = rule_list_parser
+            .next()
+            .and_then(|r| r.ok())
+            .map(|prelude| prelude.to_css_string());
+
+        if rule_list_parser.next().is_some() {
+            return None;
         }
 
-        let is_last_rule = rule_list_parser.next().is_none();
-
-        is_last_rule
+        prelude
     }
 
-    struct QualifiedRuleParserImpl;
+    struct QualifiedRuleParserImpl {
+        accept_abp_selectors: bool,
+    }
 
     impl<'i> cssparser::QualifiedRuleParser<'i> for QualifiedRuleParserImpl {
-        type Prelude = ();
-        type QualifiedRule = ();
+        type Prelude = selectors::SelectorList<SelectorImpl>;
+        type QualifiedRule = selectors::SelectorList<SelectorImpl>;
         type Error = ();
 
         fn parse_prelude<'t>(
             &mut self,
             input: &mut Parser<'i, 't>,
         ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-            selectors::SelectorList::parse(&SelectorParseImpl, input)
-                .map(|_| ())
-                .map_err(|_| ParseError {
-                    kind: cssparser::ParseErrorKind::Custom(()),
-                    location: SourceLocation { line: 0, column: 0 },
-                })
+            selectors::SelectorList::parse(
+                &SelectorParseImpl {
+                    accept_abp_selectors: self.accept_abp_selectors,
+                },
+                input,
+            )
+            .map_err(|_| ParseError {
+                kind: cssparser::ParseErrorKind::Custom(()),
+                location: SourceLocation { line: 0, column: 0 },
+            })
         }
 
-        /// Check that the block is exactly equal to "mock-stylesheet-marker"
+        /// Check that the block is exactly equal to "mock-stylesheet-marker", and return just the
+        /// selector list as the prelude
         fn parse_block<'t>(
             &mut self,
-            _prelude: Self::Prelude,
+            prelude: Self::Prelude,
             _start: &cssparser::ParserState,
             input: &mut Parser<'i, 't>,
         ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
@@ -542,13 +552,13 @@ mod css_validation {
                 location: SourceLocation { line: 0, column: 0 },
             });
             match input.next() {
-                Ok(cssparser::Token::Ident(i)) if i.as_ref() == "mock-stylesheet-marker" => (),
+                Ok(Token::Ident(i)) if i.as_ref() == "mock-stylesheet-marker" => (),
                 _ => return err,
             }
             if input.next().is_ok() {
                 return err;
             }
-            Ok(())
+            Ok(prelude)
         }
     }
 
@@ -557,7 +567,8 @@ mod css_validation {
     impl cssparser::AtRuleParser<'_> for QualifiedRuleParserImpl {
         type PreludeNoBlock = ();
         type PreludeBlock = ();
-        type AtRule = ();
+        /// unused; just to satisfy type checking
+        type AtRule = selectors::SelectorList<SelectorImpl>;
         type Error = ();
     }
 
@@ -574,11 +585,43 @@ mod css_validation {
         true
     }
 
-    struct SelectorParseImpl;
+    struct SelectorParseImpl {
+        accept_abp_selectors: bool,
+    }
+
+    fn nested_matching_close(arg: &Token) -> Option<Token<'static>> {
+        match arg {
+            Token::Function(..) => Some(Token::CloseParenthesis),
+            Token::ParenthesisBlock => Some(Token::CloseParenthesis),
+            Token::CurlyBracketBlock => Some(Token::CloseCurlyBracket),
+            Token::SquareBracketBlock => Some(Token::CloseSquareBracket),
+            _ => None,
+        }
+    }
+
+    /// Just convert the rest of the selector to a string
+    fn to_css_nested<'i>(
+        arguments: &mut Parser<'i, '_>,
+    ) -> Result<String, ParseError<'i, SelectorParseErrorKind<'i>>> {
+        let mut inner = String::new();
+        while let Ok(arg) = arguments.next_including_whitespace() {
+            if arg.to_css(&mut inner).is_err() {
+                return Err(arguments.new_custom_error(SelectorParseErrorKind::InvalidState));
+            };
+            if let Some(closing_token) = nested_matching_close(arg) {
+                let nested = arguments.parse_nested_block(to_css_nested)?;
+                inner.push_str(&nested);
+                closing_token.to_css(&mut inner).map_err(|_| {
+                    arguments.new_custom_error(SelectorParseErrorKind::InvalidState)
+                })?;
+            }
+        }
+        Ok(inner)
+    }
 
     impl<'i> selectors::parser::Parser<'i> for SelectorParseImpl {
         type Impl = SelectorImpl;
-        type Error = selectors::parser::SelectorParseErrorKind<'i>;
+        type Error = SelectorParseErrorKind<'i>;
 
         fn parse_slotted(&self) -> bool {
             true
@@ -595,44 +638,66 @@ mod css_validation {
         fn parse_non_ts_pseudo_class(
             &self,
             _location: SourceLocation,
-            _name: CowRcStr<'i>,
+            name: CowRcStr<'i>,
         ) -> Result<
             <Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass,
             ParseError<'i, Self::Error>,
         > {
-            Ok(NonTSPseudoClass)
+            Ok(NonTSPseudoClass::AnythingElse(name.to_string(), None))
         }
         fn parse_non_ts_functional_pseudo_class<'t>(
             &self,
-            _name: CowRcStr<'i>,
+            name: CowRcStr<'i>,
             arguments: &mut Parser<'i, 't>,
         ) -> Result<
             <Self::Impl as selectors::parser::SelectorImpl>::NonTSPseudoClass,
             ParseError<'i, Self::Error>,
         > {
-            while arguments.next().is_ok() {}
-            Ok(NonTSPseudoClass)
+            let canonical_name = match (self.accept_abp_selectors, name.as_ref()) {
+                (true, "-abp-has") => Some("has"),
+                _ => None,
+            }
+            .unwrap_or(name.as_ref());
+            match canonical_name {
+                "-abp-contains" | "-abp-has" | "-abp-properties" | "has-text" | "if" | "if-not"
+                | "matches-attr" | "matches-css" | "matches-css-after" | "matches-css-before"
+                | "matches-media" | "matches-path" | "min-text-length" | "nth-ancestor"
+                | "properties" | "subject" | "upward" | "remove" | "remove-attr"
+                | "remove-class" | "watch-attr" | "xpath" => {
+                    return Err(arguments.new_custom_error(
+                        SelectorParseErrorKind::UnsupportedPseudoClassOrElement(name),
+                    ))
+                }
+                _ => (),
+            }
+
+            let inner_selector = to_css_nested(arguments)?;
+
+            Ok(NonTSPseudoClass::AnythingElse(
+                canonical_name.to_string(),
+                Some(inner_selector),
+            ))
         }
         fn parse_pseudo_element(
             &self,
             _location: SourceLocation,
-            _name: CowRcStr<'i>,
+            name: CowRcStr<'i>,
         ) -> Result<
             <Self::Impl as selectors::parser::SelectorImpl>::PseudoElement,
             ParseError<'i, Self::Error>,
         > {
-            Ok(PseudoElement)
+            Ok(PseudoElement(name.to_string(), None))
         }
         fn parse_functional_pseudo_element<'t>(
             &self,
-            _name: CowRcStr<'i>,
+            name: CowRcStr<'i>,
             arguments: &mut Parser<'i, 't>,
         ) -> Result<
             <Self::Impl as selectors::parser::SelectorImpl>::PseudoElement,
             ParseError<'i, Self::Error>,
         > {
-            while arguments.next().is_ok() {}
-            Ok(PseudoElement)
+            let inner_selector = to_css_nested(arguments)?;
+            Ok(PseudoElement(name.to_string(), Some(inner_selector)))
         }
     }
 
@@ -645,8 +710,8 @@ mod css_validation {
 
     impl selectors::parser::SelectorImpl for SelectorImpl {
         type ExtraMatchingData = ();
-        type AttrValue = DummyValue;
-        type Identifier = DummyValue;
+        type AttrValue = CssString;
+        type Identifier = CssIdent;
         type LocalName = DummyValue;
         type NamespaceUrl = DummyValue;
         type NamespacePrefix = DummyValue;
@@ -656,26 +721,61 @@ mod css_validation {
         type PseudoElement = PseudoElement;
     }
 
+    /// Serialized using `CssStringWriter`.
+    #[derive(Debug, Clone, PartialEq, Eq, Default)]
+    struct CssString(String);
+
+    impl ToCss for CssString {
+        fn to_css<W: Write>(&self, dest: &mut W) -> core::fmt::Result {
+            cssparser::CssStringWriter::new(dest).write_str(&self.0)
+        }
+    }
+
+    impl<'a> From<&'a str> for CssString {
+        fn from(s: &'a str) -> Self {
+            CssString(s.to_string())
+        }
+    }
+
+    /// Serialized using `serialize_identifier`.
+    #[derive(Debug, Clone, PartialEq, Eq, Default)]
+    struct CssIdent(String);
+
+    impl ToCss for CssIdent {
+        fn to_css<W: Write>(&self, dest: &mut W) -> core::fmt::Result {
+            cssparser::serialize_identifier(&self.0, dest)
+        }
+    }
+
+    impl<'a> From<&'a str> for CssIdent {
+        fn from(s: &'a str) -> Self {
+            CssIdent(s.to_string())
+        }
+    }
+
     /// For performance, individual fields of parsed selectors are discarded. Instead, they are
     /// parsed into a `DummyValue` with no fields.
     #[derive(Debug, Clone, PartialEq, Eq, Default)]
-    struct DummyValue;
+    struct DummyValue(String);
 
-    impl cssparser::ToCss for DummyValue {
-        fn to_css<W>(&self, _dest: &mut W) -> core::fmt::Result {
-            Ok(())
+    impl ToCss for DummyValue {
+        fn to_css<W: Write>(&self, dest: &mut W) -> core::fmt::Result {
+            write!(dest, "{}", self.0)
         }
     }
 
     impl<'a> From<&'a str> for DummyValue {
-        fn from(_: &'a str) -> Self {
-            DummyValue
+        fn from(s: &'a str) -> Self {
+            DummyValue(s.to_string())
         }
     }
 
     /// Dummy struct for non-tree-structural pseudo-classes.
     #[derive(Clone, PartialEq, Eq)]
-    struct NonTSPseudoClass;
+    enum NonTSPseudoClass {
+        /// Any native CSS pseudoclass that isn't a procedural operator. Second argument contains inner arguments, if present.
+        AnythingElse(String, Option<String>),
+    }
 
     impl selectors::parser::NonTSPseudoClass for NonTSPseudoClass {
         type Impl = SelectorImpl;
@@ -687,15 +787,20 @@ mod css_validation {
         }
     }
 
-    impl cssparser::ToCss for NonTSPseudoClass {
-        fn to_css<W: Write>(&self, _: &mut W) -> FmtResult {
+    impl ToCss for NonTSPseudoClass {
+        fn to_css<W: Write>(&self, dest: &mut W) -> FmtResult {
+            write!(dest, ":")?;
+            match self {
+                Self::AnythingElse(name, None) => write!(dest, "{}", name)?,
+                Self::AnythingElse(name, Some(args)) => write!(dest, "{}({})", name, args)?,
+            }
             Ok(())
         }
     }
 
     /// Dummy struct for pseudo-elements.
     #[derive(Clone, PartialEq, Eq)]
-    struct PseudoElement;
+    struct PseudoElement(String, Option<String>);
 
     impl selectors::parser::PseudoElement for PseudoElement {
         type Impl = SelectorImpl;
@@ -705,26 +810,31 @@ mod css_validation {
         }
     }
 
-    impl cssparser::ToCss for PseudoElement {
-        fn to_css<W: Write>(&self, _dest: &mut W) -> FmtResult {
+    impl ToCss for PseudoElement {
+        fn to_css<W: Write>(&self, dest: &mut W) -> FmtResult {
+            write!(dest, "::")?;
+            match self {
+                Self(name, None) => write!(dest, "{}", name)?,
+                Self(name, Some(args)) => write!(dest, "{}({})", name, args)?,
+            }
             Ok(())
         }
     }
 
     #[test]
     fn bad_selector_inputs() {
-        assert!(!is_valid_css_selector(r#"rm -rf ./*"#));
-        assert!(is_valid_css_selector(r#"javascript:alert("All pseudo-classes are valid")"#));
-        assert!(!is_valid_css_selector(r#"javascript:alert("But opening comments are still forbidden" /*)"#));
-        assert!(!is_valid_css_selector(r#"This is not a CSS selector."#));
-        assert!(!is_valid_css_selector(r#"./malware.sh"#));
-        assert!(!is_valid_css_selector(r#"https://safesite.ru"#));
-        assert!(!is_valid_css_selector(r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#));
-        assert!(!is_valid_css_selector(r#"#!/usr/bin/sh"#));
-        assert!(!is_valid_css_selector(r#"input,input/*"#));
+        assert!(validate_css_selector(r#"rm -rf ./*"#, false).is_none());
+        assert!(validate_css_selector(r#"javascript:alert("All pseudo-classes are valid")"#, false).is_some());
+        assert!(validate_css_selector(r#"javascript:alert("But opening comments are still forbidden" /*)"#, false).is_none());
+        assert!(validate_css_selector(r#"This is not a CSS selector."#, false).is_none());
+        assert!(validate_css_selector(r#"./malware.sh"#, false).is_none());
+        assert!(validate_css_selector(r#"https://safesite.ru"#, false).is_none());
+        assert!(validate_css_selector(r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#, false).is_none());
+        assert!(validate_css_selector(r#"#!/usr/bin/sh"#, false).is_none());
+        assert!(validate_css_selector(r#"input,input/*"#, false).is_none());
         // Accept a closing comment within a string. It should still be impossible to create an
         // opening comment to match it.
-        assert!(is_valid_css_selector(r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#));
+        assert!(validate_css_selector(r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#, false).is_some());
     }
 }
 
@@ -1369,10 +1479,11 @@ mod parse_tests {
                 ..Default::default()
             },
         );
+        #[cfg(feature = "css-validation")]
         check_parse_result(
             r#"quora.com##.signup_wall_prevent_scroll .SiteHeader,.signup_wall_prevent_scroll .LoggedOutFooter,.signup_wall_prevent_scroll .ContentWrapper:style(filter: none !important;)"#,
             CosmeticFilterBreakdown {
-                selector: r#".signup_wall_prevent_scroll .SiteHeader,.signup_wall_prevent_scroll .LoggedOutFooter,.signup_wall_prevent_scroll .ContentWrapper"#.to_string(),
+                selector: r#".signup_wall_prevent_scroll .SiteHeader, .signup_wall_prevent_scroll .LoggedOutFooter, .signup_wall_prevent_scroll .ContentWrapper"#.to_string(),
                 hostnames: sort_hash_domains(vec!["quora.com"]),
                 style: Some("filter: none !important;".into()),
                 is_class_selector: true,
@@ -1442,6 +1553,7 @@ mod parse_tests {
     }
 
     #[test]
+    #[cfg(feature = "css-validation")]
     fn unsupported() {
         assert!(CosmeticFilter::parse("yandex.*##.serp-item:if(:scope > div.organic div.organic__subtitle:matches-css-after(content: /[Рр]еклама/))", false).is_err());
         assert!(CosmeticFilter::parse(r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#, false).is_err());
@@ -1766,5 +1878,27 @@ mod matching_tests {
     fn respects_etld() {
         let rule = CosmeticFilter::parse("github.io##.selector", false).unwrap();
         assert!(rule.matches_str("test.github.io", "github.io"));
+    }
+
+    #[test]
+    fn multiple_selectors() {
+        assert!(CosmeticFilter::parse("youtube.com##.masthead-ad-control,.ad-div,.pyv-afc-ads-container", false).is_ok());
+        assert!(CosmeticFilter::parse("m.economictimes.com###appBanner,#stickyBanner", false).is_ok());
+        assert!(CosmeticFilter::parse("googledrivelinks.com###wpsafe-generate, #wpsafe-link:style(display: block !important;)", false).is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "css-validation")]
+    fn abp_has_conversion() {
+        let rule = CosmeticFilter::parse("imgur.com#?#div.Gallery-Sidebar-PostContainer:-abp-has(div.promoted-hover)", false).unwrap();
+        assert_eq!(rule.selector, "div.Gallery-Sidebar-PostContainer:has(div.promoted-hover)");
+        let rule = CosmeticFilter::parse(r##"webtools.fineaty.com#?#div[class*=" hidden-"]:-abp-has(.adsbygoogle)"##, false).unwrap();
+        assert_eq!(rule.selector, r#"div[class*=" hidden-"]:has(.adsbygoogle)"#);
+        let rule = CosmeticFilter::parse(r##"facebook.com,facebookcorewwwi.onion#?#._6y8t:-abp-has(a[href="/ads/about/?entry_product=ad_preferences"])"##, false).unwrap();
+        assert_eq!(rule.selector, r#"._6y8t:has(a[href="/ads/about/?entry_product=ad_preferences"])"#);
+        let rule = CosmeticFilter::parse(r##"mtgarena.pro#?##root > div > div:-abp-has(> .vm-placement)"##, false).unwrap();
+        assert_eq!(rule.selector, r#"#root > div > div:has(> .vm-placement)"#);
+        // Error without `#?#`:
+        assert!(CosmeticFilter::parse(r##"mtgarena.pro###root > div > div:-abp-has(> .vm-placement)"##, false).is_err());
     }
 }
