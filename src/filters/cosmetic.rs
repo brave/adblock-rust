@@ -189,6 +189,7 @@ impl CosmeticFilter {
                 }
             } else if content_after_colon.starts_with("-abp-")
             || content_after_colon.starts_with("contains")
+            || content_after_colon.starts_with("has-text")
             || content_after_colon.starts_with("if")
             || content_after_colon.starts_with("if-not")
             || content_after_colon.starts_with("matches-css")
