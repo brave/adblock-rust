@@ -279,7 +279,7 @@ impl Blocker {
         let rewritten_url = if important {
             None
         } else {
-            Self::apply_removeparam(&self.removeparam, request, request_tokens)
+            Self::apply_removeparam(&self.removeparam, request, &request_tokens)
         };
 
         // If something has already matched before but we don't know what, still return a match
@@ -295,7 +295,7 @@ impl Blocker {
         }
     }
 
-    fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: lifeguard::Recycled<Vec<u64>>) -> Option<String> {
+    fn apply_removeparam(removeparam_filters: &NetworkFilterList, request: &Request, request_tokens: &[Hash]) -> Option<String> {
         /// Represents an `&`-separated argument from a URL query parameter string
         enum QParam<'a> {
             /// Just a key, e.g. `...&key&...`
