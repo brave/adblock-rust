@@ -510,22 +510,10 @@ fn detect_filter_type(filter: &str) -> FilterType {
     if let Some(sharp_index) = filter.find('#') {
         let after_sharp_index = sharp_index + 1;
 
-        // Ignore Adguard cosmetics
-        // `#$#` `#@$#`
-        // `#%#` `#@%#`
-        // `#?#`
-        if filter[after_sharp_index..].starts_with(/* #@$# */ "@$#")
-            || filter[after_sharp_index..].starts_with(/* #@%# */ "@%#")
-            || filter[after_sharp_index..].starts_with(/* #%# */ "%#")
-            || filter[after_sharp_index..].starts_with(/* #$# */ "$#")
-            || filter[after_sharp_index..].starts_with(/* #?# */ "?#")
-        {
-            return FilterType::NotSupported;
-        } else if filter[after_sharp_index..].starts_with(/* ## */ '#')
-            || filter[after_sharp_index..].starts_with(/* #@# */ "@#")
-        {
-            // Parse supported cosmetic filter
-            // `##` `#@#`
+        // Check the next few bytes for a second `#`
+        // Indexing is safe here because it uses the filter's byte
+        // representation and guards against short strings
+        if filter.as_bytes()[after_sharp_index..(after_sharp_index+4).min(filter.len())].contains(&b'#') {
             return FilterType::Cosmetic;
         }
     }
@@ -764,6 +752,46 @@ r##"[uBlock Origin]
             assert_eq!(metadata.homepage, Some("https://github.com/MasterKia/PersianBlocker".to_string()));
             assert_eq!(metadata.expires, Some(ExpiresInterval::Days(2)));
             assert_eq!(metadata.redirect, None);
+        }
+    }
+
+    #[test]
+    fn parse_cosmetic_variants() {
+        {
+            let input = "example.com##.selector";
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
+        }
+        {
+            let input = "9gag.com#?#article:-abp-has(.promoted)";
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
+        }
+        #[cfg(feature = "css-validation")]
+        {
+            let input = "sportowefakty.wp.pl#@?#body > [class]:not([id]):matches-css(position: fixed):matches-css(top: 0px)";
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::InvalidCssSelector))));
+        }
+        {
+            let input = r#"odkrywamyzakryte.com#%#//scriptlet("abort-on-property-read", "sc_adv_out")"#;
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+        }
+        {
+            let input = "bikeradar.com,spiegel.de#@%#!function(){function b(){}function a(a){return{get:function(){return a},set:b}}function c(a)";
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+        }
+        {
+            let input = "nczas.com#$#.adsbygoogle { position: absolute!important; left: -3000px!important; }";
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+        }
+        {
+            let input = "kurnik.pl#@$#.adsbygoogle { height: 1px !important; width: 1px !important; }";
+            let result = parse_filter(input, true, Default::default());
+            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
         }
     }
 }

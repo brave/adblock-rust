@@ -238,6 +238,11 @@ impl CosmeticFilter {
                 mask |= CosmeticFilterMask::UNHIDE;
                 between_sharps = &between_sharps[1..];
             }
+            if between_sharps.starts_with('%') {
+                // AdGuard script injection syntax - not supported
+                // `#%#` / `#@%#`
+                return Err(CosmeticFilterError::UnsupportedSyntax);
+            }
             if between_sharps.starts_with('$') {
                 // AdGuard `:style` syntax - not supported for now
                 // `#$?#` for CSS rules, `#@$?#` — for exceptions
