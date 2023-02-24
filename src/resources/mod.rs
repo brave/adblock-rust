@@ -185,7 +185,13 @@ impl RedirectResourceStorage {
 
 impl From<std::borrow::Cow<'static, str>> for MimeType {
     fn from(v: std::borrow::Cow<'static, str>) -> Self {
-        match v.as_ref() {
+        v.as_ref().into()
+    }
+}
+
+impl From<&str> for MimeType {
+    fn from(v: &str) -> Self {
+        match v {
             "image/gif" => MimeType::ImageGif,
             "text/html" => MimeType::TextHtml,
             "application/javascript" => MimeType::ApplicationJavascript,
