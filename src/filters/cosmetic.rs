@@ -4,24 +4,37 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::utils::Hash;
 
 use css_validation::{is_valid_css_style, validate_css_selector};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum CosmeticFilterError {
+    #[error("punycode error")]
     PunycodeError,
+    #[error("invalid style specifier")]
     InvalidStyleSpecifier,
+    #[error("unsupported syntax")]
     UnsupportedSyntax,
+    #[error("missing sharp")]
     MissingSharp,
+    #[error("invalid css style")]
     InvalidCssStyle,
+    #[error("invalid css selector")]
     InvalidCssSelector,
+    #[error("generic unhide")]
     GenericUnhide,
+    #[error("generic script inject")]
     GenericScriptInject,
+    #[error("generic style")]
     GenericStyle,
+    #[error("double negation")]
     DoubleNegation,
+    #[error("empty rule")]
     EmptyRule,
+    #[error("html filtering is unsupported")]
     HtmlFilteringUnsupported,
 }
 
