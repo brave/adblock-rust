@@ -7,7 +7,6 @@ license = "MPL-2.0"
 exclude = ["artifacts.json", "index.node"]
 
 [lib]
-name = "adblock_rs"
 crate-type = ["cdylib"]
 
 [dependencies]

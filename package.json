@@ -24,10 +24,14 @@
     "url": "https://github.com/brave/adblock-rust/issues"
   },
   "repository": "https://github.com/brave/adblock-rust.git",
-  "dependencies": {
-    "neon-cli": "0.8.3"
+  "devDependencies": {
+    "cargo-cp-artifact": "^0.1"
   },
   "scripts": {
-    "install": "neon build --release"
+    "build": "cd native && cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
+    "build-debug": "npm run build --",
+    "build-release": "npm run build -- --release",
+    "install": "npm run build-release",
+    "test": "cargo test"
   }
 }
