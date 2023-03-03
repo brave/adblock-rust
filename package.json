@@ -24,7 +24,7 @@
     "url": "https://github.com/brave/adblock-rust/issues"
   },
   "repository": "https://github.com/brave/adblock-rust.git",
-  "devDependencies": {
+  "dependencies": {
     "cargo-cp-artifact": "^0.1"
   },
   "scripts": {
