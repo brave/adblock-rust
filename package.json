@@ -13,7 +13,7 @@
     "blocking",
     "rust"
   ],
-  "main": "native/index.js",
+  "main": "js/index.js",
   "author": "Andrius Aucinas <aaucinas@brave.com>",
   "contributors": [
     "Anton Lazarev <alazarev@brave.com>"
@@ -28,7 +28,7 @@
     "cargo-cp-artifact": "^0.1"
   },
   "scripts": {
-    "build": "cd native && cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
+    "build": "cd js && cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
     "build-debug": "npm run build --",
     "build-release": "npm run build -- --release",
     "install": "npm run build-release",

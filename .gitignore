@@ -3,9 +3,9 @@
 .vscode/
 .DS_Store
 project.code-workspace
-native/target
-native/index.node
-native/artifacts.json
+js/target
+js/index.node
+js/artifacts.json
 **/*~
 **/node_modules
 **/.DS_Store
