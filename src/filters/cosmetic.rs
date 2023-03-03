@@ -475,6 +475,7 @@ mod css_validation {
     //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
     use core::fmt::{Result as FmtResult, Write};
     use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation, ToCss, Token};
+    use parcel_selectors as selectors;
     use selectors::parser::SelectorParseErrorKind;
 
     /// Returns a validated canonical CSS selector for the given input, or nothing if one can't be
@@ -524,8 +525,8 @@ mod css_validation {
     }
 
     impl<'i> cssparser::QualifiedRuleParser<'i> for QualifiedRuleParserImpl {
-        type Prelude = selectors::SelectorList<SelectorImpl>;
-        type QualifiedRule = selectors::SelectorList<SelectorImpl>;
+        type Prelude = selectors::SelectorList<'i, SelectorImpl>;
+        type QualifiedRule = selectors::SelectorList<'i, SelectorImpl>;
         type Error = ();
 
         fn parse_prelude<'t>(
@@ -537,6 +538,7 @@ mod css_validation {
                     accept_abp_selectors: self.accept_abp_selectors,
                 },
                 input,
+                selectors::parser::NestingRequirement::None,
             )
             .map_err(|_| ParseError {
                 kind: cssparser::ParseErrorKind::Custom(()),
@@ -569,11 +571,10 @@ mod css_validation {
 
     /// Default implementations for `AtRuleParser` parsing methods return false. This is
     /// acceptable; at-rules should not be valid in cosmetic rules.
-    impl cssparser::AtRuleParser<'_> for QualifiedRuleParserImpl {
-        type PreludeNoBlock = ();
-        type PreludeBlock = ();
+    impl<'i> cssparser::AtRuleParser<'i> for QualifiedRuleParserImpl {
+        type Prelude = ();
         /// unused; just to satisfy type checking
-        type AtRule = selectors::SelectorList<SelectorImpl>;
+        type AtRule = selectors::SelectorList<'i, SelectorImpl>;
         type Error = ();
     }
 
@@ -713,7 +714,7 @@ mod css_validation {
     #[derive(Debug, Clone)]
     struct SelectorImpl;
 
-    impl selectors::parser::SelectorImpl for SelectorImpl {
+    impl selectors::parser::SelectorImpl<'_> for SelectorImpl {
         type ExtraMatchingData = ();
         type AttrValue = CssString;
         type Identifier = CssIdent;
@@ -724,6 +725,7 @@ mod css_validation {
         type BorrowedLocalName = DummyValue;
         type NonTSPseudoClass = NonTSPseudoClass;
         type PseudoElement = PseudoElement;
+        type VendorPrefix = DummyValue;
     }
 
     /// Serialized using `CssStringWriter`.
@@ -732,12 +734,14 @@ mod css_validation {
 
     impl ToCss for CssString {
         fn to_css<W: Write>(&self, dest: &mut W) -> core::fmt::Result {
-            cssparser::CssStringWriter::new(dest).write_str(&self.0)
+            write!(dest, "\"")?;
+            cssparser::CssStringWriter::new(dest).write_str(&self.0)?;
+            write!(dest, "\"")
         }
     }
 
-    impl<'a> From<&'a str> for CssString {
-        fn from(s: &'a str) -> Self {
+    impl<'a> From<CowRcStr<'a>> for CssString {
+        fn from(s: CowRcStr<'a>) -> Self {
             CssString(s.to_string())
         }
     }
@@ -752,8 +756,8 @@ mod css_validation {
         }
     }
 
-    impl<'a> From<&'a str> for CssIdent {
-        fn from(s: &'a str) -> Self {
+    impl<'a> From<CowRcStr<'a>> for CssIdent {
+        fn from(s: CowRcStr<'a>) -> Self {
             CssIdent(s.to_string())
         }
     }
@@ -769,8 +773,8 @@ mod css_validation {
         }
     }
 
-    impl<'a> From<&'a str> for DummyValue {
-        fn from(s: &'a str) -> Self {
+    impl<'a> From<CowRcStr<'a>> for DummyValue {
+        fn from(s: CowRcStr<'a>) -> Self {
             DummyValue(s.to_string())
         }
     }
@@ -782,7 +786,7 @@ mod css_validation {
         AnythingElse(String, Option<String>),
     }
 
-    impl selectors::parser::NonTSPseudoClass for NonTSPseudoClass {
+    impl selectors::parser::NonTSPseudoClass<'_> for NonTSPseudoClass {
         type Impl = SelectorImpl;
         fn is_active_or_hover(&self) -> bool {
             false
@@ -807,7 +811,7 @@ mod css_validation {
     #[derive(Clone, PartialEq, Eq)]
     struct PseudoElement(String, Option<String>);
 
-    impl selectors::parser::PseudoElement for PseudoElement {
+    impl selectors::parser::PseudoElement<'_> for PseudoElement {
         type Impl = SelectorImpl;
 
         fn valid_after_slotted(&self) -> bool {
