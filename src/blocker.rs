@@ -86,7 +86,7 @@ pub enum BlockerError {
     DeserializationError,
     #[error("optimized filter existence")]
     OptimizedFilterExistence,
-    #[error("bad filter")]
+    #[error("$badfilter cannot be added (unsupported)")]
     BadFilterAddUnsupported,
     #[error("filter already exists")]
     FilterExists,

@@ -20,33 +20,33 @@ static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").
 pub enum NetworkFilterError {
     #[error("failed to parse filter")]
     FilterParseError,
-    #[error("negated bad filter")]
+    #[error("negated badfilter option")]
     NegatedBadFilter,
     #[error("negated important")]
     NegatedImportant,
-    #[error("negated option match case")]
+    #[error("negated match-case")]
     NegatedOptionMatchCase,
-    #[error("negated explicit cancel")]
+    #[error("negated explicitcancel")]
     NegatedExplicitCancel,
     #[error("negated redirection")]
     NegatedRedirection,
     #[error("negated tag")]
     NegatedTag,
-    #[error("negated generic hide")]
+    #[error("negated generichide")]
     NegatedGenericHide,
     #[error("negated document")]
     NegatedDocument,
-    #[error("generic hide without exception")]
+    #[error("generichide without exception")]
     GenericHideWithoutException,
     #[error("empty redirection")]
     EmptyRedirection,
-    #[error("empty remove param")]
+    #[error("empty removeparam")]
     EmptyRemoveparam,
-    #[error("negated remove param")]
+    #[error("negated removeparam")]
     NegatedRemoveparam,
-    #[error("remove param with exception")]
+    #[error("removeparam with exception")]
     RemoveparamWithException,
-    #[error("remove param regex unsupported")]
+    #[error("removeparam regex unsupported")]
     RemoveparamRegexUnsupported,
     #[error("redirection url invalid")]
     RedirectionUrlInvalid,
@@ -64,7 +64,7 @@ pub enum NetworkFilterError {
     PunycodeError,
     #[error("csp with content type")]
     CspWithContentType,
-    #[error("match case without full regex")]
+    #[error("match-case without full regex")]
     MatchCaseWithoutFullRegex,
 }
 
