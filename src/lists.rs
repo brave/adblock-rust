@@ -7,6 +7,7 @@ use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
 
 use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Specifies rule types to keep during parsing.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -353,11 +354,15 @@ impl From<CosmeticFilter> for ParsedFilter {
 }
 
 /// Unsuccessful result of parsing a single filter rule.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum FilterParseError {
-    Network(NetworkFilterError),
-    Cosmetic(CosmeticFilterError),
+    #[error("network filter error: {0}")]
+    Network(#[source] NetworkFilterError),
+    #[error("cosmetic filter error: {0}")]
+    Cosmetic(#[source] CosmeticFilterError),
+    #[error("unsupported")]
     Unsupported,
+    #[error("empty")]
     Empty,
 }
 

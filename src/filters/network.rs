@@ -1,6 +1,7 @@
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
 use once_cell::sync::Lazy;
+use thiserror::Error;
 
 use std::fmt;
 
@@ -15,31 +16,55 @@ pub const TOKENS_BUFFER_SIZE: usize = 200;
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
 static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Error, PartialEq, Clone)]
 pub enum NetworkFilterError {
+    #[error("failed to parse filter")]
     FilterParseError,
+    #[error("negated badfilter option")]
     NegatedBadFilter,
+    #[error("negated important")]
     NegatedImportant,
+    #[error("negated match-case")]
     NegatedOptionMatchCase,
+    #[error("negated explicitcancel")]
     NegatedExplicitCancel,
+    #[error("negated redirection")]
     NegatedRedirection,
+    #[error("negated tag")]
     NegatedTag,
+    #[error("negated generichide")]
     NegatedGenericHide,
+    #[error("negated document")]
     NegatedDocument,
+    #[error("generichide without exception")]
     GenericHideWithoutException,
+    #[error("empty redirection")]
     EmptyRedirection,
+    #[error("empty removeparam")]
     EmptyRemoveparam,
+    #[error("negated removeparam")]
     NegatedRemoveparam,
+    #[error("removeparam with exception")]
     RemoveparamWithException,
+    #[error("removeparam regex unsupported")]
     RemoveparamRegexUnsupported,
+    #[error("redirection url invalid")]
     RedirectionUrlInvalid,
+    #[error("multiple modifier options")]
     MultipleModifierOptions,
+    #[error("unrecognised option")]
     UnrecognisedOption,
+    #[error("no regex")]
     NoRegex,
+    #[error("full regex unsupported")]
     FullRegexUnsupported,
+    #[error("regex parsing error")]
     RegexParsingError(regex::Error),
+    #[error("punycode error")]
     PunycodeError,
+    #[error("csp with content type")]
     CspWithContentType,
+    #[error("match-case without full regex")]
     MatchCaseWithoutFullRegex,
 }
 

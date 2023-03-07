@@ -10,6 +10,7 @@ mod scriptlet_resource_storage;
 pub(crate) use scriptlet_resource_storage::ScriptletResourceStorage;
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use std::collections::HashMap;
 
 /// Struct representing a resource that can be used by an adblocking engine.
@@ -57,9 +58,11 @@ pub enum MimeType {
     Unknown,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum AddResourceError {
+    #[error("invalid base64 content")]
     InvalidBase64Content,
+    #[error("invalid utf-8 content")]
     InvalidUtf8Content,
 }
 
@@ -182,7 +185,13 @@ impl RedirectResourceStorage {
 
 impl From<std::borrow::Cow<'static, str>> for MimeType {
     fn from(v: std::borrow::Cow<'static, str>) -> Self {
-        match v.as_ref() {
+        v.as_ref().into()
+    }
+}
+
+impl From<&str> for MimeType {
+    fn from(v: &str) -> Self {
+        match v {
             "image/gif" => MimeType::ImageGif,
             "text/html" => MimeType::TextHtml,
             "application/javascript" => MimeType::ApplicationJavascript,

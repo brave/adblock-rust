@@ -5,6 +5,7 @@ use std::ops::DerefMut;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
+use thiserror::Error;
 
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
@@ -77,12 +78,17 @@ impl Default for BlockerResult {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum BlockerError {
+    #[error("serialization failed")]
     SerializationError,
+    #[error("deserialization failed")]
     DeserializationError,
+    #[error("optimized filter existence")]
     OptimizedFilterExistence,
+    #[error("$badfilter cannot be added (unsupported)")]
     BadFilterAddUnsupported,
+    #[error("filter already exists")]
     FilterExists,
 }
 
