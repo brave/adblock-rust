@@ -124,7 +124,9 @@ impl Request {
             Some(source_domain != domain)
         };
 
-        let hostname_end = twoway::find_str(url, hostname).unwrap_or(url.len()) + hostname.len();
+        let hostname_end = memchr::memmem::find(url.as_bytes(), hostname.as_bytes())
+            .unwrap_or(url.len())
+            + hostname.len();
 
         Self::from_detailed_parameters(
             raw_type,
@@ -252,7 +254,7 @@ impl Request {
         request_type: &str,
         third_party_request: Option<bool>,
     ) -> Request {
-        let splitter = url.find(':').unwrap_or(0);
+        let splitter = memchr::memchr(b':', url.as_bytes()).unwrap_or(0);
         let schema: &str = &url[..splitter];
 
         let third_party = if third_party_request.is_none() {

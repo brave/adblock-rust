@@ -1,6 +1,7 @@
 //! Tools for blocking at a page-content level, including CSS selector-based filtering and content
 //! script injection.
 
+use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -198,7 +199,7 @@ impl CosmeticFilter {
         let selector;
 
         // get the style, if it exists
-        if let Some(i) = after_sharp.find(":style(") {
+        if let Some(i) = memmem::find(after_sharp.as_bytes(), b":style(") {
             if after_sharp.ends_with(')') {
                 // indexing safe because of find and ends_with
                 style = Some(&after_sharp[i + 7..after_sharp.len() - 1]);
@@ -215,10 +216,10 @@ impl CosmeticFilter {
 
         // go through every colon.
         //   if it's something else, make sure it's not an unsupported pseudoselector.
-        while let Some(colon_index) = selector[index_after_colon..].find(':') {
+        while let Some(colon_index) = find_char(b':', selector[index_after_colon..].as_bytes()) {
             let colon_index = colon_index + index_after_colon;
             index_after_colon = colon_index + 1;
-            // indexing safe because of find
+            // indexing safe because of find_char
             let content_after_colon = &selector[index_after_colon..];
             if content_after_colon.starts_with("style") {
                 return Err(CosmeticFilterError::InvalidStyleSpecifier);
@@ -231,10 +232,10 @@ impl CosmeticFilter {
     /// will be reported in the resulting `CosmeticFilter` struct as well.
     pub fn parse(line: &str, debug: bool) -> Result<CosmeticFilter, CosmeticFilterError> {
         let mut mask = CosmeticFilterMask::NONE;
-        if let Some(sharp_index) = line.find('#') {
+        if let Some(sharp_index) = find_char(b'#', line.as_bytes()) {
             let after_sharp_index = sharp_index + 1;
 
-            let second_sharp_index = match line[after_sharp_index..].find('#') {
+            let second_sharp_index = match find_char(b'#', line[after_sharp_index..].as_bytes()) {
                 Some(i) => i + after_sharp_index,
                 None => return Err(CosmeticFilterError::UnsupportedSyntax),
             };
@@ -413,7 +414,7 @@ fn get_hostname_without_public_suffix<'a>(
     hostname: &'a str,
     domain: &str,
 ) -> Option<(&'a str, &'a str)> {
-    let index_of_dot = domain.find('.');
+    let index_of_dot = find_char(b'.', domain.as_bytes());
 
     if let Some(index_of_dot) = index_of_dot {
         let public_suffix = &domain[index_of_dot + 1..];
@@ -438,7 +439,7 @@ fn get_hashes_from_labels(hostname: &str, end: usize, start_of_domain: usize) ->
     }
     let mut dot_ptr = start_of_domain;
 
-    while let Some(dot_index) = hostname[..dot_ptr].rfind('.') {
+    while let Some(dot_index) = find_char_reverse(b'.', hostname[..dot_ptr].as_bytes()) {
         dot_ptr = dot_index;
         hashes.push(crate::utils::fast_hash(&hostname[dot_ptr + 1..end]));
     }
@@ -870,7 +871,7 @@ fn key_from_selector(selector: &str) -> Result<String, CosmeticFilterError> {
     let mat = RE_PLAIN_SELECTOR.find(selector);
     if let Some(location) = mat {
         let key = &location.as_str();
-        if key.find('\\').is_none() {
+        if find_char(b'\\', key.as_bytes()).is_none() {
             return Ok((*key).into());
         }
     } else {

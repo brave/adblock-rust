@@ -1,6 +1,7 @@
+use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
+use once_cell::sync::Lazy;
 use regex::{Regex, RegexSet};
 use serde::{Deserialize, Serialize};
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use std::fmt;
@@ -318,7 +319,7 @@ impl AbstractNetworkFilter {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = twoway::rfind_str(line, "$");
+        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
 
         let mut options = None;
         if let Some(options_index) = maybe_options_index {
@@ -718,7 +719,7 @@ impl NetworkFilter {
                 }
             } else {
                 // Look for next /
-                let slash_index = twoway::find_str(pattern, "/");
+                let slash_index = find_char(b'/', pattern.as_bytes());
                 slash_index
                     .map(|i| {
                         hostname = Some(String::from(
@@ -883,7 +884,7 @@ impl NetworkFilter {
         }
 
         // This shouldn't be used to block an entire TLD, and the hostname shouldn't end with a dot
-        if hostname.find('.').is_none() || (hostname.starts_with('.') && hostname[1..].find('.').is_none()) || hostname.ends_with('.') {
+        if find_char(b'.', hostname.as_bytes()).is_none() || (hostname.starts_with('.') && find_char(b'.', hostname[1..].as_bytes()).is_none()) || hostname.ends_with('.') {
             return Err(NetworkFilterError::FilterParseError);
         }
 
@@ -1237,8 +1238,8 @@ pub fn compile_regex(
 /// indices (same for Regex...).
 fn check_is_regex(filter: &str) -> bool {
     // TODO - we could use sticky regex here
-    let start_index = filter.find('*');
-    let separator_index = filter.find('^');
+    let start_index = find_char(b'*', filter.as_bytes());
+    let separator_index = find_char(b'^', filter.as_bytes());
     start_index.is_some() || separator_index.is_some()
 }
 
@@ -1260,7 +1261,7 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
     } else if filter_hostname_len == hostname_len {
         // If they have the same len(), they should be equal
         filter_hostname == hostname
-    } else if let Some(match_index) = twoway::find_str(hostname, filter_hostname) { // Check if `filter_hostname` appears anywhere in `hostname`
+    } else if let Some(match_index) = memmem::find(hostname.as_bytes(), filter_hostname.as_bytes()) {
         if match_index == 0 {
             // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
             //
@@ -1288,7 +1289,8 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
 }
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
-    let start = twoway::find_str(url, hostname).unwrap_or(url.len() - hostname.len());
+    let start =
+        memmem::find(url.as_bytes(), hostname.as_bytes()).unwrap_or(url.len() - hostname.len());
     &url[start + hostname.len()..]
 }
 
@@ -1301,10 +1303,10 @@ fn check_pattern_plain_filter_filter(filter: &NetworkFilter, request: &request::
     let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => twoway::find_str(&request_url, f).is_some(),
+        FilterPart::Simple(f) => memmem::find(request_url.as_bytes(), f.as_bytes()).is_some(),
         FilterPart::AnyOf(filters) => {
             for f in filters {
-                if twoway::find_str(&request_url, f).is_some() {
+                if memmem::find(request_url.as_bytes(), f.as_bytes()).is_some() {
                     return true;
                 }
             }
@@ -1401,7 +1403,8 @@ fn check_pattern_hostname_anchor_regex_filter(
                 check_pattern_regex_filter_at(
                     filter,
                     request,
-                    request_url.find(hostname).unwrap_or_default() + hostname.len(),
+                    memmem::find(request_url.as_bytes(), hostname.as_bytes()).unwrap_or_default()
+                        + hostname.len(),
                     regex_manager,
                 )
             } else {

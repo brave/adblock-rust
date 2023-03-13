@@ -1,5 +1,6 @@
 //! Holds `Blocker`, which handles all network-based adblocking queries.
 
+use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
 use std::ops::DerefMut;
 use serde::{Deserialize, Serialize};
@@ -315,7 +316,7 @@ impl Blocker {
                     if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
                         if !exceptions.contains(&redirect) {
                             // parse redirect + priority
-                            let (resource, priority) = if let Some(idx) = redirect.rfind(':') {
+                            let (resource, priority) = if let Some(idx) = find_char_reverse(b':', redirect.as_bytes()) {
                                 let priority_str = &redirect[idx + 1..];
                                 let resource = &redirect[..idx];
                                 if let Ok(priority) = priority_str.parse::<i32>() {
@@ -405,11 +406,15 @@ impl Blocker {
 
         let url = &request.original_url;
         // Only check for removeparam if there's a query string in the request URL
-        if let Some(i) = url.find('?') {
-            // String indexing safety: indices come from `.len()` or `.find(..)` on individual
-            // ASCII characters (1 byte each), some plus 1.
+        if let Some(i) = find_char(b'?', url.as_bytes()) {
+            // String indexing safety: indices come from `.len()` or `find_char` on individual ASCII
+            // characters (1 byte each), some plus 1.
             let params_start = i + 1;
-            let hash_index = if let Some(j) = url[params_start..].find('#') { params_start + j } else { url.len() };
+            let hash_index = if let Some(j) = find_char(b'#', url[params_start..].as_bytes()) {
+                params_start + j
+            } else {
+                url.len()
+            };
             let qparams = &url[params_start..hash_index];
             let mut params: Vec<(QParam, bool)> = qparams
                 .split('&')

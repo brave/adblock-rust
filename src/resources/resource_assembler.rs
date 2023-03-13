@@ -2,6 +2,7 @@
 //! in the uBlock Origin repository.
 
 use crate::resources::{MimeType, Resource, ResourceType};
+use memchr::memmem;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fs::File;
@@ -83,7 +84,7 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
         .take_while(|line| !MAP_END_RE.is_match(line))
         // Strip any trailing comments from each line.
         .map(|line| {
-            if let Some(i) = line.find("//") {
+            if let Some(i) = memmem::find(line.as_bytes(), b"//") {
                 &line[..i]
             } else {
                 line

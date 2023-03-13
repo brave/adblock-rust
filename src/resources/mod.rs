@@ -9,6 +9,7 @@ pub mod resource_assembler;
 mod scriptlet_resource_storage;
 pub(crate) use scriptlet_resource_storage::ScriptletResourceStorage;
 
+use memchr::memrchr as find_char_reverse;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use std::collections::HashMap;
@@ -93,7 +94,7 @@ pub struct RedirectResourceStorage {
 impl MimeType {
     /// Infers a resource's MIME type according to the extension of its path
     pub fn from_extension(resource_path: &str) -> Self {
-        if let Some(extension_index) = resource_path.rfind('.') {
+        if let Some(extension_index) = find_char_reverse(b'.', resource_path.as_bytes()) {
             match &resource_path[extension_index + 1..] {
                 "gif" => MimeType::ImageGif,
                 "html" => MimeType::TextHtml,
