@@ -1,14 +1,10 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 
-use memchr::memchr as find_char;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::resources::{AddResourceError, MimeType, Resource, ResourceType};
-
-static ESCAPE_SCRIPTLET_ARG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[\\'"]"#).unwrap());
 
 static TEMPLATE_ARGUMENT_RE: [Lazy<Regex>; 9] = [
     Lazy::new(|| template_argument_regex(1)),
@@ -39,11 +35,11 @@ pub struct ScriptletResource {
 
 impl ScriptletResource {
     /// Omit the 0th element of `args` (the scriptlet name) when calling this method.
-    fn patch(&self, args: &[Cow<str>]) -> String {
+    fn patch(&self, args: &[impl AsRef<str>]) -> String {
         let mut scriptlet = self.scriptlet.to_owned();
         args.iter().enumerate().for_each(|(i, arg)| {
             scriptlet = TEMPLATE_ARGUMENT_RE[i]
-                .replace(&scriptlet, arg as &str)
+                .replace(&scriptlet, arg.as_ref())
                 .to_string();
         });
         scriptlet
@@ -129,24 +125,45 @@ fn without_js_extension(scriptlet_name: &str) -> &str {
 ///
 /// A literal comma is produced by the '\,' pattern. Otherwise, all '\', '"', and ''' characters
 /// are erased in the resulting arguments.
-pub fn parse_scriptlet_args(args: &str) -> Vec<Cow<str>> {
+pub fn parse_scriptlet_args(args: &str) -> Vec<String> {
+    static ESCAPE_SCRIPTLET_ARG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"[\\'"]"#).unwrap());
+
+    // Guarantee that the last character is not a backslash
+    let args = args.trim_end_matches('\\');
+
     let mut args_vec = vec![];
-    let mut find_start = 0;
-    let mut after_last_delim = 0;
-    while let Some(comma_loc) = find_char(b',', args[find_start..].as_bytes()) {
-        let comma_loc = find_start + comma_loc;
-        if &args[comma_loc - 1..comma_loc] == "\\" {
-            find_start = comma_loc + 1;
-            continue;
-        }
-        args_vec.push(
-            ESCAPE_SCRIPTLET_ARG_RE.replace_all(args[after_last_delim..comma_loc].trim(), ""),
-        );
-        after_last_delim = comma_loc + 1;
-        find_start = comma_loc + 1;
+    if args.trim().len() == 0 {
+        return args_vec;
     }
-    if after_last_delim != args.len() {
-        args_vec.push(ESCAPE_SCRIPTLET_ARG_RE.replace_all(args[after_last_delim..].trim(), ""));
+
+    let mut after_last_delim = 0;
+
+    let comma_positions = memchr::memchr_iter(b',', args.as_bytes());
+    let mut continuation = None;
+    for comma_pos in comma_positions.chain(std::iter::once(args.len())) {
+        let mut part = &args[after_last_delim..comma_pos];
+        let mut is_continuation = false;
+
+        if part.len() > 0 && part.as_bytes()[part.len() - 1] == b'\\' {
+            part = &part[0..part.len() - 1];
+            is_continuation = true;
+        }
+
+        let mut target = if let Some(s) = continuation.take() {
+            String::from(s)
+        } else {
+            String::new()
+        };
+
+        target += part;
+        if is_continuation {
+            target += ",";
+            continuation = Some(target);
+        } else {
+            args_vec.push(ESCAPE_SCRIPTLET_ARG_RE.replace_all(&target, "\\$0").trim().to_string());
+        }
+
+        after_last_delim = comma_pos + 1;
     }
 
     args_vec
@@ -171,7 +188,7 @@ mod tests {
     #[test]
     fn parse_argslist_empty() {
         let args = parse_scriptlet_args("");
-        assert_eq!(args, Vec::<Cow<str>>::new());
+        assert!(args.is_empty());
     }
 
     #[test]
@@ -188,13 +205,14 @@ mod tests {
         assert_eq!(
             args,
             vec![
-                "scriptlet",
-                "; window.location.href = bad.com;",
-                "; alert(youre, hacked);",
-                "url(bad.com)"
+                r#"scriptlet"#,
+                r#"\"; window.location.href = bad.com;"#,
+                r#"\'; alert(\"you\'re, hacked\");"#,
+                r#"\\u\\r\\l(bad.com)"#
             ]
         );
     }
+
 
     #[test]
     fn get_patched_scriptlets() {
@@ -236,6 +254,10 @@ mod tests {
         assert_eq!(
             scriptlets.get_scriptlet("alert, Uh oh\\, check the logs..."),
             Ok("alert('Uh oh, check the logs...')".into())
+        );
+        assert_eq!(
+            scriptlets.get_scriptlet(r#"alert, this has "quotes""#),
+            Ok(r#"alert('this has \"quotes\"')"#.into())
         );
         assert_eq!(
             scriptlets.get_scriptlet("blocktimer, 3000"),
