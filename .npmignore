@@ -1,7 +1,7 @@
 data/
 target/
-native/target/
-native/index.node
+js/target/
+js/index.node
 .git/
 .github/
 .DS_Store

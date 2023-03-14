@@ -17,7 +17,7 @@ exclude = [
     "benches/",
     "data/",
     "examples/",
-    "native/",
+    "js/",
     "package-lock.json",
     "package.json",
     "tests/",
