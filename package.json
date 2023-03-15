@@ -1,6 +1,6 @@
 {
   "name": "adblock-rs",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "description": "Very fast, Rust-based, native implementation of ad-blocker engine for Node",
   "keywords": [
     "adblock",
