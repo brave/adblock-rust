@@ -255,9 +255,6 @@ fn read_resource_from_web_accessible_dir(
 /// - `redirect_resources_path`: A file in the format of uBlock Origin's `redirect-resources.js`
 /// containing an index of the resources in `web_accessible_resource_dir`
 ///
-/// - `scriptlets_path`: A file in the format of uBlock Origin's `scriptlets.js` containing
-/// templatable scriptlet files for use in cosmetic filtering
-///
 /// The resulting resources can be serialized into JSON using `serde_json`.
 pub fn assemble_web_accessible_resources(
     web_accessible_resource_dir: &Path,
@@ -274,6 +271,18 @@ pub fn assemble_web_accessible_resources(
         .collect()
 }
 
+/// Parses the _old_ format of uBlock Origin templated scriptlet resources, prior to
+/// https://github.com/gorhill/uBlock/commit/18a84d2819d49444fc31c5350677ecc5b2ec73c6.
+///
+/// The newer format is intended to be imported as an ES module, making line-based parsing even
+/// more complex and error-prone. Instead, it's recommended to transform them into [Resource]s
+/// using JS code. A short prelude containing an array of `[{{1}}, {{2}}, {{3}}, ...]` can be used
+/// to backport the newer scriptlet format into the older one; the new one will be directly
+/// supported in a future update.
+///
+/// - `scriptlets_path`: A file in the format of uBlock Origin's `scriptlets.js` containing
+/// templatable scriptlet files for use in cosmetic filtering
+#[deprecated]
 pub fn assemble_scriptlet_resources(scriptlets_path: &Path) -> Vec<Resource> {
     let scriptlets_data = std::fs::read_to_string(scriptlets_path).expect("read scriptlets path");
     read_template_resources(&scriptlets_data)

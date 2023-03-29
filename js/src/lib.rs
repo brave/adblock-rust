@@ -6,7 +6,7 @@ use std::path::Path;
 use adblock::engine::Engine as EngineInternal;
 use adblock::lists::{RuleTypes, FilterFormat, FilterListMetadata, FilterSet as FilterSetInternal, ParseOptions};
 use adblock::resources::Resource;
-use adblock::resources::resource_assembler::{assemble_web_accessible_resources, assemble_scriptlet_resources};
+use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
@@ -331,10 +331,17 @@ fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     let web_accessible_resource_dir: String = cx.argument::<JsString>(0)?.value(&mut cx);
     let redirect_resources_path: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let scriptlets_path: String = cx.argument::<JsString>(2)?.value(&mut cx);
+    // `scriptlets_path` is optional, since adblock-rust parsing that file is now deprecated.
+    let scriptlets_path = match cx.argument_opt(2) {
+        Some(arg) => Some(arg.downcast::<JsString, _>(&mut cx).or_throw(&mut cx)?.value(&mut cx)),
+        None => None,
+    };
 
     let mut resources = assemble_web_accessible_resources(&Path::new(&web_accessible_resource_dir), &Path::new(&redirect_resources_path));
-    resources.append(&mut assemble_scriptlet_resources(&Path::new(&scriptlets_path)));
+    if let Some(scriptlets_path) = scriptlets_path {
+        #[allow(deprecated)]
+        resources.append(&mut adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(&scriptlets_path)));
+    }
 
     let js_resources = match neon_serde::to_value(&mut cx, &resources) {
         Ok(v) => v,
