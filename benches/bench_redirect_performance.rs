@@ -7,9 +7,7 @@ use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
 use adblock::request::Request;
 #[cfg(feature = "resource-assembler")]
-use adblock::resources::resource_assembler::{
-    assemble_scriptlet_resources, assemble_web_accessible_resources,
-};
+use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
 const DEFAULT_LISTS_URL: &str =
     "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
@@ -107,9 +105,12 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-resources.js"),
         );
-        resources.append(&mut assemble_scriptlet_resources(Path::new(
-            "data/test/fake-uBO-files/scriptlets.js",
-        )));
+        #[allow(deprecated)]
+        resources.append(
+            &mut adblock::resources::resource_assembler::assemble_scriptlet_resources(Path::new(
+                "data/test/fake-uBO-files/scriptlets.js",
+            )),
+        );
 
         blocker.use_resources(&resources);
 
