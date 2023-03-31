@@ -399,6 +399,7 @@ mod tests {
     #[test]
     fn test_scriptlet_resource_assembly2() {
         let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets2.js");
+        #[allow(deprecated)]
         let resources = assemble_scriptlet_resources(scriptlets_path);
 
         let expected_resource_names = vec![
@@ -499,6 +500,7 @@ mod tests {
     #[test]
     fn test_scriptlet_resource_assembly() {
         let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets.js");
+        #[allow(deprecated)]
         let resources = assemble_scriptlet_resources(scriptlets_path);
 
         let expected_resource_names = vec![
