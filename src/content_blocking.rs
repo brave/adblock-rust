@@ -43,6 +43,18 @@ pub struct CbRule {
     pub trigger: CbTrigger,
 }
 
+impl CbRule {
+    /// If this returns false, the rule will not compile and should not be used.
+    fn is_ascii(&self) -> bool {
+        self.action.selector.iter().all(|s| s.is_ascii()) &&
+            self.trigger.url_filter.is_ascii() &&
+            self.trigger.if_domain.iter().flatten().all(|d| d.is_ascii()) &&
+            self.trigger.unless_domain.iter().flatten().all(|d| d.is_ascii()) &&
+            self.trigger.if_top_url.iter().flatten().all(|d| d.is_ascii()) &&
+            self.trigger.unless_top_url.iter().flatten().all(|d| d.is_ascii())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct CbAction {
     #[serde(rename = "type")]
@@ -179,6 +191,8 @@ pub enum CbRuleCreationFailure {
     /// Cosmetic rules with scriptlet injections (i.e. `+js(...)`) cannot be represented in content
     /// blocking syntax.
     ScriptletInjectionsNotSupported,
+    /// Valid content blocking rules can only include ASCII characters.
+    RuleContainsNonASCII,
 }
 
 impl TryFrom<ParsedFilter> for CbRuleEquivalent {
@@ -482,6 +496,9 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                     ..Default::default()
                 },
             };
+            if !single_rule.is_ascii() {
+                return Err(CbRuleCreationFailure::RuleContainsNonASCII);
+            }
 
             if let Some(resource_types) = &single_rule.trigger.resource_type {
                 if resource_types.len() > 1
@@ -571,7 +588,7 @@ impl TryFrom<CosmeticFilter> for CbRule {
                 (not_hostnames_vec, hostnames_vec)
             };
 
-            Ok(Self {
+            let rule = Self {
                 action: CbAction {
                     typ: CbType::CssDisplayNone,
                     selector: Some(v.selector),
@@ -582,7 +599,13 @@ impl TryFrom<CosmeticFilter> for CbRule {
                     unless_domain,
                     ..Default::default()
                 },
-            })
+            };
+
+            if !rule.is_ascii() {
+                return Err(CbRuleCreationFailure::RuleContainsNonASCII);
+            }
+
+            Ok(rule)
         } else {
             Err(CbRuleCreationFailure::NeedsDebugMode)
         }
@@ -1295,6 +1318,25 @@ mod filterset_tests {
 
         // 3 cosmetic rules only
         assert_eq!(cb_rules.len(), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn ignore_unsupported_rules() -> Result<(), ()> {
+        let mut set = FilterSet::new(true);
+        set.add_filters(&*FILTER_LIST, Default::default());
+        set.add_filters(&[
+            // unicode characters
+            "||rgmechanics.info/uploads/660х90_".to_string(),
+            "||insaattrendy.com/Upload/bükerbanner*.jpg".to_string(),
+        ], Default::default());
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+        assert_eq!(used_rules, &*FILTER_LIST);
+
+        // All 6 rules plus `ignore_previous_fp_documents()`
+        assert_eq!(cb_rules.len(), 7);
 
         Ok(())
     }
