@@ -40,15 +40,21 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-/// Describes an online source of adblock rules.
+/// Describes an entry from Brave's catalog of adblock lists.
 /// https://github.com/brave/adblock-resources#filter-list-description-format
+#[derive(serde::Deserialize, Debug)]
+pub struct RemoteFilterCatalogEntry {
+    pub title: String,
+    pub sources: Vec<RemoteFilterSource>,
+}
+
+/// Describes an online source of adblock rules. Corresponds to a single entry of `sources` as
+/// defined [here](https://github.com/brave/adblock-resources#filter-list-description-format).
 #[derive(serde::Deserialize, Debug)]
 pub struct RemoteFilterSource {
     pub url: String,
-    pub title: String,
+    pub title: Option<String>,
     pub format: adblock::lists::FilterFormat,
-    #[serde(default)] // should default to false if the field is missing
-    pub include_redirect_urls: bool,
     pub support_url: String,
 }
 
@@ -65,7 +71,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
                 "Downloading list of filter lists from '{}'",
                 DEFAULT_LISTS_URL
             );
-            let default_lists: Vec<RemoteFilterSource> = async {
+            let default_catalog: Vec<RemoteFilterCatalogEntry> = async {
                 let body = reqwest::get(DEFAULT_LISTS_URL)
                     .await
                     .unwrap()
@@ -75,6 +81,10 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
                 serde_json::from_str(&body).unwrap()
             }
             .await;
+
+            assert!(default_catalog.len() == 1);
+            let default_lists = &default_catalog[0].sources;
+
             println!(
                 "List of filter lists has {} filter lists total",
                 default_lists.len()
