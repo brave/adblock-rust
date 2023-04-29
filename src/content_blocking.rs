@@ -270,7 +270,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
 
     fn try_from(v: NetworkFilter) -> Result<Self, Self::Error> {
         static SPECIAL_CHARS: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]])"##).unwrap());
+            Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]\\])"##).unwrap());
         static REPLACE_WILDCARDS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\*"##).unwrap());
         static TRAILING_SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\^$"##).unwrap());
         if let Some(raw_line) = &v.raw_line {
@@ -1254,6 +1254,21 @@ mod ab2cb_tests {
         }]"####
             )
             .expect("content blocking rule under test could not be deserialized")
+        );
+    }
+
+    #[test]
+    fn escape_literal_backslashes() {
+        test_from_abp(
+            r#"||gamer.no/?module=Tumedia\DFProxy\Modules^"#,
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?gamer\\.no/\\?module=tumedia\\\\dfproxy\\\\modules"
+            }
+        }]"####,
         );
     }
 }
