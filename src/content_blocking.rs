@@ -563,10 +563,14 @@ impl TryFrom<CosmeticFilter> for CbRule {
                     CosmeticFilterLocationType::Entity => any_entities = true,
                     CosmeticFilterLocationType::NotEntity => any_entities = true,
                     CosmeticFilterLocationType::Hostname => {
-                        hostnames_vec.push(location.to_string())
+                        if let Ok(encoded) = idna::domain_to_ascii(location) {
+                            hostnames_vec.push(encoded);
+                        }
                     }
                     CosmeticFilterLocationType::NotHostname => {
-                        not_hostnames_vec.push(location.to_string())
+                        if let Ok(encoded) = idna::domain_to_ascii(location) {
+                            not_hostnames_vec.push(encoded);
+                        }
                     }
                 },
             );
@@ -1337,6 +1341,23 @@ mod filterset_tests {
 
         // All 6 rules plus `ignore_previous_fp_documents()`
         assert_eq!(cb_rules.len(), 7);
+
+        Ok(())
+    }
+
+    #[test]
+    fn punycode_if_domains() -> Result<(), ()> {
+        let list = [
+            "smskaraborg.se,örnsköldsviksgymnasium.se,mojligheternashusab.se##.env-modal-dialog__backdrop".to_string(),
+        ];
+        let mut set = FilterSet::new(true);
+        set.add_filters(&list, Default::default());
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+        assert_eq!(used_rules, list);
+
+        assert_eq!(cb_rules.len(), 1);
+        assert_eq!(cb_rules[0].trigger.if_domain, Some(vec!["smskaraborg.se".to_string(), "xn--rnskldsviksgymnasium-29be.se".to_string(), "mojligheternashusab.se".to_string()]));
 
         Ok(())
     }
