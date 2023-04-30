@@ -175,6 +175,56 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
     }
 }
 
+fn engine_hidden_class_id_selectors(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let this = cx.argument::<JsBox<Engine>>(0)?;
+
+    let classes_arg = cx.argument::<JsValue>(1)?;
+    let classes: Vec<String> = match neon_serde::from_value(&mut cx, classes_arg) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+
+    let ids_arg = cx.argument::<JsValue>(2)?;
+    let ids: Vec<String> = match neon_serde::from_value(&mut cx, ids_arg) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+
+    let exceptions_arg = cx.argument::<JsValue>(3)?;
+    let exceptions: std::collections::HashSet<String> = match neon_serde::from_value(&mut cx, exceptions_arg) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+
+    let result = if let Ok(engine) = this.0.lock() {
+        engine.hidden_class_id_selectors(&classes, &ids, &exceptions)
+    } else {
+        cx.throw_error("Failed to acquire lock on engine")?
+    };
+    let js_value = match neon_serde::to_value(&mut cx, &result) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+    Ok(js_value)
+}
+
+fn engine_url_cosmetic_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let this = cx.argument::<JsBox<Engine>>(0)?;
+
+    let url: String = cx.argument::<JsString>(1)?.value(&mut cx);
+
+    let result = if let Ok(engine) = this.0.lock() {
+        engine.url_cosmetic_resources(&url)
+    } else {
+        cx.throw_error("Failed to acquire lock on engine")?
+    };
+    let js_value = match neon_serde::to_value(&mut cx, &result) {
+        Ok(v) => v,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+    Ok(js_value)
+}
+
 fn engine_serialize_raw(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
     let serialized = if let Ok(engine) = this.0.lock() {
@@ -401,6 +451,8 @@ register_module!(mut m, {
 
     m.export_function("Engine_constructor", engine_constructor)?;
     m.export_function("Engine_check", engine_check)?;
+    m.export_function("Engine_urlCosmeticResources", engine_url_cosmetic_resources)?;
+    m.export_function("Engine_hiddenClassIdSelectors", engine_hidden_class_id_selectors)?;
     m.export_function("Engine_serializeRaw", engine_serialize_raw)?;
     m.export_function("Engine_serializeCompressed", engine_serialize_compressed)?;
     m.export_function("Engine_deserialize", engine_deserialize)?;
