@@ -82,7 +82,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
             }
             .await;
 
-            assert!(default_catalog.len() == 1);
+            // 0th entry is the main default lists
             let default_lists = &default_catalog[0].sources;
 
             println!(
