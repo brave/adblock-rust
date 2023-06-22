@@ -600,7 +600,9 @@ impl Blocker {
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
             importants: NetworkFilterList::new(importants, options.enable_optimizations),
             redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
-            removeparam: NetworkFilterList::new(removeparam, options.enable_optimizations),
+            // Don't optimize removeparam, since it can fuse filters without respecting distinct
+            // queryparam values
+            removeparam: NetworkFilterList::new(removeparam, false),
             filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
             filters: NetworkFilterList::new(filters, options.enable_optimizations),
             generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
@@ -626,7 +628,7 @@ impl Blocker {
         self.exceptions.optimize();
         self.importants.optimize();
         self.redirects.optimize();
-        self.removeparam.optimize();
+        // note - don't optimize removeparam
         self.filters_tagged.optimize();
         self.filters.optimize();
         self.generic_hide.optimize();
@@ -1923,6 +1925,26 @@ mod blocker_tests {
             assert_eq!(expected, result.rewritten_url, "Filtering parameters on {} failed", original);
         }
     }
+
+#[test]
+fn test_removeparam_same_tokens() {
+    let filters = vec![
+        String::from("$removeparam=example1_"),
+        String::from("$removeparam=example1-"),
+    ];
+
+    let (network_filters, _) = parse_filters(&filters, true, Default::default());
+
+    let blocker_options = BlockerOptions {
+        enable_optimizations: true,
+    };
+
+    let blocker = Blocker::new(network_filters, &blocker_options);
+
+    let result = blocker.check(&Request::from_urls("https://example.com?example1_=1&example1-=2", "https://example.com", "script").unwrap());
+    assert_eq!(result.rewritten_url, Some("https://example.com".into()));
+    assert!(!result.matched);
+}
 
     #[test]
     fn test_redirect_priority() {
