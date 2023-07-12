@@ -66,6 +66,9 @@ static MAP_END_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^\s*\]\s*\)"#).unwra
 static TRAILING_COMMA_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#",([\],\}])"#).unwrap());
 static UNQUOTED_FIELD_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"([\{,])([a-zA-Z][a-zA-Z0-9_]*):"#).unwrap());
+// Avoid matching a starting `/*` inside a string
+static TRAILING_BLOCK_COMMENT_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"\s*/\*[^'"]*\*/\s*$"#).unwrap());
 
 /// Reads data from a a file in the format of uBlock Origin's `redirect-resources.js` file to
 /// determine the files in the `web_accessible_resources` directory, as well as any of their
@@ -90,8 +93,11 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
                 line
             }
         })
+        .map(|line| {
+            TRAILING_BLOCK_COMMENT_RE.replace_all(line, "")
+        })
         // Remove all newlines from the entire string.
-        .fold(String::new(), |s, line| s + line);
+        .fold(String::new(), |s, line| s + &line);
 
     // Add back the final square brace that was omitted above as part of MAP_END_RE.
     map.push(']');

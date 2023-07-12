@@ -1,16 +1,21 @@
 /*******************************************************************************
+
     uBlock Origin - a browser extension to block requests.
     Copyright (C) 2015-present Raymond Hill
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
+
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
+
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see {http://www.gnu.org/licenses/}.
+
     Home: https://github.com/gorhill/uBlock
 */
 
@@ -93,13 +98,20 @@ export default new Map([
         alias: 'google-analytics.com/inpage_linkid.js',
     } ],
     [ 'google-ima.js', {
+        alias: 'google-ima3',                       /* adguard compatibility */
     } ],
     [ 'googlesyndication_adsbygoogle.js', {
-        alias: 'googlesyndication.com/adsbygoogle.js',
+        alias: [
+            'googlesyndication.com/adsbygoogle.js',
+            'googlesyndication-adsbygoogle',        /* adguard compatibility */
+        ],
         data: 'text',
     } ],
     [ 'googletagservices_gpt.js', {
-        alias: 'googletagservices.com/gpt.js',
+        alias: [
+            'googletagservices.com/gpt.js',
+            'googletagservices-gpt',                /* adguard compatibility */
+        ],
         data: 'text',
     } ],
     [ 'hd-main.js', {
@@ -112,18 +124,18 @@ export default new Map([
     [ 'monkeybroker.js', {
         alias: 'd3pkae9owd2lcf.cloudfront.net/mb105.js',
     } ],
-    [ 'noeval.js', {
-        data: 'text',
-    } ],
-    [ 'noeval-silent.js', {
-        alias: 'silent-noeval.js',
-        data: 'text',
-    } ],
     [ 'nobab.js', {
         alias: 'bab-defuser.js',
         data: 'text',
     } ],
     [ 'nobab2.js', {
+        data: 'text',
+    } ],
+    [ 'noeval.js', {
+        data: 'text',
+    } ],
+    [ 'noeval-silent.js', {
+        alias: 'silent-noeval.js',
         data: 'text',
     } ],
     [ 'nofab.js', {
@@ -139,6 +151,9 @@ export default new Map([
     [ 'noop-1s.mp4', {
         alias: 'noopmp4-1s',
         data: 'blob',
+    } ],
+    [ 'noop.css', {
+        data: 'text',
     } ],
     [ 'noop.html', {
         alias: 'noopframe',
@@ -172,7 +187,6 @@ export default new Map([
         alias: 'scorecardresearch.com/beacon.js',
     } ],
     [ 'window.open-defuser.js', {
-        alias: 'nowoif.js',
         data: 'text',
     } ],
 ]);
