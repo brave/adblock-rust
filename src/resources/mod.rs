@@ -48,6 +48,7 @@ pub enum ResourceType {
 #[serde(into = "String")]
 #[serde(from = "std::borrow::Cow<'static, str>")]
 pub enum MimeType {
+    TextCss,
     ImageGif,
     TextHtml,
     ApplicationJavascript,
@@ -96,6 +97,7 @@ impl MimeType {
     pub fn from_extension(resource_path: &str) -> Self {
         if let Some(extension_index) = find_char_reverse(b'.', resource_path.as_bytes()) {
             match &resource_path[extension_index + 1..] {
+                "css" => MimeType::TextCss,
                 "gif" => MimeType::ImageGif,
                 "html" => MimeType::TextHtml,
                 "js" => MimeType::ApplicationJavascript,
@@ -193,6 +195,7 @@ impl From<std::borrow::Cow<'static, str>> for MimeType {
 impl From<&str> for MimeType {
     fn from(v: &str) -> Self {
         match v {
+            "text/css" => MimeType::TextCss,
             "image/gif" => MimeType::ImageGif,
             "text/html" => MimeType::TextHtml,
             "application/javascript" => MimeType::ApplicationJavascript,
@@ -209,6 +212,7 @@ impl From<&str> for MimeType {
 impl From<MimeType> for String {
     fn from(v: MimeType) -> Self {
         match v {
+            MimeType::TextCss => "text/css",
             MimeType::ImageGif => "image/gif",
             MimeType::TextHtml => "text/html",
             MimeType::ApplicationJavascript => "application/javascript",

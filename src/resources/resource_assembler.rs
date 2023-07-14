@@ -379,13 +379,13 @@ mod tests {
         assert_eq!(reserialized[0].aliases, vec!["1x1-transparent.gif"]);
         assert_eq!(reserialized[0].kind, ResourceType::Mime(MimeType::ImageGif));
 
-        assert_eq!(reserialized[33].name, "noop.js");
+        assert_eq!(reserialized[34].name, "noop.js");
         assert_eq!(
-            reserialized[33].aliases,
+            reserialized[34].aliases,
             vec!["noopjs", "abp-resource:blank-js"]
         );
         assert_eq!(
-            reserialized[33].kind,
+            reserialized[34].kind,
             ResourceType::Mime(MimeType::ApplicationJavascript)
         );
         let noopjs_contents = std::fs::read_to_string(Path::new(
@@ -395,7 +395,7 @@ mod tests {
         .replace('\r', "");
         assert_eq!(
             std::str::from_utf8(
-                &base64::decode(&reserialized[33].content).expect("decode base64 content")
+                &base64::decode(&reserialized[34].content).expect("decode base64 content")
             )
             .expect("convert to utf8 string"),
             noopjs_contents,
