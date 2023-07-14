@@ -132,30 +132,32 @@ impl TryFrom<&str> for ExpiresInterval {
     fn try_from(v: &str) -> Result<Self, ()> {
         const DAYS_MAX: u8 = 14;
         const HOURS_MAX: u16 = DAYS_MAX as u16 * 24;
+
+        // Extract time amount and unit from str
+        let mut v_split = v.split(' ');
+        let amount = v_split.next().ok_or(())?;
+        let unit = v_split.next().ok_or(())?;
         // str::parse::<u16> accepts a leading plus sign, but we explicitly forbid it here
-        if v.starts_with('+') {
-            Err(())
-        // Special case for singular hour or day values
-        } else if v == "1 hour" {
-            Ok(Self::Hours(1))
-        } else if v == "1 day" {
-            Ok(Self::Days(1))
-        // Otherwise accept in the range [2, MAX] for values with a matching suffix
-        } else if let Some(numstr) = v.strip_suffix(" hours") {
-            let num = numstr.parse::<u16>().map_err(|_| ())?;
-            if !(2..=HOURS_MAX).contains(&num) {
-                return Err(());
-            }
-            Ok(Self::Hours(num))
-        } else if let Some(numstr) = v.strip_suffix(" days") {
-            let num = numstr.parse::<u8>().map_err(|_| ())?;
-            if !(2..=DAYS_MAX).contains(&num) {
-                return Err(());
-            }
-            Ok(Self::Days(num))
-        } else {
-            Err(())
+        if amount.starts_with('+') {
+            return Err(());
         }
+        // Only accept values in the range [1, MAX] for values with a matching unit
+        match unit {
+            "hour" | "hours" => {
+                let amount = amount.parse::<u16>().map_err(|_| ())?;
+                if (1..=HOURS_MAX).contains(&amount) {
+                    return Ok(Self::Hours(amount));
+                }
+            },
+            "day" | "days" => {
+                let amount = amount.parse::<u8>().map_err(|_| ())?;
+                if (1..=DAYS_MAX).contains(&amount) {
+                    return Ok(Self::Days(amount))
+                }
+            }
+            _ => ()
+        }
+        Err(())
     }
 }
 
@@ -645,9 +647,9 @@ mod tests {
         assert_eq!(ExpiresInterval::try_from("0 hour"), Err(()));
         assert_eq!(ExpiresInterval::try_from("0 hours"), Err(()));
         assert_eq!(ExpiresInterval::try_from("1 hour"), Ok(ExpiresInterval::Hours(1)));
-        assert_eq!(ExpiresInterval::try_from("1 hours"), Err(()));
+        assert_eq!(ExpiresInterval::try_from("1 hours"), Ok(ExpiresInterval::Hours(1)));
         assert_eq!(ExpiresInterval::try_from("2 hours"), Ok(ExpiresInterval::Hours(2)));
-        assert_eq!(ExpiresInterval::try_from("2 hour"), Err(()));
+        assert_eq!(ExpiresInterval::try_from("2 hour"), Ok(ExpiresInterval::Hours(2)));
         assert_eq!(ExpiresInterval::try_from("3.5 hours"), Err(()));
         assert_eq!(ExpiresInterval::try_from("336 hours"), Ok(ExpiresInterval::Hours(336)));
         assert_eq!(ExpiresInterval::try_from("337 hours"), Err(()));
@@ -655,15 +657,18 @@ mod tests {
         assert_eq!(ExpiresInterval::try_from("0 day"), Err(()));
         assert_eq!(ExpiresInterval::try_from("0 days"), Err(()));
         assert_eq!(ExpiresInterval::try_from("1 day"), Ok(ExpiresInterval::Days(1)));
-        assert_eq!(ExpiresInterval::try_from("1 days"), Err(()));
+        assert_eq!(ExpiresInterval::try_from("1 days"), Ok(ExpiresInterval::Days(1)));
         assert_eq!(ExpiresInterval::try_from("2 days"), Ok(ExpiresInterval::Days(2)));
-        assert_eq!(ExpiresInterval::try_from("2 day"), Err(()));
+        assert_eq!(ExpiresInterval::try_from("2 day"), Ok(ExpiresInterval::Days(2)));
         assert_eq!(ExpiresInterval::try_from("3.5 days"), Err(()));
         assert_eq!(ExpiresInterval::try_from("14 days"), Ok(ExpiresInterval::Days(14)));
         assert_eq!(ExpiresInterval::try_from("15 days"), Err(()));
 
         assert_eq!(ExpiresInterval::try_from("-5 hours"), Err(()));
         assert_eq!(ExpiresInterval::try_from("+5 hours"), Err(()));
+
+        assert_eq!(ExpiresInterval::try_from("2 days (update frequency)"), Ok(ExpiresInterval::Days(2)));
+        assert_eq!(ExpiresInterval::try_from("2 hours (update frequency)"), Ok(ExpiresInterval::Hours(2)));
     }
 
     #[test]
@@ -710,7 +715,7 @@ mod tests {
 
         assert_eq!(metadata.title, Some("ABPVN Advanced".to_string()));
         assert_eq!(metadata.homepage, Some("https://www.haopro.net/".to_string()));
-        assert_eq!(metadata.expires, None);
+        assert_eq!(metadata.expires, Some(ExpiresInterval::Days(7)));
         assert_eq!(metadata.redirect, None);
     }
 
