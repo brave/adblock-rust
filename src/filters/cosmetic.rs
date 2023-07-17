@@ -16,7 +16,9 @@ pub enum CosmeticFilterError {
     #[error("punycode error")]
     PunycodeError,
     #[error("invalid style specifier")]
-    InvalidStyleSpecifier,
+    InvalidStyleSpecifier, // TODO replace with `InvalidActionSpecifier`
+    #[error("invalid action specifier")]
+    InvalidActionSpecifier,
     #[error("unsupported syntax")]
     UnsupportedSyntax,
     #[error("missing sharp")]
@@ -30,13 +32,52 @@ pub enum CosmeticFilterError {
     #[error("generic script inject")]
     GenericScriptInject,
     #[error("generic style")]
-    GenericStyle,
+    GenericStyle, // TODO replace with `GenericAction`
+    #[error("generic action")]
+    GenericAction,
     #[error("double negation")]
     DoubleNegation,
     #[error("empty rule")]
     EmptyRule,
     #[error("html filtering is unsupported")]
     HtmlFilteringUnsupported,
+}
+
+enum CosmeticFilterAction {
+    DefaultHide,
+    Remove,
+    /// Argument is one or more CSS property declarations, separated by the standard ;. Some
+    /// characters, strings, and values are forbidden.
+    Style(String),
+    RemoveAttr(String),
+    RemoveClass(String),
+}
+
+impl CosmeticFilterAction {
+    fn new_style(style: &str) -> Result<Self, CosmeticFilterError> {
+        if !is_valid_css_style(&style) {
+            return Err(CosmeticFilterError::InvalidCssStyle);
+        }
+        Ok(Self::Style(style.to_string()))
+    }
+
+    fn new_remove_attr(attr: &str) -> Result<Self, CosmeticFilterError> {
+        Self::forbid_regex_or_quoted_args(attr)?;
+        Ok(CosmeticFilterAction::RemoveAttr(attr.to_string()))
+    }
+
+    fn new_remove_class(class: &str) -> Result<Self, CosmeticFilterError> {
+        Self::forbid_regex_or_quoted_args(class)?;
+        Ok(CosmeticFilterAction::RemoveClass(class.to_string()))
+    }
+
+    /// Regex and quoted args aren't supported yet
+    fn forbid_regex_or_quoted_args(arg: &str) -> Result<(), CosmeticFilterError> {
+        if arg.starts_with("/") || arg.starts_with("\"") || arg.starts_with("\'") {
+            return Err(CosmeticFilterError::UnsupportedSyntax);
+        }
+        Ok(())
+    }
 }
 
 bitflags::bitflags! {
@@ -190,42 +231,52 @@ impl CosmeticFilter {
     #[inline]
     fn parse_after_sharp_nonscript(
         after_sharp: &str,
-    ) -> Result<(&str, Option<&str>), CosmeticFilterError> {
+    ) -> Result<(&str, Option<CosmeticFilterAction>), CosmeticFilterError> {
         if after_sharp.starts_with('^') {
             return Err(CosmeticFilterError::HtmlFilteringUnsupported);
         }
 
-        let style;
+        const STYLE_TOKEN: &[u8] = b":style(";
+        const REMOVE_ATTR_TOKEN: &[u8] = b":remove-attr(";
+        const REMOVE_CLASS_TOKEN: &[u8] = b":remove-class(";
+
+        const REMOVE_TOKEN: &str = ":remove()";
+
+        const PAIRS: &[(&[u8], fn(&str) -> Result<CosmeticFilterAction, CosmeticFilterError>, fn() -> CosmeticFilterError)] = &[
+            (STYLE_TOKEN, CosmeticFilterAction::new_style, || CosmeticFilterError::InvalidStyleSpecifier),
+            (REMOVE_ATTR_TOKEN, CosmeticFilterAction::new_remove_attr, || CosmeticFilterError::InvalidActionSpecifier),
+            (REMOVE_CLASS_TOKEN, CosmeticFilterAction::new_remove_class, || CosmeticFilterError::InvalidActionSpecifier),
+        ];
+
+        let action;
         let selector;
 
-        // get the style, if it exists
-        if let Some(i) = memmem::find(after_sharp.as_bytes(), b":style(") {
-            if after_sharp.ends_with(')') {
-                // indexing safe because of find and ends_with
-                style = Some(&after_sharp[i + 7..after_sharp.len() - 1]);
-                selector = &after_sharp[..i];
+        'init: {
+            for (token, constructor, error) in PAIRS {
+                if let Some(i) = memmem::find(after_sharp.as_bytes(), token) {
+                    if after_sharp.ends_with(')') {
+                        // indexing safe because of find and ends_with
+                        let arg = &after_sharp[i + token.len()..after_sharp.len() - 1];
+
+                        action = Some(constructor(arg)?);
+                        selector = &after_sharp[..i];
+                        break 'init;
+                    } else {
+                        return Err(error());
+                    }
+                }
+            }
+            if after_sharp.ends_with(REMOVE_TOKEN) {
+                action = Some(CosmeticFilterAction::Remove);
+                selector = &after_sharp[..after_sharp.len() - REMOVE_TOKEN.len()];
+                break 'init;
             } else {
-                return Err(CosmeticFilterError::InvalidStyleSpecifier);
-            }
-        } else {
-            style = None;
-            selector = after_sharp;
-        }
-
-        let mut index_after_colon = 0;
-
-        // go through every colon.
-        //   if it's something else, make sure it's not an unsupported pseudoselector.
-        while let Some(colon_index) = find_char(b':', selector[index_after_colon..].as_bytes()) {
-            let colon_index = colon_index + index_after_colon;
-            index_after_colon = colon_index + 1;
-            // indexing safe because of find_char
-            let content_after_colon = &selector[index_after_colon..];
-            if content_after_colon.starts_with("style") {
-                return Err(CosmeticFilterError::InvalidStyleSpecifier);
+                action = None;
+                selector = after_sharp;
             }
         }
-        Ok((selector, style))
+
+        Ok((selector, action))
     }
 
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
@@ -291,7 +342,7 @@ impl CosmeticFilter {
                 return Err(CosmeticFilterError::EmptyRule);
             }
 
-            let (selector, style) = if line.len() - suffix_start_index > 4
+            let (selector, action) = if line.len() - suffix_start_index > 4
                 && line[suffix_start_index..].starts_with("+js(")
                 && line.ends_with(')')
             {
@@ -304,20 +355,25 @@ impl CosmeticFilter {
                     None,
                 )
             } else {
-                let (selector, style) = CosmeticFilter::parse_after_sharp_nonscript(after_sharp)?;
+                let (selector, action) = CosmeticFilter::parse_after_sharp_nonscript(after_sharp)?;
                 let validated_selector = match validate_css_selector(selector, translate_abp_syntax)
                 {
                     Some(s) => s,
                     None => return Err(CosmeticFilterError::InvalidCssSelector),
                 };
-                if let Some(style) = &style {
-                    if !is_valid_css_style(style) {
-                        return Err(CosmeticFilterError::InvalidCssStyle);
-                    } else if sharp_index == 0 {
-                        return Err(CosmeticFilterError::GenericStyle);
+                if sharp_index == 0 {
+                    match action {
+                        Some(CosmeticFilterAction::Style(_)) => return Err(CosmeticFilterError::GenericStyle),
+                        Some(_) => return Err(CosmeticFilterError::GenericAction),
+                        None => (),
                     }
                 }
-                (validated_selector, style)
+                (validated_selector, action)
+            };
+
+            let style = match action {
+                Some(CosmeticFilterAction::Style(s)) => Some(s),
+                _ => None,
             };
 
             if (not_entities.is_some() || not_hostnames.is_some())
@@ -365,7 +421,7 @@ impl CosmeticFilter {
                 },
                 selector,
                 key,
-                style: style.map(String::from),
+                style,
             })
         } else {
             Err(CosmeticFilterError::MissingSharp)
