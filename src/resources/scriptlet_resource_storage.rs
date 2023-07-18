@@ -37,9 +37,11 @@ impl ScriptletResource {
     /// Omit the 0th element of `args` (the scriptlet name) when calling this method.
     fn patch(&self, args: &[impl AsRef<str>]) -> String {
         let mut scriptlet = self.scriptlet.to_owned();
+        // `regex` treats `$` as a special character. Instead, `$$` is interpreted as a literal `$`
+        // character.
         args.iter().enumerate().for_each(|(i, arg)| {
             scriptlet = TEMPLATE_ARGUMENT_RE[i]
-                .replace(&scriptlet, arg.as_ref())
+                .replace(&scriptlet, arg.as_ref().replace('$', "$$"))
                 .to_string();
         });
         scriptlet
@@ -241,6 +243,12 @@ mod tests {
                 scriptlet: "(()=>{})()".to_owned(),
             },
         );
+        resources.insert(
+            "set-local-storage-item".to_owned(),
+            ScriptletResource {
+                scriptlet: r#"{{1}} that dollar signs in {{2}} are untouched"#.to_owned(),
+            }
+        );
         let scriptlets = ScriptletResourceStorage { resources };
 
         assert_eq!(
@@ -280,6 +288,11 @@ mod tests {
         assert_eq!(
             scriptlets.get_scriptlet(""),
             Err(ScriptletResourceError::MissingScriptletName)
+        );
+
+        assert_eq!(
+            scriptlets.get_scriptlet("set-local-storage-item, Test, $remove$"),
+            Ok("Test that dollar signs in $remove$ are untouched".into()),
         );
     }
 
