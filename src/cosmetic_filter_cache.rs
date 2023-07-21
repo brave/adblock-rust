@@ -457,7 +457,7 @@ impl HostnameRuleDb {
         }
     }
 
-    pub fn retrieve<'a>(&'a self, hostname: &Hash) -> Option<&'a [SpecificFilterType]> {
+    fn retrieve<'a>(&'a self, hostname: &Hash) -> Option<&'a [SpecificFilterType]> {
         if let Some(bucket) = self.db.get(hostname) {
             Some(bucket)
         } else {
@@ -468,7 +468,7 @@ impl HostnameRuleDb {
 
 /// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum SpecificFilterType {
+enum SpecificFilterType {
     /// A simple hostname-specific hide rule, e.g. `example.com##.ad`.
     ///
     /// The parameter is the rule's CSS selector.
