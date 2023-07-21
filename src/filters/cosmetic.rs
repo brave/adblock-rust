@@ -15,8 +15,6 @@ use css_validation::{is_valid_css_style, validate_css_selector};
 pub enum CosmeticFilterError {
     #[error("punycode error")]
     PunycodeError,
-    #[error("invalid style specifier")]
-    InvalidStyleSpecifier, // TODO replace with `InvalidActionSpecifier`
     #[error("invalid action specifier")]
     InvalidActionSpecifier,
     #[error("unsupported syntax")]
@@ -31,8 +29,6 @@ pub enum CosmeticFilterError {
     GenericUnhide,
     #[error("generic script inject")]
     GenericScriptInject,
-    #[error("generic style")]
-    GenericStyle, // TODO replace with `GenericAction`
     #[error("generic action")]
     GenericAction,
     #[error("double negation")]
@@ -242,17 +238,17 @@ impl CosmeticFilter {
 
         const REMOVE_TOKEN: &str = ":remove()";
 
-        const PAIRS: &[(&[u8], fn(&str) -> Result<CosmeticFilterAction, CosmeticFilterError>, fn() -> CosmeticFilterError)] = &[
-            (STYLE_TOKEN, CosmeticFilterAction::new_style, || CosmeticFilterError::InvalidStyleSpecifier),
-            (REMOVE_ATTR_TOKEN, CosmeticFilterAction::new_remove_attr, || CosmeticFilterError::InvalidActionSpecifier),
-            (REMOVE_CLASS_TOKEN, CosmeticFilterAction::new_remove_class, || CosmeticFilterError::InvalidActionSpecifier),
+        const PAIRS: &[(&[u8], fn(&str) -> Result<CosmeticFilterAction, CosmeticFilterError>)] = &[
+            (STYLE_TOKEN, CosmeticFilterAction::new_style),
+            (REMOVE_ATTR_TOKEN, CosmeticFilterAction::new_remove_attr),
+            (REMOVE_CLASS_TOKEN, CosmeticFilterAction::new_remove_class),
         ];
 
         let action;
         let selector;
 
         'init: {
-            for (token, constructor, error) in PAIRS {
+            for (token, constructor) in PAIRS {
                 if let Some(i) = memmem::find(after_sharp.as_bytes(), token) {
                     if after_sharp.ends_with(')') {
                         // indexing safe because of find and ends_with
@@ -262,7 +258,7 @@ impl CosmeticFilter {
                         selector = &after_sharp[..i];
                         break 'init;
                     } else {
-                        return Err(error());
+                        return Err(CosmeticFilterError::InvalidActionSpecifier);
                     }
                 }
             }
@@ -361,12 +357,8 @@ impl CosmeticFilter {
                     Some(s) => s,
                     None => return Err(CosmeticFilterError::InvalidCssSelector),
                 };
-                if sharp_index == 0 {
-                    match action {
-                        Some(CosmeticFilterAction::Style(_)) => return Err(CosmeticFilterError::GenericStyle),
-                        Some(_) => return Err(CosmeticFilterError::GenericAction),
-                        None => (),
-                    }
+                if sharp_index == 0 && action.is_some() {
+                    return Err(CosmeticFilterError::GenericAction);
                 }
                 (validated_selector, action)
             };
