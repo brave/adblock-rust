@@ -373,6 +373,7 @@ impl CosmeticFilter {
 
             let style = match action {
                 Some(CosmeticFilterAction::Style(s)) => Some(s),
+                Some(_) => return Err(CosmeticFilterError::UnsupportedSyntax),
                 _ => None,
             };
 
@@ -1960,6 +1961,15 @@ mod matching_tests {
         assert!(CosmeticFilter::parse("youtube.com##.masthead-ad-control,.ad-div,.pyv-afc-ads-container", false).is_ok());
         assert!(CosmeticFilter::parse("m.economictimes.com###appBanner,#stickyBanner", false).is_ok());
         assert!(CosmeticFilter::parse("googledrivelinks.com###wpsafe-generate, #wpsafe-link:style(display: block !important;)", false).is_ok());
+    }
+
+    #[test]
+    fn actions() {
+        assert!(CosmeticFilter::parse("example.com###adBanner:style(background: transparent)", false).is_ok());
+        // `remove`, `remove-attr`, `remove-class` are unsupported for now
+        assert!(CosmeticFilter::parse("example.com###adBanner:remove()", false).is_err());
+        assert!(CosmeticFilter::parse("example.com###adBanner:remove-attr(style)", false).is_err());
+        assert!(CosmeticFilter::parse("example.com###adBanner:remove-class(src)", false).is_err());
     }
 
     #[test]
