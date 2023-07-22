@@ -1337,7 +1337,7 @@ mod tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::from_url(url).unwrap();
+                let request = Request::new(url, "https://example.com", "other").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -1372,7 +1372,7 @@ mod tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::from_url(url).unwrap();
+                let request = Request::new(url, "https://example.com", "other").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -1389,36 +1389,20 @@ mod tests {
         ];
 
         let url_results = vec![
-            (
-                Request::from_url("https://firstrowsports.li/frame/bar").unwrap(),
-                true,
-            ),
-            (
-                Request::from_url("https://secondrowsports.li/frame/bar").unwrap(),
-                false,
-            ),
-            (
-                Request::from_url("https://fırstrowsports.eu/pu/foo").unwrap(),
-                true,
-            ),
-            (
-                Request::from_url("https://xn--frstrowsports-39b.eu/pu/foo").unwrap(),
-                true,
-            ),
-            (
-                Request::from_url("https://atđhe.net/pu/foo").unwrap(),
-                true,
-            ),
-            (
-                Request::from_url("https://xn--athe-1ua.net/pu/foo").unwrap(),
-                true,
-            ),
+            ("https://firstrowsports.li/frame/bar", true),
+            ("https://secondrowsports.li/frame/bar", false),
+            ("https://fırstrowsports.eu/pu/foo", true),
+            ("https://xn--frstrowsports-39b.eu/pu/foo", true),
+            ("https://atđhe.net/pu/foo", true),
+            ("https://xn--athe-1ua.net/pu/foo", true),
         ];
 
         let request_expectations: Vec<_> = url_results
             .into_iter()
-            .map(|(request, expected_result)| (request, expected_result))
-            .collect();
+            .map(|(url, expected_result)| {
+                let request = Request::new(url, "https://example.com", "other").unwrap();
+                (request, expected_result)
+            }).collect();
 
         test_requests_filters(&filters, &request_expectations);
     }
@@ -1432,11 +1416,11 @@ mod tests {
 
         let url_results = vec![
             (
-                Request::from_urls("https://bit.ly/bar/", "http://123movies.com", "").unwrap(),
+                Request::new("https://bit.ly/bar/", "http://123movies.com", "").unwrap(),
                 true,
             ),
             (
-                Request::from_urls(
+                Request::new(
                     "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer",
                     "http://123movies.com",
                     "xmlhttprequest",
@@ -1478,10 +1462,10 @@ mod blocker_tests {
 
         let blocker = Blocker::new(network_filters, &blocker_options);
 
-        let request = Request::from_urls("https://example.com/test/", "https://example.com", "xmlhttprequest").unwrap();
+        let request = Request::new("https://example.com/test/", "https://example.com", "xmlhttprequest").unwrap();
         assert!(blocker.check(&request).matched);
 
-        let request = Request::from_urls("https://example.com/test", "https://example.com", "xmlhttprequest").unwrap();
+        let request = Request::new("https://example.com/test", "https://example.com", "xmlhttprequest").unwrap();
         assert!(!blocker.check(&request).matched);
     }
 
@@ -1511,7 +1495,7 @@ mod blocker_tests {
             String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
         ];
 
-        let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
+        let request = Request::new("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -1543,7 +1527,7 @@ mod blocker_tests {
             String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3"),
         ];
 
-        let request = Request::from_urls("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
+        let request = Request::new("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -1575,7 +1559,7 @@ mod blocker_tests {
             String::from("||www3.doubleclick.net^$xmlhttprequest,redirect-rule=noop.txt,domain=lineups.fun"),
         ];
 
-        let request = Request::from_urls("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
+        let request = Request::new("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -1607,7 +1591,7 @@ mod blocker_tests {
         ];
         let url_results = vec![
             (
-                Request::from_urls("https://foo.com", "https://bar.com", "image").unwrap(),
+                Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
                 false,
             ),
         ];
@@ -1628,7 +1612,7 @@ mod blocker_tests {
         ];
         let url_results = vec![
             (
-                Request::from_urls("https://foo.com", "https://bar.com", "image").unwrap(),
+                Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
                 false,
             ),
         ];
@@ -1649,7 +1633,7 @@ mod blocker_tests {
         ];
         let url_results = vec![
             (
-                Request::from_urls("https://foo.com", "https://bar.com", "image").unwrap(),
+                Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
                 true,
             ),
         ];
@@ -1669,10 +1653,10 @@ mod blocker_tests {
             String::from("||aa*.top^$domain=letv.com")
         ];
         let url_results = vec![
-            (Request::from_urls("https://r.alimc1.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
-            (Request::from_urls("https://www.baidu.com/test.js", "https://minisite.letv.com/", "script").unwrap(), false),
-            (Request::from_urls("https://r.aabb.top/test.js", "https://example.com/", "script").unwrap(), false),
-            (Request::from_urls("https://r.aabb.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
+            (Request::new("https://r.alimc1.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
+            (Request::new("https://www.baidu.com/test.js", "https://minisite.letv.com/", "script").unwrap(), false),
+            (Request::new("https://r.aabb.top/test.js", "https://example.com/", "script").unwrap(), false),
+            (Request::new("https://r.aabb.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
         ];
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -1714,37 +1698,37 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         {   // No directives should be returned for requests that are not `document` or `subdocument` content types.
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "script").unwrap()), None);
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "image").unwrap()), None);
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "object").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "script").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "image").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://pirateproxy.live/static/custom_ads.js", "https://pirateproxy.live", "object").unwrap()), None);
         }
         {   // A single directive should be returned if only one match is present in the engine, for both document and subdocument types
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://vidoza.co", "document").unwrap()), Some(String::from("worker-src 'none'")));
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://vidoza.net", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://example.com", "https://vidoza.co", "document").unwrap()), Some(String::from("worker-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://example.com", "https://vidoza.net", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
         }
         {   // Multiple merged directives should be returned if more than one match is present in the engine
             let possible_results = vec![
                 Some(String::from("script-src 'self' * 'unsafe-inline',worker-src 'none'")),
                 Some(String::from("worker-src 'none',script-src 'self' * 'unsafe-inline'")),
             ];
-            assert!(possible_results.contains(&blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://pirateproxy.live", "document").unwrap())));
-            assert!(possible_results.contains(&blocker.get_csp_directives(&Request::from_urls("https://example.com", "https://pirateproxy.live", "subdocument").unwrap())));
+            assert!(possible_results.contains(&blocker.get_csp_directives(&Request::new("https://example.com", "https://pirateproxy.live", "document").unwrap())));
+            assert!(possible_results.contains(&blocker.get_csp_directives(&Request::new("https://example.com", "https://pirateproxy.live", "subdocument").unwrap())));
         }
         {   // A directive with an exception should not be returned
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to", "https://1337x.to", "document").unwrap()), Some(String::from("script-src 'self' 'unsafe-inline'")));
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to/no-csp", "https://1337x.to", "subdocument").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://1337x.to", "https://1337x.to", "document").unwrap()), Some(String::from("script-src 'self' 'unsafe-inline'")));
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://1337x.to/no-csp", "https://1337x.to", "subdocument").unwrap()), None);
         }
         {   // Multiple identical directives should only appear in the output once
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/duplicated-directive", "https://flashx.cc", "document").unwrap()), Some(String::from("worker-src 'none'")));
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/duplicated-directive", "https://flashx.cc", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://example.com/duplicated-directive", "https://flashx.cc", "document").unwrap()), Some(String::from("worker-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://example.com/duplicated-directive", "https://flashx.cc", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
         }
         {   // A CSP exception with no corresponding directive should disable all CSP injections for the page
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to/duplicated-directive/disable-all", "https://thepiratebay10.org", "document").unwrap()), None);
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://1337x.to/duplicated-directive/disable-all", "https://thepiratebay10.org", "document").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://1337x.to/duplicated-directive/disable-all", "https://thepiratebay10.org", "document").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://1337x.to/duplicated-directive/disable-all", "https://thepiratebay10.org", "document").unwrap()), None);
         }
         {   // A CSP exception with a partyness modifier should only match where the modifier applies
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("htps://github.com/first-party-only", "https://example.com", "subdocument").unwrap()), None);
-            assert_eq!(blocker.get_csp_directives(&Request::from_urls("https://example.com/first-party-only", "https://example.com", "document").unwrap()), Some(String::from("script-src 'none'")));
+            assert_eq!(blocker.get_csp_directives(&Request::new("htps://github.com/first-party-only", "https://example.com", "subdocument").unwrap()), None);
+            assert_eq!(blocker.get_csp_directives(&Request::new("https://example.com/first-party-only", "https://example.com", "document").unwrap()), Some(String::from("script-src 'none'")));
         }
     }
 
@@ -1772,81 +1756,81 @@ mod blocker_tests {
             content: base64::encode("(() => {})()"),
         }).unwrap();
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q=1&test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1&test=2#blue", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?test=2&q=1#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2&q=1#blue", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2#blue", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com#blue".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q=1#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1#blue", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q=1&test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1&test=2", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?test=2&q=1", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2&q=1", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q=1", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q=fbclid", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=fbclid", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://test.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://test.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://test.com?q=1&test=2".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q2=2&q3=3&q4=4&q5=5".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?q1=1&q1=2&test=2&test=3", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q1=1&q1=2&test=2&test=3", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q1=2".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/script.js?test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/script.js?test=2#blue", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com/script.js#blue".into()));
         assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/block/script.js?test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/block/script.js?test=2", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, None);
         assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
         assert!(result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com/Path/?Test=ABC&testcase=AbC".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC?123#&test=4#b".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "document").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "document").unwrap());
         assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "image").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "image").unwrap());
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
     }
@@ -1915,7 +1899,7 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         for (original, expected) in testcases.into_iter() {
-            let result = blocker.check(&Request::from_urls(original, "https://example.net", "script").unwrap());
+            let result = blocker.check(&Request::new(original, "https://example.net", "script").unwrap());
             let expected = if original == expected {
                 None
             } else {
@@ -1940,7 +1924,7 @@ fn test_removeparam_same_tokens() {
 
     let blocker = Blocker::new(network_filters, &blocker_options);
 
-    let result = blocker.check(&Request::from_urls("https://example.com?example1_=1&example1-=2", "https://example.com", "script").unwrap());
+    let result = blocker.check(&Request::new("https://example.com?example1_=1&example1-=2", "https://example.com", "script").unwrap());
     assert_eq!(result.rewritten_url, Some("https://example.com".into()));
     assert!(!result.matched);
 }
@@ -1977,39 +1961,39 @@ fn test_removeparam_same_tokens() {
         let b_redirect = add_simple_resource(&mut blocker, "b");
         let c_redirect = add_simple_resource(&mut blocker, "c");
 
-        let result = blocker.check(&Request::from_urls("https://example.net/test", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.net/test", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.net/test.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.net/test.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, a_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/test.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/test.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, b_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/text.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, c_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/text.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, b_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, c_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, a_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/exceptb10/excepta/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/excepta/text.txt", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::from_urls("https://example.com/exceptc20/exceptb10/text", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/text", "https://example.com", "xmlhttprequest").unwrap());
         assert_eq!(result.redirect, None);
         assert!(!result.matched);
     }
@@ -2023,11 +2007,18 @@ fn test_removeparam_same_tokens() {
             String::from("||brave.com$tag=brian"),
         ];
         let url_results = vec![
-            (Request::from_url("http://example.com/advert.html").unwrap(), true),
-            (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), true),
-            (Request::from_url("https://brianbondy.com/about").unwrap(), false),
-            (Request::from_url("https://brave.com/about").unwrap(), false),
+            ("http://example.com/advert.html", true),
+            ("http://example.com/somelongpath/test/2.html", true),
+            ("https://brianbondy.com/about", false),
+            ("https://brave.com/about", false),
         ];
+
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(url, expected_result)| {
+                let request = Request::new(url, "https://example.com", "other").unwrap();
+                (request, expected_result)
+            }).collect();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -2040,7 +2031,7 @@ fn test_removeparam_same_tokens() {
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
-        url_results.into_iter().for_each(|(req, expected_result)| {
+        request_expectations.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
@@ -2059,11 +2050,18 @@ fn test_removeparam_same_tokens() {
             String::from("||brave.com$tag=brian"),
         ];
         let url_results = vec![
-            (Request::from_url("http://example.com/advert.html").unwrap(), true),
-            (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), true),
-            (Request::from_url("https://brianbondy.com/about").unwrap(), true),
-            (Request::from_url("https://brave.com/about").unwrap(), true),
+            ("http://example.com/advert.html", true),
+            ("http://example.com/somelongpath/test/2.html", true),
+            ("https://brianbondy.com/about", true),
+            ("https://brave.com/about", true),
         ];
+
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(url, expected_result)| {
+                let request = Request::new(url, "https://example.com", "other").unwrap();
+                (request, expected_result)
+            }).collect();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -2077,7 +2075,7 @@ fn test_removeparam_same_tokens() {
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
 
-        url_results.into_iter().for_each(|(req, expected_result)| {
+        request_expectations.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
@@ -2096,11 +2094,18 @@ fn test_removeparam_same_tokens() {
             String::from("||brave.com$tag=brian"),
         ];
         let url_results = vec![
-            (Request::from_url("http://example.com/advert.html").unwrap(), false),
-            (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), false),
-            (Request::from_url("https://brianbondy.com/about").unwrap(), true),
-            (Request::from_url("https://brave.com/about").unwrap(), true),
+            ("http://example.com/advert.html", false),
+            ("http://example.com/somelongpath/test/2.html", false),
+            ("https://brianbondy.com/about", true),
+            ("https://brave.com/about", true),
         ];
+
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(url, expected_result)| {
+                let request = Request::new(url, "https://example.com", "other").unwrap();
+                (request, expected_result)
+            }).collect();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -2116,7 +2121,7 @@ fn test_removeparam_same_tokens() {
         assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
-        url_results.into_iter().for_each(|(req, expected_result)| {
+        request_expectations.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
@@ -2189,13 +2194,20 @@ fn test_removeparam_same_tokens() {
         blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true, Default::default()).unwrap()).unwrap();
 
         let url_results = vec![
-            (Request::from_url("http://example.com/advert.html").unwrap(), false),
-            (Request::from_url("http://example.com/somelongpath/test/2.html").unwrap(), false),
-            (Request::from_url("https://brianbondy.com/about").unwrap(), true),
-            (Request::from_url("https://brave.com/about").unwrap(), true),
+            ("http://example.com/advert.html", false),
+            ("http://example.com/somelongpath/test/2.html", false),
+            ("https://brianbondy.com/about", true),
+            ("https://brave.com/about", true),
         ];
 
-        url_results.into_iter().for_each(|(req, expected_result)| {
+        let request_expectations: Vec<_> = url_results
+            .into_iter()
+            .map(|(url, expected_result)| {
+                let request = Request::new(url, "https://example.com", "other").unwrap();
+                (request, expected_result)
+            }).collect();
+
+        request_expectations.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
@@ -2215,7 +2227,7 @@ fn test_removeparam_same_tokens() {
 
         blocker.add_filter(NetworkFilter::parse("@@*ad_banner.png", true, Default::default()).unwrap()).unwrap();
 
-        let request = Request::from_url("http://example.com/ad_banner.png").unwrap();
+        let request = Request::new("http://example.com/ad_banner.png", "https://example.com", "other").unwrap();
 
         let matched_rule = blocker.check_parameterised(&request, false, true);
         assert!(!matched_rule.matched);
@@ -2232,7 +2244,7 @@ fn test_removeparam_same_tokens() {
 
         blocker.add_filter(NetworkFilter::parse("@@||example.com$generichide", true, Default::default()).unwrap()).unwrap();
 
-        assert!(blocker.check_generic_hide(&Request::from_url("https://example.com").unwrap()));
+        assert!(blocker.check_generic_hide(&Request::new("https://example.com", "https://example.com", "other").unwrap()));
     }
 }
 

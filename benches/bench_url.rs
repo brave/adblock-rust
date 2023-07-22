@@ -34,7 +34,7 @@ fn request_parsing_throughput(c: &mut Criterion) {
         b.iter(|| {
             let mut successful = 0;
             requests.iter().for_each(|r| {
-                let req: Result<Request, _> = Request::from_urls(&r.url, &r.frameUrl, &r.cpt);
+                let req: Result<Request, _> = Request::new(&r.url, &r.frameUrl, &r.cpt);
                 if req.is_ok() {
                     successful += 1;
                 }
@@ -80,51 +80,11 @@ fn request_new_throughput(c: &mut Criterion) {
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(10);
 
-    let requests_parsed: Vec<_> = requests
-        .iter()
-        .map(|r| {
-            let url_norm = r.url.to_ascii_lowercase();
-            let source_url_norm = r.frameUrl.to_ascii_lowercase();
-
-            let maybe_parsed_url = parse_url(&url_norm);
-            if maybe_parsed_url.is_none() {
-                return Err("bad url");
-            }
-            let parsed_url = maybe_parsed_url.unwrap();
-
-            let maybe_parsed_source = parse_url(&source_url_norm);
-
-            if maybe_parsed_source.is_none() {
-                Ok((
-                    r.cpt.clone(),
-                    parsed_url.url.clone(),
-                    String::from(parsed_url.schema()),
-                    String::from(parsed_url.hostname()),
-                    String::from(parsed_url.domain()),
-                    String::from(""),
-                    String::from(""),
-                ))
-            } else {
-                let parsed_source = maybe_parsed_source.unwrap();
-                Ok((
-                    r.cpt.clone(),
-                    parsed_url.url.clone(),
-                    String::from(parsed_url.schema()),
-                    String::from(parsed_url.hostname()),
-                    String::from(parsed_url.domain()),
-                    String::from(parsed_source.hostname()),
-                    parsed_source.domain().to_owned(),
-                ))
-            }
-        })
-        .filter_map(Result::ok)
-        .collect();
-
     group.bench_function("new", move |b| {
         b.iter(|| {
             let mut successful = 0;
-            requests_parsed.iter().for_each(|r| {
-                Request::new(&r.0, &r.1, &r.2, &r.3, &r.4, &r.5, &r.6);
+            requests.iter().for_each(|r| {
+                Request::new(&r.url, &r.frameUrl, &r.cpt).ok();
                 successful += 1;
             });
         })

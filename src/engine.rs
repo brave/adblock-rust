@@ -155,7 +155,7 @@ impl Engine {
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by
     /// `source_url`, should be blocked.
     pub fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str) -> BlockerResult {
-        Request::from_urls(url, source_url, request_type)
+        Request::new(url, source_url, request_type)
         .map(|request| {
             self.blocker.check(&request)
         })
@@ -180,7 +180,7 @@ impl Engine {
         request_type: &str,
         third_party_request: Option<bool>
     ) -> BlockerResult {
-        let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        let request = Request::new_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
         self.blocker.check(&request)
     }
 
@@ -194,7 +194,7 @@ impl Engine {
         previously_matched_rule: bool,
         force_check_exceptions: bool,
     ) -> BlockerResult {
-        let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        let request = Request::new_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
         self.blocker.check_parameterised(&request, previously_matched_rule, force_check_exceptions)
     }
 
@@ -210,7 +210,7 @@ impl Engine {
         request_type: &str,
         third_party_request: Option<bool>,
     ) -> Option<String> {
-        let request = Request::from_urls_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
+        let request = Request::new_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
         self.blocker.get_csp_directives(&request)
     }
 
@@ -297,7 +297,7 @@ impl Engine {
     /// `hidden_class_id_selectors` to obtain any stylesheets consisting of generic rules (if the
     /// returned `generichide` value is false).
     pub fn url_cosmetic_resources(&self, url: &str) -> UrlSpecificResources {
-        let request = Request::from_url(url);
+        let request = Request::new(url, url, "document");
         if request.is_err() {
             return UrlSpecificResources::empty();
         }

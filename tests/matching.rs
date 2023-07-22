@@ -70,7 +70,7 @@ fn check_filter_matching() {
             );
             let network_filter = network_filter_res.unwrap();
 
-            let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
+            let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if request_res.is_ok() {
                 let request = request_res.unwrap();

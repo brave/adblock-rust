@@ -195,7 +195,7 @@ mod tests {
     }
 
     fn make_request(url: &str) -> request::Request {
-        request::Request::from_url(url).unwrap()
+        request::Request::new(url, "https://example.com", "other").unwrap()
     }
 
     fn get_active_regex_count(regex_manager: &RegexManager) -> usize {

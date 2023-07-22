@@ -357,7 +357,7 @@ fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let url: String = cx.argument::<JsString>(0)?.value(&mut cx);
     let source_url: String = cx.argument::<JsString>(1)?.value(&mut cx);
     let request_type: String = cx.argument::<JsString>(2)?.value(&mut cx);
-    let request_ok = adblock::request::Request::from_urls(&url, &source_url, &request_type).is_ok();
+    let request_ok = adblock::request::Request::new(&url, &source_url, &request_type).is_ok();
 
     Ok(cx.boolean(request_ok))
 }

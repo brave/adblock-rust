@@ -224,7 +224,7 @@ mod optimization_tests_pattern_group {
         url_path: &str,
         matches: bool,
     ) {
-        let is_match = filter.matches(&Request::from_urls(
+        let is_match = filter.matches(&Request::new(
           ("https://example.com/".to_string() + url_path).as_str(),
           "https://google.com",
           ""
@@ -350,7 +350,7 @@ mod optimization_tests_pattern_group {
         );
 
         assert!(filter.matches_test(
-            &Request::from_urls(
+            &Request::new(
                 "https://example.com/v1/pixel?",
                 "https://my.leadpages.net",
                 ""
@@ -366,7 +366,7 @@ mod optimization_tests_pattern_group {
         );
 
         assert!(filter.matches_test(
-            &Request::from_urls(
+            &Request::new(
                 "https://example.com/analytics/v1/foobar",
                 "https://foo.leadpages.net",
                 ""
@@ -414,7 +414,7 @@ mod optimization_tests_union_domain {
 
         assert!(
             filter.matches_test(
-                &Request::from_urls(
+                &Request::new(
                     "https://example.com/analytics-v1/foobar",
                     "https://google.com",
                     ""
@@ -424,7 +424,7 @@ mod optimization_tests_union_domain {
         );
         assert!(
             filter.matches_test(
-                &Request::from_urls(
+                &Request::new(
                     "https://example.com/analytics-v1/foobar",
                     "https://foo.leadpages.net",
                     ""
@@ -479,7 +479,7 @@ mod optimization_tests_union_domain {
 
         assert!(
             filter.matches_test(
-                &Request::from_urls(
+                &Request::new(
                     "https://example.com/analytics-v1/foobar",
                     "https://google.com",
                     ""
@@ -489,7 +489,7 @@ mod optimization_tests_union_domain {
         );
         assert!(
             filter.matches_test(
-                &Request::from_urls(
+                &Request::new(
                     "https://example.com/analytics-v1/foobar",
                     "https://example.com",
                     ""
@@ -499,7 +499,7 @@ mod optimization_tests_union_domain {
         );
         assert!(
             filter.matches_test(
-                &Request::from_urls(
+                &Request::new(
                     "https://example.com/analytics-v1/foobar",
                     "https://exampletwo.com",
                     ""
@@ -509,7 +509,7 @@ mod optimization_tests_union_domain {
         );
         assert!(
             filter.matches_test(
-                &Request::from_urls(
+                &Request::new(
                     "https://example.com/analytics-v1/foobar",
                     "https://foo.leadpages.net",
                     ""
