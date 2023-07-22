@@ -185,9 +185,9 @@ pub enum CbRuleCreationFailure {
     /// Cosmetic rules with entities (e.g. google.*) rather than hostnames cannot be represented in
     /// content blocking syntax.
     CosmeticEntitiesUnsupported,
-    /// Cosmetic rules with custom style specification (i.e. `:style(...)`) cannot be represented
+    /// Cosmetic rules with custom action specification (i.e. `:style(...)`) cannot be represented
     /// in content blocking syntax.
-    CosmeticStyleRulesNotSupported,
+    CosmeticActionRulesNotSupported,
     /// Cosmetic rules with scriptlet injections (i.e. `+js(...)`) cannot be represented in content
     /// blocking syntax.
     ScriptletInjectionsNotSupported,
@@ -543,8 +543,8 @@ impl TryFrom<CosmeticFilter> for CbRule {
     fn try_from(v: CosmeticFilter) -> Result<Self, Self::Error> {
         use crate::filters::cosmetic::{CosmeticFilterLocationType, CosmeticFilterMask};
 
-        if v.style.is_some() {
-            return Err(CbRuleCreationFailure::CosmeticStyleRulesNotSupported);
+        if v.action.is_some() {
+            return Err(CbRuleCreationFailure::CosmeticActionRulesNotSupported);
         }
         if v.mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
             return Err(CbRuleCreationFailure::ScriptletInjectionsNotSupported);

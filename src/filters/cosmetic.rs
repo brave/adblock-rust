@@ -40,7 +40,8 @@ pub enum CosmeticFilterError {
 }
 
 /// Refer to <https://github.com/uBlockOrigin/uBlock-issues/wiki/Static-filter-syntax#action-operators>
-enum CosmeticFilterAction {
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub enum CosmeticFilterAction {
     Remove,
     /// Argument is one or more CSS property declarations, separated by the standard ;. Some
     /// characters, strings, and values are forbidden.
@@ -103,7 +104,7 @@ pub struct CosmeticFilter {
     pub raw_line: Option<Box<String>>,
     pub selector: String,
     pub key: Option<String>,
-    pub style: Option<String>,
+    pub action: Option<CosmeticFilterAction>,
 }
 
 pub enum CosmeticFilterLocationType {
@@ -363,12 +364,6 @@ impl CosmeticFilter {
                 (validated_selector, action)
             };
 
-            let style = match action {
-                Some(CosmeticFilterAction::Style(s)) => Some(s),
-                Some(_) => return Err(CosmeticFilterError::UnsupportedSyntax),
-                _ => None,
-            };
-
             if (not_entities.is_some() || not_hostnames.is_some())
                 && mask.contains(CosmeticFilterMask::UNHIDE)
             {
@@ -414,7 +409,7 @@ impl CosmeticFilter {
                 },
                 selector,
                 key,
-                style,
+                action,
             })
         } else {
             Err(CosmeticFilterError::MissingSharp)
@@ -439,12 +434,12 @@ impl CosmeticFilter {
     /// To account for this inconsistency, this method will generate and return the corresponding
     /// 'hidden' generic rule if one applies.
     ///
-    /// Note that this behavior is not applied to script injections or custom style rules.
+    /// Note that this behavior is not applied to script injections or rules with actions.
     pub fn hidden_generic_rule(&self) -> Option<CosmeticFilter> {
         if self.hostnames.is_some() || self.entities.is_some() {
             None
         } else if (self.not_hostnames.is_some() || self.not_entities.is_some())
-            && (self.style.is_none() && !self.mask.contains(CosmeticFilterMask::SCRIPT_INJECT))
+            && (self.action.is_none() && !self.mask.contains(CosmeticFilterMask::SCRIPT_INJECT))
         {
             let mut generic_rule = self.clone();
             generic_rule.not_hostnames = None;
@@ -1015,7 +1010,7 @@ mod parse_tests {
         not_hostnames: Option<Vec<Hash>>,
         selector: String,
         key: Option<String>,
-        style: Option<String>,
+        action: Option<CosmeticFilterAction>,
 
         unhide: bool,
         script_inject: bool,
@@ -1033,7 +1028,7 @@ mod parse_tests {
                 not_hostnames: filter.not_hostnames.as_ref().cloned(),
                 selector: filter.selector.clone(),
                 key: filter.key.as_ref().cloned(),
-                style: filter.style.as_ref().cloned(),
+                action: filter.action.as_ref().cloned(),
 
                 unhide: filter.mask.contains(CosmeticFilterMask::UNHIDE),
                 script_inject: filter.mask.contains(CosmeticFilterMask::SCRIPT_INJECT),
@@ -1059,7 +1054,7 @@ mod parse_tests {
                 not_hostnames: None,
                 selector: "".to_string(),
                 key: None,
-                style: None,
+                action: None,
 
                 unhide: false,
                 script_inject: false,
@@ -1515,7 +1510,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#".date:not(dt)"#.to_string(),
                 entities: sort_hash_domains(vec!["downloadsource"]),
-                style: Some("display: block !important;".into()),
+                action: Some(CosmeticFilterAction::Style("display: block !important;".into())),
                 is_class_selector: true,
                 key: Some("date".to_string()),
                 ..Default::default()
@@ -1530,7 +1525,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#".video-wrapper > video[style]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["chip.de"]),
-                style: Some("display:block!important;padding-top:0!important;".into()),
+                action: Some(CosmeticFilterAction::Style("display:block!important;padding-top:0!important;".into())),
                 is_class_selector: true,
                 key: Some("video-wrapper".to_string()),
                 ..Default::default()
@@ -1541,7 +1536,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#".advertising.medium-rectangle"#.to_string(),
                 hostnames: sort_hash_domains(vec!["allmusic.com"]),
-                style: Some("min-height: 1px !important;".into()),
+                action: Some(CosmeticFilterAction::Style("min-height: 1px !important;".into())),
                 is_class_selector: true,
                 key: Some("advertising".to_string()),
                 ..Default::default()
@@ -1553,7 +1548,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#".signup_wall_prevent_scroll .SiteHeader, .signup_wall_prevent_scroll .LoggedOutFooter, .signup_wall_prevent_scroll .ContentWrapper"#.to_string(),
                 hostnames: sort_hash_domains(vec!["quora.com"]),
-                style: Some("filter: none !important;".into()),
+                action: Some(CosmeticFilterAction::Style("filter: none !important;".into())),
                 is_class_selector: true,
                 key: Some("signup_wall_prevent_scroll".to_string()),
                 ..Default::default()
@@ -1564,7 +1559,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#"body#styleguide-v2"#.to_string(),
                 hostnames: sort_hash_domains(vec!["imdb.com"]),
-                style: Some("background-color: #e3e2dd !important; background-image: none !important;".into()),
+                action: Some(CosmeticFilterAction::Style("background-color: #e3e2dd !important; background-image: none !important;".into())),
                 ..Default::default()
             },
         );
@@ -1573,7 +1568,7 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: r#"#login > div[style^="width"]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["streamcloud.eu"]),
-                style: Some("display: block !important".into()),
+                action: Some(CosmeticFilterAction::Style("display: block !important".into())),
                 is_id_selector: true,
                 key: Some("login".to_string()),
                 ..Default::default()
@@ -1588,7 +1583,7 @@ mod parse_tests {
                     "moondoge.co.in",
                     "moonliteco.in",
                 ]),
-                style: Some("visibility: collapse !important".into()),
+                action: Some(CosmeticFilterAction::Style("visibility: collapse !important".into())),
                 ..Default::default()
             },
         );
@@ -1958,10 +1953,9 @@ mod matching_tests {
     #[test]
     fn actions() {
         assert!(CosmeticFilter::parse("example.com###adBanner:style(background: transparent)", false).is_ok());
-        // `remove`, `remove-attr`, `remove-class` are unsupported for now
-        assert!(CosmeticFilter::parse("example.com###adBanner:remove()", false).is_err());
-        assert!(CosmeticFilter::parse("example.com###adBanner:remove-attr(style)", false).is_err());
-        assert!(CosmeticFilter::parse("example.com###adBanner:remove-class(src)", false).is_err());
+        assert!(CosmeticFilter::parse("example.com###adBanner:remove()", false).is_ok());
+        assert!(CosmeticFilter::parse("example.com###adBanner:remove-attr(style)", false).is_ok());
+        assert!(CosmeticFilter::parse("example.com###adBanner:remove-class(src)", false).is_ok());
     }
 
     #[test]

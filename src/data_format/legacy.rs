@@ -18,11 +18,12 @@ use rmp_serde_legacy as rmps;
 use serde::{Deserialize, Serialize};
 
 use crate::blocker::{Blocker, NetworkFilterList};
-use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
+use crate::cosmetic_filter_cache::CosmeticFilterCache;
 use crate::filters::network::NetworkFilter;
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 use crate::utils::is_eof_error;
 
+use super::v0::LegacyHostnameRuleDb;
 use super::{DeserializationError, SerializationError};
 
 /// `_fuzzy_signature` is no longer used, and is removed from future format versions.
@@ -124,7 +125,7 @@ where
 ///
 /// Note that this does not implement `Serialize` directly, as it is composed of two parts which
 /// must be serialized independently. Instead, use the `serialize` method.
-pub struct SerializeFormat<'a> {
+pub(crate) struct SerializeFormat<'a> {
     part1: SerializeFormatPt1<'a>,
     rest: SerializeFormatRest<'a>,
 }
@@ -175,7 +176,7 @@ struct SerializeFormatRest<'a> {
     complex_class_rules: &'a HashMap<String, Vec<String>>,
     complex_id_rules: &'a HashMap<String, Vec<String>>,
 
-    specific_rules: &'a HostnameRuleDb,
+    specific_rules: LegacyHostnameRuleDb,
 
     misc_generic_selectors: &'a HashSet<String>,
 
@@ -251,7 +252,7 @@ impl From<NetworkFilterListLegacyDeserializeFmt> for NetworkFilterList {
 ///
 /// Note that this does not implement `Deserialize` directly, as it is composed of two parts which
 /// must be deserialized independently. Instead, use the `deserialize` method.
-pub struct DeserializeFormat {
+pub(crate) struct DeserializeFormat {
     part1: DeserializeFormatPart1,
     rest: DeserializeFormatRest,
 }
@@ -307,7 +308,7 @@ struct DeserializeFormatRest {
     complex_id_rules: HashMap<String, Vec<String>>,
 
     #[serde(default)]
-    specific_rules: HostnameRuleDb,
+    specific_rules: LegacyHostnameRuleDb,
 
     #[serde(default)]
     misc_generic_selectors: HashSet<String>,
@@ -346,7 +347,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
                 complex_class_rules: &cfc.complex_class_rules,
                 complex_id_rules: &cfc.complex_id_rules,
 
-                specific_rules: &cfc.specific_rules,
+                specific_rules: (&cfc.specific_rules).into(),
 
                 misc_generic_selectors: &cfc.misc_generic_selectors,
 
@@ -393,7 +394,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 complex_class_rules: v.rest.complex_class_rules,
                 complex_id_rules: v.rest.complex_id_rules,
 
-                specific_rules: v.rest.specific_rules,
+                specific_rules: v.rest.specific_rules.into(),
 
                 misc_generic_selectors: v.rest.misc_generic_selectors,
 

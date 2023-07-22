@@ -13,13 +13,122 @@ use crate::blocker::{Blocker, NetworkFilterList};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
 use crate::filters::network::NetworkFilter;
 use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
+use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
 use super::{DeserializationError, SerializationError};
 
+/// Each variant describes a single rule that is specific to a particular hostname.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+enum LegacySpecificFilterType {
+    Hide(String),
+    Unhide(String),
+    Style(String, String),
+    UnhideStyle(String, String),
+    ScriptInject(String),
+    UnhideScriptInject(String),
+}
+
+#[derive(Deserialize, Serialize, Default)]
+pub(crate) struct LegacyHostnameRuleDb {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    db: HashMap<Hash, Vec<LegacySpecificFilterType>>,
+}
+
+impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
+    fn from(v: &HostnameRuleDb) -> Self {
+        let mut db = HashMap::<Hash, Vec<LegacySpecificFilterType>>::new();
+        for (hash, bin) in v.hide.0.iter() {
+            for f in bin {
+                db.entry(*hash)
+                    .and_modify(|v| v.push(LegacySpecificFilterType::Hide(f.to_owned())))
+                    .or_insert_with(|| vec![LegacySpecificFilterType::Hide(f.to_owned())]);
+            }
+        }
+        for (hash, bin) in v.unhide.0.iter() {
+            for f in bin {
+                db.entry(*hash)
+                    .and_modify(|v| v.push(LegacySpecificFilterType::Unhide(f.to_owned())))
+                    .or_insert_with(|| vec![LegacySpecificFilterType::Unhide(f.to_owned())]);
+            }
+        }
+        for (hash, bin) in v.inject_script.0.iter() {
+            for f in bin {
+                db.entry(*hash)
+                    .and_modify(|v| v.push(LegacySpecificFilterType::ScriptInject(f.to_owned())))
+                    .or_insert_with(|| vec![LegacySpecificFilterType::ScriptInject(f.to_owned())]);
+            }
+        }
+        for (hash, bin) in v.uninject_script.0.iter() {
+            for f in bin {
+                db.entry(*hash)
+                    .and_modify(|v| v.push(LegacySpecificFilterType::UnhideScriptInject(f.to_owned())))
+                    .or_insert_with(|| vec![LegacySpecificFilterType::UnhideScriptInject(f.to_owned())]);
+            }
+        }
+        for (hash, bin) in v.style.0.iter() {
+            for f in bin {
+                db.entry(*hash)
+                    .and_modify(|v| v.push(LegacySpecificFilterType::Style(f.0.to_owned(), f.1.to_owned())))
+                    .or_insert_with(|| vec![LegacySpecificFilterType::Style(f.0.to_owned(), f.1.to_owned())]);
+            }
+        }
+        for (hash, bin) in v.unstyle.0.iter() {
+            for f in bin {
+                db.entry(*hash)
+                    .and_modify(|v| v.push(LegacySpecificFilterType::UnhideStyle(f.0.to_owned(), f.1.to_owned())))
+                    .or_insert_with(|| vec![LegacySpecificFilterType::UnhideStyle(f.0.to_owned(), f.1.to_owned())]);
+            }
+        }
+        LegacyHostnameRuleDb {
+            db,
+        }
+    }
+}
+
+impl Into<HostnameRuleDb> for LegacyHostnameRuleDb {
+    fn into(self) -> HostnameRuleDb {
+        use crate::cosmetic_filter_cache::HostnameFilterBin;
+
+        let mut hide = HostnameFilterBin::default();
+        let mut unhide = HostnameFilterBin::default();
+        let mut style = HostnameFilterBin::default();
+        let mut unstyle = HostnameFilterBin::default();
+        let mut inject_script = HostnameFilterBin::default();
+        let mut uninject_script = HostnameFilterBin::default();
+
+        for (hash, bin) in self.db.into_iter() {
+            for rule in bin.into_iter() {
+                match rule {
+                    LegacySpecificFilterType::Hide(s) => hide.insert(&hash, s),
+                    LegacySpecificFilterType::Unhide(s) => unhide.insert(&hash, s),
+                    LegacySpecificFilterType::Style(s, st) => style.insert(&hash, (s, st)),
+                    LegacySpecificFilterType::UnhideStyle(s, st) => unstyle.insert(&hash, (s, st)),
+                    LegacySpecificFilterType::ScriptInject(s) => inject_script.insert(&hash, s),
+                    LegacySpecificFilterType::UnhideScriptInject(s) => uninject_script.insert(&hash, s),
+                }
+            }
+        }
+        HostnameRuleDb {
+            hide,
+            unhide,
+            inject_script,
+            uninject_script,
+            remove: HostnameFilterBin::default(),
+            unremove: HostnameFilterBin::default(),
+            style,
+            unstyle,
+            remove_attr: HostnameFilterBin::default(),
+            unremove_attr: HostnameFilterBin::default(),
+            remove_class: HostnameFilterBin::default(),
+            unremove_class: HostnameFilterBin::default(),
+        }
+    }
+}
+
 /// `_bug` is no longer used, and is removed from future format versions.
 #[derive(Debug, Clone, Serialize)]
-pub struct NetworkFilterV0SerializeFmt<'a> {
+struct NetworkFilterV0SerializeFmt<'a> {
     mask: &'a crate::filters::network::NetworkFilterMask,
     filter: &'a crate::filters::network::FilterPart,
     opt_domains: &'a Option<Vec<crate::utils::Hash>>,
@@ -138,7 +247,7 @@ pub(crate) struct SerializeFormat<'a> {
     #[serde(serialize_with = "stabilize_hashmap_serialization")]
     complex_id_rules: &'a HashMap<String, Vec<String>>,
 
-    specific_rules: &'a HostnameRuleDb,
+    specific_rules: LegacyHostnameRuleDb,
 
     #[serde(serialize_with = "stabilize_hashset_serialization")]
     misc_generic_selectors: &'a HashSet<String>,
@@ -238,7 +347,7 @@ pub(crate) struct DeserializeFormat {
     complex_class_rules: HashMap<String, Vec<String>>,
     complex_id_rules: HashMap<String, Vec<String>>,
 
-    specific_rules: HostnameRuleDb,
+    specific_rules: LegacyHostnameRuleDb,
 
     misc_generic_selectors: HashSet<String>,
 
@@ -278,7 +387,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
             complex_class_rules: &cfc.complex_class_rules,
             complex_id_rules: &cfc.complex_id_rules,
 
-            specific_rules: &cfc.specific_rules,
+            specific_rules: (&cfc.specific_rules).into(),
 
             misc_generic_selectors: &cfc.misc_generic_selectors,
 
@@ -316,7 +425,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 complex_class_rules: v.complex_class_rules,
                 complex_id_rules: v.complex_id_rules,
 
-                specific_rules: v.specific_rules,
+                specific_rules: v.specific_rules.into(),
 
                 misc_generic_selectors: v.misc_generic_selectors,
 
