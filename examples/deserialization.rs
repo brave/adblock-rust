@@ -26,8 +26,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 
     let mut reqs: Vec<RequestRuleMatch> = Vec::new();
     for result in rdr.deserialize() {
-        if result.is_ok() {
-            let record: RequestRuleMatch = result.expect("WAT");
+        if let Ok(record) = result {
             reqs.push(record);
         } else {
             println!("Could not parse {:?}", result);

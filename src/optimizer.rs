@@ -102,7 +102,7 @@ impl Optimization for SimplePatternGroup {
             }
         }
 
-        let is_regex = filters.iter().find(|f| f.is_regex()).is_some();
+        let is_regex = filters.iter().any(NetworkFilter::is_regex);
         filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
         let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
         filter

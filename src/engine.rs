@@ -288,7 +288,7 @@ impl Engine {
     /// corresponding rules are not excepted.
     ///
     /// `exceptions` should be passed directly from `UrlSpecificResources`.
-    pub fn hidden_class_id_selectors<'a>(&self, classes: impl IntoIterator<Item=impl AsRef<str>>, ids: impl IntoIterator<Item=impl AsRef<str>>, exceptions: &HashSet<String>) -> Vec<String> {
+    pub fn hidden_class_id_selectors(&self, classes: impl IntoIterator<Item=impl AsRef<str>>, ids: impl IntoIterator<Item=impl AsRef<str>>, exceptions: &HashSet<String>) -> Vec<String> {
         self.cosmetic_cache.hidden_class_id_selectors(classes, ids, exceptions)
     }
 

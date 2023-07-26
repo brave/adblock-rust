@@ -52,7 +52,7 @@ pub enum CosmeticFilterAction {
 
 impl CosmeticFilterAction {
     fn new_style(style: &str) -> Result<Self, CosmeticFilterError> {
-        if !is_valid_css_style(&style) {
+        if !is_valid_css_style(style) {
             return Err(CosmeticFilterError::InvalidCssStyle);
         }
         Ok(Self::Style(style.to_string()))
@@ -70,7 +70,7 @@ impl CosmeticFilterAction {
 
     /// Regex and quoted args aren't supported yet
     fn forbid_regex_or_quoted_args(arg: &str) -> Result<(), CosmeticFilterError> {
-        if arg.starts_with("/") || arg.starts_with("\"") || arg.starts_with("\'") {
+        if arg.starts_with('/') || arg.starts_with('\"') || arg.starts_with('\'') {
             return Err(CosmeticFilterError::UnsupportedSyntax);
         }
         Ok(())
@@ -263,9 +263,9 @@ impl CosmeticFilter {
                     }
                 }
             }
-            if after_sharp.ends_with(REMOVE_TOKEN) {
+            if let Some(before_suffix) = after_sharp.strip_suffix(REMOVE_TOKEN) {
                 action = Some(CosmeticFilterAction::Remove);
-                selector = &after_sharp[..after_sharp.len() - REMOVE_TOKEN.len()];
+                selector = before_suffix;
                 break 'init;
             } else {
                 action = None;

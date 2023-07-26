@@ -1356,7 +1356,7 @@ fn check_pattern_left_right_anchor_filter(
     let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => return &request_url == f,
+        FilterPart::Simple(f) => &request_url == f,
         FilterPart::AnyOf(filters) => {
             for f in filters {
                 if &request_url == f {

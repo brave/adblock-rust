@@ -193,7 +193,7 @@ impl CosmeticFilterCache {
     /// `UrlSpecificResources`. The exceptions, along with the set of already-seen classes and ids,
     /// must be cached externally as the cosmetic filtering subsystem here is designed to be
     /// stateless with regard to active page sessions.
-    pub fn hidden_class_id_selectors<'a>(
+    pub fn hidden_class_id_selectors(
         &self,
         classes: impl IntoIterator<Item=impl AsRef<str>>,
         ids: impl IntoIterator<Item=impl AsRef<str>>,

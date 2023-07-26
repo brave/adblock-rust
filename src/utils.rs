@@ -247,13 +247,13 @@ mod tests {
 
     #[test]
     fn bin_lookup_works() {
-        assert_eq!(bin_lookup(&vec![], 42), false);
-        assert_eq!(bin_lookup(&vec![42], 42), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 42), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 1), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 3), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 43), false);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 0), false);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 5), false);
+        assert_eq!(bin_lookup(&[], 42), false);
+        assert_eq!(bin_lookup(&[42], 42), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 42), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 1), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 3), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 43), false);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 0), false);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 5), false);
     }
 }

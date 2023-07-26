@@ -134,7 +134,7 @@ pub fn parse_scriptlet_args(args: &str) -> Vec<String> {
     let args = args.trim_end_matches('\\');
 
     let mut args_vec = vec![];
-    if args.trim().len() == 0 {
+    if args.trim().is_empty() {
         return args_vec;
     }
 
@@ -146,13 +146,13 @@ pub fn parse_scriptlet_args(args: &str) -> Vec<String> {
         let mut part = &args[after_last_delim..comma_pos];
         let mut is_continuation = false;
 
-        if part.len() > 0 && part.as_bytes()[part.len() - 1] == b'\\' {
+        if !part.is_empty() && part.as_bytes()[part.len() - 1] == b'\\' {
             part = &part[0..part.len() - 1];
             is_continuation = true;
         }
 
         let mut target = if let Some(s) = continuation.take() {
-            String::from(s)
+            s
         } else {
             String::new()
         };

@@ -13,6 +13,5 @@ pub fn rules_from_lists(lists: impl IntoIterator<Item=impl AsRef<str>>) -> impl 
 
     lists
         .into_iter()
-        .map(|filename| read_file_lines(filename.as_ref()))
-        .flatten()
+        .flat_map(|filename| read_file_lines(filename.as_ref()))
 }

@@ -427,7 +427,7 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters = removeparam_filters.check_all(request, &request_tokens, &NO_TAGS, regex_manager);
+            let filters = removeparam_filters.check_all(request, request_tokens, &NO_TAGS, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {

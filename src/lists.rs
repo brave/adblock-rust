@@ -465,7 +465,7 @@ pub fn parse_filters(
 }
 
 /// Parse an entire list of filters, ignoring any errors
-pub fn parse_filters_with_metadata<'a>(
+pub fn parse_filters_with_metadata(
     list: impl IntoIterator<Item=impl AsRef<str>>,
     debug: bool,
     opts: ParseOptions,
