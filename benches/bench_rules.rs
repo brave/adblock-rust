@@ -2,15 +2,13 @@ use criterion::*;
 use once_cell::sync::Lazy;
 
 use adblock::blocker::{Blocker, BlockerOptions};
-use adblock::utils::{read_file_lines, rules_from_lists};
+use adblock::utils::rules_from_lists;
 
 static DEFAULT_LISTS: Lazy<Vec<String>> = Lazy::new(|| {
     rules_from_lists(&[
         "data/easylist.to/easylist/easylist.txt",
-    ])
+    ]).collect()
 });
-static DEFAULT_RULES_LISTS: Lazy<Vec<Vec<String>>> =
-    Lazy::new(|| vec![read_file_lines("data/easylist.to/easylist/easylist.txt")]);
 
 fn bench_string_hashing(filters: &Vec<String>) -> adblock::utils::Hash {
     let mut dummy: adblock::utils::Hash = 0;
@@ -52,11 +50,11 @@ fn string_tokenize(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_parsing_impl(lists: &Vec<Vec<String>>) -> usize {
+fn bench_parsing_impl(lists: &Vec<&Vec<String>>) -> usize {
     let mut dummy = 0;
 
     for list in lists {
-        let (network_filters, _) = adblock::lists::parse_filters(list, false, Default::default());
+        let (network_filters, _) = adblock::lists::parse_filters(*list, false, Default::default());
         dummy = dummy + network_filters.len() % 1000000;
     }
 
@@ -70,17 +68,17 @@ fn list_parse(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("network filters", |b| {
-        b.iter(|| bench_parsing_impl(&DEFAULT_RULES_LISTS))
+        b.iter(|| bench_parsing_impl(&vec![DEFAULT_LISTS.as_ref()]))
     });
 
     group.bench_function("all filters", |b| {
-        b.iter(|| bench_parsing_impl(&DEFAULT_RULES_LISTS))
+        b.iter(|| bench_parsing_impl(&vec![DEFAULT_LISTS.as_ref()]))
     });
 
     group.finish();
 }
 
-fn get_blocker(rules: &Vec<String>) -> Blocker {
+fn get_blocker(rules: impl IntoIterator<Item=impl AsRef<str>>) -> Blocker {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
     println!("Got {} network filters", network_filters.len());
@@ -98,10 +96,10 @@ fn blocker_new(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
     group.sample_size(10);
 
-    let rules = rules_from_lists(&[
+    let rules: Vec<_> = rules_from_lists(&[
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
-    ]);
+    ]).collect();
 
     group.bench_function("el+ep", move |b| b.iter(|| get_blocker(&rules)));
 

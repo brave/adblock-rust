@@ -2301,7 +2301,7 @@ mod legacy_rule_parsing_tests {
     fn check_list_counts(rule_lists: impl IntoIterator<Item=impl AsRef<str>>, format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
 
-        let (network_filters, cosmetic_filters) = parse_filters(&rules, true, ParseOptions { format, ..Default::default() });
+        let (network_filters, cosmetic_filters) = parse_filters(rules, true, ParseOptions { format, ..Default::default() });
 
         assert_eq!(
             (network_filters.len(),

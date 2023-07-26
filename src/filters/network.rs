@@ -3398,7 +3398,7 @@ mod hash_collision_tests {
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let (network_filters, _) = parse_filters(&rules, true, Default::default());
+        let (network_filters, _) = parse_filters(rules, true, Default::default());
 
         let mut filter_ids: HashMap<Hash, String> = HashMap::new();
 

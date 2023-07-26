@@ -17,7 +17,7 @@ struct TestRequest {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    let requests_str = adblock::utils::read_file_lines("data/requests.json");
+    let requests_str = rules_from_lists(&["data/requests.json"]);
     let reqs: Vec<TestRequest> = requests_str
         .into_iter()
         .map(|r| serde_json::from_str(&r))
@@ -26,7 +26,7 @@ fn load_requests() -> Vec<TestRequest> {
     reqs
 }
 
-fn get_blocker(rules: &Vec<String>) -> Blocker {
+fn get_blocker(rules: impl IntoIterator<Item=impl AsRef<str>>) -> Blocker {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
     let blocker_options = BlockerOptions {
@@ -109,17 +109,17 @@ fn rule_match(c: &mut Criterion) {
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let engine = Engine::from_rules(&rules, Default::default());
+        let engine = Engine::from_rules(rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &elep_req))
     });
     group.bench_function("easylist", move |b| {
         let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
-        let engine = Engine::from_rules(&rules, Default::default());
+        let engine = Engine::from_rules(rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
         let rules = rules_from_lists(&["data/slim-list.txt"]);
-        let engine = Engine::from_rules(&rules, Default::default());
+        let engine = Engine::from_rules(rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &slim_req))
     });
 
@@ -139,7 +139,7 @@ fn rule_match_parsed_el(c: &mut Criterion) {
         .filter_map(Result::ok)
         .collect();
     let requests_len = requests_parsed.len() as u64;
-    let blocker = get_blocker(&rules);
+    let blocker = get_blocker(rules);
 
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(10);
@@ -158,7 +158,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
     ]);
-    let blocker = get_blocker(&full_rules);
+    let blocker = get_blocker(full_rules);
 
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
@@ -169,7 +169,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let requests_len = requests_parsed.len() as u64;
 
     let slim_rules = rules_from_lists(&["data/slim-list.txt"]);
-    let slim_blocker = get_blocker(&slim_rules);
+    let slim_blocker = get_blocker(slim_rules);
 
     let requests_copy = load_requests();
     let requests_parsed_copy: Vec<_> = requests_copy
@@ -202,7 +202,7 @@ fn serialization(c: &mut Criterion) {
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
 
-        let engine = Engine::from_rules(&full_rules, Default::default());
+        let engine = Engine::from_rules(full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
     });
     group.bench_function("el", move |b| {
@@ -210,13 +210,13 @@ fn serialization(c: &mut Criterion) {
             "data/easylist.to/easylist/easylist.txt",
         ]);
 
-        let engine = Engine::from_rules(&full_rules, Default::default());
+        let engine = Engine::from_rules(full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
     });
     group.bench_function("slimlist", move |b| {
         let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
-        let engine = Engine::from_rules(&full_rules, Default::default());
+        let engine = Engine::from_rules(full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
     });
 
@@ -234,7 +234,7 @@ fn deserialization(c: &mut Criterion) {
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
 
-        let engine = Engine::from_rules(&full_rules, Default::default());
+        let engine = Engine::from_rules(full_rules, Default::default());
         let serialized = engine.serialize_raw().unwrap();
 
         b.iter(|| {
@@ -247,7 +247,7 @@ fn deserialization(c: &mut Criterion) {
             "data/easylist.to/easylist/easylist.txt",
         ]);
 
-        let engine = Engine::from_rules(&full_rules, Default::default());
+        let engine = Engine::from_rules(full_rules, Default::default());
         let serialized = engine.serialize_raw().unwrap();
 
         b.iter(|| {
@@ -258,7 +258,7 @@ fn deserialization(c: &mut Criterion) {
     group.bench_function("slimlist", move |b| {
         let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
-        let engine = Engine::from_rules(&full_rules, Default::default());
+        let engine = Engine::from_rules(full_rules, Default::default());
         let serialized = engine.serialize_raw().unwrap();
 
         b.iter(|| {
@@ -328,17 +328,17 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
+        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
     });
     group.bench_function("el", move |b| {
         let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
-        let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
+        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
         let rules = rules_from_lists(&["data/slim-list.txt"]);
-        let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
+        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
     });
 

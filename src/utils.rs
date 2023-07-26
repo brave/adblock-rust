@@ -5,10 +5,6 @@
 use seahash::hash;
 #[cfg(target_pointer_width = "32")]
 use seahash::reference::hash;
-#[cfg(not(target_arch = "wasm32"))]
-use std::fs::File;
-#[cfg(not(target_arch = "wasm32"))]
-use std::io::{BufRead, BufReader};
 
 pub type Hash = u64;
 
@@ -146,28 +142,20 @@ pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
 
-const EXPECTED_RULES: usize = 75000;
 #[cfg(not(target_arch = "wasm32"))]
-pub fn read_file_lines(filename: &str) -> Vec<String> {
-    let f = File::open(filename).unwrap_or_else(|_| panic!("File {} not found", filename));
-    let reader = BufReader::new(f);
-    let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
-    for line in reader.lines() {
-        let l = line.unwrap();
-        rules.push(l);
+pub fn rules_from_lists(lists: impl IntoIterator<Item=impl AsRef<str>>) -> impl Iterator<Item=String> {
+    fn read_file_lines(filename: &str) -> impl Iterator<Item=String> {
+        use std::io::{BufRead, BufReader};
+        use std::fs::File;
+
+        let reader = BufReader::new(File::open(filename).unwrap());
+        reader.lines().map(|r| r.unwrap())
     }
-    rules.shrink_to_fit();
-    rules
-}
-#[cfg(not(target_arch = "wasm32"))]
-pub fn rules_from_lists(lists: impl IntoIterator<Item=impl AsRef<str>>) -> Vec<String> {
-    let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
-    for filename in lists {
-        let mut list_rules = read_file_lines(filename.as_ref());
-        rules.append(&mut list_rules);
-    }
-    rules.shrink_to_fit();
-    rules
+
+    lists
+        .into_iter()
+        .map(|filename| read_file_lines(filename.as_ref()))
+        .flatten()
 }
 
 pub(crate) fn is_eof_error(e: &rmp_serde_legacy::decode::Error) -> bool {
