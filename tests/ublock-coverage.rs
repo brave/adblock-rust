@@ -1,11 +1,13 @@
 use adblock::engine::Engine;
-use adblock::utils::rules_from_lists;
 
 use serde::Deserialize;
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+
+mod test_utils;
+use test_utils::rules_from_lists;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]

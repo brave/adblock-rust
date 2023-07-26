@@ -40,6 +40,10 @@ pub use engine::Engine;
 pub use lists::FilterSet;
 
 #[cfg(test)]
+#[path = "../tests/test_utils.rs"]
+mod test_utils;
+
+#[cfg(test)]
 mod sync_tests {
     #[allow(unused)]
     fn static_assert_sync<S: Sync>() {

@@ -142,22 +142,6 @@ pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn rules_from_lists(lists: impl IntoIterator<Item=impl AsRef<str>>) -> impl Iterator<Item=String> {
-    fn read_file_lines(filename: &str) -> impl Iterator<Item=String> {
-        use std::io::{BufRead, BufReader};
-        use std::fs::File;
-
-        let reader = BufReader::new(File::open(filename).unwrap());
-        reader.lines().map(|r| r.unwrap())
-    }
-
-    lists
-        .into_iter()
-        .map(|filename| read_file_lines(filename.as_ref()))
-        .flatten()
-}
-
 pub(crate) fn is_eof_error(e: &rmp_serde_legacy::decode::Error) -> bool {
     if let rmp_serde_legacy::decode::Error::InvalidMarkerRead(e) = e {
         if e.kind() == std::io::ErrorKind::UnexpectedEof

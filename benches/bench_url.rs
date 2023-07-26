@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use adblock::request::Request;
 use adblock::url_parser::parse_url;
 
+#[path = "../tests/test_utils.rs"]
+mod test_utils;
+use test_utils::rules_from_lists;
+
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone)]
 struct TestRequest {
@@ -14,7 +18,7 @@ struct TestRequest {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    adblock::utils::rules_from_lists(&["data/requests.json"])
+    rules_from_lists(&["data/requests.json"])
         .into_iter()
         .map(|r| serde_json::from_str(&r))
         .filter_map(Result::ok)

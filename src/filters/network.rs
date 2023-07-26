@@ -9,8 +9,7 @@ use std::fmt;
 use crate::lists::ParseOptions;
 use crate::regex_manager::RegexManager;
 use crate::request;
-use crate::utils;
-use crate::utils::Hash;
+use crate::utils::{self, Hash};
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -3388,13 +3387,13 @@ mod match_tests {
 mod hash_collision_tests {
     use super::*;
 
-    use crate::utils::Hash;
+    use crate::test_utils;
     use crate::lists::parse_filters;
     use std::collections::HashMap;
 
     #[test]
     fn check_rule_ids_no_collisions() {
-        let rules = utils::rules_from_lists([
+        let rules = test_utils::rules_from_lists([
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);

@@ -3,7 +3,10 @@ use criterion::*;
 
 use adblock::cosmetic_filter_cache::CosmeticFilterCache;
 use adblock::lists::{parse_filters, FilterFormat};
-use adblock::utils::rules_from_lists;
+
+#[path = "../tests/test_utils.rs"]
+mod test_utils;
+use test_utils::rules_from_lists;
 
 fn by_hostname(c: &mut Criterion) {
     let mut group = c.benchmark_group("cosmetic-hostname-match");

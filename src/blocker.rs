@@ -2248,7 +2248,7 @@ fn test_removeparam_same_tokens() {
 
 #[cfg(test)]
 mod legacy_rule_parsing_tests {
-    use crate::utils::rules_from_lists;
+    use crate::test_utils::rules_from_lists;
     use crate::lists::{parse_filters, FilterFormat, ParseOptions};
     use crate::blocker::{Blocker, BlockerOptions};
     use crate::blocker::vec_hashmap_len;
