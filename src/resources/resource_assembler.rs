@@ -1,5 +1,5 @@
-//! Contains methods useful for building `Resource` descriptors from resources directly from files
-//! in the uBlock Origin repository.
+//! Contains methods useful for building [`Resource`] descriptors from resources directly from
+//! files in the uBlock Origin repository.
 
 use crate::resources::{MimeType, Resource, ResourceType};
 use memchr::memmem;
@@ -278,7 +278,7 @@ pub fn assemble_web_accessible_resources(
 }
 
 /// Parses the _old_ format of uBlock Origin templated scriptlet resources, prior to
-/// https://github.com/gorhill/uBlock/commit/18a84d2819d49444fc31c5350677ecc5b2ec73c6.
+/// <https://github.com/gorhill/uBlock/commit/18a84d2819d49444fc31c5350677ecc5b2ec73c6>.
 ///
 /// The newer format is intended to be imported as an ES module, making line-based parsing even
 /// more complex and error-prone. Instead, it's recommended to transform them into [Resource]s

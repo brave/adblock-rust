@@ -1,4 +1,4 @@
-//! Holds `Blocker`, which handles all network-based adblocking queries.
+//! Holds [`Blocker`], which handles all network-based adblocking queries.
 
 use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;

@@ -1,3 +1,5 @@
+//! The adblock [`Engine`] is the primary interface for adblocking.
+
 use crate::blocker::{Blocker, BlockerError, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::lists::{FilterSet, ParseOptions};
@@ -7,7 +9,39 @@ use crate::resources::{Resource, RedirectResource};
 
 use std::collections::HashSet;
 
-/// Main adblocking engine that allows efficient querying of resources to block.
+/// Drives high-level blocking logic and is responsible for loading filter lists into an optimized
+/// format that can be queried efficiently.
+///
+/// For performance optimization reasons, the [`Engine`] is not designed to have rules added or
+/// removed after its initial creation. Making changes to the rules loaded is accomplished by
+/// creating a new engine to replace it.
+///
+/// ## Usage
+///
+/// ### Initialization
+///
+/// You'll first want to combine all of your filter lists in a [`FilterSet`], which will parse list
+/// header metadata. Once all lists have been composed together, you can call
+/// [`Engine::from_filter_set`] to start using them for blocking.
+///
+/// You may also want to supply certain assets for `$redirect` filters and `##+js(...)` scriptlet
+/// injections. These are known as [`Resource`]s, and can be provided with
+/// [`Engine::use_resources`]. See the [`crate::resources`] module for more information.
+///
+/// ### Network blocking
+///
+/// Use the [`Engine::check_network_urls`] method to determine how to handle a network request.
+///
+/// If you _only_ need network blocking, consider using a [`Blocker`] directly.
+///
+/// ### Cosmetic filtering
+///
+/// Call [`Engine::url_cosmetic_resources`] to determine what actions should be taken to prepare a
+/// particular page before it starts loading.
+///
+/// Once the page has been loaded, any new CSS classes or ids that appear on the page should be passed to
+/// [`Engine::hidden_class_id_selectors`] on an ongoing basis to determine additional elements that
+/// should be hidden dynamically.
 pub struct Engine {
     pub blocker: Blocker,
     cosmetic_cache: CosmeticFilterCache,

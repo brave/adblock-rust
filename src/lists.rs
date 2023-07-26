@@ -68,7 +68,7 @@ impl Default for ParseOptions {
     }
 }
 
-/// Manages a set of rules to be added to an `Engine`.
+/// Manages a set of rules to be added to an [`crate::Engine`].
 ///
 /// To be able to efficiently handle special options like `$badfilter`, and to allow optimizations,
 /// all rules must be available when the `Engine` is first created. `FilterSet` allows assembling a
