@@ -1180,7 +1180,7 @@ mod tests {
     #[test]
     fn network_filter_list_new_works() {
         {
-            let filters = vec!["||foo.com"];
+            let filters = ["||foo.com"];
             let network_filters: Vec<_> = filters
                 .into_iter()
                 .map(|f| NetworkFilter::parse(&f, true, Default::default()))
@@ -1192,7 +1192,7 @@ mod tests {
         }
         // choses least frequent token
         {
-            let filters = vec!["||foo.com", "||bar.com/foo"];
+            let filters = ["||foo.com", "||bar.com/foo"];
             let network_filters: Vec<_> = filters
                 .into_iter()
                 .map(|f| NetworkFilter::parse(&f, true, Default::default()))
@@ -1210,7 +1210,7 @@ mod tests {
         }
         // choses blacklisted token when no other choice
         {
-            let filters = vec!["||foo.com", "||foo.com/bar", "||www"];
+            let filters = ["||foo.com", "||foo.com/bar", "||www"];
             let network_filters: Vec<_> = filters
                 .into_iter()
                 .map(|f| NetworkFilter::parse(&f, true, Default::default()))
@@ -1229,7 +1229,7 @@ mod tests {
         }
         // uses domain as token when only one domain
         {
-            let filters = vec!["||foo.com", "||foo.com$domain=bar.com"];
+            let filters = ["||foo.com", "||foo.com$domain=bar.com"];
             let network_filters: Vec<_> = filters
                 .into_iter()
                 .map(|f| NetworkFilter::parse(&f, true, Default::default()))
@@ -1252,7 +1252,7 @@ mod tests {
         }
         // dispatches filter to multiple buckets per domain options if no token in main part
         {
-            let filters = vec!["foo*$domain=bar.com|baz.com"];
+            let filters = ["foo*$domain=bar.com|baz.com"];
             let network_filters: Vec<_> = filters
                 .into_iter()
                 .map(|f| NetworkFilter::parse(&f, true, Default::default()))
@@ -1289,10 +1289,10 @@ mod tests {
         }
     }
 
-    fn test_requests_filters(filters: &Vec<&str>, requests: &Vec<(Request, bool)>) {
+    fn test_requests_filters(filters: impl IntoIterator<Item=impl AsRef<str>>, requests: &[(Request, bool)]) {
         let network_filters: Vec<_> = filters
             .into_iter()
-            .map(|f| NetworkFilter::parse(&f, true, Default::default()))
+            .map(|f| NetworkFilter::parse(&f.as_ref(), true, Default::default()))
             .filter_map(Result::ok)
             .collect();
         let filter_list = NetworkFilterList::new(network_filters, false);
@@ -1314,7 +1314,7 @@ mod tests {
     #[test]
     fn network_filter_list_check_works_plain_filter() {
         // includes cases with fall back to 0 bucket (no tokens from a rule)
-        let filters = vec![
+        let filters = [
             "foo",
             "-foo-",
             "&fo.o=+_-",
@@ -1323,7 +1323,7 @@ mod tests {
             "https://bar.com/bar/baz",
         ];
 
-        let url_results = vec![
+        let url_results = [
             ("https://bar.com/foo", true),
             ("https://bar.com/baz/foo", true),
             ("https://bar.com/q=foo/baz", true),
@@ -1347,7 +1347,7 @@ mod tests {
 
     #[test]
     fn network_filter_list_check_works_hostname_anchor() {
-        let filters = vec![
+        let filters = [
             "||foo.com",
             "||bar.com/bar",
             "||coo.baz.",
@@ -1355,7 +1355,7 @@ mod tests {
             "||foo.baz^",
         ];
 
-        let url_results = vec![
+        let url_results = [
             ("https://foo.com/bar", true),
             ("https://bar.com/bar", true),
             ("https://baz.com/bar", false),
@@ -1382,13 +1382,13 @@ mod tests {
 
     #[test]
     fn network_filter_list_check_works_unicode() {
-        let filters = vec![
+        let filters = [
             "||firstrowsports.li/frame/",
             "||fırstrowsports.eu/pu/",
             "||atđhe.net/pu/",
         ];
 
-        let url_results = vec![
+        let url_results = [
             ("https://firstrowsports.li/frame/bar", true),
             ("https://secondrowsports.li/frame/bar", false),
             ("https://fırstrowsports.eu/pu/foo", true),
@@ -1409,12 +1409,12 @@ mod tests {
 
     #[test]
     fn network_filter_list_check_works_regex_escaping() {
-        let filters = vec![
+        let filters = [
             r#"/^https?:\/\/.*(bitly|bit)\.(com|ly)\/.*/$domain=123movies.com|1337x.to"#,
             r#"/\:\/\/data.*\.com\/[a-zA-Z0-9]{30,}/$third-party,xmlhttprequest"#
         ];
 
-        let url_results = vec![
+        let url_results = [
             (
                 Request::new("https://bit.ly/bar/", "http://123movies.com", "").unwrap(),
                 true,
@@ -1450,11 +1450,11 @@ mod blocker_tests {
 
     #[test]
     fn single_slash() {
-        let filters = vec![
-            String::from("/|"),
+        let filters = [
+            "/|",
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
@@ -1469,7 +1469,7 @@ mod blocker_tests {
         assert!(!blocker.check(&request).matched);
     }
 
-    fn test_requests_filters(filters: &[String], requests: &[(Request, bool)]) {
+    fn test_requests_filters(filters: impl IntoIterator<Item=impl AsRef<str>>, requests: &[(Request, bool)]) {
         let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
@@ -1490,9 +1490,9 @@ mod blocker_tests {
 
     #[test]
     fn redirect_blocking_exception() {
-        let filters = vec![
-            String::from("||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3"),
-            String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com"),
+        let filters = [
+            "||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3",
+            "@@||imdb-video.media-imdb.com^$domain=imdb.com",
         ];
 
         let request = Request::new("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
@@ -1522,9 +1522,9 @@ mod blocker_tests {
 
     #[test]
     fn redirect_exception() {
-        let filters = vec![
-            String::from("||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3"),
-            String::from("@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3"),
+        let filters = [
+            "||imdb-video.media-imdb.com$media,redirect=noop-0.1s.mp3",
+            "@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3",
         ];
 
         let request = Request::new("https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi", "https://www.imdb.com/video/13", "media").unwrap();
@@ -1554,9 +1554,9 @@ mod blocker_tests {
 
     #[test]
     fn redirect_rule_redirection() {
-        let filters = vec![
-            String::from("||doubleclick.net^"),
-            String::from("||www3.doubleclick.net^$xmlhttprequest,redirect-rule=noop.txt,domain=lineups.fun"),
+        let filters = [
+            "||doubleclick.net^",
+            "||www3.doubleclick.net^$xmlhttprequest,redirect-rule=noop.txt,domain=lineups.fun",
         ];
 
         let request = Request::new("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
@@ -1586,10 +1586,8 @@ mod blocker_tests {
 
     #[test]
     fn badfilter_does_not_match() {
-        let filters = vec![
-            String::from("||foo.com$badfilter")
-        ];
-        let url_results = vec![
+        let filters = ["||foo.com$badfilter"];
+        let url_results = [
             (
                 Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
                 false,
@@ -1606,11 +1604,11 @@ mod blocker_tests {
 
     #[test]
     fn badfilter_cancels_with_same_id() {
-        let filters = vec![
-            String::from("||foo.com$domain=bar.com|foo.com,badfilter"),
-            String::from("||foo.com$domain=foo.com|bar.com")
+        let filters = [
+            "||foo.com$domain=bar.com|foo.com,badfilter",
+            "||foo.com$domain=foo.com|bar.com",
         ];
-        let url_results = vec![
+        let url_results = [
             (
                 Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
                 false,
@@ -1627,11 +1625,11 @@ mod blocker_tests {
 
     #[test]
     fn badfilter_does_not_cancel_similar_filter() {
-        let filters = vec![
-            String::from("||foo.com$domain=bar.com|foo.com,badfilter"),
-            String::from("||foo.com$domain=foo.com|bar.com,image")
+        let filters = [
+            "||foo.com$domain=bar.com|foo.com,badfilter",
+            "||foo.com$domain=foo.com|bar.com,image",
         ];
-        let url_results = vec![
+        let url_results = [
             (
                 Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
                 true,
@@ -1648,11 +1646,11 @@ mod blocker_tests {
 
     #[test]
     fn hostname_regex_filter_works() {
-        let filters = vec![
-            String::from("||alimc*.top^$domain=letv.com"),
-            String::from("||aa*.top^$domain=letv.com")
+        let filters = [
+            "||alimc*.top^$domain=letv.com",
+            "||aa*.top^$domain=letv.com",
         ];
-        let url_results = vec![
+        let url_results = [
             (Request::new("https://r.alimc1.top/test.js", "https://minisite.letv.com/", "script").unwrap(), true),
             (Request::new("https://www.baidu.com/test.js", "https://minisite.letv.com/", "script").unwrap(), false),
             (Request::new("https://r.aabb.top/test.js", "https://example.com/", "script").unwrap(), false),
@@ -1679,14 +1677,14 @@ mod blocker_tests {
 
     #[test]
     fn get_csp_directives() {
-        let filters = vec![
-            String::from("$csp=script-src 'self' * 'unsafe-inline',domain=thepiratebay.vip|pirateproxy.live|thehiddenbay.com|downloadpirate.com|thepiratebay10.org|kickass.vip|pirateproxy.app|ukpass.co|prox.icu|pirateproxy.life"),
-            String::from("$csp=worker-src 'none',domain=pirateproxy.live|thehiddenbay.com|tpb.party|thepiratebay.org|thepiratebay.vip|thepiratebay10.org|flashx.cc|vidoza.co|vidoza.net"),
-            String::from("||1337x.to^$csp=script-src 'self' 'unsafe-inline'"),
-            String::from("@@^no-csp^$csp=script-src 'self' 'unsafe-inline'"),
-            String::from("^duplicated-directive^$csp=worker-src 'none'"),
-            String::from("@@^disable-all^$csp"),
-            String::from("^first-party-only^$csp=script-src 'none',1p"),
+        let filters = [
+            "$csp=script-src 'self' * 'unsafe-inline',domain=thepiratebay.vip|pirateproxy.live|thehiddenbay.com|downloadpirate.com|thepiratebay10.org|kickass.vip|pirateproxy.app|ukpass.co|prox.icu|pirateproxy.life",
+            "$csp=worker-src 'none',domain=pirateproxy.live|thehiddenbay.com|tpb.party|thepiratebay.org|thepiratebay.vip|thepiratebay10.org|flashx.cc|vidoza.co|vidoza.net",
+            "||1337x.to^$csp=script-src 'self' 'unsafe-inline'",
+            "@@^no-csp^$csp=script-src 'self' 'unsafe-inline'",
+            "^duplicated-directive^$csp=worker-src 'none'",
+            "@@^disable-all^$csp",
+            "^first-party-only^$csp=script-src 'none',1p",
         ];
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -1707,7 +1705,7 @@ mod blocker_tests {
             assert_eq!(blocker.get_csp_directives(&Request::new("https://example.com", "https://vidoza.net", "subdocument").unwrap()), Some(String::from("worker-src 'none'")));
         }
         {   // Multiple merged directives should be returned if more than one match is present in the engine
-            let possible_results = vec![
+            let possible_results = [
                 Some(String::from("script-src 'self' * 'unsafe-inline',worker-src 'none'")),
                 Some(String::from("worker-src 'none',script-src 'self' * 'unsafe-inline'")),
             ];
@@ -1734,12 +1732,12 @@ mod blocker_tests {
 
     #[test]
     fn test_removeparam() {
-        let filters = vec![
-            String::from("||example.com^$removeparam=test"),
-            String::from("*$removeparam=fbclid"),
-            String::from("/script.js$redirect-rule=noopjs"),
-            String::from("^block^$important"),
-            String::from("$removeparam=testCase,~image"),
+        let filters = [
+            "||example.com^$removeparam=test",
+            "*$removeparam=fbclid",
+            "/script.js$redirect-rule=noopjs",
+            "^block^$important",
+            "$removeparam=testCase,~image",
         ];
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -1838,7 +1836,7 @@ mod blocker_tests {
     /// Tests ported from the previous query parameter stripping logic in brave-core
     #[test]
     fn removeparam_brave_core_tests() {
-        let testcases = vec![
+        let testcases = [
             // (original url, expected url after filtering)
             ("https://example.com/?fbclid=1234", "https://example.com/"),
             ("https://example.com/?fbclid=1234&", "https://example.com/"),
@@ -1911,9 +1909,9 @@ mod blocker_tests {
 
 #[test]
 fn test_removeparam_same_tokens() {
-    let filters = vec![
-        String::from("$removeparam=example1_"),
-        String::from("$removeparam=example1-"),
+    let filters = [
+        "$removeparam=example1_",
+        "$removeparam=example1-",
     ];
 
     let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -1931,13 +1929,13 @@ fn test_removeparam_same_tokens() {
 
     #[test]
     fn test_redirect_priority() {
-        let filters = vec![
-            String::from(".txt^$redirect-rule=a"),
-            String::from("||example.com^$redirect-rule=b:10"),
-            String::from("/text$redirect-rule=c:20"),
-            String::from("@@^excepta^$redirect-rule=a"),
-            String::from("@@^exceptb10^$redirect-rule=b:10"),
-            String::from("@@^exceptc20^$redirect-rule=c:20"),
+        let filters = [
+            ".txt^$redirect-rule=a",
+            "||example.com^$redirect-rule=b:10",
+            "/text$redirect-rule=c:20",
+            "@@^excepta^$redirect-rule=a",
+            "@@^exceptb10^$redirect-rule=b:10",
+            "@@^exceptc20^$redirect-rule=c:20",
         ];
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -2000,13 +1998,13 @@ fn test_removeparam_same_tokens() {
 
     #[test]
     fn tags_enable_works() {
-        let filters = vec![
-            String::from("adv$tag=stuff"),
-            String::from("somelongpath/test$tag=stuff"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("||brave.com$tag=brian"),
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", true),
             ("http://example.com/somelongpath/test/2.html", true),
             ("https://brianbondy.com/about", false),
@@ -2028,7 +2026,7 @@ fn test_removeparam_same_tokens() {
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
         blocker.enable_tags(&["stuff"]);
-        assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("stuff")].into_iter()));
+        assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
@@ -2043,13 +2041,13 @@ fn test_removeparam_same_tokens() {
 
     #[test]
     fn tags_enable_adds_tags() {
-        let filters = vec![
-            String::from("adv$tag=stuff"),
-            String::from("somelongpath/test$tag=stuff"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("||brave.com$tag=brian"),
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", true),
             ("http://example.com/somelongpath/test/2.html", true),
             ("https://brianbondy.com/about", true),
@@ -2072,7 +2070,7 @@ fn test_removeparam_same_tokens() {
         let mut blocker = Blocker::new(network_filters, &blocker_options);
         blocker.enable_tags(&["stuff"]);
         blocker.enable_tags(&["brian"]);
-        assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
+        assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
@@ -2087,13 +2085,13 @@ fn test_removeparam_same_tokens() {
 
     #[test]
     fn tags_disable_works() {
-        let filters = vec![
-            String::from("adv$tag=stuff"),
-            String::from("somelongpath/test$tag=stuff"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("||brave.com$tag=brian"),
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", false),
             ("http://example.com/somelongpath/test/2.html", false),
             ("https://brianbondy.com/about", true),
@@ -2115,10 +2113,10 @@ fn test_removeparam_same_tokens() {
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
         blocker.enable_tags(&["brian", "stuff"]);
-        assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian"), String::from("stuff")].into_iter()));
+        assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
         blocker.disable_tags(&["stuff"]);
-        assert_eq!(blocker.tags_enabled, HashSet::from_iter(vec![String::from("brian")].into_iter()));
+        assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("brian")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
@@ -2193,7 +2191,7 @@ fn test_removeparam_same_tokens() {
         blocker.add_filter(NetworkFilter::parse("||brianbondy.com/$tag=brian", true, Default::default()).unwrap()).unwrap();
         blocker.add_filter(NetworkFilter::parse("||brave.com$tag=brian", true, Default::default()).unwrap()).unwrap();
 
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", false),
             ("http://example.com/somelongpath/test/2.html", false),
             ("https://brianbondy.com/about", true),
@@ -2300,7 +2298,7 @@ mod legacy_rule_parsing_tests {
     const MALWARE_DOMAIN_LIST: ListCounts = ListCounts { filters: 1104, cosmetic_filters: 0, exceptions: 0, duplicates: 3 };
     const MALWARE_DOMAINS: ListCounts = ListCounts { filters: 26853, cosmetic_filters: 0, exceptions: 0, duplicates: 48 };
 
-    fn check_list_counts(rule_lists: &[String], format: FilterFormat, expectation: ListCounts) {
+    fn check_list_counts(rule_lists: impl IntoIterator<Item=impl AsRef<str>>, format: FilterFormat, expectation: ListCounts) {
         let rules = rules_from_lists(rule_lists);
 
         let (network_filters, cosmetic_filters) = parse_filters(&rules, true, ParseOptions { format, ..Default::default() });
@@ -2334,58 +2332,58 @@ mod legacy_rule_parsing_tests {
 
     #[test]
     fn parse_easylist() {
-        check_list_counts(&vec![String::from("./data/test/easylist.txt")], FilterFormat::Standard, EASY_LIST);
+        check_list_counts(["./data/test/easylist.txt"], FilterFormat::Standard, EASY_LIST);
     }
 
     #[test]
     fn parse_easyprivacy() {
-        check_list_counts(&vec![String::from("./data/test/easyprivacy.txt")], FilterFormat::Standard, EASY_PRIVACY);
+        check_list_counts(["./data/test/easyprivacy.txt"], FilterFormat::Standard, EASY_PRIVACY);
     }
 
     #[test]
     fn parse_ublock_unbreak() {
-        check_list_counts(&vec![String::from("./data/test/ublock-unbreak.txt")], FilterFormat::Standard, UBLOCK_UNBREAK);
+        check_list_counts(["./data/test/ublock-unbreak.txt"], FilterFormat::Standard, UBLOCK_UNBREAK);
     }
 
     #[test]
     fn parse_brave_unbreak() {
-        check_list_counts(&vec![String::from("./data/test/brave-unbreak.txt")], FilterFormat::Standard, BRAVE_UNBREAK);
+        check_list_counts(["./data/test/brave-unbreak.txt"], FilterFormat::Standard, BRAVE_UNBREAK);
     }
 
     #[test]
     fn parse_brave_disconnect_simple_malware() {
-        check_list_counts(&vec![String::from("./data/test/disconnect-simple-malware.txt")], FilterFormat::Standard, DISCONNECT_SIMPLE_MALWARE);
+        check_list_counts(["./data/test/disconnect-simple-malware.txt"], FilterFormat::Standard, DISCONNECT_SIMPLE_MALWARE);
     }
 
     #[test]
     fn parse_spam404_main_blacklist() {
-        check_list_counts(&vec![String::from("./data/test/spam404-main-blacklist.txt")], FilterFormat::Standard, SPAM_404_MAIN_BLACKLIST);
+        check_list_counts(["./data/test/spam404-main-blacklist.txt"], FilterFormat::Standard, SPAM_404_MAIN_BLACKLIST);
     }
 
     #[test]
     fn parse_malware_domain_list() {
-        check_list_counts(&vec![String::from("./data/test/malwaredomainlist.txt")], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
+        check_list_counts(["./data/test/malwaredomainlist.txt"], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
     }
 
     #[test]
     fn parse_malware_domain_list_just_hosts() {
-        check_list_counts(&vec![String::from("./data/test/malwaredomainlist_justhosts.txt")], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
+        check_list_counts(["./data/test/malwaredomainlist_justhosts.txt"], FilterFormat::Hosts, MALWARE_DOMAIN_LIST);
     }
 
     #[test]
     fn parse_malware_domains() {
-        check_list_counts(&vec![String::from("./data/test/malwaredomains.txt")], FilterFormat::Hosts, MALWARE_DOMAINS);
+        check_list_counts(["./data/test/malwaredomains.txt"], FilterFormat::Hosts, MALWARE_DOMAINS);
     }
 
     #[test]
     fn parse_multilist() {
         let expectation = EASY_LIST + EASY_PRIVACY + UBLOCK_UNBREAK + BRAVE_UNBREAK;
         check_list_counts(
-            &vec![
-                String::from("./data/test/easylist.txt"),
-                String::from("./data/test/easyprivacy.txt"),
-                String::from("./data/test/ublock-unbreak.txt"),
-                String::from("./data/test/brave-unbreak.txt"),
+            [
+                "./data/test/easylist.txt",
+                "./data/test/easyprivacy.txt",
+                "./data/test/ublock-unbreak.txt",
+                "./data/test/brave-unbreak.txt",
             ],
             FilterFormat::Standard,
             expectation,
@@ -2396,9 +2394,9 @@ mod legacy_rule_parsing_tests {
     fn parse_malware_multilist() {
         let expectation = SPAM_404_MAIN_BLACKLIST + DISCONNECT_SIMPLE_MALWARE;
         check_list_counts(
-            &vec![
-                String::from("./data/test/spam404-main-blacklist.txt"),
-                String::from("./data/test/disconnect-simple-malware.txt"),
+            [
+                "./data/test/spam404-main-blacklist.txt",
+                "./data/test/disconnect-simple-malware.txt",
             ],
             FilterFormat::Standard,
             expectation,
@@ -2410,9 +2408,9 @@ mod legacy_rule_parsing_tests {
         let mut expectation = MALWARE_DOMAIN_LIST + MALWARE_DOMAINS;
         expectation.duplicates = 69;
         check_list_counts(
-            &vec![
-                String::from("./data/test/malwaredomainlist.txt"),
-                String::from("./data/test/malwaredomains.txt"),
+            [
+                "./data/test/malwaredomainlist.txt",
+                "./data/test/malwaredomains.txt",
             ],
             FilterFormat::Hosts,
             expectation,

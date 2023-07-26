@@ -193,45 +193,36 @@ impl CosmeticFilterCache {
     /// `UrlSpecificResources`. The exceptions, along with the set of already-seen classes and ids,
     /// must be cached externally as the cosmetic filtering subsystem here is designed to be
     /// stateless with regard to active page sessions.
-    pub fn hidden_class_id_selectors(
+    pub fn hidden_class_id_selectors<'a>(
         &self,
-        classes: &[String],
-        ids: &[String],
+        classes: impl IntoIterator<Item=impl AsRef<str>>,
+        ids: impl IntoIterator<Item=impl AsRef<str>>,
         exceptions: &HashSet<String>,
     ) -> Vec<String> {
-        let mut simple_classes = vec![];
-        let mut simple_ids = vec![];
-        let mut complex_selectors = vec![];
+        let mut selectors = vec![];
 
-        classes.iter().for_each(|class| {
+        classes.into_iter().for_each(|class| {
+            let class = class.as_ref();
             if self.simple_class_rules.contains(class)
                 && !exceptions.contains(&format!(".{}", class))
             {
-                simple_classes.push(class);
+                selectors.push(format!(".{}", class));
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
-                complex_selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)));
+                selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)).map(|s| s.to_owned()));
             }
         });
-        ids.iter().for_each(|id| {
+        ids.into_iter().for_each(|id| {
+            let id = id.as_ref();
             if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
-                simple_ids.push(id);
+                selectors.push(format!("#{}", id));
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
-                complex_selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)));
+                selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)).map(|s| s.to_owned()));
             }
         });
 
-        if simple_classes.is_empty() && simple_ids.is_empty() && complex_selectors.is_empty() {
-            return vec![];
-        }
-
-        simple_classes
-            .into_iter()
-            .map(|class| format!(".{}", class))
-            .chain(simple_ids.into_iter().map(|id| format!("#{}", id)))
-            .chain(complex_selectors.into_iter().cloned())
-            .collect::<Vec<_>>()
+        selectors
     }
 
     /// Any rules that can't be handled by `hidden_class_id_selectors` are returned by
@@ -876,6 +867,9 @@ mod cosmetic_cache_tests {
         }
     }
 
+    /// Avoid impossible type inference for type parameter `impl AsRef<str>`
+    const EMPTY: &[&str] = &[];
+
     #[test]
     fn matching_hidden_class_id_selectors() {
         let rules = [
@@ -892,52 +886,52 @@ mod cosmetic_cache_tests {
                 .collect::<Vec<_>>(),
         );
 
-        let out = cfcache.hidden_class_id_selectors(&["with".into()], &[], &HashSet::default());
+        let out = cfcache.hidden_class_id_selectors(["with"], EMPTY, &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.hidden_class_id_selectors(&[], &["with".into()], &HashSet::default());
+        let out = cfcache.hidden_class_id_selectors(EMPTY, ["with"], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.hidden_class_id_selectors(&[], &["a-class".into()], &HashSet::default());
+        let out = cfcache.hidden_class_id_selectors(EMPTY, ["a-class"], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
         let out =
-            cfcache.hidden_class_id_selectors(&["simple-id".into()], &[], &HashSet::default());
+            cfcache.hidden_class_id_selectors(["simple-id"], EMPTY, &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
-        let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &HashSet::default());
+        let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &HashSet::default());
         assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
         let out = cfcache.hidden_class_id_selectors(
-            &["children".into(), "a-class".into()],
-            &[],
+            ["children", "a-class"],
+            EMPTY,
             &HashSet::default(),
         );
         assert_eq!(
             out,
             [
-                ".a-class",
                 ".children .including #simple-id",
-                ".a-class .with .children"
+                ".a-class",
+                ".a-class .with .children",
             ]
         );
 
         let out =
-            cfcache.hidden_class_id_selectors(&[], &["simple-id".into()], &HashSet::default());
+            cfcache.hidden_class_id_selectors(EMPTY, ["simple-id"], &HashSet::default());
         assert_eq!(out, ["#simple-id"]);
 
         let out = cfcache.hidden_class_id_selectors(
-            &["children".into(), "a-class".into()],
-            &["simple-id".into()],
+            ["children", "a-class"],
+            ["simple-id"],
             &HashSet::default(),
         );
         assert_eq!(
             out,
             [
-                ".a-class",
-                "#simple-id",
                 ".children .including #simple-id",
-                ".a-class .with .children"
+                ".a-class",
+                ".a-class .with .children",
+                "#simple-id",
             ]
         );
     }
@@ -963,49 +957,49 @@ mod cosmetic_cache_tests {
             .hostname_cosmetic_resources("example.co.uk", false)
             .exceptions;
 
-        let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
+        let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &exceptions);
         assert_eq!(out, [".a-class .with .children"]);
 
         let out = cfcache.hidden_class_id_selectors(
-            &["children".into(), "a-class".into()],
-            &["simple-id".into()],
+            ["children", "a-class"],
+            ["simple-id"],
             &exceptions,
         );
         assert_eq!(
             out,
             [
-                "#simple-id",
                 ".children .including #simple-id",
-                ".a-class .with .children"
+                ".a-class .with .children",
+                "#simple-id",
             ]
         );
 
-        let out = cfcache.hidden_class_id_selectors(&[], &["test-element".into()], &exceptions);
+        let out = cfcache.hidden_class_id_selectors(EMPTY, ["test-element"], &exceptions);
         assert_eq!(out, ["#test-element"]);
 
         let exceptions = cfcache
             .hostname_cosmetic_resources("a1.test.com", false)
             .exceptions;
 
-        let out = cfcache.hidden_class_id_selectors(&["a-class".into()], &[], &exceptions);
+        let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &exceptions);
         assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
         let out = cfcache.hidden_class_id_selectors(
-            &["children".into(), "a-class".into()],
-            &["simple-id".into()],
+            ["children", "a-class"],
+            ["simple-id"],
             &exceptions,
         );
         assert_eq!(
             out,
             [
-                ".a-class",
-                "#simple-id",
                 ".children .including #simple-id",
-                ".a-class .with .children"
+                ".a-class",
+                ".a-class .with .children",
+                "#simple-id",
             ]
         );
 
-        let out = cfcache.hidden_class_id_selectors(&[], &["test-element".into()], &exceptions);
+        let out = cfcache.hidden_class_id_selectors(EMPTY, ["test-element"], &exceptions);
         assert_eq!(out, Vec::<String>::new());
     }
 

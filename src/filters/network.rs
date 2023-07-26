@@ -2522,7 +2522,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^".to_string());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -2534,7 +2534,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("www.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^".to_string());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -2546,7 +2546,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("malware.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||malware.example.com^".to_string());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||malware.example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("malware.example.com".to_string());
             defaults.is_plain = true;
@@ -3394,9 +3394,9 @@ mod hash_collision_tests {
 
     #[test]
     fn check_rule_ids_no_collisions() {
-        let rules = utils::rules_from_lists(&[
-            String::from("data/easylist.to/easylist/easylist.txt"),
-            String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        let rules = utils::rules_from_lists([
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylist/easyprivacy.txt",
         ]);
         let (network_filters, _) = parse_filters(&rules, true, Default::default());
 

@@ -225,13 +225,12 @@ impl FilterSet {
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
     pub fn add_filter_list(&mut self, filter_list: &str, opts: ParseOptions) -> FilterListMetadata {
-        let rules = filter_list.lines().map(str::to_string).collect::<Vec<_>>();
-        self.add_filters(&rules, opts)
+        self.add_filters(filter_list.lines(), opts)
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
     /// successfully are ignored. Returns any discovered metadata about the list of rules added.
-    pub fn add_filters(&mut self, filters: &[String], opts: ParseOptions) -> FilterListMetadata {
+    pub fn add_filters(&mut self, filters: impl IntoIterator<Item=impl AsRef<str>>, opts: ParseOptions) -> FilterListMetadata {
         let (metadata, mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters_with_metadata(filters, self.debug, opts);
         self.network_filters.append(&mut parsed_network_filters);
         self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
@@ -452,7 +451,7 @@ pub fn parse_filter(
 
 /// Parse an entire list of filters, ignoring any errors
 pub fn parse_filters(
-    list: &[String],
+    list: impl IntoIterator<Item=impl AsRef<str>>,
     debug: bool,
     opts: ParseOptions,
 ) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
@@ -466,19 +465,19 @@ pub fn parse_filters(
 }
 
 /// Parse an entire list of filters, ignoring any errors
-pub fn parse_filters_with_metadata(
-    list: &[String],
+pub fn parse_filters_with_metadata<'a>(
+    list: impl IntoIterator<Item=impl AsRef<str>>,
     debug: bool,
     opts: ParseOptions,
 ) -> (FilterListMetadata, Vec<NetworkFilter>, Vec<CosmeticFilter>) {
     let mut metadata = FilterListMetadata::default();
 
-    let list_iter = list.iter();
+    let list_iter = list.into_iter();
 
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
         .map(|line| {
-            metadata.try_add(line);
-            parse_filter(line, debug, opts)
+            metadata.try_add(line.as_ref());
+            parse_filter(line.as_ref(), debug, opts)
         })
         .filter_map(Result::ok)
         .partition_map(|filter| match filter {
@@ -686,18 +685,18 @@ mod tests {
     #[test]
     fn test_parsing_list_metadata() {
         let list = [
-            "[Adblock Plus 2.0]".to_string(),
-            "! Title: 0131 Block List".to_string(),
-            "! Homepage: https://austinhuang.me/0131-block-list".to_string(),
-            "! Licence: https://creativecommons.org/licenses/by-sa/4.0/".to_string(),
-            "! Expires: 7 days".to_string(),
-            "! Version: 20220411".to_string(),
-            "".to_string(),
-            "! => https://austinhuang.me/0131-block-list/list.txt".to_string(),
+            "[Adblock Plus 2.0]",
+            "! Title: 0131 Block List",
+            "! Homepage: https://austinhuang.me/0131-block-list",
+            "! Licence: https://creativecommons.org/licenses/by-sa/4.0/",
+            "! Expires: 7 days",
+            "! Version: 20220411",
+            "",
+            "! => https://austinhuang.me/0131-block-list/list.txt",
         ];
 
         let mut filter_set = FilterSet::new(false);
-        let metadata = filter_set.add_filters(&list[..], ParseOptions::default());
+        let metadata = filter_set.add_filters(list, ParseOptions::default());
 
         assert_eq!(metadata.title, Some("0131 Block List".to_string()));
         assert_eq!(metadata.homepage, Some("https://austinhuang.me/0131-block-list".to_string()));
@@ -711,19 +710,19 @@ mod tests {
     /// Valid fields should still be recognized and parsed accordingly.
     fn test_parsing_list_best_effort() {
         let list = [
-            "[Adblock Plus 2]".to_string(),
-            "!-----------------------------------".to_string(),
-            "!             ABOUT".to_string(),
-            "!-----------------------------------".to_string(),
-            "! Version: 1.2.0.0".to_string(),
-            "! Title: ABPVN Advanced".to_string(),
-            "! Last modified: 09/03/2021".to_string(),
-            "! Expires: 7 days (update frequency)".to_string(),
-            "! Homepage: https://www.haopro.net/".to_string(),
+            "[Adblock Plus 2]",
+            "!-----------------------------------",
+            "!             ABOUT",
+            "!-----------------------------------",
+            "! Version: 1.2.0.0",
+            "! Title: ABPVN Advanced",
+            "! Last modified: 09/03/2021",
+            "! Expires: 7 days (update frequency)",
+            "! Homepage: https://www.haopro.net/",
         ];
 
         let mut filter_set = FilterSet::new(false);
-        let metadata = filter_set.add_filters(&list[..], ParseOptions::default());
+        let metadata = filter_set.add_filters(list, ParseOptions::default());
 
         assert_eq!(metadata.title, Some("ABPVN Advanced".to_string()));
         assert_eq!(metadata.homepage, Some("https://www.haopro.net/".to_string()));

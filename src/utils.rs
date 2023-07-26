@@ -160,10 +160,10 @@ pub fn read_file_lines(filename: &str) -> Vec<String> {
     rules
 }
 #[cfg(not(target_arch = "wasm32"))]
-pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
+pub fn rules_from_lists(lists: impl IntoIterator<Item=impl AsRef<str>>) -> Vec<String> {
     let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
     for filename in lists {
-        let mut list_rules = read_file_lines(filename);
+        let mut list_rules = read_file_lines(filename.as_ref());
         rules.append(&mut list_rules);
     }
     rules.shrink_to_fit();

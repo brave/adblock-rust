@@ -1276,26 +1276,23 @@ mod ab2cb_tests {
 #[cfg(test)]
 mod filterset_tests {
     use crate::lists::{FilterSet, ParseOptions, RuleTypes};
-    use once_cell::sync::Lazy;
 
-    static FILTER_LIST: Lazy<[String; 6]> = Lazy::new(|| {
-        [
-            String::from("||example.com^$script"),
-            String::from("||test.net^$image,third-party"),
-            String::from("/trackme.js^$script"),
-            String::from("example.com##.ad-banner"),
-            String::from("##.ad-640x480"),
-            String::from("##p.sponsored"),
-        ]
-    });
+    const FILTER_LIST: &[&str] = &[
+        "||example.com^$script",
+        "||test.net^$image,third-party",
+        "/trackme.js^$script",
+        "example.com##.ad-banner",
+        "##.ad-640x480",
+        "##p.sponsored",
+    ];
 
     #[test]
     fn convert_all_rules() -> Result<(), ()> {
         let mut set = FilterSet::new(true);
-        set.add_filters(&*FILTER_LIST, Default::default());
+        set.add_filters(FILTER_LIST, Default::default());
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
-        assert_eq!(used_rules, &*FILTER_LIST);
+        assert_eq!(used_rules, FILTER_LIST);
 
         // All 6 rules plus `ignore_previous_fp_documents()`
         assert_eq!(cb_rules.len(), 7);
@@ -1311,7 +1308,7 @@ mod filterset_tests {
         };
 
         let mut set = FilterSet::new(true);
-        set.add_filters(&*FILTER_LIST, parse_opts);
+        set.add_filters(FILTER_LIST, parse_opts);
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
         assert_eq!(used_rules, &FILTER_LIST[0..3]);
@@ -1330,7 +1327,7 @@ mod filterset_tests {
         };
 
         let mut set = FilterSet::new(true);
-        set.add_filters(&*FILTER_LIST, parse_opts);
+        set.add_filters(FILTER_LIST, parse_opts);
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
         assert_eq!(used_rules, &FILTER_LIST[3..6]);
@@ -1344,15 +1341,15 @@ mod filterset_tests {
     #[test]
     fn ignore_unsupported_rules() -> Result<(), ()> {
         let mut set = FilterSet::new(true);
-        set.add_filters(&*FILTER_LIST, Default::default());
-        set.add_filters(&[
+        set.add_filters(FILTER_LIST, Default::default());
+        set.add_filters([
             // unicode characters
-            "||rgmechanics.info/uploads/660х90_".to_string(),
-            "||insaattrendy.com/Upload/bükerbanner*.jpg".to_string(),
+            "||rgmechanics.info/uploads/660х90_",
+            "||insaattrendy.com/Upload/bükerbanner*.jpg",
         ], Default::default());
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
-        assert_eq!(used_rules, &*FILTER_LIST);
+        assert_eq!(used_rules, FILTER_LIST);
 
         // All 6 rules plus `ignore_previous_fp_documents()`
         assert_eq!(cb_rules.len(), 7);
@@ -1363,7 +1360,7 @@ mod filterset_tests {
     #[test]
     fn punycode_if_domains() -> Result<(), ()> {
         let list = [
-            "smskaraborg.se,örnsköldsviksgymnasium.se,mojligheternashusab.se##.env-modal-dialog__backdrop".to_string(),
+            "smskaraborg.se,örnsköldsviksgymnasium.se,mojligheternashusab.se##.env-modal-dialog__backdrop",
         ];
         let mut set = FilterSet::new(true);
         set.add_filters(&list, Default::default());
@@ -1372,7 +1369,8 @@ mod filterset_tests {
         assert_eq!(used_rules, list);
 
         assert_eq!(cb_rules.len(), 1);
-        assert_eq!(cb_rules[0].trigger.if_domain, Some(vec!["smskaraborg.se".to_string(), "xn--rnskldsviksgymnasium-29be.se".to_string(), "mojligheternashusab.se".to_string()]));
+        assert!(cb_rules[0].trigger.if_domain.is_some());
+        assert_eq!(cb_rules[0].trigger.if_domain.as_ref().unwrap(), &["smskaraborg.se", "xn--rnskldsviksgymnasium-29be.se", "mojligheternashusab.se"]);
 
         Ok(())
     }

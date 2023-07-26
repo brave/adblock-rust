@@ -5,9 +5,9 @@ use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::utils::{read_file_lines, rules_from_lists};
 
 static DEFAULT_LISTS: Lazy<Vec<String>> = Lazy::new(|| {
-    rules_from_lists(&vec![String::from(
+    rules_from_lists(&[
         "data/easylist.to/easylist/easylist.txt",
-    )])
+    ])
 });
 static DEFAULT_RULES_LISTS: Lazy<Vec<Vec<String>>> =
     Lazy::new(|| vec![read_file_lines("data/easylist.to/easylist/easylist.txt")]);
@@ -98,9 +98,9 @@ fn blocker_new(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
     group.sample_size(10);
 
-    let rules = rules_from_lists(&vec![
-        String::from("data/easylist.to/easylist/easylist.txt"),
-        String::from("data/easylist.to/easylist/easyprivacy.txt"),
+    let rules = rules_from_lists(&[
+        "data/easylist.to/easylist/easylist.txt",
+        "data/easylist.to/easylist/easyprivacy.txt",
     ]);
 
     group.bench_function("el+ep", move |b| b.iter(|| get_blocker(&rules)));

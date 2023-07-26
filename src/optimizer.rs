@@ -269,12 +269,12 @@ mod optimization_tests_pattern_group {
 
     #[test]
     fn combines_simple_regex_patterns() {
-        let rules = vec![
-            String::from("/static/ad-"),
-            String::from("/static/ad."),
-            String::from("/static/ad/*"),
-            String::from("/static/ads/*"),
-            String::from("/static/adv/*"),
+        let rules = [
+            "/static/ad-",
+            "/static/ad.",
+            "/static/ad/*",
+            "/static/ads/*",
+            "/static/adv/*",
         ];
 
         let (filters, _) = lists::parse_filters(&rules, true, Default::default());
@@ -328,12 +328,12 @@ mod optimization_tests_pattern_group {
 
     #[test]
     fn separates_pattern_by_grouping() {
-        let rules = vec![
-            String::from("/analytics-v1."),
-            String::from("/v1/pixel?"),
-            String::from("/api/v1/stat?"),
-            String::from("/analytics/v1/*$domain=~my.leadpages.net"),
-            String::from("/v1/ads/*"),
+        let rules = [
+            "/analytics-v1.",
+            "/v1/pixel?",
+            "/api/v1/stat?",
+            "/analytics/v1/*$domain=~my.leadpages.net",
+            "/v1/ads/*",
         ];
 
         let (filters, _) = lists::parse_filters(&rules, true, Default::default());
@@ -386,9 +386,9 @@ mod optimization_tests_union_domain {
 
     #[test]
     fn merges_domains() {
-        let rules = vec![
-            String::from("/analytics-v1$domain=google.com"),
-            String::from("/analytics-v1$domain=example.com"),
+        let rules = [
+            "/analytics-v1$domain=google.com",
+            "/analytics-v1$domain=example.com",
         ];
 
         let (filters, _) = lists::parse_filters(&rules, true, Default::default());
@@ -436,10 +436,10 @@ mod optimization_tests_union_domain {
 
     #[test]
     fn skips_rules_with_no_domain() {
-        let rules = vec![
-            String::from("/analytics-v1$domain=google.com"),
-            String::from("/analytics-v1$domain=example.com"),
-            String::from("/analytics-v1"),
+        let rules = [
+            "/analytics-v1$domain=google.com",
+            "/analytics-v1$domain=example.com",
+            "/analytics-v1",
         ];
 
         let (filters, _) = lists::parse_filters(&rules, true, Default::default());
@@ -453,11 +453,11 @@ mod optimization_tests_union_domain {
 
     #[test]
     fn optimises_domains() {
-        let rules = vec![
-            String::from("/analytics-v1$domain=google.com"),
-            String::from("/analytics-v1$domain=example.com"),
-            String::from("/analytics-v1$domain=exampleone.com|exampletwo.com"),
-            String::from("/analytics-v1"),
+        let rules = [
+            "/analytics-v1$domain=google.com",
+            "/analytics-v1$domain=example.com",
+            "/analytics-v1$domain=exampleone.com|exampletwo.com",
+            "/analytics-v1",
         ];
 
         let (filters, _) = lists::parse_filters(&rules, true, Default::default());

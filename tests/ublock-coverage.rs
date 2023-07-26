@@ -38,30 +38,30 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 }
 
 fn get_blocker_engine() -> Engine {
-    let rules = rules_from_lists(&vec![
-        String::from("data/regression-testing/easylist.txt"),
-        String::from("data/regression-testing/easyprivacy.txt"),
+    let rules = rules_from_lists([
+        "data/regression-testing/easylist.txt",
+        "data/regression-testing/easyprivacy.txt",
     ]);
 
-    Engine::from_rules_parametrised(&rules, Default::default(), true, false)
+    Engine::from_rules_parametrised(rules, Default::default(), true, false)
 }
 
-fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
-    let mut rules = rules_from_lists(&vec![
-        String::from("data/easylist.to/easylist/easylist.txt"),
-        String::from("data/easylist.to/easylist/easyprivacy.txt"),
-        String::from("data/uBlockOrigin/unbreak.txt"),
-        String::from("data/uBlockOrigin/filters.txt"),
-        String::from("data/brave/brave-unbreak.txt"),
-        String::from("data/brave/coin-miners.txt"),
-        // String::from("data/test/abpjf.txt"),
+fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item=impl AsRef<str>>) -> Engine {
+    let mut rules = rules_from_lists([
+        "data/easylist.to/easylist/easylist.txt",
+        "data/easylist.to/easylist/easyprivacy.txt",
+        "data/uBlockOrigin/unbreak.txt",
+        "data/uBlockOrigin/filters.txt",
+        "data/brave/brave-unbreak.txt",
+        "data/brave/coin-miners.txt",
+        // "data/test/abpjf.txt",
     ]);
 
     extra_rules
-        .iter()
-        .for_each(|rule| rules.push(rule.to_string()));
+        .into_iter()
+        .for_each(|rule| rules.push(rule.as_ref().to_string()));
 
-    Engine::from_rules_parametrised(&rules, Default::default(), true, false)
+    Engine::from_rules_parametrised(rules, Default::default(), true, false)
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
         let engine = Engine::from_rules_debug(
-            &[String::from("||www.facebook.com/*/plugin")],
+            ["||www.facebook.com/*/plugin"],
             Default::default(),
         );
 
@@ -85,8 +85,8 @@ fn check_specific_rules() {
 
         // exceptions have no effect if important filter matches
         let mut engine = Engine::from_rules_debug(
-            &[
-                String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
+            [
+                "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com",
             ],
             Default::default(),
         );
@@ -108,7 +108,7 @@ fn check_specific_rules() {
 
 #[test]
 fn check_specifics_default() {
-    let mut engine = get_blocker_engine_default(&[
+    let mut engine = get_blocker_engine_default([
         "@@||www.google.*/aclk?$first-party",
         "@@||www.googleadservices.*/aclk?$first-party",
     ]);

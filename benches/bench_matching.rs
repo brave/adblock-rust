@@ -105,20 +105,20 @@ fn rule_match(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("el+ep", move |b| {
-        let rules = rules_from_lists(&vec![
-            "data/easylist.to/easylist/easylist.txt".to_owned(),
-            "data/easylist.to/easylist/easyprivacy.txt".to_owned(),
+        let rules = rules_from_lists(&[
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylist/easyprivacy.txt",
         ]);
         let engine = Engine::from_rules(&rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &elep_req))
     });
     group.bench_function("easylist", move |b| {
-        let rules = rules_from_lists(&vec!["data/easylist.to/easylist/easylist.txt".to_owned()]);
+        let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
         let engine = Engine::from_rules(&rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
-        let rules = rules_from_lists(&vec!["data/slim-list.txt".to_owned()]);
+        let rules = rules_from_lists(&["data/slim-list.txt"]);
         let engine = Engine::from_rules(&rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &slim_req))
     });
@@ -129,9 +129,9 @@ fn rule_match(c: &mut Criterion) {
 fn rule_match_parsed_el(c: &mut Criterion) {
     let mut group = c.benchmark_group("rule-match-parsed");
 
-    let rules = rules_from_lists(&vec![String::from(
+    let rules = rules_from_lists(&[
         "data/easylist.to/easylist/easylist.txt",
-    )]);
+    ]);
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
         .into_iter()
@@ -154,9 +154,9 @@ fn rule_match_parsed_el(c: &mut Criterion) {
 fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let mut group = c.benchmark_group("rule-match-parsed");
 
-    let full_rules = rules_from_lists(&vec![
-        String::from("data/easylist.to/easylist/easylist.txt"),
-        String::from("data/easylist.to/easylist/easyprivacy.txt"),
+    let full_rules = rules_from_lists(&[
+        "data/easylist.to/easylist/easylist.txt",
+        "data/easylist.to/easylist/easyprivacy.txt",
     ]);
     let blocker = get_blocker(&full_rules);
 
@@ -168,7 +168,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
         .collect();
     let requests_len = requests_parsed.len() as u64;
 
-    let slim_rules = rules_from_lists(&vec![String::from("data/slim-list.txt")]);
+    let slim_rules = rules_from_lists(&["data/slim-list.txt"]);
     let slim_blocker = get_blocker(&slim_rules);
 
     let requests_copy = load_requests();
@@ -197,24 +197,24 @@ fn serialization(c: &mut Criterion) {
     group.sample_size(20);
 
     group.bench_function("el+ep", move |b| {
-        let full_rules = rules_from_lists(&vec![
-            String::from("data/easylist.to/easylist/easylist.txt"),
-            String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        let full_rules = rules_from_lists(&[
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylist/easyprivacy.txt",
         ]);
 
         let engine = Engine::from_rules(&full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
     });
     group.bench_function("el", move |b| {
-        let full_rules = rules_from_lists(&vec![String::from(
+        let full_rules = rules_from_lists(&[
             "data/easylist.to/easylist/easylist.txt",
-        )]);
+        ]);
 
         let engine = Engine::from_rules(&full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
     });
     group.bench_function("slimlist", move |b| {
-        let full_rules = rules_from_lists(&vec![String::from("data/slim-list.txt")]);
+        let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
         let engine = Engine::from_rules(&full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
@@ -229,9 +229,9 @@ fn deserialization(c: &mut Criterion) {
     group.sample_size(20);
 
     group.bench_function("el+ep", move |b| {
-        let full_rules = rules_from_lists(&vec![
-            String::from("data/easylist.to/easylist/easylist.txt"),
-            String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        let full_rules = rules_from_lists(&[
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylist/easyprivacy.txt",
         ]);
 
         let engine = Engine::from_rules(&full_rules, Default::default());
@@ -243,9 +243,9 @@ fn deserialization(c: &mut Criterion) {
         })
     });
     group.bench_function("el", move |b| {
-        let full_rules = rules_from_lists(&vec![String::from(
+        let full_rules = rules_from_lists(&[
             "data/easylist.to/easylist/easylist.txt",
-        )]);
+        ]);
 
         let engine = Engine::from_rules(&full_rules, Default::default());
         let serialized = engine.serialize_raw().unwrap();
@@ -256,7 +256,7 @@ fn deserialization(c: &mut Criterion) {
         })
     });
     group.bench_function("slimlist", move |b| {
-        let full_rules = rules_from_lists(&vec![String::from("data/slim-list.txt")]);
+        let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
         let engine = Engine::from_rules(&full_rules, Default::default());
         let serialized = engine.serialize_raw().unwrap();
@@ -324,20 +324,20 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
     let slim = elep_req.clone();
 
     group.bench_function("el+ep", move |b| {
-        let rules = rules_from_lists(&vec![
-            "data/easylist.to/easylist/easylist.txt".to_owned(),
-            "data/easylist.to/easylist/easyprivacy.txt".to_owned(),
+        let rules = rules_from_lists(&[
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylist/easyprivacy.txt",
         ]);
         let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &elep_req))
     });
     group.bench_function("el", move |b| {
-        let rules = rules_from_lists(&vec!["data/easylist.to/easylist/easylist.txt".to_owned()]);
+        let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
         let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
-        let rules = rules_from_lists(&vec!["data/slim-list.txt".to_owned()]);
+        let rules = rules_from_lists(&["data/slim-list.txt"]);
         let engine = Engine::from_rules_parametrised(&rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &slim))
     });

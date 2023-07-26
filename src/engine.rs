@@ -75,18 +75,18 @@ impl Engine {
     }
 
     /// Loads rules in a single format, enabling optimizations and discarding debug information.
-    pub fn from_rules(rules: &[String], opts: ParseOptions) -> Self {
+    pub fn from_rules(rules: impl IntoIterator<Item=impl AsRef<str>>, opts: ParseOptions) -> Self {
         let mut filter_set = FilterSet::new(false);
         filter_set.add_filters(rules, opts);
         Self::from_filter_set(filter_set, true)
     }
 
     /// Loads rules, enabling optimizations and including debug information.
-    pub fn from_rules_debug(rules: &[String], opts: ParseOptions) -> Self {
+    pub fn from_rules_debug(rules: impl IntoIterator<Item=impl AsRef<str>>, opts: ParseOptions) -> Self {
         Self::from_rules_parametrised(rules, opts, true, true)
     }
 
-    pub fn from_rules_parametrised(filter_rules: &[String], opts: ParseOptions, debug: bool, optimize: bool) -> Self {
+    pub fn from_rules_parametrised(filter_rules: impl IntoIterator<Item=impl AsRef<str>>, opts: ParseOptions, debug: bool, optimize: bool) -> Self {
         let mut filter_set = FilterSet::new(debug);
         filter_set.add_filters(filter_rules, opts);
         Self::from_filter_set(filter_set, optimize)
@@ -288,7 +288,7 @@ impl Engine {
     /// corresponding rules are not excepted.
     ///
     /// `exceptions` should be passed directly from `UrlSpecificResources`.
-    pub fn hidden_class_id_selectors(&self, classes: &[String], ids: &[String], exceptions: &HashSet<String>) -> Vec<String> {
+    pub fn hidden_class_id_selectors<'a>(&self, classes: impl IntoIterator<Item=impl AsRef<str>>, ids: impl IntoIterator<Item=impl AsRef<str>>, exceptions: &HashSet<String>) -> Vec<String> {
         self.cosmetic_cache.hidden_class_id_selectors(classes, ids, exceptions)
     }
 
@@ -343,13 +343,13 @@ mod tests {
 
     #[test]
     fn tags_enable_adds_tags() {
-        let filters = vec![
-            String::from("adv$tag=stuff"),
-            String::from("somelongpath/test$tag=stuff"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("||brave.com$tag=brian"),
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", true),
             ("http://example.com/somelongpath/test/2.html", true),
             ("https://brianbondy.com/about", true),
@@ -372,13 +372,13 @@ mod tests {
 
     #[test]
     fn tags_disable_works() {
-        let filters = vec![
-            String::from("adv$tag=stuff"),
-            String::from("somelongpath/test$tag=stuff"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("||brave.com$tag=brian"),
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", false),
             ("http://example.com/somelongpath/test/2.html", false),
             ("https://brianbondy.com/about", true),
@@ -401,12 +401,12 @@ mod tests {
 
     #[test]
     fn exception_tags_inactive_by_default() {
-        let filters = vec![
-            String::from("adv"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("@@||brianbondy.com/$tag=brian"),
+        let filters = [
+            "adv",
+            "||brianbondy.com/$tag=brian",
+            "@@||brianbondy.com/$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", true),
             ("https://brianbondy.com/about", false),
             ("https://brianbondy.com/advert", true),
@@ -426,12 +426,12 @@ mod tests {
 
     #[test]
     fn exception_tags_works() {
-        let filters = vec![
-            String::from("adv"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("@@||brianbondy.com/$tag=brian"),
+        let filters = [
+            "adv",
+            "||brianbondy.com/$tag=brian",
+            "@@||brianbondy.com/$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", true),
             ("https://brianbondy.com/about", false),
             ("https://brianbondy.com/advert", false),
@@ -452,13 +452,13 @@ mod tests {
 
     #[test]
     fn serialization_retains_tags() {
-        let filters = vec![
-            String::from("adv$tag=stuff"),
-            String::from("somelongpath/test$tag=stuff"),
-            String::from("||brianbondy.com/$tag=brian"),
-            String::from("||brave.com$tag=brian"),
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
         ];
-        let url_results = vec![
+        let url_results = [
             ("http://example.com/advert.html", true),
             ("http://example.com/somelongpath/test/2.html", true),
             ("https://brianbondy.com/about", false),
@@ -487,11 +487,11 @@ mod tests {
     fn deserialization_backwards_compatible_plain() {
         // deserialization_generate_simple();
         // assert!(false);
-        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 1, 68, 0, 187, 255, 155, 145, 128, 145, 128,
-            145, 128, 145, 128, 145, 128, 145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 158, 145, 206, 0, 3,
-            31, 255, 146, 1, 145, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 192, 192,
-            207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 192, 144, 194, 195, 194, 195, 207, 77, 26, 78, 68, 0,
-            0, 0];
+        let serialized = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 1, 68, 0, 187, 255, 155, 145, 128,
+            145, 128, 145, 128, 145, 128, 145, 128, 145, 129, 207, 202, 167, 36, 217, 43, 56, 97,
+            176, 145, 158, 145, 206, 0, 3, 31, 255, 146, 1, 145, 169, 97, 100, 45, 98, 97, 110,
+            110, 101, 114, 192, 192, 192, 192, 192, 192, 192, 192, 207, 186, 136, 69, 13, 115, 187,
+            170, 226, 192, 192, 192, 144, 194, 195, 194, 195, 207, 77, 26, 78, 68, 0, 0, 0];
 
         let mut deserialized_engine = Engine::default();
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -505,11 +505,12 @@ mod tests {
     fn deserialization_backwards_compatible_tags() {
         // deserialization_generate_tags();
         // assert!(false);
-        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 49, 14, 64, 48, 24, 70, 137, 131, 88,
-            108, 98, 148, 184, 135, 19, 252, 197, 218, 132, 3, 8, 139, 85, 126, 171, 132, 193, 32, 54, 71, 104, 218, 205,
-            160, 139, 197, 105, 218, 166, 233, 5, 250, 125, 219, 203, 123, 43, 14, 238, 163, 124, 206, 228, 79, 11, 184,
-            113, 195, 55, 136, 98, 181, 132, 120, 65, 157, 17, 160, 180, 233, 152, 221, 1, 164, 98, 178, 255, 242, 178,
-            221, 231, 201, 0, 19, 122, 216, 92, 112, 161, 1, 58, 213, 199, 143, 114, 0, 0, 0];
+        let serialized = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 149, 139, 49, 14, 64, 48, 24, 70, 137,
+            131, 88, 108, 98, 148, 184, 135, 19, 252, 197, 218, 132, 3, 8, 139, 85, 126, 171, 132,
+            193, 32, 54, 71, 104, 218, 205, 160, 139, 197, 105, 218, 166, 233, 5, 250, 125, 219,
+            203, 123, 43, 14, 238, 163, 124, 206, 228, 79, 11, 184, 113, 195, 55, 136, 98, 181,
+            132, 120, 65, 157, 17, 160, 180, 233, 152, 221, 1, 164, 98, 178, 255, 242, 178, 221,
+            231, 201, 0, 19, 122, 216, 92, 112, 161, 1, 58, 213, 199, 143, 114, 0, 0, 0];
         let mut deserialized_engine = Engine::default();
 
         deserialized_engine.enable_tags(&[]);
@@ -530,12 +531,14 @@ mod tests {
     fn deserialization_backwards_compatible_resources() {
         // deserialization_generate_resources();
         // assert!(false);
-        let serialized: Vec<u8> = vec![31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 61, 139, 189, 10, 64, 80, 28, 197, 201, 46,
-            229, 1, 44, 54, 201, 234, 117, 174, 143, 65, 233, 18, 6, 35, 118, 229, 127, 103, 201, 230, 99, 146, 39,
-            184, 177, 25, 152, 61, 13, 238, 29, 156, 83, 167, 211, 175, 115, 90, 40, 184, 203, 235, 24, 244, 219, 176,
-            209, 2, 29, 156, 130, 164, 61, 68, 132, 9, 121, 166, 131, 48, 246, 19, 74, 71, 28, 69, 113, 230, 231, 25,
-            101, 186, 42, 121, 86, 73, 189, 42, 95, 103, 255, 102, 219, 183, 29, 170, 127, 68, 102, 150, 86, 28, 162,
-            0, 247, 3, 163, 110, 154, 146, 145, 195, 175, 245, 47, 101, 250, 113, 201, 119, 0, 0, 0];
+        let serialized = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 61, 139, 189, 10, 64, 80, 28, 197,
+            201, 46, 229, 1, 44, 54, 201, 234, 117, 174, 143, 65, 233, 18, 6, 35, 118, 229, 127,
+            103, 201, 230, 99, 146, 39, 184, 177, 25, 152, 61, 13, 238, 29, 156, 83, 167, 211, 175,
+            115, 90, 40, 184, 203, 235, 24, 244, 219, 176, 209, 2, 29, 156, 130, 164, 61, 68, 132,
+            9, 121, 166, 131, 48, 246, 19, 74, 71, 28, 69, 113, 230, 231, 25, 101, 186, 42, 121,
+            86, 73, 189, 42, 95, 103, 255, 102, 219, 183, 29, 170, 127, 68, 102, 150, 86, 28, 162,
+            0, 247, 3, 163, 110, 154, 146, 145, 195, 175, 245, 47, 101, 250, 113, 201, 119, 0, 0,
+            0];
 
         let mut deserialized_engine = Engine::default();
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -555,7 +558,7 @@ mod tests {
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&[
-            "ad-banner".to_owned()
+            "ad-banner",
         ], Default::default());
         let serialized = engine.serialize_compressed().unwrap();
         println!("Engine serialized: {:?}", serialized);
@@ -565,7 +568,7 @@ mod tests {
     #[test]
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&[
-            "ad-banner$tag=abc".to_owned()
+            "ad-banner$tag=abc",
         ], Default::default());
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize_compressed().unwrap();
@@ -576,10 +579,10 @@ mod tests {
     #[test]
     fn deserialization_generate_resources() {
         let mut engine = Engine::from_rules(&[
-            "ad-banner$redirect=nooptext".to_owned()
+            "ad-banner$redirect=nooptext",
         ], Default::default());
 
-        let resources = vec![
+        let resources = [
             Resource {
                 name: "nooptext".to_string(),
                 aliases: vec![],
@@ -603,7 +606,7 @@ mod tests {
     #[test]
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(&[
-            "ad-banner$redirect=nooptext".to_owned()
+            "ad-banner$redirect=nooptext",
         ], Default::default());
 
         engine.add_resource(Resource {
@@ -645,9 +648,9 @@ mod tests {
 
     #[test]
     fn document() {
-        let filters = vec![
-            String::from("||example.com$document"),
-            String::from("@@||sub.example.com$document"),
+        let filters = [
+            "||example.com$document",
+            "@@||sub.example.com$document",
         ];
 
         let engine = Engine::from_rules_debug(&filters, Default::default());
@@ -660,52 +663,52 @@ mod tests {
     #[test]
     fn implicit_all() {
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com^"], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$first-party")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com^$first-party"], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$script")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com^$script"], Default::default());
             assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$~script")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com^$~script"], Default::default());
             assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com^$document"), String::from("@@||example.com^$generichide")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com^$document", "@@||example.com^$generichide"], Default::default());
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("example.com")], ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let engine = Engine::from_rules_debug(["example.com"], ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
             assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com/path"], Default::default());
             assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
         }
         {
-            let engine = Engine::from_rules_debug(&vec![String::from("||example.com/path^")], Default::default());
+            let engine = Engine::from_rules_debug(["||example.com/path^"], Default::default());
             assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
         }
     }
 
     #[test]
     fn generichide() {
-        let filters = vec![
-            String::from("##.donotblock"),
-            String::from("##a[href=\"generic.com\"]"),
+        let filters = [
+            "##.donotblock",
+            "##a[href=\"generic.com\"]",
 
-            String::from("@@||example.com$generichide"),
-            String::from("example.com##.block"),
+            "@@||example.com$generichide",
+            "example.com##.block",
 
-            String::from("@@||example2.com/test.html$generichide"),
-            String::from("example2.com##.block"),
+            "@@||example2.com/test.html$generichide",
+            "example2.com##.block",
         ];
-        let url_results = vec![
+        let url_results = [
             ("https://example.com", vec![".block"], true),
             ("https://example.com/test.html", vec![".block"], true),
             ("https://example2.com", vec![".block", "a[href=\"generic.com\"]"], false),
@@ -724,9 +727,9 @@ mod tests {
     #[test]
     fn important_redirect() {
         let mut filter_set = FilterSet::new(true);
-        filter_set.add_filters(&vec![
-            "||addthis.com^$important,3p,domain=~missingkids.com|~missingkids.org|~sainsburys.jobs|~sitecore.com|~amd.com".to_string(),
-            "||addthis.com/*/addthis_widget.js$script,redirect=addthis.com/addthis_widget.js".to_string(),
+        filter_set.add_filters([
+            "||addthis.com^$important,3p,domain=~missingkids.com|~missingkids.org|~sainsburys.jobs|~sitecore.com|~amd.com",
+            "||addthis.com/*/addthis_widget.js$script,redirect=addthis.com/addthis_widget.js",
         ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
@@ -746,18 +749,18 @@ mod tests {
     fn check_match_case_regex_filtering() {
         {
             // match case without regex is discarded
-            let engine = Engine::from_rules_debug(&vec![String::from("ad.png$match-case")], Default::default());
+            let engine = Engine::from_rules_debug(["ad.png$match-case"], Default::default());
             assert!(!engine.check_network_urls("https://example.com/ad.png", "https://example.com", "image").matched);
         }
         {
             // /^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#], Default::default());
             assert!(engine.check_network_urls("https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "document").matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz"#], Default::default());
             assert!(engine.check_network_urls("https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb", 
                                               "https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb", 
                                               "document").matched);
@@ -765,7 +768,7 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#], Default::default());
             assert!(engine.check_network_urls("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a", 
                                               "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a", 
                                               "document").matched);
@@ -773,20 +776,20 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?sid=[_0-9a-f]{1,32}(?:&qs\d=\S+)?&cid=[-_0-9a-zA-Z]{16,36}$/$doc,match-case,domain=com|info|net|org
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#], Default::default());
             assert!(engine.check_network_urls("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb", 
                                               "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb", 
                                               "document").matched);
         }*/
         {
             // /^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#], Default::default());
             assert!(engine.check_network_urls("http://abcde.abcde.com/aaaaabbbbb.apk", "http://abcde.abcde.com/aaaaabbbbb.apk", "document").matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case"#], Default::default());
             assert!(engine.check_network_urls("/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js", 
                                               "/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js", 
                                               "script").matched);
@@ -794,7 +797,7 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://aa.example.com/aAaaa/12222", 
                                               "https://aa.example.net/aAaaa/12222", 
                                               "frame").matched);
@@ -802,7 +805,7 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://aa.example.website/aAaaa/12222", 
                                               "https://aa.example.website/aAaaa/12222", 
                                               "frame").matched);
@@ -810,20 +813,20 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://examples.top/articles.html", 
                                               "https://examples.top/articles.html", 
                                               "frame").matched);
         }*/
         {
             // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://examples.top/abcd.json", "https://examples.com/abcd.json", "xhr").matched);
         }
         // fails - inferring unescaped `$` inside regex pattern
         /*{
             // /^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://examples.top/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
                                               "https://examples.com/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
                                               "stylesheet").matched);
@@ -831,7 +834,7 @@ mod tests {
         // fails - inferring unescaped `$` inside regex pattern
         /*{
             // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://examples.top/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
                                               "https://examples.com/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
                                               "image").matched);
@@ -839,14 +842,14 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://examples.xyz/articles.html", 
                                               "https://examples.xyz/articles.html", 
                                               "frame").matched);
         }*/
         {
             // /^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://cdn.abcde.xyz/app.js", 
                                               "https://cdn.abcde.com/app.js", 
                                               "script").matched);
@@ -854,14 +857,14 @@ mod tests {
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://a.abcd.club/aaaaaaA.js", 
                                               "https://a.abcd.club/aaaaaaA.js", 
                                               "script").matched);
         }*/
         {
             // /^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://cdn.jsdelivr.net/npm/abcd@latest/dist/script.min.js", 
                                               "https://cdn.jsdelivr.com/npm/abcd@latest/dist/script.min.js", 
                                               "script").matched);
@@ -869,20 +872,20 @@ mod tests {
         // fails - inferring unescaped `$` inside regex pattern
         /*{
             // /^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case"#], Default::default());
             assert!(engine.check_network_urls("https://www.example.com/script.js", 
                                               "https://www.abc.com/script.js", 
                                               "script").matched);
         }*/
         {
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/tesT߶/$domain=example.com"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/tesT߶/$domain=example.com"#], Default::default());
             assert!(engine.check_network_urls("https://example.com/tesT߶",
                                               "https://example.com",
                                               "script").matched);
         }
         // fails - punycoded domain
         /*{
-            let engine = Engine::from_rules_debug(&vec![String::from(r#"/tesT߶/$domain=example.com"#)], Default::default());
+            let engine = Engine::from_rules_debug([r#"/tesT߶/$domain=example.com"#], Default::default());
             assert!(engine.check_network_urls("https://example-tesT߶.com/tesT",
                                               "https://example.com",
                                               "script").matched);

@@ -312,8 +312,7 @@ mod legacy_check_match {
         not_blocked: &[&'a str],
         tags: &[&'a str],
     ) {
-        let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let mut engine = Engine::from_rules(&rules_owned, Default::default()); // first one with the provided rules
+        let mut engine = Engine::from_rules(rules, Default::default()); // first one with the provided rules
         engine.use_tags(tags);
 
         let mut engine_deserialized = Engine::default(); // second empty
@@ -386,9 +385,9 @@ mod legacy_check_match {
         // Explicitly write out the full case instead of using check_match helper
         // or tweaking it to allow passing in the source domain for this one case
         let engine = Engine::from_rules(
-            &[
-                String::from("/ads/freewheel/*"),
-                String::from("@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com")
+            [
+                "/ads/freewheel/*",
+                "@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com",
             ],
             Default::default(),
         );
@@ -488,8 +487,7 @@ mod legacy_check_options {
     use adblock::engine::Engine;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
-        let rules_owned: Vec<_> = rules.into_iter().map(|&s| String::from(s)).collect();
-        let engine = Engine::from_rules(&rules_owned, Default::default());              // first one with the provided rules
+        let engine = Engine::from_rules(rules, Default::default());              // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
             assert!(engine.check_network_urls(url, source_url, request_type).matched == *expectation,
@@ -647,9 +645,7 @@ mod legacy_misc_tests {
     #[test]
     fn demo_app() { // Demo app test
         let engine = Engine::from_rules(
-            &[
-                String::from("||googlesyndication.com/safeframe/$third-party")
-            ],
+            ["||googlesyndication.com/safeframe/$third-party"],
             Default::default(),
         );
 
@@ -670,10 +666,10 @@ mod legacy_misc_tests {
 
     #[test]
     fn serialization_tests() {
-        let engine = Engine::from_rules_parametrised(&[
-            String::from("||googlesyndication.com$third-party"),
-            String::from("@@||googlesyndication.ca"),
-            String::from("a$explicitcancel")
+        let engine = Engine::from_rules_parametrised([
+            "||googlesyndication.com$third-party",
+            "@@||googlesyndication.ca",
+            "a$explicitcancel",
         ], Default::default(), true, false);    // enable debugging and disable optimizations
 
         let serialized = engine.serialize_compressed().unwrap();
@@ -694,9 +690,9 @@ mod legacy_misc_tests {
     #[test]
     fn find_matching_filters() {
         let engine = Engine::from_rules_debug(
-            &[
-                String::from("||googlesyndication.com/safeframe/$third-party"),
-                String::from("||brianbondy.com/ads"),
+            [
+                "||googlesyndication.com/safeframe/$third-party",
+                "||brianbondy.com/ads",
             ],
             Default::default(),
         );
@@ -722,10 +718,10 @@ mod legacy_misc_tests {
     #[test]
     fn find_matching_filters_exceptions() {
         let engine = Engine::from_rules_debug(
-            &[
-                String::from("||googlesyndication.com/safeframe/$third-party"),
-                String::from("||brianbondy.com/ads"),
-                String::from("@@safeframe"),
+            [
+                "||googlesyndication.com/safeframe/$third-party",
+                "||brianbondy.com/ads",
+                "@@safeframe",
             ],
             Default::default(),
         );
@@ -748,9 +744,9 @@ mod legacy_misc_tests {
     fn matches_with_filter_info_preserves_important() {
         // exceptions have not effect if important filter matches
         let engine = Engine::from_rules_debug(
-            &[
-                String::from("||brianbondy.com^$important"),
-                String::from("@@||brianbondy.com^"),
+            [
+                "||brianbondy.com^$important",
+                "@@||brianbondy.com^",
             ],
             Default::default(),
         );
