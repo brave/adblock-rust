@@ -54,6 +54,7 @@ impl Default for Engine {
     }
 }
 
+#[cfg(feature = "debug-info")]
 pub struct EngineDebugInfo {
     pub blocker_debug_info: crate::blocker::BlockerDebugInfo,
 }

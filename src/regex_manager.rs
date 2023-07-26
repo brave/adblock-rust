@@ -31,6 +31,7 @@ unsafe impl Send for RegexManager {}
 const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
+#[cfg(feature = "debug-info")]
 pub struct RegexDebugEntry {
     pub id: u64,
     pub regex: Option<String>,

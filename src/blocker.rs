@@ -12,7 +12,7 @@ use thiserror::Error;
 use lifeguard::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable};
-use crate::regex_manager::{RegexManager, RegexDebugEntry, RegexManagerDiscardPolicy};
+use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
@@ -93,8 +93,9 @@ pub enum BlockerError {
     FilterExists,
 }
 
+#[cfg(feature = "debug-info")]
 pub struct BlockerDebugInfo {
-    pub regex_data: Vec<RegexDebugEntry>,
+    pub regex_data: Vec<crate::regex_manager::RegexDebugEntry>,
     pub compiled_regex_count: usize,
 }
 
