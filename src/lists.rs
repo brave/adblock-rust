@@ -162,7 +162,7 @@ impl TryFrom<&str> for ExpiresInterval {
 }
 
 /// Includes information about any "special comments" as described by
-/// https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments
+/// <https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments>
 #[derive(Default, Serialize)]
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked

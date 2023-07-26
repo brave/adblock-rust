@@ -43,7 +43,7 @@ pub enum CosmeticFilterError {
     HtmlFilteringUnsupported,
 }
 
-/// Refer to https://github.com/uBlockOrigin/uBlock-issues/wiki/Static-filter-syntax#action-operators
+/// Refer to <https://github.com/uBlockOrigin/uBlock-issues/wiki/Static-filter-syntax#action-operators>
 enum CosmeticFilterAction {
     Remove,
     /// Argument is one or more CSS property declarations, separated by the standard ;. Some
@@ -442,7 +442,7 @@ impl CosmeticFilter {
     /// which it applies. However, if a specific rule only has negated hostnames or entities, it
     /// technically should apply to any hostname which does not match a negation.
     ///
-    /// See: https://github.com/chrisaljoudi/uBlock/issues/145
+    /// See: <https://github.com/chrisaljoudi/uBlock/issues/145>
     ///
     /// To account for this inconsistency, this method will generate and return the corresponding
     /// 'hidden' generic rule if one applies.
