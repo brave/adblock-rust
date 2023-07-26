@@ -23,7 +23,10 @@
   "bugs": {
     "url": "https://github.com/brave/adblock-rust/issues"
   },
-  "repository": "https://github.com/brave/adblock-rust.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brave/adblock-rust.git"
+  },
   "dependencies": {
     "cargo-cp-artifact": "^0.1"
   },
