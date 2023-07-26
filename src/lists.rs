@@ -508,13 +508,7 @@ fn detect_filter_type(filter: &str) -> FilterType {
         return FilterType::Network;
     }
 
-    // Ignore Adguard cosmetics
-    // `$$`
-    if filter.contains("$$") {
-        return FilterType::NotSupported;
-    }
-
-    // Check if filter is cosmetics
+    // Check if filter is cosmetic
     if let Some(sharp_index) = find_char(b'#', filter.as_bytes()) {
         let after_sharp_index = sharp_index + 1;
 
@@ -524,6 +518,11 @@ fn detect_filter_type(filter: &str) -> FilterType {
         if find_char(b'#', &filter.as_bytes()[after_sharp_index..(after_sharp_index+4).min(filter.len())]).is_some() {
             return FilterType::Cosmetic;
         }
+    }
+
+    // Ignore Adguard cosmetics
+    if filter.contains("$$") {
+        return FilterType::NotSupported;
     }
 
     // Everything else is a network filter
@@ -595,6 +594,20 @@ mod tests {
             let input = "www.";
             let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
             assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn adguard_cosmetic_detection() {
+        {
+            let input = r#"example.org$$script[data-src="banner"]"#;
+            let result = parse_filter(input, true, Default::default());
+            assert!(result.is_err());
+        }
+        {
+            let input = "example.org##+js(set-local-storage-item, Test, $$remove$$)";
+            let result = parse_filter(input, true, Default::default());
+            assert!(result.is_ok());
         }
     }
 
