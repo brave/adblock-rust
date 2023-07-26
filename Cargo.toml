@@ -14,7 +14,6 @@ exclude = [
     ".github/",
     ".gitignore",
     ".npmignore",
-    "benches/",
     "data/",
     "examples/",
     "js/",
