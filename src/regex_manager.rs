@@ -65,6 +65,7 @@ pub struct RegexManager {
     map: HashMap<*const NetworkFilter, RegexEntry, RandomState>,
     compiled_regex_count: usize,
     now: Instant,
+    #[cfg_attr(target_arch = "wasm32", allow(unused))]
     last_cleanup: Instant,
     discard_policy: RegexManagerDiscardPolicy,
 }

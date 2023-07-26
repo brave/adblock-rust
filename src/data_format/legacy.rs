@@ -196,7 +196,7 @@ pub(crate) struct NetworkFilterLegacyDeserializeFmt {
     pub redirect: Option<String>,
     pub hostname: Option<String>,
     pub csp: Option<String>,
-    pub bug: Option<u32>,
+    pub _bug: Option<u32>,
     pub tag: Option<String>,
     pub raw_line: Option<String>,
     pub id: crate::utils::Hash,
@@ -281,7 +281,7 @@ struct DeserializeFormatPart1 {
 
     tagged_filters_all: Vec<NetworkFilterLegacyDeserializeFmt>,
 
-    debug: bool,
+    _debug: bool,
     enable_optimizations: bool,
 
     // This field exists for backwards compatibility only.

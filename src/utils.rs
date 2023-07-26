@@ -66,41 +66,6 @@ fn fast_tokenizer_no_regex(
     }
 }
 
-fn fast_tokenizer(
-    pattern: &str,
-    is_allowed_code: &dyn Fn(char) -> bool,
-    skip_first_token: bool,
-    skip_last_token: bool,
-    tokens_buffer: &mut Vec<Hash>,
-) {
-    let mut inside: bool = false;
-    let mut start = 0;
-    let chars = pattern.char_indices();
-
-    for (i, c) in chars {
-        if tokens_buffer.len() >= TOKENS_MAX {
-            break;
-        }
-        if is_allowed_code(c) {
-            if !inside {
-                inside = true;
-                start = i;
-            }
-        } else if inside {
-            inside = false;
-            if !skip_first_token || start != 0 {
-                let hash = fast_hash(&pattern[start..i]);
-                tokens_buffer.push(hash);
-            }
-        }
-    }
-
-    if !skip_last_token && inside {
-        let hash = fast_hash(&pattern[start..]);
-        tokens_buffer.push(hash);
-    }
-}
-
 pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }
@@ -131,11 +96,6 @@ pub(crate) fn tokenize_filter(
         &mut tokens_buffer,
     );
     tokens_buffer
-}
-
-fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
-    tokens.sort_unstable();
-    tokens.dedup();
 }
 
 pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {

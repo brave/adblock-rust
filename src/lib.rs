@@ -15,8 +15,6 @@
 //!
 //! Check the [`Engine`] documentation to get started with adblocking.
 
-#![allow(dead_code)]
-
 // Own modules, currently everything is exposed, will need to limit
 pub mod blocker;
 #[cfg(feature = "content-blocking")]

@@ -24,6 +24,7 @@ static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap(
 struct ResourceProperties {
     name: String,
     alias: Vec<String>,
+    #[allow(unused)]
     data: Option<String>,
 }
 

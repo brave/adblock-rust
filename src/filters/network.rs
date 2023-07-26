@@ -998,11 +998,6 @@ impl NetworkFilter {
         }
     }
 
-
-    fn get_cpt_mask(&self) -> NetworkFilterMask {
-        self.mask & NetworkFilterMask::FROM_ALL_TYPES
-    }
-
     pub fn is_exception(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
     }

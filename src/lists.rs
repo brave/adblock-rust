@@ -25,11 +25,11 @@ impl Default for RuleTypes {
 }
 
 impl RuleTypes {
-    fn loads_network_rules(&self) -> bool {
+    pub fn loads_network_rules(&self) -> bool {
         matches!(self, Self::All | Self::NetworkOnly)
     }
 
-    fn loads_cosmetic_rules(&self) -> bool {
+    pub fn loads_cosmetic_rules(&self) -> bool {
         matches!(self, Self::All | Self::CosmeticOnly)
     }
 }
