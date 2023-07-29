@@ -298,9 +298,8 @@ impl Blocker {
         );
 
         // Extract the highest priority redirect directive.
-        // So far, priority specifiers are not supported, which means:
         // 1. Exceptions - can bail immediately if found
-        // 2. Any other redirect resource
+        // 2. Find highest priority non-exception redirect
         let redirect_resource = {
             let mut exceptions = vec![];
             for redirect_filter in redirect_filters.iter() {
