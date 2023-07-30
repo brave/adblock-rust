@@ -88,7 +88,6 @@ harness = false
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
 default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "unsync-regex-caching"]
-metrics = []
 full-regex-handling = []
 object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.
 unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.

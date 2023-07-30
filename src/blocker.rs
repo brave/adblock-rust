@@ -221,8 +221,6 @@ impl Blocker {
         // 3. normal filters - if no match by then
         // 4. exceptions - if any non-important match of forced
 
-        #[cfg(feature = "metrics")]
-        print!("importants\t");
         // Always check important filters
         let important_filter = self.importants.check(
             request,
@@ -233,8 +231,6 @@ impl Blocker {
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
-            #[cfg(feature = "metrics")]
-            print!("tagged\t");
             self.filters_tagged
                 .check(
                     request,
@@ -243,8 +239,6 @@ impl Blocker {
                     &mut regex_manager,
                 )
                 .or_else(|| {
-                    #[cfg(feature = "metrics")]
-                    print!("filters\t");
                     self.filters.check(
                         request,
                         &request_tokens,
@@ -259,8 +253,6 @@ impl Blocker {
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
             None if matched_rule || force_check_exceptions => {
-                #[cfg(feature = "metrics")]
-                print!("exceptions\t");
                 self.exceptions.check(
                     request,
                     &request_tokens,
@@ -272,8 +264,6 @@ impl Blocker {
             // If matched an important filter, exceptions don't atter
             Some(f) if f.is_important() => None,
             Some(_) => {
-                #[cfg(feature = "metrics")]
-                print!("exceptions\t");
                 self.exceptions.check(
                     request,
                     &request_tokens,
@@ -282,9 +272,6 @@ impl Blocker {
                 )
             }
         };
-
-        #[cfg(feature = "metrics")]
-        println!();
 
         let redirect_filters = self.redirects.check_all(
             request,
@@ -888,31 +875,14 @@ impl NetworkFilterList {
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<&NetworkFilter> {
-        #[cfg(feature = "metrics")]
-        let mut filters_checked = 0;
-        #[cfg(feature = "metrics")]
-        let mut filter_buckets = 0;
-
-        #[cfg(not(feature = "metrics"))]
-        {
-            if self.filter_map.is_empty() {
-                return None;
-            }
+        if self.filter_map.is_empty() {
+            return None;
         }
 
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
-                    #[cfg(feature = "metrics")]
-                    {
-                        filter_buckets += 1;
-                    }
-
                     for filter in filter_bucket {
-                        #[cfg(feature = "metrics")]
-                        {
-                            filters_checked += 1;
-                        }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
                         if filter.matches(request, regex_manager)
                             && filter
@@ -921,8 +891,6 @@ impl NetworkFilterList {
                                 .map(|t| active_tags.contains(t))
                                 .unwrap_or(true)
                         {
-                            #[cfg(feature = "metrics")]
-                            print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             return Some(filter);
                         }
                     }
@@ -930,32 +898,16 @@ impl NetworkFilterList {
             }
         }
 
-        #[cfg(feature = "metrics")]
-        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
-
         for token in request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
-                #[cfg(feature = "metrics")]
-                {
-                    filter_buckets += 1;
-                }
                 for filter in filter_bucket {
-                    #[cfg(feature = "metrics")]
-                    {
-                        filters_checked += 1;
-                    }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
-                        #[cfg(feature = "metrics")]
-                        print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         return Some(filter);
                     }
                 }
             }
         }
-
-        #[cfg(feature = "metrics")]
-        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
 
         None
     }
@@ -971,37 +923,18 @@ impl NetworkFilterList {
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Vec<&NetworkFilter> {
-        #[cfg(feature = "metrics")]
-        let mut filters_checked = 0;
-        #[cfg(feature = "metrics")]
-        let mut filter_buckets = 0;
-
         let mut filters: Vec<&NetworkFilter> = vec![];
 
-        #[cfg(not(feature = "metrics"))]
-        {
-            if self.filter_map.is_empty() {
-                return filters;
-            }
+        if self.filter_map.is_empty() {
+            return filters;
         }
 
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
-                    #[cfg(feature = "metrics")]
-                    {
-                        filter_buckets += 1;
-                    }
-
                     for filter in filter_bucket {
-                        #[cfg(feature = "metrics")]
-                        {
-                            filters_checked += 1;
-                        }
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
                         if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
-                            #[cfg(feature = "metrics")]
-                            print!("true\t{}\t{}\tskipped\t{}\t{}\t", filter_buckets, filters_checked, filter_buckets, filters_checked);
                             filters.push(filter);
                         }
                     }
@@ -1009,32 +942,16 @@ impl NetworkFilterList {
             }
         }
 
-        #[cfg(feature = "metrics")]
-        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
-
         for token in request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
-                #[cfg(feature = "metrics")]
-                {
-                    filter_buckets += 1;
-                }
                 for filter in filter_bucket {
-                    #[cfg(feature = "metrics")]
-                    {
-                        filters_checked += 1;
-                    }
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
-                        #[cfg(feature = "metrics")]
-                        print!("true\t{}\t{}\t", filter_buckets, filters_checked);
                         filters.push(filter);
                     }
                 }
             }
         }
-
-        #[cfg(feature = "metrics")]
-        print!("false\t{}\t{}\t", filter_buckets, filters_checked);
 
         filters
     }
