@@ -44,7 +44,7 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
                 name: redirect.to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                content: redirect,
+                content: base64::encode(redirect),
             }
         })
         .collect()
@@ -104,7 +104,7 @@ fn check_engine_matching() {
             let opts = ParseOptions::default();
             let mut engine = Engine::from_rules_debug(&[filter.clone()], opts);
             let resources = build_resources_from_filters(&[filter.clone()]);
-            engine.use_resources(&resources);
+            engine.use_resources(resources);
 
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
             assert!(

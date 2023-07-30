@@ -300,7 +300,7 @@ fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
     let resources: Vec<Resource> = json_ffi::from_js(&mut cx, resources_arg)?;
 
     if let Ok(mut engine) = this.0.lock() {
-        engine.use_resources(&resources)
+        engine.use_resources(resources)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
@@ -343,19 +343,6 @@ fn engine_add_resource(mut cx: FunctionContext) -> JsResult<JsBoolean> {
         cx.throw_error("Failed to acquire lock on engine")?
     };
     Ok(cx.boolean(success))
-}
-
-fn engine_get_resource(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let name: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.get_resource(&name)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    json_ffi::to_js(&mut cx, &result)
 }
 
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
@@ -430,7 +417,6 @@ register_module!(mut m, {
     m.export_function("Engine_tagExists", engine_tag_exists)?;
     m.export_function("Engine_clearTags", engine_clear_tags)?;
     m.export_function("Engine_addResource", engine_add_resource)?;
-    m.export_function("Engine_getResource", engine_get_resource)?;
 
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;

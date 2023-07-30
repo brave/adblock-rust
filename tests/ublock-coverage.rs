@@ -96,7 +96,7 @@ fn check_specific_rules() {
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-resources.js"),
         );
-        engine.use_resources(&resources);
+        engine.use_resources(resources);
 
         let request = Request::new(
             "http://cdn.taboola.com/libtrc/test/loader.js",

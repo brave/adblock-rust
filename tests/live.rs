@@ -345,7 +345,7 @@ fn check_live_redirects() {
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
     let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path);
 
-    engine.use_resources(&resources);
+    engine.use_resources(resources);
     {
         let checked = engine.check_network_request(&Request::new(
             "https://c.amazon-adsystem.com/aax2/amzn_ads.js",

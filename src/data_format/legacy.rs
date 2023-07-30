@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use crate::blocker::{Blocker, NetworkFilterList};
 use crate::cosmetic_filter_cache::CosmeticFilterCache;
 use crate::filters::network::NetworkFilter;
-use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 use crate::utils::is_eof_error;
 
 use super::v0::LegacyHostnameRuleDb;
@@ -120,6 +119,29 @@ where
     legacy_vec.serialize(s)
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub(crate) struct LegacyRedirectResource {
+    pub content_type: String,
+    pub data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub(crate) struct LegacyRedirectResourceStorage {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    pub resources: HashMap<String, LegacyRedirectResource>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub(crate) struct LegacyScriptletResource {
+    scriptlet: String,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+pub(crate) struct LegacyScriptletResourceStorage {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    resources: HashMap<String, LegacyScriptletResource>,
+}
+
 /// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
 /// serialization.
 ///
@@ -166,7 +188,7 @@ struct SerializeFormatPt1<'a> {
     // This field exists for backwards compatibility only, and *must* be true.
     _unused2: bool,
 
-    resources: &'a RedirectResourceStorage,
+    resources: LegacyRedirectResourceStorage,
 }
 
 #[derive(Serialize)]
@@ -180,7 +202,7 @@ struct SerializeFormatRest<'a> {
 
     misc_generic_selectors: &'a HashSet<String>,
 
-    scriptlets: &'a ScriptletResourceStorage,
+    scriptlets: LegacyScriptletResourceStorage,
 
     #[serde(serialize_with = "serialize_legacy_network_filter_list")]
     generic_hide: &'a NetworkFilterList,
@@ -290,7 +312,7 @@ struct DeserializeFormatPart1 {
     _unused2: bool,
 
     #[serde(default)]
-    resources: RedirectResourceStorage,
+    _resources: LegacyRedirectResourceStorage,
 }
 
 /// Any fields added to this must include the `#[serde(default)]` annotation, or another serde
@@ -314,7 +336,7 @@ struct DeserializeFormatRest {
     misc_generic_selectors: HashSet<String>,
 
     #[serde(default)]
-    scriptlets: ScriptletResourceStorage,
+    _scriptlets: LegacyScriptletResourceStorage,
 
     #[serde(default)]
     generic_hide: NetworkFilterListLegacyDeserializeFmt,
@@ -339,7 +361,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
                 _unused: true,
                 _unused2: true,
 
-                resources: &blocker.resources,
+                resources: LegacyRedirectResourceStorage::default(),
             },
             rest: SerializeFormatRest {
                 simple_class_rules: &cfc.simple_class_rules,
@@ -351,7 +373,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
                 misc_generic_selectors: &cfc.misc_generic_selectors,
 
-                scriptlets: &cfc.scriptlets,
+                scriptlets: LegacyScriptletResourceStorage::default(),
 
                 generic_hide: &blocker.generic_hide,
             },
@@ -381,7 +403,6 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
 
                 enable_optimizations: v.part1.enable_optimizations,
 
-                resources: v.part1.resources,
                 #[cfg(feature = "object-pooling")]
                 pool: Default::default(),
                 regex_manager: Default::default(),
@@ -397,8 +418,6 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 specific_rules: v.rest.specific_rules.into(),
 
                 misc_generic_selectors: v.rest.misc_generic_selectors,
-
-                scriptlets: v.rest.scriptlets,
             },
         )
     }

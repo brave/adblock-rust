@@ -5,7 +5,7 @@ use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
-use crate::resources::{Resource, RedirectResource};
+use crate::resources::{Resource, ResourceStorage};
 
 use std::collections::HashSet;
 
@@ -45,6 +45,7 @@ use std::collections::HashSet;
 pub struct Engine {
     pub blocker: Blocker,
     cosmetic_cache: CosmeticFilterCache,
+    resources: ResourceStorage,
 }
 
 impl Default for Engine {
@@ -72,6 +73,7 @@ impl Engine {
         Self {
             blocker: Blocker::new(vec![], &blocker_options),
             cosmetic_cache: CosmeticFilterCache::new(),
+            resources: ResourceStorage::default(),
         }
     }
 
@@ -105,6 +107,7 @@ impl Engine {
         Self {
             blocker: Blocker::new(network_filters, &blocker_options),
             cosmetic_cache: CosmeticFilterCache::from_rules(cosmetic_filters),
+            resources: ResourceStorage::default(),
         }
     }
 
@@ -156,7 +159,7 @@ impl Engine {
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by
     /// `source_url`, should be blocked.
     pub fn check_network_request(&self, request: &Request) -> BlockerResult {
-        self.blocker.check(request)
+        self.blocker.check(request, &self.resources)
     }
 
     pub fn check_network_request_subset(
@@ -165,7 +168,7 @@ impl Engine {
         previously_matched_rule: bool,
         force_check_exceptions: bool,
     ) -> BlockerResult {
-        self.blocker.check_parameterised(request, previously_matched_rule, force_check_exceptions)
+        self.blocker.check_parameterised(request, &self.resources, previously_matched_rule, force_check_exceptions)
     }
 
     /// Returns a string containing any additional CSP directives that should be added to this
@@ -228,21 +231,13 @@ impl Engine {
     }
 
     /// Sets this engine's resources to be _only_ the ones provided in `resources`.
-    pub fn use_resources(&mut self, resources: &[Resource]) {
-        self.blocker.use_resources(resources);
-        self.cosmetic_cache.use_resources(resources);
+    pub fn use_resources(&mut self, resources: impl IntoIterator<Item=Resource>) {
+        self.resources = ResourceStorage::from_resources(resources);
     }
 
     /// Sets this engine's resources to additionally include `resource`.
     pub fn add_resource(&mut self, resource: Resource) -> Result<(), crate::resources::AddResourceError> {
-        self.blocker.add_resource(&resource)?;
-        self.cosmetic_cache.add_resource(&resource)?;
-        Ok(())
-    }
-
-    /// Gets a previously added resource from the engine.
-    pub fn get_resource(&self, key: &str) -> Option<RedirectResource> {
-        self.blocker.get_resource(key).cloned()
+        self.resources.add_resource(resource)
     }
 
     // Cosmetic filter functionality
@@ -269,7 +264,7 @@ impl Engine {
         let request = request.unwrap();
 
         let generichide = self.blocker.check_generic_hide(&request);
-        self.cosmetic_cache.hostname_cosmetic_resources(&request.hostname, generichide)
+        self.cosmetic_cache.hostname_cosmetic_resources(&self.resources, &request.hostname, generichide)
     }
 
     pub fn set_regex_discard_policy(
@@ -501,35 +496,6 @@ mod tests {
     }
 
     #[test]
-    fn deserialization_backwards_compatible_resources() {
-        // deserialization_generate_resources();
-        // assert!(false);
-        let serialized = [31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 61, 139, 189, 10, 64, 80, 28, 197,
-            201, 46, 229, 1, 44, 54, 201, 234, 117, 174, 143, 65, 233, 18, 6, 35, 118, 229, 127,
-            103, 201, 230, 99, 146, 39, 184, 177, 25, 152, 61, 13, 238, 29, 156, 83, 167, 211, 175,
-            115, 90, 40, 184, 203, 235, 24, 244, 219, 176, 209, 2, 29, 156, 130, 164, 61, 68, 132,
-            9, 121, 166, 131, 48, 246, 19, 74, 71, 28, 69, 113, 230, 231, 25, 101, 186, 42, 121,
-            86, 73, 189, 42, 95, 103, 255, 102, 219, 183, 29, 170, 127, 68, 102, 150, 86, 28, 162,
-            0, 247, 3, 163, 110, 154, 146, 145, 195, 175, 245, 47, 101, 250, 113, 201, 119, 0, 0,
-            0];
-
-        let mut deserialized_engine = Engine::default();
-        deserialized_engine.deserialize(&serialized).unwrap();
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        // This serialized DAT was generated prior to
-        // https://github.com/brave/adblock-rust/pull/185, so the `redirect` filter did not get
-        // duplicated into the list of blocking filters.
-        //
-        // TODO - The failure to match here is considered acceptable for now, as it's part of a
-        // breaking change (minor version bump). However, the test should be updated at some point.
-        //assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
-    }
-
-    #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&[
             "ad-banner",
@@ -556,7 +522,7 @@ mod tests {
             "ad-banner$redirect=nooptext",
         ], Default::default());
 
-        let resources = [
+        engine.use_resources([
             Resource {
                 name: "nooptext".to_string(),
                 aliases: vec![],
@@ -569,8 +535,7 @@ mod tests {
                 kind: ResourceType::Mime(MimeType::TextPlain),
                 content: base64::encode(""),
             },
-        ];
-        engine.use_resources(&resources);
+        ]);
 
         let serialized = engine.serialize_compressed().unwrap();
         println!("Engine serialized: {:?}", serialized);
@@ -581,44 +546,41 @@ mod tests {
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(&[
             "ad-banner$redirect=nooptext",
+            "script.js$redirect=noop.js",
         ], Default::default());
 
-        engine.add_resource(Resource {
-            name: "nooptext".to_owned(),
-            aliases: vec![],
-            kind: ResourceType::Mime(MimeType::TextPlain),
-            content: "".to_owned(),
-        }).unwrap();
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
-    }
-
-    #[test]
-    fn redirect_resource_lookup_works() {
-        let script = base64::encode(r#"
+        let script = r#"
 (function() {
 	;
 })();
 
-        "#);
+        "#;
+        engine.use_resources([
+            Resource {
+                name: "nooptext".to_owned(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::TextPlain),
+                content: "".to_owned(),
+            },
+            Resource {
+                name: "noopjs".to_owned(),
+                aliases: vec!["noop.js".to_owned()],
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+                content: base64::encode(script),
+            },
+        ]);
 
-        let mut engine = Engine::default();
+        let url = "http://example.com/ad-banner.gif";
+        let request = Request::new(url, "", "").unwrap();
+        let matched_rule = engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
 
-        engine.add_resource(Resource {
-            name: "noopjs".to_owned(),
-            aliases: vec![],
-            kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-            content: script.to_owned(),
-        }).unwrap();
-        let inserted_resource = engine.get_resource("noopjs");
-        assert!(inserted_resource.is_some());
-        let resource = inserted_resource.unwrap();
-        assert_eq!(resource.content_type, "application/javascript");
-        assert_eq!(resource.data, script);
+        let url = "http://example.com/script.js";
+        let request = Request::new(url, "", "").unwrap();
+        let matched_rule = engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(matched_rule.redirect, Some(format!("data:application/javascript;base64,{}", base64::encode(format!("{}", script)))), "Expected redirect to contain resource");
     }
 
     #[test]

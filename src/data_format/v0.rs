@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 use crate::blocker::{Blocker, NetworkFilterList};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb};
 use crate::filters::network::NetworkFilter;
-use crate::resources::{RedirectResourceStorage, ScriptletResourceStorage};
 use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
 use super::{DeserializationError, SerializationError};
+use super::legacy::{LegacyRedirectResourceStorage, LegacyScriptletResourceStorage};
 
 /// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -236,7 +236,7 @@ pub(crate) struct SerializeFormat<'a> {
 
     enable_optimizations: bool,
 
-    resources: &'a RedirectResourceStorage,
+    resources: LegacyRedirectResourceStorage,
 
     #[serde(serialize_with = "stabilize_hashset_serialization")]
     simple_class_rules: &'a HashSet<String>,
@@ -252,7 +252,7 @@ pub(crate) struct SerializeFormat<'a> {
     #[serde(serialize_with = "stabilize_hashset_serialization")]
     misc_generic_selectors: &'a HashSet<String>,
 
-    scriptlets: &'a ScriptletResourceStorage,
+    scriptlets: LegacyScriptletResourceStorage,
 }
 
 impl<'a> SerializeFormat<'a> {
@@ -340,7 +340,7 @@ pub(crate) struct DeserializeFormat {
 
     enable_optimizations: bool,
 
-    resources: RedirectResourceStorage,
+    _resources: LegacyRedirectResourceStorage,
 
     simple_class_rules: HashSet<String>,
     simple_id_rules: HashSet<String>,
@@ -351,7 +351,7 @@ pub(crate) struct DeserializeFormat {
 
     misc_generic_selectors: HashSet<String>,
 
-    scriptlets: ScriptletResourceStorage,
+    _scriptlets: LegacyScriptletResourceStorage,
 }
 
 impl DeserializeFormat {
@@ -380,7 +380,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
             enable_optimizations: blocker.enable_optimizations,
 
-            resources: &blocker.resources,
+            resources: LegacyRedirectResourceStorage::default(),
 
             simple_class_rules: &cfc.simple_class_rules,
             simple_id_rules: &cfc.simple_id_rules,
@@ -391,7 +391,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
             misc_generic_selectors: &cfc.misc_generic_selectors,
 
-            scriptlets: &cfc.scriptlets,
+            scriptlets: LegacyScriptletResourceStorage::default(),
         }
     }
 }
@@ -414,7 +414,6 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
 
                 enable_optimizations: v.enable_optimizations,
 
-                resources: v.resources,
                 #[cfg(feature = "object-pooling")]
                 pool: Default::default(),
                 regex_manager: Default::default(),
@@ -428,8 +427,6 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 specific_rules: v.specific_rules.into(),
 
                 misc_generic_selectors: v.misc_generic_selectors,
-
-                scriptlets: v.scriptlets,
             },
         )
     }

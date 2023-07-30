@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::engine::Engine;
 use adblock::request::Request;
+use adblock::resources::ResourceStorage;
 use adblock::url_parser::parse_url;
 
 #[path = "../tests/test_utils.rs"]
@@ -60,11 +61,11 @@ fn bench_rule_matching(engine: &Engine, requests: &Vec<TestRequest>) -> (u32, u3
     (matches, passes)
 }
 
-fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32) {
+fn bench_matching_only(blocker: &Blocker, resources: &ResourceStorage, requests: &Vec<Request>) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(|parsed| {
-        let check = blocker.check(&parsed);
+        let check = blocker.check(&parsed, resources);
         if check.matched {
             matches += 1;
         } else {
@@ -149,12 +150,13 @@ fn rule_match_parsed_el(c: &mut Criterion) {
         .collect();
     let requests_len = requests_parsed.len() as u64;
     let blocker = get_blocker(rules);
+    let resources = ResourceStorage::default();
 
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(10);
 
     group.bench_function("easylist", move |b| {
-        b.iter(|| bench_matching_only(&blocker, &requests_parsed))
+        b.iter(|| bench_matching_only(&blocker, &resources, &requests_parsed))
     });
 
     group.finish();
@@ -168,6 +170,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
         "data/easylist.to/easylist/easyprivacy.txt",
     ]);
     let blocker = get_blocker(full_rules);
+    let resources = ResourceStorage::default();
 
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
@@ -191,10 +194,11 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("el+ep", move |b| {
-        b.iter(|| bench_matching_only(&blocker, &requests_parsed))
+        b.iter(|| bench_matching_only(&blocker, &resources, &requests_parsed))
     });
+    let resources = ResourceStorage::default();
     group.bench_function("slimlist", move |b| {
-        b.iter(|| bench_matching_only(&slim_blocker, &requests_parsed_copy))
+        b.iter(|| bench_matching_only(&slim_blocker, &resources, &requests_parsed_copy))
     });
 
     group.finish();

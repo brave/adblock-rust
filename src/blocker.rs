@@ -16,7 +16,7 @@ use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 use crate::optimizer;
-use crate::resources::{Resource, RedirectResourceStorage, RedirectResource};
+use crate::resources::ResourceStorage;
 use crate::utils;
 
 pub struct BlockerOptions {
@@ -133,7 +133,6 @@ pub struct Blocker {
 
     pub(crate) enable_optimizations: bool,
 
-    pub(crate) resources: RedirectResourceStorage,
     // Not serialized
     #[cfg(feature = "object-pooling")]
     pub(crate) pool: TokenPool,
@@ -148,8 +147,8 @@ pub struct Blocker {
 impl Blocker {
     /// Decide if a network request (usually from WebRequest API) should be
     /// blocked, redirected or allowed.
-    pub fn check(&self, request: &Request) -> BlockerResult {
-        self.check_parameterised(request, false, false)
+    pub fn check(&self, request: &Request, resources: &ResourceStorage) -> BlockerResult {
+        self.check_parameterised(request, resources, false, false)
     }
 
     #[cfg(feature = "unsync-regex-caching")]
@@ -196,6 +195,7 @@ impl Blocker {
     pub fn check_parameterised(
         &self,
         request: &Request,
+        resources: &ResourceStorage,
         matched_rule: bool,
         force_check_exceptions: bool,
     ) -> BlockerResult {
@@ -337,17 +337,13 @@ impl Blocker {
         };
 
         let redirect: Option<String> = redirect_resource.and_then(|resource_name| {
-            if let Some(resource) = self.resources.get_resource(resource_name) {
-                // Only match resource redirects if a matching resource exists
-                let data_url = format!("data:{};base64,{}", resource.content_type, &resource.data);
-                Some(data_url.trim().to_owned())
-            } else {
+            resources.get_redirect_resource(resource_name).or_else(|| {
                 // It's acceptable to pass no redirection if no matching resource is loaded.
                 // TODO - it may be useful to return a status flag to indicate that this occurred.
                 #[cfg(test)]
                 eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
                 None
-            }
+            })
         });
 
         let important = filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false);
@@ -606,7 +602,6 @@ impl Blocker {
             // Options
             enable_optimizations: options.enable_optimizations,
 
-            resources: RedirectResourceStorage::default(),
             #[cfg(feature = "object-pooling")]
             pool: TokenPool::default(),
             regex_manager: Default::default(),
@@ -719,19 +714,6 @@ impl Blocker {
 
     pub fn tags_enabled(&self) -> Vec<String> {
         self.tags_enabled.iter().cloned().collect()
-    }
-
-    pub fn use_resources(&mut self, resources: &[Resource]) {
-        let resources = RedirectResourceStorage::from_resources(resources);
-        self.resources = resources;
-    }
-
-    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), crate::resources::AddResourceError> {
-        self.resources.add_resource(resource)
-    }
-
-    pub fn get_resource(&self, key: &str) -> Option<&RedirectResource> {
-        self.resources.get_resource(key)
     }
 
     pub fn set_regex_discard_policy(
@@ -1439,6 +1421,7 @@ mod blocker_tests {
 
     use super::*;
     use crate::lists::parse_filters;
+    use crate::resources::Resource;
     use crate::request::Request;
     use std::collections::HashSet;
     use std::iter::FromIterator;
@@ -1458,10 +1441,10 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         let request = Request::new("https://example.com/test/", "https://example.com", "xmlhttprequest").unwrap();
-        assert!(blocker.check(&request).matched);
+        assert!(blocker.check(&request, &Default::default()).matched);
 
         let request = Request::new("https://example.com/test", "https://example.com", "xmlhttprequest").unwrap();
-        assert!(!blocker.check(&request).matched);
+        assert!(!blocker.check(&request, &Default::default()).matched);
     }
 
     fn test_requests_filters(filters: impl IntoIterator<Item=impl AsRef<str>>, requests: &[(Request, bool)]) {
@@ -1474,7 +1457,7 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         requests.iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, &Default::default());
             if *expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1498,16 +1481,17 @@ mod blocker_tests {
             enable_optimizations: false,
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(network_filters, &blocker_options);
+        let mut resources = ResourceStorage::default();
 
-        blocker.add_resource(&Resource {
+        resources.add_resource(Resource {
             name: "noop-0.1s.mp3".to_string(),
             aliases: vec![],
             kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
             content: base64::encode("mp3"),
         }).unwrap();
 
-        let matched_rule = blocker.check(&request);
+        let matched_rule = blocker.check(&request, &resources);
         assert_eq!(matched_rule.matched, false);
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
@@ -1529,16 +1513,17 @@ mod blocker_tests {
             enable_optimizations: false,
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(network_filters, &blocker_options);
+        let mut resources = ResourceStorage::default();
 
-        blocker.add_resource(&Resource {
+        resources.add_resource(Resource {
             name: "noop-0.1s.mp3".to_string(),
             aliases: vec![],
             kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
             content: base64::encode("mp3"),
         }).unwrap();
 
-        let matched_rule = blocker.check(&request);
+        let matched_rule = blocker.check(&request, &resources);
         assert_eq!(matched_rule.matched, false);
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, None);
@@ -1560,16 +1545,17 @@ mod blocker_tests {
             enable_optimizations: false,
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(network_filters, &blocker_options);
+        let mut resources = ResourceStorage::default();
 
-        blocker.add_resource(&Resource {
+        resources.add_resource(Resource {
             name: "noop.txt".to_string(),
             aliases: vec![],
             kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::TextPlain),
             content: base64::encode("noop"),
         }).unwrap();
 
-        let matched_rule = blocker.check(&request);
+        let matched_rule = blocker.check(&request, &resources);
         assert_eq!(matched_rule.matched, true);
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,bm9vcA==".to_string()));
@@ -1656,9 +1642,10 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
+        let resources = ResourceStorage::default();
 
         url_results.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, &resources);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -1738,89 +1725,91 @@ mod blocker_tests {
             enable_optimizations: true,
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
-        blocker.add_resource(&Resource {
+        let blocker = Blocker::new(network_filters, &blocker_options);
+        let mut resources = ResourceStorage::default();
+
+        resources.add_resource(Resource {
             name: "noopjs".into(),
             aliases: vec![],
             kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::ApplicationJavascript),
             content: base64::encode("(() => {})()"),
         }).unwrap();
 
-        let result = blocker.check(&Request::new("https://example.com?q=1&test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1&test=2#blue", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?test=2&q=1#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2&q=1#blue", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2#blue", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com#blue".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?q=1#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1#blue", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?q=1&test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1&test=2", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?test=2&q=1", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2&q=1", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?test=2", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?q=1", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=1", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?q=fbclid", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q=fbclid", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://test.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://test.com?fbclid=10938&q=1&test=2", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://test.com?q=1&test=2".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q2=2&q3=3&q4=4&q5=5".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?q1=1&q1=2&test=2&test=3", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?q1=1&q1=2&test=2&test=3", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q1=1&q1=2".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/script.js?test=2#blue", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/script.js?test=2#blue", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com/script.js#blue".into()));
         assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/block/script.js?test=2", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/block/script.js?test=2", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, None);
         assert_eq!(result.redirect, Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into()));
         assert!(result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com/Path/?Test=ABC&testcase=AbC".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?Test=ABC?123&test=3#&test=4#b", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC?123#&test=4#b".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "document").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "document").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?Test=ABC".into()));
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "image").unwrap());
+        let result = blocker.check(&Request::new("https://example.com?Test=ABC&testCase=5", "https://antonok.com", "image").unwrap(), &resources);
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
     }
@@ -1887,9 +1876,10 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
+        let resources = ResourceStorage::default();
 
         for (original, expected) in testcases.into_iter() {
-            let result = blocker.check(&Request::new(original, "https://example.net", "script").unwrap());
+            let result = blocker.check(&Request::new(original, "https://example.net", "script").unwrap(), &resources);
             let expected = if original == expected {
                 None
             } else {
@@ -1914,7 +1904,7 @@ fn test_removeparam_same_tokens() {
 
     let blocker = Blocker::new(network_filters, &blocker_options);
 
-    let result = blocker.check(&Request::new("https://example.com?example1_=1&example1-=2", "https://example.com", "script").unwrap());
+    let result = blocker.check(&Request::new("https://example.com?example1_=1&example1-=2", "https://example.com", "script").unwrap(), &Default::default());
     assert_eq!(result.rewritten_url, Some("https://example.com".into()));
     assert!(!result.matched);
 }
@@ -1936,10 +1926,11 @@ fn test_removeparam_same_tokens() {
             enable_optimizations: true,
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
-        fn add_simple_resource(blocker: &mut Blocker, identifier: &str) -> Option<String> {
+        let blocker = Blocker::new(network_filters, &blocker_options);
+        let mut resources = ResourceStorage::default();
+        fn add_simple_resource(resources: &mut ResourceStorage, identifier: &str) -> Option<String> {
             let b64 = base64::encode(identifier);
-            blocker.add_resource(&Resource {
+            resources.add_resource(Resource {
                 name: identifier.into(),
                 aliases: vec![],
                 kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::TextPlain),
@@ -1947,43 +1938,43 @@ fn test_removeparam_same_tokens() {
             }).unwrap();
             return Some(format!("data:text/plain;base64,{}", b64));
         }
-        let a_redirect = add_simple_resource(&mut blocker, "a");
-        let b_redirect = add_simple_resource(&mut blocker, "b");
-        let c_redirect = add_simple_resource(&mut blocker, "c");
+        let a_redirect = add_simple_resource(&mut resources, "a");
+        let b_redirect = add_simple_resource(&mut resources, "b");
+        let c_redirect = add_simple_resource(&mut resources, "c");
 
-        let result = blocker.check(&Request::new("https://example.net/test", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.net/test", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.net/test.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.net/test.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, a_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/test.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/test.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, b_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/text.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, c_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/exceptc20/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/text.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, b_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, c_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/text.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, a_redirect);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/excepta/text.txt", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/excepta/text.txt", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, None);
         assert!(!result.matched);
 
-        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/text", "https://example.com", "xmlhttprequest").unwrap());
+        let result = blocker.check(&Request::new("https://example.com/exceptc20/exceptb10/text", "https://example.com", "xmlhttprequest").unwrap(), &resources);
         assert_eq!(result.redirect, None);
         assert!(!result.matched);
     }
@@ -2017,12 +2008,13 @@ fn test_removeparam_same_tokens() {
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let resources = Default::default();
         blocker.enable_tags(&["stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, &resources);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -2060,13 +2052,14 @@ fn test_removeparam_same_tokens() {
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let resources = Default::default();
         blocker.enable_tags(&["stuff"]);
         blocker.enable_tags(&["brian"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, &resources);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -2104,6 +2097,7 @@ fn test_removeparam_same_tokens() {
         };
 
         let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let resources = Default::default();
         blocker.enable_tags(&["brian", "stuff"]);
         assert_eq!(blocker.tags_enabled, HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter()));
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
@@ -2112,7 +2106,7 @@ fn test_removeparam_same_tokens() {
         assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, &resources);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -2176,6 +2170,7 @@ fn test_removeparam_same_tokens() {
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+        let resources = Default::default();
         blocker.enable_tags(&["brian"]);
 
         blocker.add_filter(NetworkFilter::parse("adv$tag=stuff", true, Default::default()).unwrap()).unwrap();
@@ -2198,7 +2193,7 @@ fn test_removeparam_same_tokens() {
             }).collect();
 
         request_expectations.into_iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req);
+            let matched_rule = blocker.check(&req, &resources);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -2214,12 +2209,13 @@ fn test_removeparam_same_tokens() {
         };
 
         let mut blocker = Blocker::new(Vec::new(), &blocker_options);
+        let resources = Default::default();
 
         blocker.add_filter(NetworkFilter::parse("@@*ad_banner.png", true, Default::default()).unwrap()).unwrap();
 
         let request = Request::new("http://example.com/ad_banner.png", "https://example.com", "other").unwrap();
 
-        let matched_rule = blocker.check_parameterised(&request, false, true);
+        let matched_rule = blocker.check_parameterised(&request, &resources, false, true);
         assert!(!matched_rule.matched);
         assert!(matched_rule.exception.is_some());
     }

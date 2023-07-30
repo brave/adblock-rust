@@ -12,46 +12,41 @@
 #[cfg(feature = "resource-assembler")]
 pub mod resource_assembler;
 
-mod scriptlet_resource_storage;
-pub(crate) use scriptlet_resource_storage::ScriptletResourceStorage;
+mod resource_storage;
+#[doc(inline)]
+pub use resource_storage::{AddResourceError, ResourceStorage, ScriptletResourceError};
 
 use memchr::memrchr as find_char_reverse;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use std::collections::HashMap;
 
 /// Struct representing a resource that can be used by an adblocking engine.
-///
-/// - `name`: Represents the primary name of the resource, often a filename
-///
-/// - `aliases`: Represents secondary names that can be used to access the resource
-///
-/// - `kind`: How to interpret the resource data within `content`
-///
-/// - `content`: The resource data, encoded using standard base64 configuration
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Resource {
+    /// Represents the primary name of the resource, often a filename
     pub name: String,
+    /// Represents secondary names that can be used to access the resource
     pub aliases: Vec<String>,
+    /// How to interpret the resource data within `content`
     pub kind: ResourceType,
+    /// The resource data, encoded using standard base64 configuration
     pub content: String,
 }
 
 /// Different ways that the data within the `content` field of a `Resource` can be interpreted.
-///
-/// - `Mime(type)` - interpret the data according to the MIME type represented by `type`
-///
-/// - `Template` - interpret the data as a Javascript scriptlet template, with embedded template
-/// parameters in the form of `{{1}}`, `{{2}}`, etc.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ResourceType {
+    /// Interpret the data according to the MIME type represented by `type`
     Mime(MimeType),
+    /// Interpret the data as a Javascript scriptlet template, with embedded template
+    /// parameters in the form of `{{1}}`, `{{2}}`, etc. Note that `Mime(ApplicationJavascript)`
+    /// can still be used as a templated resource, for compatibility purposes.
     Template,
 }
 
+/// Acceptable MIME types for resources used by `$redirect` and `+js(...)` adblock rules.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(into = "String")]
+#[serde(into = "&str")]
 #[serde(from = "std::borrow::Cow<'static, str>")]
 pub enum MimeType {
     TextCss,
@@ -64,38 +59,6 @@ pub enum MimeType {
     TextPlain,
     TextXml,
     Unknown,
-}
-
-#[derive(Debug, Error, PartialEq)]
-pub enum AddResourceError {
-    #[error("invalid base64 content")]
-    InvalidBase64Content,
-    #[error("invalid utf-8 content")]
-    InvalidUtf8Content,
-}
-
-impl From<base64::DecodeError> for AddResourceError {
-    fn from(_: base64::DecodeError) -> Self {
-        AddResourceError::InvalidBase64Content
-    }
-}
-
-impl From<std::string::FromUtf8Error> for AddResourceError {
-    fn from(_: std::string::FromUtf8Error) -> Self {
-        AddResourceError::InvalidUtf8Content
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct RedirectResource {
-    pub content_type: String,
-    pub data: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct RedirectResourceStorage {
-    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
-    pub resources: HashMap<String, RedirectResource>,
 }
 
 impl MimeType {
@@ -122,79 +85,10 @@ impl MimeType {
             MimeType::Unknown
         }
     }
-}
 
-impl RedirectResourceStorage {
-    pub fn from_resources(resources: &[Resource]) -> Self {
-        let mut redirectable_resources: HashMap<String, RedirectResource> = HashMap::new();
-
-        resources
-            .iter()
-            .filter_map(|descriptor| {
-                if let ResourceType::Mime(ref content_type) = descriptor.kind {
-                    let resource = RedirectResource {
-                        content_type: content_type.clone().into(),
-                        data: descriptor.content.to_owned(),
-                    };
-                    Some((
-                        descriptor.name.to_owned(),
-                        descriptor.aliases.to_owned(),
-                        resource,
-                    ))
-                } else {
-                    None
-                }
-            })
-            .for_each(|(name, res_aliases, resource)| {
-                res_aliases.iter().for_each(|alias| {
-                    redirectable_resources.insert(alias.to_owned(), resource.clone());
-                });
-                redirectable_resources.insert(name, resource);
-            });
-
-        Self {
-            resources: redirectable_resources,
-        }
-    }
-
-    pub fn get_resource(&self, name: &str) -> Option<&RedirectResource> {
-        self.resources.get(name)
-    }
-
-    /// Adds a resource. Only has an effect for mimetyped scriptlets.
-    pub fn add_resource(&mut self, resource: &Resource) -> Result<(), AddResourceError> {
-        if let ResourceType::Mime(ref content_type) = resource.kind {
-            // Ensure the resource contents are valid base64
-            let decoded = base64::decode(&resource.content)?;
-            match content_type {
-                // Ensure any text contents are also valid utf8
-                MimeType::ApplicationJavascript
-                | MimeType::TextPlain
-                | MimeType::TextHtml
-                | MimeType::TextXml => {
-                    let _ = String::from_utf8(decoded)?;
-                }
-                _ => (),
-            }
-
-            let name = resource.name.to_owned();
-            let redirect_resource = RedirectResource {
-                content_type: content_type.clone().into(),
-                data: resource.content.to_owned(),
-            };
-            resource.aliases.iter().for_each(|alias| {
-                self.resources
-                    .insert(alias.to_owned(), redirect_resource.clone());
-            });
-            self.resources.insert(name, redirect_resource);
-        }
-        Ok(())
-    }
-}
-
-impl From<std::borrow::Cow<'static, str>> for MimeType {
-    fn from(v: std::borrow::Cow<'static, str>) -> Self {
-        v.as_ref().into()
+    /// Should the MIME type decode as valid UTF8?
+    pub fn is_textual(&self) -> bool {
+        matches!(self, MimeType::ApplicationJavascript | MimeType::TextCss | MimeType::TextPlain | MimeType::TextHtml | MimeType::TextXml)
     }
 }
 
@@ -215,8 +109,8 @@ impl From<&str> for MimeType {
     }
 }
 
-impl From<MimeType> for String {
-    fn from(v: MimeType) -> Self {
+impl From<&MimeType> for &str {
+    fn from(v: &MimeType) -> Self {
         match v {
             MimeType::TextCss => "text/css",
             MimeType::ImageGif => "image/gif",
@@ -229,53 +123,26 @@ impl From<MimeType> for String {
             MimeType::TextXml => "text/xml",
             MimeType::Unknown => "application/octet-stream",
         }
-        .to_owned()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn get_resource_by_name() {
-        let mut storage = RedirectResourceStorage::default();
-        storage
-            .add_resource(&Resource {
-                name: "name.js".to_owned(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("resource data"),
-            })
-            .unwrap();
-
-        assert_eq!(
-            storage.get_resource("name.js"),
-            Some(&RedirectResource {
-                content_type: "application/javascript".to_owned(),
-                data: base64::encode("resource data"),
-            })
-        );
+// Required for `#[serde(from = "std::borrow::Cow<'static, str>")]`
+impl From<std::borrow::Cow<'static, str>> for MimeType {
+    fn from(v: std::borrow::Cow<'static, str>) -> Self {
+        v.as_ref().into()
     }
+}
 
-    #[test]
-    fn get_resource_by_alias() {
-        let mut storage = RedirectResourceStorage::default();
-        storage
-            .add_resource(&Resource {
-                name: "name.js".to_owned(),
-                aliases: vec!["alias.js".to_owned()],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("resource data"),
-            })
-            .unwrap();
+// Required for `#[serde(into = &str)]`
+impl From<MimeType> for &str {
+    fn from(v: MimeType) -> Self {
+        (&v).into()
+    }
+}
 
-        assert_eq!(
-            storage.get_resource("alias.js"),
-            Some(&RedirectResource {
-                content_type: "application/javascript".to_owned(),
-                data: base64::encode("resource data"),
-            })
-        );
+impl std::fmt::Display for MimeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s: &str = self.into();
+        write!(f, "{}", s)
     }
 }

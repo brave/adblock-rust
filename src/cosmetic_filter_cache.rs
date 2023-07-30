@@ -10,7 +10,7 @@
 
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::cosmetic::CosmeticFilterMask;
-use crate::resources::{Resource, ScriptletResourceStorage};
+use crate::resources::ResourceStorage;
 use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
@@ -90,8 +90,6 @@ pub(crate) struct CosmeticFilterCache {
     /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
     /// into any of the class or id buckets above, e.g. `##a[href="https://malware.com"]`
     pub(crate) misc_generic_selectors: HashSet<String>,
-
-    pub(crate) scriptlets: ScriptletResourceStorage,
 }
 
 impl CosmeticFilterCache {
@@ -105,8 +103,6 @@ impl CosmeticFilterCache {
             specific_rules: HostnameRuleDb::default(),
 
             misc_generic_selectors: HashSet::new(),
-
-            scriptlets: Default::default(),
         }
     }
 
@@ -120,8 +116,6 @@ impl CosmeticFilterCache {
             specific_rules: HostnameRuleDb::default(),
 
             misc_generic_selectors: HashSet::with_capacity(rules.len() / 30),
-
-            scriptlets: Default::default(),
         };
 
         for rule in rules {
@@ -235,6 +229,7 @@ impl CosmeticFilterCache {
     /// injected into every page, and makes up a relatively small number of rules in practice.
     pub fn hostname_cosmetic_resources(
         &self,
+        resources: &ResourceStorage,
         hostname: &str,
         generichide: bool,
     ) -> UrlSpecificResources {
@@ -337,7 +332,7 @@ impl CosmeticFilterCache {
 
         let mut injected_script = String::new();
         script_injections.iter().for_each(|s| {
-            if let Ok(filled_template) = self.scriptlets.get_scriptlet(s) {
+            if let Ok(filled_template) = resources.get_scriptlet_resource(s) {
                 injected_script += "try {\n";
                 injected_script += &filled_template;
                 injected_script += "\n} catch ( e ) { }\n";
@@ -354,27 +349,6 @@ impl CosmeticFilterCache {
             injected_script,
             generichide,
         }
-    }
-
-    /// Sets the internal resources to be those provided, silently discarding errors.
-    ///
-    /// Use `add_resource` if error information is required.
-    pub fn use_resources(&mut self, resources: &[Resource]) {
-        let mut scriptlets = ScriptletResourceStorage::default();
-
-        resources.iter().for_each(|resource| {
-            let _result = scriptlets.add_resource(resource);
-        });
-
-        self.scriptlets = scriptlets;
-    }
-
-    /// Adds a single scriptlet resource.
-    pub fn add_resource(
-        &mut self,
-        resource: &Resource,
-    ) -> Result<(), crate::resources::AddResourceError> {
-        self.scriptlets.add_resource(resource)
     }
 }
 
@@ -571,6 +545,7 @@ fn hostname_domain_hashes(hostname: &str, domain: &str) -> (Vec<Hash>, Vec<Hash>
 #[cfg(test)]
 mod cosmetic_cache_tests {
     use super::*;
+    use crate::resources::Resource;
 
     fn cache_from_rules(rules: Vec<&str>) -> CosmeticFilterCache {
         let parsed_rules = rules
@@ -584,16 +559,17 @@ mod cosmetic_cache_tests {
     #[test]
     fn exceptions() {
         let cfcache = cache_from_rules(vec!["~example.com##.item", "sub.example.com#@#.item2"]);
+        let resources = ResourceStorage::default();
 
-        let out = cfcache.hostname_cosmetic_resources("test.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "example.com", false);
         expected.exceptions.insert(".item".into());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         expected.exceptions.insert(".item2".into());
         assert_eq!(out, expected);
     }
@@ -601,16 +577,17 @@ mod cosmetic_cache_tests {
     #[test]
     fn exceptions2() {
         let cfcache = cache_from_rules(vec!["example.com,~sub.example.com##.item"]);
+        let resources = ResourceStorage::default();
 
-        let out = cfcache.hostname_cosmetic_resources("test.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "example.com", false);
         expected.hide_selectors.insert(".item".to_owned());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         let mut expected = UrlSpecificResources::empty();
         expected.exceptions.insert(".item".into());
         assert_eq!(out, expected);
@@ -625,33 +602,34 @@ mod cosmetic_cache_tests {
             "a2.sub.example.com##.element:style(background: #000)",
             "a3.example.com##.element:style(background: #000)",
         ]);
+        let resources = ResourceStorage::default();
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.test.example.com", false);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a1.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a1.sub.example.com", false);
         expected.hide_selectors.insert(".element".to_owned());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
         expected
             .style_selectors
             .insert(".element".to_owned(), vec!["background: #fff".to_owned()]);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a2.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.style_selectors.clear();
         expected
             .style_selectors
             .insert(".element".to_owned(), vec!["background: #000".to_owned()]);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a3.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.style_selectors.clear();
         expected
             .style_selectors
@@ -671,15 +649,14 @@ mod cosmetic_cache_tests {
     fn script_exceptions() {
         use crate::resources::{MimeType, ResourceType};
 
-        let mut cfcache = cache_from_rules(vec![
+        let cfcache = cache_from_rules(vec![
             "example.com,~sub.example.com##+js(set-constant.js, atob, trueFunc)",
             "sub.test.example.com#@#+js(set-constant.js, atob, trueFunc)",
             "cosmetic.net##+js(nowebrtc.js)",
             "g.cosmetic.net##+js(window.open-defuser.js)",
             "c.g.cosmetic.net#@#+js(nowebrtc.js)",
         ]);
-
-        cfcache.use_resources(&[
+        let resources = ResourceStorage::from_resources([
             Resource {
                 name: "set-constant.js".into(),
                 aliases: vec![],
@@ -700,23 +677,23 @@ mod cosmetic_cache_tests {
             },
         ]);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.test.example.com", false);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.injected_script =
             "try {\nset-constant.js, atob, trueFunc\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("cosmetic.net", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "cosmetic.net", false);
         expected.injected_script = "try {\nnowebrtc.js\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("g.cosmetic.net", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "g.cosmetic.net", false);
         expected.injected_script = "try {\nnowebrtc.js\n} catch ( e ) { }\ntry {\nwindow.open-defuser.js\n} catch ( e ) { }\n".to_owned();
         // order is non-deterministic
         if out != expected {
@@ -724,7 +701,7 @@ mod cosmetic_cache_tests {
             assert_eq!(out, expected);
         }
 
-        let out = cfcache.hostname_cosmetic_resources("c.g.cosmetic.net", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "c.g.cosmetic.net", false);
         expected.injected_script = "try {\nwindow.open-defuser.js\n} catch ( e ) { }\n".to_owned();
         assert_eq!(out, expected);
     }
@@ -738,28 +715,29 @@ mod cosmetic_cache_tests {
             "a2.sub.example.com##.element:remove()",
             "a3.example.com##.element:remove()",
         ]);
+        let resources = ResourceStorage::default();
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.test.example.com", false);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a1.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a1.sub.example.com", false);
         expected.hide_selectors.insert(".element".to_owned());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
         expected.remove_selectors.insert(".element".to_owned());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a2.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.remove_selectors.clear();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a3.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.remove_selectors.clear();
         expected.remove_selectors.insert(".element".to_owned());
         assert_eq!(out, expected);
@@ -774,33 +752,34 @@ mod cosmetic_cache_tests {
             "a2.sub.example.com##.element:remove-attr(src)",
             "a3.example.com##.element:remove-attr(src)",
         ]);
+        let resources = ResourceStorage::default();
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.test.example.com", false);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a1.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a1.sub.example.com", false);
         expected.hide_selectors.insert(".element".to_owned());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
         expected
             .remove_attrs
             .insert(".element".to_owned(), vec!["style".to_owned()]);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a2.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.remove_attrs.clear();
         expected
             .remove_attrs
             .insert(".element".to_owned(), vec!["src".to_owned()]);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a3.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.remove_attrs.clear();
         expected
             .remove_attrs
@@ -825,33 +804,34 @@ mod cosmetic_cache_tests {
             "a2.sub.example.com##.element:remove-class(banner)",
             "a3.example.com##.element:remove-class(banner)",
         ]);
+        let resources = ResourceStorage::default();
 
-        let out = cfcache.hostname_cosmetic_resources("sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
         let mut expected = UrlSpecificResources::empty();
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("sub.test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "sub.test.example.com", false);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a1.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a1.sub.example.com", false);
         expected.hide_selectors.insert(".element".to_owned());
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("test.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
         expected
             .remove_classes
             .insert(".element".to_owned(), vec!["overlay".to_owned()]);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a2.sub.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.remove_classes.clear();
         expected
             .remove_classes
             .insert(".element".to_owned(), vec!["banner".to_owned()]);
         assert_eq!(out, expected);
 
-        let out = cfcache.hostname_cosmetic_resources("a3.example.com", false);
+        let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.remove_classes.clear();
         expected
             .remove_classes
@@ -953,8 +933,9 @@ mod cosmetic_cache_tests {
                 .map(|r| CosmeticFilter::parse(r, false).unwrap())
                 .collect::<Vec<_>>(),
         );
+        let resources = ResourceStorage::default();
         let exceptions = cfcache
-            .hostname_cosmetic_resources("example.co.uk", false)
+            .hostname_cosmetic_resources(&resources, "example.co.uk", false)
             .exceptions;
 
         let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &exceptions);
@@ -978,7 +959,7 @@ mod cosmetic_cache_tests {
         assert_eq!(out, ["#test-element"]);
 
         let exceptions = cfcache
-            .hostname_cosmetic_resources("a1.test.com", false)
+            .hostname_cosmetic_resources(&resources, "a1.test.com", false)
             .exceptions;
 
         let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &exceptions);
@@ -1018,9 +999,10 @@ mod cosmetic_cache_tests {
                 .map(|r| CosmeticFilter::parse(r, false).unwrap())
                 .collect::<Vec<_>>(),
         );
+        let resources = ResourceStorage::default();
 
         let hide_selectors = cfcache
-            .hostname_cosmetic_resources("test.com", false)
+            .hostname_cosmetic_resources(&resources, "test.com", false)
             .hide_selectors;
         let mut expected_hides = HashSet::new();
         expected_hides.insert("a[href=\"bad.com\"]".to_owned());
@@ -1029,7 +1011,7 @@ mod cosmetic_cache_tests {
         assert_eq!(hide_selectors, expected_hides);
 
         let hide_selectors = cfcache
-            .hostname_cosmetic_resources("example.com", false)
+            .hostname_cosmetic_resources(&resources, "example.com", false)
             .hide_selectors;
         let mut expected_hides = HashSet::new();
         expected_hides.insert("a[href=\"bad.com\"]".to_owned());
@@ -1046,21 +1028,23 @@ mod cosmetic_cache_tests {
             "toolforge.org##+js(abort-on-property-read, noAdBlockers)",
             "github.io##div.adToBlock",
         ];
-        let mut cfcache = CosmeticFilterCache::from_rules(
+        let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
                 .map(|r| CosmeticFilter::parse(r, false).unwrap())
                 .collect::<Vec<_>>(),
         );
-        cfcache.use_resources(&[Resource {
-            name: "abort-on-property-read.js".into(),
-            aliases: vec!["aopr".to_string()],
-            kind: ResourceType::Template,
-            content: base64::encode("abort-on-property-read.js, {{1}}"),
-        }]);
+        let resources = ResourceStorage::from_resources([
+            Resource {
+                name: "abort-on-property-read.js".into(),
+                aliases: vec!["aopr".to_string()],
+                kind: ResourceType::Template,
+                content: base64::encode("abort-on-property-read.js, {{1}}"),
+            }
+        ]);
 
         let injected_script = cfcache
-            .hostname_cosmetic_resources("antonok.toolforge.org", false)
+            .hostname_cosmetic_resources(&resources, "antonok.toolforge.org", false)
             .injected_script;
         assert_eq!(
             injected_script,
@@ -1068,7 +1052,7 @@ mod cosmetic_cache_tests {
         );
 
         let hide_selectors = cfcache
-            .hostname_cosmetic_resources("antonok.github.io", false)
+            .hostname_cosmetic_resources(&resources, "antonok.github.io", false)
             .hide_selectors;
         let mut expected_hides = HashSet::new();
         expected_hides.insert("div.adToBlock".to_owned());
