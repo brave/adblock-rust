@@ -2,8 +2,8 @@ use criterion::*;
 
 use serde::{Deserialize, Serialize};
 
+use adblock::Engine;
 use adblock::blocker::{Blocker, BlockerOptions};
-use adblock::engine::Engine;
 use adblock::request::Request;
 use adblock::resources::ResourceStorage;
 use adblock::url_parser::parse_url;

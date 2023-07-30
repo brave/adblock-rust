@@ -21,7 +21,7 @@ pub mod blocker;
 pub mod content_blocking;
 pub mod cosmetic_filter_cache;
 mod data_format;
-pub mod engine;
+mod engine;
 pub mod filters;
 pub mod lists;
 mod optimizer;

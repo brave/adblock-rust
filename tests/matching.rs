@@ -1,4 +1,4 @@
-use adblock::engine::Engine;
+use adblock::Engine;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
 use adblock::regex_manager::RegexManager;

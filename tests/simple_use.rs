@@ -1,4 +1,4 @@
-use adblock::engine::Engine;
+use adblock::Engine;
 use adblock::request::Request;
 
 #[test]

@@ -1,6 +1,8 @@
-use adblock::engine::Engine;
-use adblock::lists::{FilterSet, ParseOptions};
-use adblock::request::Request;
+use adblock::{
+    Engine,
+    lists::{FilterSet, ParseOptions},
+    request::Request,
+};
 
 fn main() {
     let rules = vec![

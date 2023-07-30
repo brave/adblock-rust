@@ -1,5 +1,7 @@
-use adblock::engine::Engine;
-use adblock::request::Request;
+use adblock::{
+    Engine,
+    request::Request,
+};
 
 use std::fs::File;
 use std::io::prelude::*;

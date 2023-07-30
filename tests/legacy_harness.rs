@@ -304,7 +304,7 @@ mod legacy_test_filters {
 }
 
 mod legacy_check_match {
-    use adblock::engine::Engine;
+    use adblock::Engine;
     use adblock::request::Request;
 
     fn check_match<'a>(
@@ -490,7 +490,7 @@ mod legacy_check_match {
 }
 
 mod legacy_check_options {
-    use adblock::engine::Engine;
+    use adblock::Engine;
     use adblock::request::Request;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
@@ -647,7 +647,7 @@ mod legacy_check_options {
 }
 
 mod legacy_misc_tests {
-    use adblock::engine::Engine;
+    use adblock::Engine;
     use adblock::filters::network::NetworkFilter;
     use adblock::request::Request;
 
