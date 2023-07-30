@@ -30,7 +30,7 @@ use std::collections::HashSet;
 ///
 /// ### Network blocking
 ///
-/// Use the [`Engine::check_network_urls`] method to determine how to handle a network request.
+/// Use the [`Engine::check_network_request`] method to determine how to handle a network request.
 ///
 /// If you _only_ need network blocking, consider using a [`Blocker`] directly.
 ///
@@ -155,48 +155,17 @@ impl Engine {
 
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by
     /// `source_url`, should be blocked.
-    pub fn check_network_urls(&self, url: &str, source_url: &str, request_type: &str) -> BlockerResult {
-        Request::new(url, source_url, request_type)
-        .map(|request| {
-            self.blocker.check(&request)
-        })
-        .unwrap_or_else(|_e| {
-            BlockerResult {
-                matched: false,
-                important: false,
-                redirect: None,
-                rewritten_url: None,
-                exception: None,
-                filter: None,
-                error: Some("Error parsing request".to_owned())
-            }
-        })
+    pub fn check_network_request(&self, request: &Request) -> BlockerResult {
+        self.blocker.check(request)
     }
 
-    pub fn check_network_urls_with_hostnames(
+    pub fn check_network_request_subset(
         &self,
-        url: &str,
-        hostname: &str,
-        source_hostname: &str,
-        request_type: &str,
-        third_party_request: Option<bool>
-    ) -> BlockerResult {
-        let request = Request::new_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
-        self.blocker.check(&request)
-    }
-
-    pub fn check_network_urls_with_hostnames_subset(
-        &self,
-        url: &str,
-        hostname: &str,
-        source_hostname: &str,
-        request_type: &str,
-        third_party_request: Option<bool>,
+        request: &Request,
         previously_matched_rule: bool,
         force_check_exceptions: bool,
     ) -> BlockerResult {
-        let request = Request::new_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
-        self.blocker.check_parameterised(&request, previously_matched_rule, force_check_exceptions)
+        self.blocker.check_parameterised(request, previously_matched_rule, force_check_exceptions)
     }
 
     /// Returns a string containing any additional CSP directives that should be added to this
@@ -205,14 +174,9 @@ impl Engine {
     /// If multiple policies are present from different rules, they will be joined by commas.
     pub fn get_csp_directives(
         &self,
-        url: &str,
-        hostname: &str,
-        source_hostname: &str,
-        request_type: &str,
-        third_party_request: Option<bool>,
+        request: &Request,
     ) -> Option<String> {
-        let request = Request::new_with_hostname(url, hostname, source_hostname, request_type, third_party_request);
-        self.blocker.get_csp_directives(&request)
+        self.blocker.get_csp_directives(request)
     }
 
     /// Check if a given filter has been previously added to this `Engine`.
@@ -362,7 +326,8 @@ mod tests {
         engine.enable_tags(&["brian"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let matched_rule = engine.check_network_urls(&url, "", "");
+            let request = Request::new(&url, "", "").unwrap();
+            let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
@@ -391,7 +356,8 @@ mod tests {
         engine.disable_tags(&["stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let matched_rule = engine.check_network_urls(&url, "", "");
+            let request = Request::new(&url, "", "").unwrap();
+            let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
@@ -416,7 +382,8 @@ mod tests {
         let engine = Engine::from_rules(&filters, Default::default());
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let matched_rule = engine.check_network_urls(&url, "", "");
+            let request = Request::new(&url, "", "").unwrap();
+            let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
@@ -442,7 +409,8 @@ mod tests {
         engine.enable_tags(&["brian", "stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let matched_rule = engine.check_network_urls(&url, "", "");
+            let request = Request::new(&url, "", "").unwrap();
+            let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
@@ -475,7 +443,8 @@ mod tests {
         deserialized_engine.deserialize(&serialized).unwrap();
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let matched_rule = deserialized_engine.check_network_urls(&url, "", "");
+            let request = Request::new(&url, "", "").unwrap();
+            let matched_rule = deserialized_engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
@@ -498,7 +467,8 @@ mod tests {
         deserialized_engine.deserialize(&serialized).unwrap();
 
         let url = "http://example.com/ad-banner.gif";
-        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
         assert!(matched_rule.matched, "Expected match for {}", url);
     }
 
@@ -517,14 +487,16 @@ mod tests {
         deserialized_engine.enable_tags(&[]);
         deserialized_engine.deserialize(&serialized).unwrap();
         let url = "http://example.com/ad-banner.gif";
-        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
         assert!(!matched_rule.matched, "Expected NO match for {}", url);
 
         deserialized_engine.enable_tags(&["abc"]);
         deserialized_engine.deserialize(&serialized).unwrap();
 
         let url = "http://example.com/ad-banner.gif";
-        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
         assert!(matched_rule.matched, "Expected match for {}", url);
     }
 
@@ -545,7 +517,8 @@ mod tests {
         deserialized_engine.deserialize(&serialized).unwrap();
 
         let url = "http://example.com/ad-banner.gif";
-        let matched_rule = deserialized_engine.check_network_urls(url, "", "");
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
         // This serialized DAT was generated prior to
         // https://github.com/brave/adblock-rust/pull/185, so the `redirect` filter did not get
         // duplicated into the list of blocking filters.
@@ -618,7 +591,8 @@ mod tests {
         }).unwrap();
 
         let url = "http://example.com/ad-banner.gif";
-        let matched_rule = engine.check_network_urls(url, "", "");
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = engine.check_network_request(&request);
         assert!(matched_rule.matched, "Expected match for {}", url);
         assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
     }
@@ -656,44 +630,44 @@ mod tests {
 
         let engine = Engine::from_rules_debug(&filters, Default::default());
 
-        assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
-        assert!(!engine.check_network_urls("https://example.com", "https://example.com", "script").matched);
-        assert!(engine.check_network_urls("https://sub.example.com", "https://sub.example.com", "document").exception.is_some());
+        assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+        assert!(!engine.check_network_request(&Request::new("https://example.com", "https://example.com", "script").unwrap()).matched);
+        assert!(engine.check_network_request(&Request::new("https://sub.example.com", "https://sub.example.com", "document").unwrap()).exception.is_some());
     }
 
     #[test]
     fn implicit_all() {
         {
             let engine = Engine::from_rules_debug(["||example.com^"], Default::default());
-            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["||example.com^$first-party"], Default::default());
-            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["||example.com^$script"], Default::default());
-            assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+            assert!(!engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["||example.com^$~script"], Default::default());
-            assert!(!engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+            assert!(!engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["||example.com^$document", "@@||example.com^$generichide"], Default::default());
-            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["example.com"], ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
-            assert!(engine.check_network_urls("https://example.com", "https://example.com", "document").matched);
+            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["||example.com/path"], Default::default());
-            assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
+            assert!(!engine.check_network_request(&Request::new("https://example.com/path", "https://example.com/path", "document").unwrap()).matched);
         }
         {
             let engine = Engine::from_rules_debug(["||example.com/path^"], Default::default());
-            assert!(!engine.check_network_urls("https://example.com/path", "https://example.com/path", "document").matched);
+            assert!(!engine.check_network_request(&Request::new("https://example.com/path", "https://example.com/path", "document").unwrap()).matched);
         }
     }
 
@@ -741,7 +715,8 @@ mod tests {
             content: base64::encode("window.addthis = undefined"),
         }).unwrap();
 
-        let result = engine.check_network_urls("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script");
+        let request = Request::new("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script").unwrap();
+        let result = engine.check_network_request(&request);
 
         assert!(result.redirect.is_some());
     }
@@ -751,145 +726,165 @@ mod tests {
         {
             // match case without regex is discarded
             let engine = Engine::from_rules_debug(["ad.png$match-case"], Default::default());
-            assert!(!engine.check_network_urls("https://example.com/ad.png", "https://example.com", "image").matched);
+            let request = Request::new("https://example.com/ad.png", "https://example.com", "image").unwrap();
+            assert!(!engine.check_network_request(&request).matched);
         }
         {
             // /^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz
             let engine = Engine::from_rules_debug([r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#], Default::default());
-            assert!(engine.check_network_urls("https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "document").matched);
+            let request = Request::new("https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "document").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/((?!www)[a-z]{3,}|\d{2})?\.?[-0-9a-z]{6,}\.[a-z]{2,6}\/(?:[a-z]{6,8}\/)?\/?\?u=[0-9a-z]{7}&o=[0-9a-z]{7}/$doc,frame,match-case,domain=buzz|com|de|fun|guru|info|life|live|mobi|online|pw|site|space|top|us|xyz"#], Default::default());
-            assert!(engine.check_network_urls("https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb", 
-                                              "https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb", 
-                                              "document").matched);
+            let request = Request::new("https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb",
+                                       "https://example.com/aaaaaa/?u=aaaaaaa&o=bbbbbbb",
+                                       "document").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org
             let engine = Engine::from_rules_debug([r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#], Default::default());
-            assert!(engine.check_network_urls("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a", 
-                                              "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a", 
-                                              "document").matched);
+            let request = Request::new("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a",
+                                       "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?cid=aaaaaaaaaabbbbbb&qs5=\n&sid=a",
+                                       "document").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?sid=[_0-9a-f]{1,32}(?:&qs\d=\S+)?&cid=[-_0-9a-zA-Z]{16,36}$/$doc,match-case,domain=com|info|net|org
             let engine = Engine::from_rules_debug([r#"/^https:\/\/(?:www\d\.)?[-a-z]{6,}\.(?:com|info|net|org)\/(?=[-_a-zA-Z]{0,42}\d)(?=[-_0-9a-z]{0,42}[A-Z])[-_0-9a-zA-Z]{43}\/\?cid=[-_0-9a-zA-Z]{16,36}(?:&qs\d=\S+)?&sid=[_0-9a-f]{1,32}$/$doc,match-case,domain=com|info|net|org"#], Default::default());
-            assert!(engine.check_network_urls("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb", 
-                                              "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb", 
-                                              "document").matched);
+            let request = Request::new("https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb",
+                                       "https://www3.example.com/aaaaaaaaaabbbbbbbbbbccccccccccddddddddddAA5/?sid=1&qs1=\n&cid=aaaaaaaaaabbbbbb",
+                                       "document").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         {
             // /^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com
             let engine = Engine::from_rules_debug([r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#], Default::default());
-            assert!(engine.check_network_urls("http://abcde.abcde.com/aaaaabbbbb.apk", "http://abcde.abcde.com/aaaaabbbbb.apk", "document").matched);
+            let request = Request::new("http://abcde.abcde.com/aaaaabbbbb.apk", "http://abcde.abcde.com/aaaaabbbbb.apk", "document").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case
             let engine = Engine::from_rules_debug([r#"/\/[A-Z]\/[-0-9a-z]{5,}\.com\/(?:[0-9a-f]{2}\/){3}[0-9a-f]{32}\.js$/$script,1p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js", 
-                                              "/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js", 
-                                              "script").matched);
+            let request = Request::new("/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js",
+                                       "/A/aaaaa.com/aa/bb/cc/aaaaaaaabbbbbbbbccccccccdddddddd.js",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.com\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://aa.example.com/aAaaa/12222", 
-                                              "https://aa.example.net/aAaaa/12222", 
-                                              "frame").matched);
+            let request = Request::new("https://aa.example.com/aAaaa/12222",
+                                       "https://aa.example.net/aAaaa/12222",
+                                       "frame").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/(?:[a-z]{2}\.)?[0-9a-z]{7,16}\.website\/[a-z](?=[a-z]{0,25}[0-9A-Z])[0-9a-zA-Z]{3,26}\/(?:[1-5]\d{4}|[3-9]\d{3})\??(?:_=\d+|v=\d)?$/$frame,script,xhr,popup,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://aa.example.website/aAaaa/12222", 
-                                              "https://aa.example.website/aAaaa/12222", 
-                                              "frame").matched);
+            let request = Request::new("https://aa.example.website/aAaaa/12222",
+                                       "https://aa.example.website/aAaaa/12222",
+                                       "frame").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://examples.top/articles.html", 
-                                              "https://examples.top/articles.html", 
-                                              "frame").matched);
+            let request = Request::new("https://examples.top/articles.html",
+                                       "https://examples.top/articles.html",
+                                       "frame").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         {
             // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://examples.top/abcd.json", "https://examples.com/abcd.json", "xhr").matched);
+            let request = Request::new("https://examples.top/abcd.json", "https://examples.com/abcd.json", "xhr").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }
         // fails - inferring unescaped `$` inside regex pattern
         /*{
             // /^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$css,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://examples.top/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
-                                              "https://examples.com/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
-                                              "stylesheet").matched);
+            let request = Request::new("https://examples.top/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==",
+                                       "https://examples.com/abcd.css?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==",
+                                       "stylesheet").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - inferring unescaped `$` inside regex pattern
         /*{
             // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.png\?aHR0c[\/0-9a-zA-Z]{33,}=?=?$/$image,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://examples.top/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
-                                              "https://examples.com/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==", 
-                                              "image").matched);
+            let request = Request::new("https://examples.top/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==",
+                                       "https://examples.com/abcd.png?aHR0c/aaaaaaaaaaAAAAAAAAAA000000000012==",
+                                       "image").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.xyz(\/(?:\d{1,5}|0NaN|articles?|browse|index|movie|news|pages?|static|view|web|wiki)){1,4}(?:\.html|\/)$/$frame,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://examples.xyz/articles.html", 
-                                              "https://examples.xyz/articles.html", 
-                                              "frame").matched);
+            let request = Request::new("https://examples.xyz/articles.html",
+                                       "https://examples.xyz/articles.html",
+                                       "frame").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         {
             // /^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://cdn.abcde.xyz/app.js", 
-                                              "https://cdn.abcde.com/app.js", 
-                                              "script").matched);
+            let request = Request::new("https://cdn.abcde.xyz/app.js",
+                                       "https://cdn.abcde.com/app.js",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
             // /^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case
             let engine = Engine::from_rules_debug([r#"/^https:\/\/a\.[-0-9a-z]{4,16}\.(?:club|com?|cyou|info|net|ru|site|top?|xxx|xyz)\/(?=[a-z]{0,6}[0-9A-Z])[0-9a-zA-Z]{7}\.js$/$script,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://a.abcd.club/aaaaaaA.js", 
-                                              "https://a.abcd.club/aaaaaaA.js", 
-                                              "script").matched);
+            let request = Request::new("https://a.abcd.club/aaaaaaA.js",
+                                       "https://a.abcd.club/aaaaaaA.js",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         {
             // /^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://cdn.jsdelivr.net/npm/abcd@latest/dist/script.min.js", 
-                                              "https://cdn.jsdelivr.com/npm/abcd@latest/dist/script.min.js", 
-                                              "script").matched);
+            let request = Request::new("https://cdn.jsdelivr.net/npm/abcd@latest/dist/script.min.js",
+                                       "https://cdn.jsdelivr.com/npm/abcd@latest/dist/script.min.js",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }
         // fails - inferring unescaped `$` inside regex pattern
         /*{
             // /^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case
             let engine = Engine::from_rules_debug([r#"/^https?:\/\/[-.0-9a-z]+\/script\.js$/$script,1p,strict3p,match-case"#], Default::default());
-            assert!(engine.check_network_urls("https://www.example.com/script.js", 
-                                              "https://www.abc.com/script.js", 
-                                              "script").matched);
+            let request = Request::new("https://www.example.com/script.js",
+                                       "https://www.abc.com/script.js",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
         {
             let engine = Engine::from_rules_debug([r#"/tesT߶/$domain=example.com"#], Default::default());
-            assert!(engine.check_network_urls("https://example.com/tesT߶",
-                                              "https://example.com",
-                                              "script").matched);
+            let request = Request::new("https://example.com/tesT߶",
+                                       "https://example.com",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }
         // fails - punycoded domain
         /*{
             let engine = Engine::from_rules_debug([r#"/tesT߶/$domain=example.com"#], Default::default());
-            assert!(engine.check_network_urls("https://example-tesT߶.com/tesT",
-                                              "https://example.com",
-                                              "script").matched);
+            let request = Request::new("https://example-tesT߶.com/tesT",
+                                       "https://example.com",
+                                       "script").unwrap();
+            assert!(engine.check_network_request(&request).matched);
         }*/
     }
 }

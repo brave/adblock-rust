@@ -1597,8 +1597,8 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
     if !check_cpt_allowed(filter, &request.request_type)
         || (request.is_https && !filter.for_https())
         || (request.is_http && !filter.for_http())
-        || (!filter.first_party() && request.is_first_party == Some(true))
-        || (!filter.third_party() && request.is_third_party == Some(true))
+        || (!filter.first_party() && !request.is_third_party)
+        || (!filter.third_party() && request.is_third_party)
     {
         return false;
     }
@@ -3342,7 +3342,7 @@ mod match_tests {
             let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let request = request::Request::new(url, source, "document").unwrap();
-            assert_eq!(request.is_third_party, Some(false));
+            assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3356,7 +3356,7 @@ mod match_tests {
             let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let request = request::Request::new(url, source, "main_frame").unwrap();
-            assert_eq!(request.is_third_party, Some(false));
+            assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",

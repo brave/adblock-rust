@@ -19,6 +19,12 @@ struct TestRequest {
     cpt: String,
 }
 
+impl From<&TestRequest> for Request {
+    fn from(v: &TestRequest) -> Self {
+        Request::new(&v.url, &v.frameUrl, &v.cpt).unwrap()
+    }
+}
+
 fn load_requests() -> Vec<TestRequest> {
     let requests_str = rules_from_lists(&["data/requests.json"]);
     let reqs: Vec<TestRequest> = requests_str
@@ -43,7 +49,7 @@ fn bench_rule_matching(engine: &Engine, requests: &Vec<TestRequest>) -> (u32, u3
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(|r| {
-        let res = engine.check_network_urls(&r.url, &r.frameUrl, &r.cpt);
+        let res = engine.check_network_request(&r.into());
         if res.matched {
             matches += 1;
         } else {
@@ -71,19 +77,19 @@ fn bench_matching_only(blocker: &Blocker, requests: &Vec<Request>) -> (u32, u32)
 
 fn bench_rule_matching_browserlike(
     blocker: &Engine,
-    requests: &Vec<(String, String, String, String, Option<bool>)>,
+    requests: &Vec<(String, String, String, String, bool)>,
 ) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(
         |(url, hostname, source_hostname, request_type, third_party)| {
-            let check = blocker.check_network_urls_with_hostnames(
+            let check = blocker.check_network_request(&Request::preparsed(
                 &url,
                 &hostname,
                 &source_hostname,
                 &request_type,
                 *third_party,
-            );
+            ));
             if check.matched {
                 matches += 1;
             } else {
@@ -284,7 +290,7 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
 
     fn requests_parsed(
         requests: &[TestRequest],
-    ) -> Vec<(String, String, String, String, Option<bool>)> {
+    ) -> Vec<(String, String, String, String, bool)> {
         requests
             .iter()
             .map(|r| {
@@ -299,22 +305,21 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
 
                 let maybe_parsed_source = parse_url(&source_url_norm);
 
-                if maybe_parsed_source.is_none() {
-                    Ok((
-                        parsed_url.url.to_owned(),
-                        parsed_url.hostname().to_owned(),
-                        "".to_owned(),
-                        r.cpt.clone(),
-                        None,
-                    ))
-                } else {
-                    let parsed_source = maybe_parsed_source.unwrap();
+                if let Some(parsed_source) = maybe_parsed_source {
                     Ok((
                         parsed_url.url.to_owned(),
                         parsed_url.hostname().to_owned(),
                         parsed_source.hostname().to_owned(),
                         r.cpt.clone(),
-                        Some(parsed_source.domain() != parsed_url.domain()),
+                        parsed_source.domain() != parsed_url.domain(),
+                    ))
+                } else {
+                    Ok((
+                        parsed_url.url.to_owned(),
+                        parsed_url.hostname().to_owned(),
+                        "".to_owned(),
+                        r.cpt.clone(),
+                        true,
                     ))
                 }
             })

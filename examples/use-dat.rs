@@ -1,4 +1,5 @@
 use adblock::engine::Engine;
+use adblock::request::Request;
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -15,11 +16,13 @@ fn main() {
     // Deserialize
     engine.deserialize(&buffer).unwrap();
     engine.use_tags(&["twitter-embeds"]);
-    let checked = engine.check_network_urls(
+
+    let request = Request::new(
         "https://platform.twitter.com/widgets.js",
         "https://fmarier.github.io/brave-testing/social-widgets.html",
         "script",
-    );
+    ).unwrap();
+    let checked = engine.check_network_request(&request);
     assert!(checked.filter.is_some());
     assert!(checked.exception.is_some());
     println!("All good: {:?}", checked);

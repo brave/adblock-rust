@@ -59,10 +59,6 @@ pub struct BlockerResult {
     /// the rule when there is a match and debugging is enabled. Otherwise, on
     /// a match, it is `Some`.
     pub filter: Option<String>,
-    /// The `error` field is only used to signal that there was an error in
-    /// parsing the provided URLs when using the simpler
-    /// [`crate::engine::Engine::check_network_urls`] method.
-    pub error: Option<String>,
 }
 
 impl Default for BlockerResult {
@@ -74,7 +70,6 @@ impl Default for BlockerResult {
             rewritten_url: None,
             exception: None,
             filter: None,
-            error: None,
         }
     }
 }
@@ -377,7 +372,6 @@ impl Blocker {
             rewritten_url,
             exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
             filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
-            error: None,
         }
     }
 
@@ -1518,7 +1512,6 @@ mod blocker_tests {
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some("data:audio/mp3;base64,bXAz".to_string()));
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com".to_string()));
-        assert_eq!(matched_rule.error, None);
     }
 
     #[test]
@@ -1550,7 +1543,6 @@ mod blocker_tests {
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, None);
         assert_eq!(matched_rule.exception, Some("@@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3".to_string()));
-        assert_eq!(matched_rule.error, None);
     }
 
     #[test]
@@ -1582,7 +1574,6 @@ mod blocker_tests {
         assert_eq!(matched_rule.important, false);
         assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,bm9vcA==".to_string()));
         assert_eq!(matched_rule.exception, None);
-        assert_eq!(matched_rule.error, None);
     }
 
     #[test]

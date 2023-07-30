@@ -298,13 +298,14 @@ mod legacy_test_filters {
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
         let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true, Default::default()).unwrap();
-        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "", "script").unwrap();
+        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "https://this-is-always-third-party.com", "script").unwrap();
         assert!(filter.matches(&request, &mut RegexManager::default()));
     }
 }
 
 mod legacy_check_match {
     use adblock::engine::Engine;
+    use adblock::request::Request;
 
     fn check_match<'a>(
         rules: &[&'a str],
@@ -323,15 +324,17 @@ mod legacy_check_match {
         }
 
         for to_block in blocked {
+            let request = Request::new(&to_block, "alwaysthirdparty.com", "script").unwrap();
+
             assert!(
-                engine.check_network_urls(&to_block, "alwaysthirdparty.com", "script").matched,
+                engine.check_network_request(&request).matched,
                 "Expected engine from {:?} to match {}",
                 rules,
                 &to_block
             );
 
             assert!(
-                engine_deserialized.check_network_urls(&to_block, "alwaysthirdparty.com", "script").matched,
+                engine_deserialized.check_network_request(&request).matched,
                 "Expected deserialized engine from {:?} to match {}",
                 rules,
                 &to_block
@@ -339,15 +342,17 @@ mod legacy_check_match {
         }
 
         for to_pass in not_blocked {
+            let request = Request::new(&to_pass, "alwaysthirdparty.com", "script").unwrap();
+
             assert!(
-                !engine.check_network_urls(&to_pass, "alwaysthirdparty.com", "script").matched,
+                !engine.check_network_request(&request).matched,
                 "Expected engine from {:?} to not match {}",
                 rules,
                 &to_pass
             );
 
             assert!(
-                !engine_deserialized.check_network_urls(&to_pass, "alwaysthirdparty.com", "script").matched,
+                !engine_deserialized.check_network_request(&request).matched,
                 "Expected deserialized engine from {:?} to not match {}",
                 rules,
                 &to_pass
@@ -397,8 +402,9 @@ mod legacy_check_match {
             engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy
         }
 
-        assert_eq!(engine.check_network_urls("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").matched, false);
-        assert_eq!(engine_deserialized.check_network_urls("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").matched, false);
+        let request = Request::new("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").unwrap();
+        assert_eq!(engine.check_network_request(&request).matched, false);
+        assert_eq!(engine_deserialized.check_network_request(&request).matched, false);
         }
 
         check_match(
@@ -485,12 +491,14 @@ mod legacy_check_match {
 
 mod legacy_check_options {
     use adblock::engine::Engine;
+    use adblock::request::Request;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
         let engine = Engine::from_rules(rules, Default::default());              // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
-            assert!(engine.check_network_urls(url, source_url, request_type).matched == *expectation,
+            let request = Request::new(url, source_url, request_type).unwrap();
+            assert!(engine.check_network_request(&request).matched == *expectation,
                 "Expected match = {} for {} from {} typed {} against {:?}", expectation, url, source_url, request_type, rules)
         }
     }
@@ -641,6 +649,7 @@ mod legacy_check_options {
 mod legacy_misc_tests {
     use adblock::engine::Engine;
     use adblock::filters::network::NetworkFilter;
+    use adblock::request::Request;
 
     #[test]
     fn demo_app() { // Demo app test
@@ -649,7 +658,8 @@ mod legacy_misc_tests {
             Default::default(),
         );
 
-        assert!(engine.check_network_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", "http://slashdot.org", "script").matched)
+        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", "http://slashdot.org", "script").unwrap();
+        assert!(engine.check_network_request(&request).matched)
     }
 
     #[test]
@@ -701,14 +711,16 @@ mod legacy_misc_tests {
         let request_type = "script";
 
         // Test finds a match
-        let checked = engine.check_network_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", &current_page_frame, &request_type);
+        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", &current_page_frame, &request_type).unwrap();
+        let checked = engine.check_network_request(&request);
         assert!(checked.filter.is_some(), "Expected a fitler to match");
         assert!(checked.exception.is_none(), "Expected no exception to match");
         let matched_filter = checked.filter.unwrap();
         assert_eq!(matched_filter, "||googlesyndication.com/safeframe/$third-party");
 
         // Test when no filter is found, returns None
-        let checked = engine.check_network_urls("http://ssafsdf.com", &current_page_frame, &request_type);
+        let request = Request::new("http://ssafsdf.com", &current_page_frame, &request_type).unwrap();
+        let checked = engine.check_network_request(&request);
         assert!(checked.matched == false, "Expected url to pass");
         assert!(checked.filter.is_none(), "Expected no fitler to match");
         assert!(checked.exception.is_none(), "Expected no exception to match");
@@ -730,7 +742,8 @@ mod legacy_misc_tests {
         let request_type = "script";
 
         // Parse that it finds exception filters correctly
-        let checked = engine.check_network_urls("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", &current_page_frame, &request_type);
+        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", &current_page_frame, &request_type).unwrap();
+        let checked = engine.check_network_request(&request);
         assert!(checked.matched == false, "Expected url to pass");
         assert!(checked.filter.is_some(), "Expected a fitler to match");
         assert!(checked.exception.is_some(), "Expected no exception to match");
@@ -751,7 +764,8 @@ mod legacy_misc_tests {
             Default::default(),
         );
 
-        let checked = engine.check_network_urls("https://brianbondy.com/t", "https://test.com", "script");
+        let request = Request::new("https://brianbondy.com/t", "https://test.com", "script").unwrap();
+        let checked = engine.check_network_request(&request);
 
         assert_eq!(checked.matched, true);
         assert!(checked.filter.is_some(), "Expected filter to match");

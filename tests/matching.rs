@@ -87,7 +87,7 @@ fn check_filter_matching() {
         }
     }
 
-    assert_eq!(requests_checked, 9381); // A catch for regressions
+    assert_eq!(requests_checked, 9354); // A catch for regressions
 }
 
 #[test]
@@ -114,7 +114,8 @@ fn check_engine_matching() {
             );
             let network_filter = network_filter_res.unwrap();
 
-            let result = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+            let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+            let result = engine.check_network_request(&request);
 
             if network_filter.is_exception() {
                 assert!(

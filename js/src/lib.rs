@@ -178,8 +178,13 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
         None => false,
     };
 
+    let request = match adblock::request::Request::new(&url, &source_url, &request_type) {
+        Ok(r) => r,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+
     let result = if let Ok(engine) = this.0.lock() {
-        engine.check_network_urls(&url, &source_url, &request_type)
+        engine.check_network_request(&request)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
