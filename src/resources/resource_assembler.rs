@@ -194,6 +194,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
                 .unwrap_or_default(),
             kind,
             content: base64::encode(&script),
+            dependencies: vec![],
         });
 
         name = None;
@@ -230,6 +231,7 @@ fn build_resource_from_file_contents(
         aliases,
         kind: ResourceType::Mime(mimetype),
         content,
+        dependencies: vec![],
     }
 }
 

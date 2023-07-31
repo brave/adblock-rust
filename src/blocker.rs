@@ -1401,12 +1401,9 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
         let mut resources = ResourceStorage::default();
 
-        resources.add_resource(Resource {
-            name: "noop-0.1s.mp3".to_string(),
-            aliases: vec![],
-            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
-            content: base64::encode("mp3"),
-        }).unwrap();
+        resources.add_resource(
+            Resource::simple("noop-0.1s.mp3", crate::resources::MimeType::AudioMp3, "mp3"),
+        ).unwrap();
 
         let matched_rule = blocker.check(&request, &resources);
         assert_eq!(matched_rule.matched, false);
@@ -1433,12 +1430,9 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
         let mut resources = ResourceStorage::default();
 
-        resources.add_resource(Resource {
-            name: "noop-0.1s.mp3".to_string(),
-            aliases: vec![],
-            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::AudioMp3),
-            content: base64::encode("mp3"),
-        }).unwrap();
+        resources.add_resource(
+            Resource::simple("noop-0.1s.mp3", crate::resources::MimeType::AudioMp3, "mp3"),
+        ).unwrap();
 
         let matched_rule = blocker.check(&request, &resources);
         assert_eq!(matched_rule.matched, false);
@@ -1465,12 +1459,7 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
         let mut resources = ResourceStorage::default();
 
-        resources.add_resource(Resource {
-            name: "noop.txt".to_string(),
-            aliases: vec![],
-            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::TextPlain),
-            content: base64::encode("noop"),
-        }).unwrap();
+        resources.add_resource(Resource::simple("noop.txt", crate::resources::MimeType::TextPlain, "noop")).unwrap();
 
         let matched_rule = blocker.check(&request, &resources);
         assert_eq!(matched_rule.matched, true);
@@ -1645,12 +1634,7 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
         let mut resources = ResourceStorage::default();
 
-        resources.add_resource(Resource {
-            name: "noopjs".into(),
-            aliases: vec![],
-            kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::ApplicationJavascript),
-            content: base64::encode("(() => {})()"),
-        }).unwrap();
+        resources.add_resource(Resource::simple("noopjs", crate::resources::MimeType::ApplicationJavascript, "(() => {})()")).unwrap();
 
         let result = blocker.check(&Request::new("https://example.com?q=1&test=2#blue", "https://antonok.com", "script").unwrap(), &resources);
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1#blue".into()));
@@ -1846,14 +1830,8 @@ fn test_removeparam_same_tokens() {
         let blocker = Blocker::new(network_filters, &blocker_options);
         let mut resources = ResourceStorage::default();
         fn add_simple_resource(resources: &mut ResourceStorage, identifier: &str) -> Option<String> {
-            let b64 = base64::encode(identifier);
-            resources.add_resource(Resource {
-                name: identifier.into(),
-                aliases: vec![],
-                kind: crate::resources::ResourceType::Mime(crate::resources::MimeType::TextPlain),
-                content: base64::encode(identifier),
-            }).unwrap();
-            return Some(format!("data:text/plain;base64,{}", b64));
+            resources.add_resource(Resource::simple(identifier, crate::resources::MimeType::TextPlain, identifier)).unwrap();
+            Some(format!("data:text/plain;base64,{}", base64::encode(identifier)))
         }
         let a_redirect = add_simple_resource(&mut resources, "a");
         let b_redirect = add_simple_resource(&mut resources, "b");

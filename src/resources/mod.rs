@@ -25,11 +25,37 @@ pub struct Resource {
     /// Represents the primary name of the resource, often a filename
     pub name: String,
     /// Represents secondary names that can be used to access the resource
+    #[serde(default)]
     pub aliases: Vec<String>,
     /// How to interpret the resource data within `content`
     pub kind: ResourceType,
     /// The resource data, encoded using standard base64 configuration
     pub content: String,
+    /// Optionally contains the name of any dependencies used by this resource. Currently, this
+    /// only applies to `application/javascript` and `fn/javascript` MIME types.
+    ///
+    /// Aliases should never be added to this list. It should only contain primary/canonical
+    /// resource names.
+    ///
+    /// Currently ignored, but will be respected in a future release. Bundle any required
+    /// dependencies inside the resource for now.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<String>,
+}
+
+impl Resource {
+    /// Convenience constructor for tests. Creates a new [`Resource`] with no aliases or
+    /// dependencies. Content will be automatically base64-encoded by the constructor.
+    #[cfg(test)]
+    pub fn simple(name: &str, kind: MimeType, content: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            aliases: vec![],
+            kind: ResourceType::Mime(kind),
+            content: base64::encode(content),
+            dependencies: vec![],
+        }
+    }
 }
 
 /// Different ways that the data within the `content` field of a `Resource` can be interpreted.
@@ -44,20 +70,46 @@ pub enum ResourceType {
     Template,
 }
 
+impl ResourceType {
+    /// Can resources of this type be used as network redirects?
+    pub fn supports_redirect(&self) -> bool {
+        !matches!(self, ResourceType::Template | ResourceType::Mime(MimeType::FnJavascript))
+    }
+
+    /// Can resources of this type be used for scriptlet injections?
+    pub fn supports_scriptlet_injection(&self) -> bool {
+        matches!(self, ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript))
+    }
+}
+
 /// Acceptable MIME types for resources used by `$redirect` and `+js(...)` adblock rules.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(into = "&str")]
 #[serde(from = "std::borrow::Cow<'static, str>")]
 pub enum MimeType {
+    /// `"text/css"`
     TextCss,
+    /// `"image/gif"`
     ImageGif,
+    /// `"text/html"`
     TextHtml,
+    /// `"application/javascript"`
     ApplicationJavascript,
+    /// `"audio/mp3"`
     AudioMp3,
+    /// `"video/mp4"`
     VideoMp4,
+    /// `"image/png"`
     ImagePng,
+    /// `"text/plain"`
     TextPlain,
+    /// `"text/xml"`
     TextXml,
+    /// Custom MIME type invented for the uBlock Origin project. Represented by `"fn/javascript"`.
+    /// Used to describe JavaScript functions that can be used as dependencies of other JavaScript
+    /// resources.
+    FnJavascript,
+    /// Any other unhandled MIME type. Maps to `"application/octet-stream"` when re-serialized.
     Unknown,
 }
 
@@ -88,7 +140,20 @@ impl MimeType {
 
     /// Should the MIME type decode as valid UTF8?
     pub fn is_textual(&self) -> bool {
-        matches!(self, MimeType::ApplicationJavascript | MimeType::TextCss | MimeType::TextPlain | MimeType::TextHtml | MimeType::TextXml)
+        matches!(
+            self,
+            Self::ApplicationJavascript
+                | Self::FnJavascript
+                | Self::TextCss
+                | Self::TextPlain
+                | Self::TextHtml
+                | Self::TextXml
+        )
+    }
+
+    /// Can the MIME type have dependencies on other resources?
+    pub fn supports_dependencies(&self) -> bool {
+        matches!(self, Self::ApplicationJavascript | Self::FnJavascript)
     }
 }
 
@@ -104,6 +169,7 @@ impl From<&str> for MimeType {
             "image/png" => MimeType::ImagePng,
             "text/plain" => MimeType::TextPlain,
             "text/xml" => MimeType::TextXml,
+            "fn/javascript" => MimeType::FnJavascript,
             _ => MimeType::Unknown,
         }
     }
@@ -121,6 +187,7 @@ impl From<&MimeType> for &str {
             MimeType::ImagePng => "image/png",
             MimeType::TextPlain => "text/plain",
             MimeType::TextXml => "text/xml",
+            MimeType::FnJavascript => "fn/javascript",
             MimeType::Unknown => "application/octet-stream",
         }
     }

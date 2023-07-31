@@ -142,6 +142,7 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
                     aliases: vec![],
                     kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
                     content: base64::encode(redirect),
+                    dependencies: vec![],
                 }
             })
             .for_each(|resource| {

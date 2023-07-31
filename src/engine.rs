@@ -298,7 +298,7 @@ fn _assertions() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resources::{ResourceType, MimeType};
+    use crate::resources::MimeType;
     use crate::lists::FilterFormat;
 
     #[test]
@@ -523,18 +523,8 @@ mod tests {
         ], Default::default());
 
         engine.use_resources([
-            Resource {
-                name: "nooptext".to_string(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::TextPlain),
-                content: base64::encode(""),
-            },
-            Resource {
-                name: "noopcss".to_string(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::TextPlain),
-                content: base64::encode(""),
-            },
+            Resource::simple("nooptext", MimeType::TextPlain, ""),
+            Resource::simple("noopcss", MimeType::TextCss, ""),
         ]);
 
         let serialized = engine.serialize_compressed().unwrap();
@@ -555,20 +545,12 @@ mod tests {
 })();
 
         "#;
-        engine.use_resources([
-            Resource {
-                name: "nooptext".to_owned(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::TextPlain),
-                content: "".to_owned(),
-            },
-            Resource {
-                name: "noopjs".to_owned(),
-                aliases: vec!["noop.js".to_owned()],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode(script),
-            },
-        ]);
+        let mut resources = [
+            Resource::simple("nooptext", MimeType::TextPlain, ""),
+            Resource::simple("noopjs", MimeType::ApplicationJavascript, script),
+        ];
+        resources[1].aliases.push("noop.js".to_string());
+        engine.use_resources(resources);
 
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(url, "", "").unwrap();
@@ -670,12 +652,9 @@ mod tests {
         ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
-        engine.add_resource(Resource {
-            name: "addthis.com/addthis_widget.js".to_owned(),
-            aliases: vec![],
-            kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-            content: base64::encode("window.addthis = undefined"),
-        }).unwrap();
+        engine.add_resource(
+            Resource::simple("addthis.com/addthis_widget.js", MimeType::ApplicationJavascript, "window.addthis = undefined"),
+        ).unwrap();
 
         let request = Request::new("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script").unwrap();
         let result = engine.check_network_request(&request);

@@ -38,6 +38,14 @@ impl ResourceStorage {
     /// Adds a resource to storage so that it can be retrieved later.
     pub fn add_resource(&mut self, resource: Resource) -> Result<(), AddResourceError> {
         if let ResourceType::Mime(content_type) = &resource.kind {
+            if matches!(content_type, MimeType::FnJavascript) {
+                return Err(AddResourceError::FnJavascriptNotSupported);
+            }
+
+            if !resource.dependencies.is_empty() && !content_type.supports_dependencies() {
+                return Err(AddResourceError::ContentTypeDoesNotSupportDependencies);
+            }
+
             // Ensure the resource contents are valid base64 (and utf8 if applicable)
             let decoded = base64::decode(&resource.content)?;
             if content_type.is_textual() {
@@ -78,7 +86,7 @@ impl ResourceStorage {
             .get_internal_resource(&scriptlet_name)
             .ok_or(ScriptletResourceError::NoMatchingScriptlet)?;
 
-        if !matches!(resource.kind, ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript)) {
+        if !resource.kind.supports_scriptlet_injection() {
             return Err(ScriptletResourceError::ContentTypeNotInjectable);
         }
 
@@ -99,6 +107,9 @@ impl ResourceStorage {
         let resource = self.get_internal_resource(resource_ident);
 
         resource.and_then(|resource| {
+            if !resource.kind.supports_redirect() {
+                return None;
+            }
             if let ResourceType::Mime(mime) = &resource.kind {
                 Some(format!("data:{};base64,{}", mime, &resource.content))
             } else {
@@ -130,6 +141,10 @@ pub enum AddResourceError {
     InvalidUtf8Content,
     #[error("resource name already added")]
     NameAlreadyAdded,
+    #[error("fn/javascript mime type is not yet supported")]
+    FnJavascriptNotSupported,
+    #[error("resource content type does not support dependencies")]
+    ContentTypeDoesNotSupportDependencies,
 }
 
 impl From<base64::DecodeError> for AddResourceError {
@@ -265,12 +280,9 @@ mod redirect_storage_tests {
     fn get_resource_by_name() {
         let mut storage = ResourceStorage::default();
         storage
-            .add_resource(Resource {
-                name: "name.js".to_owned(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("resource data"),
-            })
+            .add_resource(
+                Resource::simple("name.js", MimeType::ApplicationJavascript, "resource data"),
+            )
             .unwrap();
 
         assert_eq!(
@@ -282,13 +294,10 @@ mod redirect_storage_tests {
     #[test]
     fn get_resource_by_alias() {
         let mut storage = ResourceStorage::default();
+        let mut r = Resource::simple("name.js", MimeType::ApplicationJavascript, "resource data");
+        r.aliases.push("alias.js".to_string());
         storage
-            .add_resource(Resource {
-                name: "name.js".to_owned(),
-                aliases: vec!["alias.js".to_owned()],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("resource data"),
-            })
+            .add_resource(r)
             .unwrap();
 
         assert_eq!(
@@ -351,30 +360,35 @@ mod scriptlet_storage_tests {
                 aliases: vec![],
                 kind: ResourceType::Template,
                 content: base64::encode("console.log('Hello {{1}}, my name is {{2}}')"),
+                dependencies: vec![],
             },
             Resource {
                 name: "alert.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
                 content: base64::encode("alert('{{1}}')"),
+                dependencies: vec![],
             },
             Resource {
                 name: "blocktimer.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
                 content: base64::encode("setTimeout(blockAds, {{1}})"),
+                dependencies: vec![],
             },
             Resource {
                 name: "null.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
                 content: base64::encode("(()=>{})()"),
+                dependencies: vec![],
             },
             Resource {
                 name: "set-local-storage-item.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
                 content: base64::encode(r#"{{1}} that dollar signs in {{2}} are untouched"#),
+                dependencies: vec![],
             },
         ]);
 
@@ -431,18 +445,21 @@ mod scriptlet_storage_tests {
                 aliases: vec!["acis.js".into()],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
                 content: base64::encode("(function() {alert(\"hi\");})();"),
+                dependencies: vec![],
             },
             Resource {
                 name: "abort-on-property-read.js".into(),
                 aliases: vec!["aopr.js".into()],
                 kind: ResourceType::Template,
                 content: base64::encode("(function() {confirm(\"Do you want to {{1}}?\");})();"),
+                dependencies: vec![],
             },
             Resource {
                 name: "googletagservices_gpt.js".into(),
                 aliases: vec!["googletagservices.com/gpt.js".into(), "googletagservices-gpt".into()],
                 kind: ResourceType::Template,
                 content: base64::encode("function(a1 = '', a2 = '') {console.log(a1, a2)}"),
+                dependencies: vec![],
             },
         ]);
 

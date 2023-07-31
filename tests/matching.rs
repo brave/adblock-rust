@@ -45,6 +45,7 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
                 content: base64::encode(redirect),
+                dependencies: vec![],
             }
         })
         .collect()

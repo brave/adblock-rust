@@ -662,19 +662,10 @@ mod cosmetic_cache_tests {
                 aliases: vec![],
                 kind: ResourceType::Template,
                 content: base64::encode("set-constant.js, {{1}}, {{2}}"),
+                dependencies: vec![],
             },
-            Resource {
-                name: "nowebrtc.js".into(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("nowebrtc.js"),
-            },
-            Resource {
-                name: "window.open-defuser.js".into(),
-                aliases: vec![],
-                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("window.open-defuser.js"),
-            },
+            Resource::simple("nowebrtc.js", MimeType::ApplicationJavascript, "nowebrtc.js"),
+            Resource::simple("window.open-defuser.js", MimeType::ApplicationJavascript, "window.open-defuser.js"),
         ]);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
@@ -1040,6 +1031,7 @@ mod cosmetic_cache_tests {
                 aliases: vec!["aopr".to_string()],
                 kind: ResourceType::Template,
                 content: base64::encode("abort-on-property-read.js, {{1}}"),
+                dependencies: vec![],
             }
         ]);
 
