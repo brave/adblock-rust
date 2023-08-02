@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::resources::PermissionMask;
 use crate::utils::Hash;
 
 use css_validation::{is_valid_css_style, validate_css_selector};
@@ -105,6 +106,7 @@ pub struct CosmeticFilter {
     pub selector: String,
     pub key: Option<String>,
     pub action: Option<CosmeticFilterAction>,
+    pub permission: PermissionMask,
 }
 
 pub enum CosmeticFilterLocationType {
@@ -277,8 +279,9 @@ impl CosmeticFilter {
     }
 
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
-    /// will be reported in the resulting `CosmeticFilter` struct as well.
-    pub fn parse(line: &str, debug: bool) -> Result<CosmeticFilter, CosmeticFilterError> {
+    /// will be reported in the resulting `CosmeticFilter` struct as well. Use `permission` to
+    /// manage the filter's access to scriptlet resources for `+js(...)` injections.
+    pub fn parse(line: &str, debug: bool, permission: PermissionMask) -> Result<CosmeticFilter, CosmeticFilterError> {
         let mut mask = CosmeticFilterMask::NONE;
         if let Some(sharp_index) = find_char(b'#', line.as_bytes()) {
             let after_sharp_index = sharp_index + 1;
@@ -410,6 +413,7 @@ impl CosmeticFilter {
                 selector,
                 key,
                 action,
+                permission,
             })
         } else {
             Err(CosmeticFilterError::MissingSharp)
@@ -1065,10 +1069,14 @@ mod parse_tests {
         }
     }
 
+    fn parse_cf(rule: &str) -> Result<CosmeticFilter, CosmeticFilterError> {
+        CosmeticFilter::parse(rule, false, Default::default())
+    }
+
     /// Asserts that `rule` parses into a `CosmeticFilter` equivalent to the summary provided by
     /// `expected`.
     fn check_parse_result(rule: &str, expected: CosmeticFilterBreakdown) {
-        let filter: CosmeticFilterBreakdown = CosmeticFilter::parse(rule, false).unwrap().into();
+        let filter: CosmeticFilterBreakdown = parse_cf(rule).unwrap().into();
         assert_eq!(expected, filter);
     }
 
@@ -1618,86 +1626,86 @@ mod parse_tests {
     #[test]
     #[cfg(feature = "css-validation")]
     fn unsupported() {
-        assert!(CosmeticFilter::parse("yandex.*##.serp-item:if(:scope > div.organic div.organic__subtitle:matches-css-after(content: /[Рр]еклама/))", false).is_err());
-        assert!(CosmeticFilter::parse(r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#, false).is_err());
-        assert!(CosmeticFilter::parse(r#"readcomiconline.to##^script:has-text(this[atob)"#, false).is_err());
-        assert!(CosmeticFilter::parse("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)", false).is_err());
-        assert!(CosmeticFilter::parse("##", false).is_err());
-        assert!(CosmeticFilter::parse("", false).is_err());
+        assert!(parse_cf("yandex.*##.serp-item:if(:scope > div.organic div.organic__subtitle:matches-css-after(content: /[Рр]еклама/))").is_err());
+        assert!(parse_cf(r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#).is_err());
+        assert!(parse_cf(r#"readcomiconline.to##^script:has-text(this[atob)"#).is_err());
+        assert!(parse_cf("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)").is_err());
+        assert!(parse_cf("##").is_err());
+        assert!(parse_cf("").is_err());
 
         // `:has` was previously limited to procedural filtering, but is now a native CSS feature.
-        assert!(CosmeticFilter::parse(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#, false).is_ok());
+        assert!(parse_cf(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#).is_ok());
     }
 
     #[test]
     fn hidden_generic() {
-        let rule = CosmeticFilter::parse("##.selector", false).unwrap();
+        let rule = parse_cf("##.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.com##.selector", false).unwrap();
+        let rule = parse_cf("test.com##.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.*##.selector", false).unwrap();
+        let rule = parse_cf("test.*##.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.com,~a.test.com##.selector", false).unwrap();
+        let rule = parse_cf("test.com,~a.test.com##.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.*,~a.test.com##.selector", false).unwrap();
+        let rule = parse_cf("test.*,~a.test.com##.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.*,~a.test.*##.selector", false).unwrap();
+        let rule = parse_cf("test.*,~a.test.*##.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.com#@#.selector", false).unwrap();
+        let rule = parse_cf("test.com#@#.selector").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("~test.com##.selector", false).unwrap();
+        let rule = parse_cf("~test.com##.selector").unwrap();
         assert_eq!(
             CosmeticFilterBreakdown::from(rule.hidden_generic_rule().unwrap()),
-            CosmeticFilter::parse("##.selector", false).unwrap().into(),
+            parse_cf("##.selector").unwrap().into(),
         );
 
-        let rule = CosmeticFilter::parse("~test.*##.selector", false).unwrap();
+        let rule = parse_cf("~test.*##.selector").unwrap();
         assert_eq!(
             CosmeticFilterBreakdown::from(rule.hidden_generic_rule().unwrap()),
-            CosmeticFilter::parse("##.selector", false).unwrap().into(),
+            parse_cf("##.selector").unwrap().into(),
         );
 
-        let rule = CosmeticFilter::parse("~test.*,~a.test.*##.selector", false).unwrap();
+        let rule = parse_cf("~test.*,~a.test.*##.selector").unwrap();
         assert_eq!(
             CosmeticFilterBreakdown::from(rule.hidden_generic_rule().unwrap()),
-            CosmeticFilter::parse("##.selector", false).unwrap().into(),
+            parse_cf("##.selector").unwrap().into(),
         );
 
-        let rule = CosmeticFilter::parse("test.com##.selector:style(border-radius: 13px)", false).unwrap();
+        let rule = parse_cf("test.com##.selector:style(border-radius: 13px)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.*##.selector:style(border-radius: 13px)", false).unwrap();
+        let rule = parse_cf("test.*##.selector:style(border-radius: 13px)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("~test.com##.selector:style(border-radius: 13px)", false).unwrap();
+        let rule = parse_cf("~test.com##.selector:style(border-radius: 13px)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("~test.*##.selector:style(border-radius: 13px)", false).unwrap();
+        let rule = parse_cf("~test.*##.selector:style(border-radius: 13px)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.com#@#.selector:style(border-radius: 13px)", false).unwrap();
+        let rule = parse_cf("test.com#@#.selector:style(border-radius: 13px)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.com##+js(nowebrtc.js)", false).unwrap();
+        let rule = parse_cf("test.com##+js(nowebrtc.js)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.*##+js(nowebrtc.js)", false).unwrap();
+        let rule = parse_cf("test.*##+js(nowebrtc.js)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("~test.com##+js(nowebrtc.js)", false).unwrap();
+        let rule = parse_cf("~test.com##+js(nowebrtc.js)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("~test.*##+js(nowebrtc.js)", false).unwrap();
+        let rule = parse_cf("~test.*##+js(nowebrtc.js)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
 
-        let rule = CosmeticFilter::parse("test.com#@#+js(nowebrtc.js)", false).unwrap();
+        let rule = parse_cf("test.com#@#+js(nowebrtc.js)").unwrap();
         assert!(rule.hidden_generic_rule().is_none());
     }
 }
@@ -1811,22 +1819,26 @@ mod matching_tests {
         }
     }
 
+    fn parse_cf(rule: &str) -> Result<CosmeticFilter, CosmeticFilterError> {
+        CosmeticFilter::parse(rule, false, Default::default())
+    }
+
     #[test]
     fn generic_filter() {
-        let rule = CosmeticFilter::parse("##.selector", false).unwrap();
+        let rule = parse_cf("##.selector").unwrap();
         assert!(rule.matches_str("foo.com", "foo.com"));
     }
 
     #[test]
     fn single_domain() {
-        let rule = CosmeticFilter::parse("foo.com##.selector", false).unwrap();
+        let rule = parse_cf("foo.com##.selector").unwrap();
         assert!(rule.matches_str("foo.com", "foo.com"));
         assert!(!rule.matches_str("bar.com", "bar.com"));
     }
 
     #[test]
     fn multiple_domains() {
-        let rule = CosmeticFilter::parse("foo.com,test.com##.selector", false).unwrap();
+        let rule = parse_cf("foo.com,test.com##.selector").unwrap();
         assert!(rule.matches_str("foo.com", "foo.com"));
         assert!(rule.matches_str("test.com", "test.com"));
         assert!(!rule.matches_str("bar.com", "bar.com"));
@@ -1834,11 +1846,11 @@ mod matching_tests {
 
     #[test]
     fn subdomain() {
-        let rule = CosmeticFilter::parse("foo.com,test.com##.selector", false).unwrap();
+        let rule = parse_cf("foo.com,test.com##.selector").unwrap();
         assert!(rule.matches_str("sub.foo.com", "foo.com"));
         assert!(rule.matches_str("sub.test.com", "test.com"));
 
-        let rule = CosmeticFilter::parse("foo.com,sub.test.com##.selector", false).unwrap();
+        let rule = parse_cf("foo.com,sub.test.com##.selector").unwrap();
         assert!(rule.matches_str("sub.test.com", "test.com"));
         assert!(!rule.matches_str("test.com", "test.com"));
         assert!(!rule.matches_str("com", "com"));
@@ -1846,14 +1858,14 @@ mod matching_tests {
 
     #[test]
     fn entity() {
-        let rule = CosmeticFilter::parse("foo.com,sub.test.*##.selector", false).unwrap();
+        let rule = parse_cf("foo.com,sub.test.*##.selector").unwrap();
         assert!(rule.matches_str("foo.com", "foo.com"));
         assert!(rule.matches_str("bar.foo.com", "foo.com"));
         assert!(rule.matches_str("sub.test.com", "test.com"));
         assert!(rule.matches_str("sub.test.fr", "test.fr"));
         assert!(!rule.matches_str("sub.test.evil.biz", "evil.biz"));
 
-        let rule = CosmeticFilter::parse("foo.*##.selector", false).unwrap();
+        let rule = parse_cf("foo.*##.selector").unwrap();
         assert!(rule.matches_str("foo.co.uk", "foo.co.uk"));
         assert!(rule.matches_str("bar.foo.co.uk", "foo.co.uk"));
         assert!(rule.matches_str("baz.bar.foo.co.uk", "foo.co.uk"));
@@ -1862,18 +1874,18 @@ mod matching_tests {
 
     #[test]
     fn nonmatching() {
-        let rule = CosmeticFilter::parse("foo.*##.selector", false).unwrap();
+        let rule = parse_cf("foo.*##.selector").unwrap();
         assert!(!rule.matches_str("foo.bar.com", "bar.com"));
         assert!(!rule.matches_str("bar-foo.com", "bar-foo.com"));
     }
 
     #[test]
     fn entity_negations() {
-        let rule = CosmeticFilter::parse("~foo.*##.selector", false).unwrap();
+        let rule = parse_cf("~foo.*##.selector").unwrap();
         assert!(!rule.matches_str("foo.com", "foo.com"));
         assert!(rule.matches_str("foo.evil.biz", "evil.biz"));
 
-        let rule = CosmeticFilter::parse("~foo.*,~bar.*##.selector", false).unwrap();
+        let rule = parse_cf("~foo.*,~bar.*##.selector").unwrap();
         assert!(rule.matches_str("baz.com", "baz.com"));
         assert!(!rule.matches_str("foo.com", "foo.com"));
         assert!(!rule.matches_str("sub.foo.com", "foo.com"));
@@ -1883,13 +1895,13 @@ mod matching_tests {
 
     #[test]
     fn hostname_negations() {
-        let rule = CosmeticFilter::parse("~foo.com##.selector", false).unwrap();
+        let rule = parse_cf("~foo.com##.selector").unwrap();
         assert!(!rule.matches_str("foo.com", "foo.com"));
         assert!(!rule.matches_str("bar.foo.com", "foo.com"));
         assert!(rule.matches_str("foo.com.bar", "com.bar"));
         assert!(rule.matches_str("foo.co.uk", "foo.co.uk"));
 
-        let rule = CosmeticFilter::parse("~foo.com,~foo.de,~bar.com##.selector", false).unwrap();
+        let rule = parse_cf("~foo.com,~foo.de,~bar.com##.selector").unwrap();
         assert!(!rule.matches_str("foo.com", "foo.com"));
         assert!(!rule.matches_str("sub.foo.com", "foo.com"));
         assert!(!rule.matches_str("foo.de", "foo.de"));
@@ -1902,7 +1914,7 @@ mod matching_tests {
 
     #[test]
     fn entity_with_suffix_exception() {
-        let rule = CosmeticFilter::parse("foo.*,~foo.com##.selector", false).unwrap();
+        let rule = parse_cf("foo.*,~foo.com##.selector").unwrap();
         assert!(!rule.matches_str("foo.com", "foo.com"));
         assert!(!rule.matches_str("sub.foo.com", "foo.com"));
         assert!(rule.matches_str("foo.de", "foo.de"));
@@ -1911,7 +1923,7 @@ mod matching_tests {
 
     #[test]
     fn entity_with_subdomain_exception() {
-        let rule = CosmeticFilter::parse("foo.*,~sub.foo.*##.selector", false).unwrap();
+        let rule = parse_cf("foo.*,~sub.foo.*##.selector").unwrap();
         assert!(rule.matches_str("foo.com", "foo.com"));
         assert!(rule.matches_str("foo.de", "foo.de"));
         assert!(!rule.matches_str("sub.foo.com", "foo.com"));
@@ -1921,55 +1933,55 @@ mod matching_tests {
 
     #[test]
     fn no_domain_provided() {
-        let rule = CosmeticFilter::parse("foo.*##.selector", false).unwrap();
+        let rule = parse_cf("foo.*##.selector").unwrap();
         assert!(!rule.matches_str("foo.com", ""));
     }
 
     #[test]
     fn no_hostname_provided() {
-        let rule = CosmeticFilter::parse("domain.com##.selector", false).unwrap();
+        let rule = parse_cf("domain.com##.selector").unwrap();
         assert!(!rule.matches_str("", ""));
-        let rule = CosmeticFilter::parse("domain.*##.selector", false).unwrap();
+        let rule = parse_cf("domain.*##.selector").unwrap();
         assert!(!rule.matches_str("", ""));
-        let rule = CosmeticFilter::parse("~domain.*##.selector", false).unwrap();
+        let rule = parse_cf("~domain.*##.selector").unwrap();
         assert!(!rule.matches_str("", ""));
-        let rule = CosmeticFilter::parse("~domain.com##.selector", false).unwrap();
+        let rule = parse_cf("~domain.com##.selector").unwrap();
         assert!(!rule.matches_str("", ""));
     }
 
     #[test]
     fn respects_etld() {
-        let rule = CosmeticFilter::parse("github.io##.selector", false).unwrap();
+        let rule = parse_cf("github.io##.selector").unwrap();
         assert!(rule.matches_str("test.github.io", "github.io"));
     }
 
     #[test]
     fn multiple_selectors() {
-        assert!(CosmeticFilter::parse("youtube.com##.masthead-ad-control,.ad-div,.pyv-afc-ads-container", false).is_ok());
-        assert!(CosmeticFilter::parse("m.economictimes.com###appBanner,#stickyBanner", false).is_ok());
-        assert!(CosmeticFilter::parse("googledrivelinks.com###wpsafe-generate, #wpsafe-link:style(display: block !important;)", false).is_ok());
+        assert!(parse_cf("youtube.com##.masthead-ad-control,.ad-div,.pyv-afc-ads-container").is_ok());
+        assert!(parse_cf("m.economictimes.com###appBanner,#stickyBanner").is_ok());
+        assert!(parse_cf("googledrivelinks.com###wpsafe-generate, #wpsafe-link:style(display: block !important;)").is_ok());
     }
 
     #[test]
     fn actions() {
-        assert!(CosmeticFilter::parse("example.com###adBanner:style(background: transparent)", false).is_ok());
-        assert!(CosmeticFilter::parse("example.com###adBanner:remove()", false).is_ok());
-        assert!(CosmeticFilter::parse("example.com###adBanner:remove-attr(style)", false).is_ok());
-        assert!(CosmeticFilter::parse("example.com###adBanner:remove-class(src)", false).is_ok());
+        assert!(parse_cf("example.com###adBanner:style(background: transparent)").is_ok());
+        assert!(parse_cf("example.com###adBanner:remove()").is_ok());
+        assert!(parse_cf("example.com###adBanner:remove-attr(style)").is_ok());
+        assert!(parse_cf("example.com###adBanner:remove-class(src)").is_ok());
     }
 
     #[test]
     #[cfg(feature = "css-validation")]
     fn abp_has_conversion() {
-        let rule = CosmeticFilter::parse("imgur.com#?#div.Gallery-Sidebar-PostContainer:-abp-has(div.promoted-hover)", false).unwrap();
+        let rule = parse_cf("imgur.com#?#div.Gallery-Sidebar-PostContainer:-abp-has(div.promoted-hover)").unwrap();
         assert_eq!(rule.selector, "div.Gallery-Sidebar-PostContainer:has(div.promoted-hover)");
-        let rule = CosmeticFilter::parse(r##"webtools.fineaty.com#?#div[class*=" hidden-"]:-abp-has(.adsbygoogle)"##, false).unwrap();
+        let rule = parse_cf(r##"webtools.fineaty.com#?#div[class*=" hidden-"]:-abp-has(.adsbygoogle)"##).unwrap();
         assert_eq!(rule.selector, r#"div[class*=" hidden-"]:has(.adsbygoogle)"#);
-        let rule = CosmeticFilter::parse(r##"facebook.com,facebookcorewwwi.onion#?#._6y8t:-abp-has(a[href="/ads/about/?entry_product=ad_preferences"])"##, false).unwrap();
+        let rule = parse_cf(r##"facebook.com,facebookcorewwwi.onion#?#._6y8t:-abp-has(a[href="/ads/about/?entry_product=ad_preferences"])"##).unwrap();
         assert_eq!(rule.selector, r#"._6y8t:has(a[href="/ads/about/?entry_product=ad_preferences"])"#);
-        let rule = CosmeticFilter::parse(r##"mtgarena.pro#?##root > div > div:-abp-has(> .vm-placement)"##, false).unwrap();
+        let rule = parse_cf(r##"mtgarena.pro#?##root > div > div:-abp-has(> .vm-placement)"##).unwrap();
         assert_eq!(rule.selector, r#"#root > div > div:has(> .vm-placement)"#);
         // Error without `#?#`:
-        assert!(CosmeticFilter::parse(r##"mtgarena.pro###root > div > div:-abp-has(> .vm-placement)"##, false).is_err());
+        assert!(parse_cf(r##"mtgarena.pro###root > div > div:-abp-has(> .vm-placement)"##).is_err());
     }
 }

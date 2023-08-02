@@ -828,4 +828,73 @@ mod tests {
             assert!(engine.check_network_request(&request).matched);
         }*/
     }
+
+    #[test]
+    fn scriptlet_permissions() {
+        use crate::resources::{PermissionMask, ResourceType};
+        const UBO_PERM: PermissionMask = PermissionMask::from_bits(0b00000001);
+        const BRAVE_PERM: PermissionMask = PermissionMask::from_bits(0b00000011);
+
+        let resources = [
+            Resource::simple("refresh-defuser.js", MimeType::ApplicationJavascript, "refresh-defuser"),
+            Resource {
+                name: "trusted-set-cookie.js".to_string(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+                content: base64::encode("trusted-set-cookie"),
+                dependencies: vec![],
+                permission: UBO_PERM,
+            },
+            Resource {
+                name: "brave-fix.js".to_string(),
+                aliases: vec![],
+                kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+                content: base64::encode("brave-fix"),
+                dependencies: vec![],
+                permission: BRAVE_PERM,
+            },
+        ];
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters([
+            "sub1.example.com##+js(refresh-defuser)",
+            "sub2.example.com##+js(trusted-set-cookie)",
+            "sub3.example.com##+js(brave-fix)"
+        ], Default::default());
+        filter_set.add_filters([
+            "sub4.example.com##+js(refresh-defuser)",
+            "sub5.example.com##+js(trusted-set-cookie)",
+            "sub6.example.com##+js(brave-fix)"
+        ], ParseOptions {
+            permissions: UBO_PERM,
+            ..Default::default()
+        });
+        filter_set.add_filters([
+            "sub7.example.com##+js(refresh-defuser)",
+            "sub8.example.com##+js(trusted-set-cookie)",
+            "sub9.example.com##+js(brave-fix)"
+        ], ParseOptions {
+            permissions: BRAVE_PERM,
+            ..Default::default()
+        });
+
+        let mut engine = Engine::from_filter_set(filter_set, true);
+        engine.use_resources(resources);
+
+        fn wrap_try(scriptlet_content: &str) -> String {
+            format!("try {{\n{}\n}} catch ( e ) {{ }}\n", scriptlet_content)
+        }
+
+        assert_eq!(engine.url_cosmetic_resources("https://sub1.example.com").injected_script, wrap_try("refresh-defuser"));
+        assert_eq!(engine.url_cosmetic_resources("https://sub2.example.com").injected_script, "");
+        assert_eq!(engine.url_cosmetic_resources("https://sub3.example.com").injected_script, "");
+
+        assert_eq!(engine.url_cosmetic_resources("https://sub4.example.com").injected_script, wrap_try("refresh-defuser"));
+        assert_eq!(engine.url_cosmetic_resources("https://sub5.example.com").injected_script, wrap_try("trusted-set-cookie"));
+        assert_eq!(engine.url_cosmetic_resources("https://sub6.example.com").injected_script, "");
+
+        assert_eq!(engine.url_cosmetic_resources("https://sub7.example.com").injected_script, wrap_try("refresh-defuser"));
+        assert_eq!(engine.url_cosmetic_resources("https://sub8.example.com").injected_script, wrap_try("trusted-set-cookie"));
+        assert_eq!(engine.url_cosmetic_resources("https://sub9.example.com").injected_script, wrap_try("brave-fix"));
+    }
 }

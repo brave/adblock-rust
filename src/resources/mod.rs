@@ -19,6 +19,107 @@ pub use resource_storage::{AddResourceError, ResourceStorage, ScriptletResourceE
 use memchr::memrchr as find_char_reverse;
 use serde::{Deserialize, Serialize};
 
+/// Specifies a set of permissions required to inject a scriptlet resource.
+///
+/// Permissions can be specified when parsing individual lists using [`crate::FilterSet`] in
+/// order to propagate the permission level to all filters contained in the list.
+///
+/// In practice, permissions are used to limit the risk of third-party lists having access to
+/// powerful scriptlets like uBlock Origin's `trusted-set-cookie`, which has the ability to set
+/// arbitrary cookies to arbitrary values on visited sites.
+///
+/// ### Example
+///
+/// ```
+/// # use adblock::Engine;
+/// # use adblock::lists::ParseOptions;
+/// # use adblock::resources::{MimeType, PermissionMask, Resource, ResourceType};
+/// # let mut filter_set = adblock::lists::FilterSet::default();
+/// # let untrusted_filters = vec![""];
+/// # let trusted_filters = vec![""];
+/// const COOKIE_ACCESS: PermissionMask = PermissionMask::from_bits(0b00000001);
+/// const LOCALSTORAGE_ACCESS: PermissionMask = PermissionMask::from_bits(0b00000010);
+///
+/// // `untrusted_filters` will not be able to use privileged scriptlet injections.
+/// filter_set.add_filters(
+///     untrusted_filters,
+///     Default::default(),
+/// );
+/// // `trusted_filters` will be able to inject scriptlets requiring `COOKIE_ACCESS`
+/// // permissions or `LOCALSTORAGE_ACCESS` permissions.
+/// filter_set.add_filters(
+///     trusted_filters,
+///     ParseOptions {
+///         permissions: COOKIE_ACCESS | LOCALSTORAGE_ACCESS,
+///         ..Default::default()
+///     },
+/// );
+///
+/// let mut engine = Engine::from_filter_set(filter_set, true);
+/// // The `trusted-set-cookie` scriptlet cannot be injected without `COOKIE_ACCESS`
+/// // permission.
+/// engine.add_resource(Resource {
+///     name: "trusted-set-cookie.js".to_string(),
+///     aliases: vec![],
+///     kind: ResourceType::Mime(MimeType::ApplicationJavascript),
+///     content: base64::encode("document.cookie = '...';"),
+///     dependencies: vec![],
+///     permission: COOKIE_ACCESS,
+/// });
+/// ```
+#[derive(Serialize, Deserialize, Clone, Copy, Default)]
+#[repr(transparent)]
+#[serde(transparent)]
+pub struct PermissionMask(u8);
+
+impl std::fmt::Debug for PermissionMask {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PermissionMask({:b})", self.0)
+    }
+}
+
+impl core::ops::BitOr<PermissionMask> for PermissionMask {
+    type Output = PermissionMask;
+
+    fn bitor(self, rhs: PermissionMask) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+impl core::ops::BitOrAssign<PermissionMask> for PermissionMask {
+    fn bitor_assign(&mut self, rhs: PermissionMask) {
+        self.0 |= rhs.0;
+    }
+}
+
+impl PermissionMask {
+    /// Construct a new [`PermissionMask`] with the given bitmask. Use
+    /// [`PermissionMask::default()`] instead if you don't want to restrict or grant any
+    /// permissions.
+    pub const fn from_bits(bits: u8) -> Self {
+        Self(bits)
+    }
+
+    /// Can `filter_mask` authorize injecting a resource requiring `self` permissions?
+    pub fn is_injectable_by(&self, filter_mask: PermissionMask) -> bool {
+        // For any particular bit index, the scriptlet is injectable if:
+        //  (there is a requirement, AND the filter meets it) OR (there's no requirement)
+        // in other words:
+        //  (self & filter_mask) | (!self) == 1
+        //  (self | !self) & (filter_mask | !self) == 1
+        //  filter_mask | !self == 1
+        //  !(filter_mask | !self) == 0
+        //  !filter_mask & self == 0
+        // which we can compare across *all* bits using bitwise operations, hence:
+        !filter_mask.0 & self.0 == 0
+    }
+
+    /// The default value for [`PermissionMask`] is one which provides no additional permissions.
+    fn is_default(&self) -> bool {
+        self.0 == 0
+    }
+}
+
 /// Struct representing a resource that can be used by an adblocking engine.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Resource {
@@ -41,6 +142,15 @@ pub struct Resource {
     /// dependencies inside the resource for now.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<String>,
+    /// Optionally defines permission levels required to use this resource for a scriptlet
+    /// injection. See [`PermissionMask`] for more details.
+    ///
+    /// If there is any customized permission, this resource cannot be used for redirects.
+    ///
+    /// This field is similar to the `requiresTrust` field from uBlock Origin's scriptlet
+    /// resources, except that it supports up to 8 different trust "domains".
+    #[serde(default, skip_serializing_if = "PermissionMask::is_default")]
+    pub permission: PermissionMask,
 }
 
 impl Resource {
@@ -54,6 +164,7 @@ impl Resource {
             kind: ResourceType::Mime(kind),
             content: base64::encode(content),
             dependencies: vec![],
+            permission: Default::default(),
         }
     }
 }
@@ -211,5 +322,59 @@ impl std::fmt::Display for MimeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s: &str = self.into();
         write!(f, "{}", s)
+    }
+}
+
+#[cfg(test)]
+mod permission_tests {
+    use super::*;
+
+    #[test]
+    fn test_permissions() {
+        {
+            let resource = PermissionMask(0b00000000);
+            assert!(resource.is_injectable_by(PermissionMask(0b00000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000001)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000010)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000011)));
+            assert!(resource.is_injectable_by(PermissionMask(0b10000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b11111111)));
+        }
+        {
+            let resource = PermissionMask(0b00000001);
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000001)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000010)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000011)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b10000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b11111111)));
+        }
+        {
+            let resource = PermissionMask(0b00000010);
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000000)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000001)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000010)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000011)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b10000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b11111111)));
+        }
+        {
+            let resource = PermissionMask(0b00000011);
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000000)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000001)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000010)));
+            assert!(resource.is_injectable_by(PermissionMask(0b00000011)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b10000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b11111111)));
+        }
+        {
+            let resource = PermissionMask(0b10000011);
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000000)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000001)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000010)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b00000011)));
+            assert!(!resource.is_injectable_by(PermissionMask(0b10000000)));
+            assert!(resource.is_injectable_by(PermissionMask(0b11111111)));
+        }
     }
 }

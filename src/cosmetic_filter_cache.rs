@@ -10,7 +10,7 @@
 
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::cosmetic::CosmeticFilterMask;
-use crate::resources::ResourceStorage;
+use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
@@ -245,7 +245,7 @@ impl CosmeticFilterCache {
         let mut remove_selectors = HashSet::new();
         let mut remove_attrs = HashMap::<_, Vec<_>>::new();
         let mut remove_classes = HashMap::<_, Vec<_>>::new();
-        let mut script_injections = HashSet::new();
+        let mut script_injections = HashMap::<&str, PermissionMask>::new();
         let mut exceptions = HashSet::new();
 
         let hashes: Vec<&Hash> = request_entities.iter().chain(request_hostnames.iter()).collect();
@@ -268,7 +268,9 @@ impl CosmeticFilterCache {
             // special behavior: `script_injections` doesn't have to own the strings yet, since the
             // scripts need to be fetched and templated later
             if let Some(s) = self.specific_rules.inject_script.get(hash) {
-                script_injections.extend(s);
+                s.iter().for_each(|(s, mask)| {
+                    script_injections.entry(s).and_modify(|entry| *entry |= *mask).or_insert(*mask);
+                });
             }
 
             populate_map(hash, &self.specific_rules.style, &mut style_selectors);
@@ -307,7 +309,7 @@ impl CosmeticFilterCache {
             // same logic but not using prune_set since strings are unowned, (see above)
             if let Some(s) = self.specific_rules.uninject_script.get(hash) {
                 s.iter().for_each(|s| {
-                    script_injections.remove(s);
+                    script_injections.remove(s.as_str());
                 });
             }
 
@@ -331,8 +333,8 @@ impl CosmeticFilterCache {
         };
 
         let mut injected_script = String::new();
-        script_injections.iter().for_each(|s| {
-            if let Ok(filled_template) = resources.get_scriptlet_resource(s) {
+        script_injections.iter().for_each(|(s, mask)| {
+            if let Ok(filled_template) = resources.get_scriptlet_resource(s, *mask) {
                 injected_script += "try {\n";
                 injected_script += &filled_template;
                 injected_script += "\n} catch ( e ) { }\n";
@@ -390,7 +392,7 @@ pub(crate) struct HostnameRuleDb {
     /// `example.com##+js(acis, Number.isNan)`.
     ///
     /// The parameter is the contents of the `+js(...)` syntax construct.
-    pub inject_script: HostnameFilterBin<String>,
+    pub inject_script: HostnameFilterBin<(String, PermissionMask)>,
     /// Hostname-specific rules to except a scriptlet to inject along with any arguments, e.g.
     /// `example.com#@#+js(acis, Number.isNan)`.
     ///
@@ -449,8 +451,8 @@ impl HostnameRuleDb {
         let kind = match (unhide, script_inject, rule.action) {
             (false, false, None) => Hide(selector),
             (true, false, None) => Unhide(selector),
-            (false, true, None) => InjectScript(selector),
-            (true, true, None) => UninjectScript(selector),
+            (false, true, None) => InjectScript((selector, rule.permission)),
+            (true, true, None) => UninjectScript((selector, rule.permission)),
             (false, false, Some(CosmeticFilterAction::Style(s))) => Style((selector, s)),
             (true, false, Some(CosmeticFilterAction::Style(s)) )=> Unstyle((selector, s)),
             (false, false, Some(CosmeticFilterAction::Remove)) => Remove(selector),
@@ -484,7 +486,7 @@ impl HostnameRuleDb {
             Hide(s) => self.hide.insert(token, s),
             Unhide(s) => self.unhide.insert(token, s),
             InjectScript(s) => self.inject_script.insert(token, s),
-            UninjectScript(s) => self.uninject_script.insert(token, s),
+            UninjectScript((s, _)) => self.uninject_script.insert(token, s),
             Remove(s) => self.remove.insert(token, s),
             Unremove(s) => self.unremove.insert(token, s),
             Style(s) => self.style.insert(token, s),
@@ -502,8 +504,8 @@ impl HostnameRuleDb {
 enum SpecificFilterType {
     Hide(String),
     Unhide(String),
-    InjectScript(String),
-    UninjectScript(String),
+    InjectScript((String, PermissionMask)),
+    UninjectScript((String, PermissionMask)),
     Remove(String),
     Unremove(String),
     Style((String, String)),
@@ -550,7 +552,7 @@ mod cosmetic_cache_tests {
     fn cache_from_rules(rules: Vec<&str>) -> CosmeticFilterCache {
         let parsed_rules = rules
             .iter()
-            .map(|r| CosmeticFilter::parse(r, false).unwrap())
+            .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
             .collect::<Vec<_>>();
 
         CosmeticFilterCache::from_rules(parsed_rules)
@@ -663,6 +665,7 @@ mod cosmetic_cache_tests {
                 kind: ResourceType::Template,
                 content: base64::encode("set-constant.js, {{1}}, {{2}}"),
                 dependencies: vec![],
+                permission: Default::default(),
             },
             Resource::simple("nowebrtc.js", MimeType::ApplicationJavascript, "nowebrtc.js"),
             Resource::simple("window.open-defuser.js", MimeType::ApplicationJavascript, "window.open-defuser.js"),
@@ -853,7 +856,7 @@ mod cosmetic_cache_tests {
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
-                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
                 .collect::<Vec<_>>(),
         );
 
@@ -921,7 +924,7 @@ mod cosmetic_cache_tests {
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
-                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
                 .collect::<Vec<_>>(),
         );
         let resources = ResourceStorage::default();
@@ -987,7 +990,7 @@ mod cosmetic_cache_tests {
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
-                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
                 .collect::<Vec<_>>(),
         );
         let resources = ResourceStorage::default();
@@ -1022,7 +1025,7 @@ mod cosmetic_cache_tests {
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
-                .map(|r| CosmeticFilter::parse(r, false).unwrap())
+                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
                 .collect::<Vec<_>>(),
         );
         let resources = ResourceStorage::from_resources([
@@ -1032,6 +1035,7 @@ mod cosmetic_cache_tests {
                 kind: ResourceType::Template,
                 content: base64::encode("abort-on-property-read.js, {{1}}"),
                 dependencies: vec![],
+                permission: Default::default(),
             }
         ]);
 

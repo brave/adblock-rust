@@ -53,7 +53,7 @@ impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
             }
         }
         for (hash, bin) in v.inject_script.0.iter() {
-            for f in bin {
+            for (f, _mask) in bin {
                 db.entry(*hash)
                     .and_modify(|v| v.push(LegacySpecificFilterType::ScriptInject(f.to_owned())))
                     .or_insert_with(|| vec![LegacySpecificFilterType::ScriptInject(f.to_owned())]);
@@ -104,7 +104,7 @@ impl Into<HostnameRuleDb> for LegacyHostnameRuleDb {
                     LegacySpecificFilterType::Unhide(s) => unhide.insert(&hash, s),
                     LegacySpecificFilterType::Style(s, st) => style.insert(&hash, (s, st)),
                     LegacySpecificFilterType::UnhideStyle(s, st) => unstyle.insert(&hash, (s, st)),
-                    LegacySpecificFilterType::ScriptInject(s) => inject_script.insert(&hash, s),
+                    LegacySpecificFilterType::ScriptInject(s) => inject_script.insert(&hash, (s, Default::default())),
                     LegacySpecificFilterType::UnhideScriptInject(s) => uninject_script.insert(&hash, s),
                 }
             }

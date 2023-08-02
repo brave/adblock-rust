@@ -4,6 +4,7 @@ use std::convert::TryFrom;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
+use crate::resources::PermissionMask;
 
 use itertools::{Either, Itertools};
 use memchr::memchr as find_char;
@@ -57,6 +58,10 @@ pub struct ParseOptions {
     /// can be loaded.
     #[serde(default)]
     pub rule_types: RuleTypes,
+    /// Specifies permissions to use when parsing a given filter list. See [`PermissionMask`] for
+    /// more info.
+    #[serde(default)]
+    pub permissions: PermissionMask,
 }
 
 impl Default for ParseOptions {
@@ -64,6 +69,7 @@ impl Default for ParseOptions {
         ParseOptions {
             format: FilterFormat::Standard,
             rule_types: RuleTypes::All,
+            permissions: PermissionMask::default(),
         }
     }
 }
@@ -397,7 +403,7 @@ pub fn parse_filter(
                 (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => NetworkFilter::parse(filter, debug, opts)
                     .map(|f| f.into())
                     .map_err(|e| e.into()),
-                (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => CosmeticFilter::parse(filter, debug)
+                (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => CosmeticFilter::parse(filter, debug, opts.permissions)
                     .map(|f| f.into())
                     .map_err(|e| e.into()),
                 _ => Err(FilterParseError::Unsupported),
