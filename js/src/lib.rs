@@ -8,6 +8,43 @@ use adblock::lists::{RuleTypes, FilterFormat, FilterListMetadata, FilterSet as F
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
+/// Use the JS context's JSON.stringify and JSON.parse as an FFI, at least until
+/// https://github.com/neon-bindings/neon/pull/953 is available
+mod json_ffi {
+    use super::*;
+    use serde::de::DeserializeOwned;
+
+    /// Call `JSON.stringify` to convert the input to a `JsString`, then call serde_json to parse
+    /// it to an instance of a native Rust type
+    pub fn from_js<'a, C: Context<'a>, T: DeserializeOwned>(cx: &mut C, input: Handle<JsValue>) -> NeonResult<T> {
+        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?.downcast::<JsObject, _>(cx).or_throw(cx)?;
+        let json_stringify: Handle<JsFunction> = json.get(cx, "stringify")?.downcast::<JsFunction, _>(cx).or_throw(cx)?;
+
+        let undefined = JsUndefined::new(cx);
+        let js_string = json_stringify
+            .call(cx, undefined, [input])?
+            .downcast::<JsString, _>(cx).or_throw(cx)?;
+
+        match serde_json::from_str(&js_string.value(cx)) {
+            Ok(v) => Ok(v),
+            Err(e) => cx.throw_error(e.to_string())?,
+        }
+    }
+
+    /// Use `serde_json` to stringify the input, then call `JSON.parse` to convert it to a
+    /// `JsValue`
+    pub fn to_js<'a, C: Context<'a>, T: serde::Serialize>(cx: &mut C, input: &T) -> JsResult<'a, JsValue> {
+        let input_handle = JsString::new(cx, serde_json::to_string(&input).unwrap());
+
+        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?.downcast::<JsObject, _>(cx).or_throw(cx)?;
+        let json_parse: Handle<JsFunction> = json.get(cx, "parse")?.downcast::<JsFunction, _>(cx).or_throw(cx)?;
+
+        let undefined = JsUndefined::new(cx);
+        json_parse
+            .call(cx, undefined, [input_handle])
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
     pub optimize: Option<bool>,
@@ -46,35 +83,19 @@ fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
     // Take the first argument, which must be an array
-    let rules_handle: Handle<JsArray> = cx.argument(1)?;
+    let rules_handle: Handle<JsValue> = cx.argument(1)?;
     // Second argument is optional parse options. All fields are optional. ParseOptions::default()
     // if unspecified.
     let parse_opts = match cx.argument_opt(2) {
-        Some(parse_opts_arg) => match neon_serde::from_value(&mut cx, parse_opts_arg) {
-            Ok(v) => v,
-            Err(e) => cx.throw_error(e.to_string())?,
-        },
+        Some(parse_opts_arg) => json_ffi::from_js(&mut cx, parse_opts_arg)?,
         None => ParseOptions::default(),
     };
 
-    // Convert a JsArray to a Rust Vec
-    let rules_wrapped: Vec<_> = rules_handle.to_vec(&mut cx)?;
-
-    let mut rules: Vec<String> = vec![];
-    for rule_wrapped in rules_wrapped {
-        let rule = rule_wrapped.downcast::<JsString, _>(&mut cx).or_throw(&mut cx)?
-            .value(&mut cx);
-        rules.push(rule);
-    }
+    let rules: Vec<String> = json_ffi::from_js(&mut cx, rules_handle)?;
 
     let metadata = this.add_filters(&rules, parse_opts);
 
-    let js_metadata = match neon_serde::to_value(&mut cx, &metadata) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-
-    Ok(js_metadata)
+    json_ffi::to_js(&mut cx, &metadata)
 }
 
 fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
@@ -82,10 +103,7 @@ fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
     let filter: String = cx.argument::<JsString>(1)?.value(&mut cx);
     let parse_opts = match cx.argument_opt(2) {
-        Some(parse_opts_arg) => match neon_serde::from_value(&mut cx, parse_opts_arg) {
-            Ok(v) => v,
-            Err(e) => cx.throw_error(e.to_string())?,
-        },
+        Some(parse_opts_arg) => json_ffi::from_js(&mut cx, parse_opts_arg)?,
         None => ParseOptions::default(),
     };
 
@@ -94,23 +112,23 @@ fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     Ok(JsBoolean::new(&mut cx, ok))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ContentBlockingConversionResult {
+    content_blocking_rules: Vec<adblock::content_blocking::CbRule>,
+    filters_used: Vec<String>,
+}
+
 fn filter_set_into_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
     match this.into_content_blocking() {
         Ok((cb_rules, filters_used)) => {
-            let cb_rules = match neon_serde::to_value(&mut cx, &cb_rules) {
-                Ok(v) => v,
-                Err(e) => cx.throw_error(e.to_string())?,
+            let r = ContentBlockingConversionResult {
+                content_blocking_rules: cb_rules,
+                filters_used,
             };
-            let filters_used = match neon_serde::to_value(&mut cx, &filters_used) {
-                Ok(v) => v,
-                Err(e) => cx.throw_error(e.to_string())?,
-            };
-            let js_result = JsObject::new(&mut cx);
-            js_result.set(&mut cx, "contentBlockingRules", cb_rules)?;
-            js_result.set(&mut cx, "filtersUsed", filters_used)?;
-            Ok(js_result.upcast())
+            json_ffi::to_js(&mut cx, &r)
         }
         Err(_) => return Ok(JsUndefined::new(&mut cx).upcast()),
     }
@@ -127,21 +145,21 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
     let rules = cx.argument::<JsBox<FilterSet>>(0)?;
     let rules = rules.0.borrow().clone();
 
-    match cx.argument_opt(1) {
+    let engine_internal = match cx.argument_opt(1) {
         Some(arg) => {
-            // Throw if the argument exists and it cannot be downcasted to a boolean
-            let maybe_config: Result<EngineOptions, _> = neon_serde::from_value(&mut cx, arg);
-            let optimize = if let Ok(config) = maybe_config {
-                config.optimize.unwrap_or(true)
-            } else {
-                true
+            let optimize = match json_ffi::from_js::<_, EngineOptions>(&mut cx, arg) {
+                Ok(config) => config.optimize.unwrap_or(true),
+                // TODO throw if the argument exists and it cannot be downcasted to EngineOptions
+                // or a boolean
+                Err(_) => true,
             };
-            Ok(cx.boxed(Engine(Mutex::new(EngineInternal::from_filter_set(rules, optimize)))))
+            EngineInternal::from_filter_set(rules, optimize)
         }
         None => {
-            Ok(cx.boxed(Engine(Mutex::new(EngineInternal::from_filter_set(rules, true)))))
+            EngineInternal::from_filter_set(rules, true)
         },
-    }
+    };
+    Ok(cx.boxed(Engine(Mutex::new(engine_internal))))
 }
 
 fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
@@ -165,11 +183,7 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
         cx.throw_error("Failed to acquire lock on engine")?
     };
     if debug {
-        let js_value = match neon_serde::to_value(&mut cx, &result) {
-            Ok(v) => v,
-            Err(e) => cx.throw_error(e.to_string())?,
-        };
-        Ok(js_value)
+        json_ffi::to_js(&mut cx, &result)
     } else {
         Ok(cx.boolean(result.matched).upcast())
     }
@@ -179,33 +193,20 @@ fn engine_hidden_class_id_selectors(mut cx: FunctionContext) -> JsResult<JsValue
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
     let classes_arg = cx.argument::<JsValue>(1)?;
-    let classes: Vec<String> = match neon_serde::from_value(&mut cx, classes_arg) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let classes: Vec<String> = json_ffi::from_js(&mut cx, classes_arg)?;
 
     let ids_arg = cx.argument::<JsValue>(2)?;
-    let ids: Vec<String> = match neon_serde::from_value(&mut cx, ids_arg) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let ids: Vec<String> = json_ffi::from_js(&mut cx, ids_arg)?;
 
     let exceptions_arg = cx.argument::<JsValue>(3)?;
-    let exceptions: std::collections::HashSet<String> = match neon_serde::from_value(&mut cx, exceptions_arg) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let exceptions: std::collections::HashSet<String> = json_ffi::from_js(&mut cx, exceptions_arg)?;
 
     let result = if let Ok(engine) = this.0.lock() {
         engine.hidden_class_id_selectors(&classes, &ids, &exceptions)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
-    let js_value = match neon_serde::to_value(&mut cx, &result) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-    Ok(js_value)
+    json_ffi::to_js(&mut cx, &result)
 }
 
 fn engine_url_cosmetic_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
@@ -218,11 +219,7 @@ fn engine_url_cosmetic_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
-    let js_value = match neon_serde::to_value(&mut cx, &result) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-    Ok(js_value)
+    json_ffi::to_js(&mut cx, &result)
 }
 
 fn engine_serialize_raw(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
@@ -294,10 +291,7 @@ fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
     let resources_arg = cx.argument::<JsValue>(1)?;
-    let resources: Vec<Resource> = match neon_serde::from_value(&mut cx, resources_arg) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let resources: Vec<Resource> = json_ffi::from_js(&mut cx, resources_arg)?;
 
     if let Ok(mut engine) = this.0.lock() {
         engine.use_resources(&resources)
@@ -331,25 +325,18 @@ fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
     Ok(JsNull::new(&mut cx))
 }
 
-fn engine_add_resource(mut cx: FunctionContext) -> JsResult<JsValue> {
+fn engine_add_resource(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
     let resource_arg = cx.argument::<JsValue>(1)?;
-    let resource: Resource = match neon_serde::from_value(&mut cx, resource_arg) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let resource: Resource = json_ffi::from_js(&mut cx, resource_arg)?;
 
     let success = if let Ok(mut engine) = this.0.lock() {
         engine.add_resource(resource).is_ok()
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
-    let js_value = match neon_serde::to_value(&mut cx, &success) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-    Ok(js_value)
+    Ok(cx.boolean(success))
 }
 
 fn engine_get_resource(mut cx: FunctionContext) -> JsResult<JsValue> {
@@ -362,11 +349,7 @@ fn engine_get_resource(mut cx: FunctionContext) -> JsResult<JsValue> {
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
-    let js_value = match neon_serde::to_value(&mut cx, &result) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-    Ok(js_value)
+    json_ffi::to_js(&mut cx, &result)
 }
 
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
@@ -393,27 +376,16 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
         resources.append(&mut adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(&scriptlets_path)));
     }
 
-    let js_resources = match neon_serde::to_value(&mut cx, &resources) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-
-    Ok(js_resources)
+    json_ffi::to_js(&mut cx, &resources)
 }
 
 fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
     let filter_format_enum = JsObject::new(cx);
 
-    let standard = match neon_serde::to_value(cx, &FilterFormat::Standard) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let standard = json_ffi::to_js(cx, &FilterFormat::Standard)?;
     filter_format_enum.set(cx, "STANDARD", standard)?;
 
-    let hosts = match neon_serde::to_value(cx, &FilterFormat::Hosts) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let hosts = json_ffi::to_js(cx, &FilterFormat::Hosts)?;
     filter_format_enum.set(cx, "HOSTS", hosts)?;
 
     Ok(filter_format_enum)
@@ -422,22 +394,13 @@ fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsOb
 fn build_rule_types_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
     let rule_types_enum = JsObject::new(cx);
 
-    let all = match neon_serde::to_value(cx, &RuleTypes::All) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let all = json_ffi::to_js(cx, &RuleTypes::All)?;
     rule_types_enum.set(cx, "ALL", all)?;
 
-    let network_only = match neon_serde::to_value(cx, &RuleTypes::NetworkOnly) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let network_only = json_ffi::to_js(cx, &RuleTypes::NetworkOnly)?;
     rule_types_enum.set(cx, "NETWORK_ONLY", network_only)?;
 
-    let cosmetic_only = match neon_serde::to_value(cx, &RuleTypes::CosmeticOnly) {
-        Ok(v) => v,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
+    let cosmetic_only = json_ffi::to_js(cx, &RuleTypes::CosmeticOnly)?;
     rule_types_enum.set(cx, "COSMETIC_ONLY", cosmetic_only)?;
 
     Ok(rule_types_enum)

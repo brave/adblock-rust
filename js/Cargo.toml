@@ -10,7 +10,7 @@ exclude = ["artifacts.json", "index.node"]
 crate-type = ["cdylib"]
 
 [dependencies]
-neon-serde = { git = "https://github.com/antonok-edm/neon-serde", branch = "refactor/update-neon-0.9" }
 serde =  { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
 adblock = { path = "../", features = ["css-validation", "content-blocking", "resource-assembler"] }
 neon = { version = "^ 0.9", default-features = false, features = ["napi-1"] }
