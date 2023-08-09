@@ -147,11 +147,12 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
 
     let engine_internal = match cx.argument_opt(1) {
         Some(arg) => {
-            let optimize = match json_ffi::from_js::<_, EngineOptions>(&mut cx, arg) {
-                Ok(config) => config.optimize.unwrap_or(true),
-                // TODO throw if the argument exists and it cannot be downcasted to EngineOptions
-                // or a boolean
-                Err(_) => true,
+            let optimize = match arg.downcast::<JsBoolean, _>(&mut cx) {
+                Ok(b) => b.value(&mut cx),
+                Err(_) => {
+                    let config = json_ffi::from_js::<_, EngineOptions>(&mut cx, arg)?;
+                    config.optimize.unwrap_or(true)
+                }
             };
             EngineInternal::from_filter_set(rules, optimize)
         }
