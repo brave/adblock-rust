@@ -1,6 +1,6 @@
-//! A manager that creates/stores all regular expressions used by filters.
-//! Rarely used entries could be discarded to save memory.
-//! Non thread safe, the access must be synchronized externally.
+//! Compiled regexes can take up large amounts of memory. To reduce the overal memory footprint of
+//! the [`crate::Engine`], infrequently used regexes can be discarded. The [`RegexManager`] is
+//! responsible for managing the storage of regexes used by filters.
 
 use crate::filters::network::{compile_regex, CompiledRegex, NetworkFilter};
 
@@ -31,17 +31,30 @@ unsafe impl Send for RegexManager {}
 const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
+/// Reports [`RegexManager`] metrics that may be useful for creating an optimized
+/// [`RegexManagerDiscardPolicy`].
 #[cfg(feature = "regex-debug-info")]
 pub struct RegexDebugInfo {
+    /// Information about each regex contained in the [`RegexManager`].
     pub regex_data: Vec<RegexDebugEntry>,
+    /// Total count of compiled regexes.
     pub compiled_regex_count: usize,
 }
 
+/// Describes metrics about a single regex from the [`RegexManager`].
 #[cfg(feature = "regex-debug-info")]
 pub struct RegexDebugEntry {
+    /// Id for this particular regex, which is constant and unique for its lifetime.
+    ///
+    /// Note that there are no guarantees about a particular id's constancy or uniqueness beyond
+    /// the lifetime of a corresponding regex.
     pub id: u64,
+    /// A string representation of this regex, if available. It may be `None` if the regex has been
+    /// cleaned up to conserve memory.
     pub regex: Option<String>,
+    /// When this regex was last used.
     pub last_used: Instant,
+    /// How many times this regex has been used.
     pub usage_count: usize,
 }
 
@@ -51,8 +64,11 @@ struct RegexEntry {
     usage_count: usize,
 }
 
+/// Used for customization of regex discarding behavior in the [`RegexManager`].
 pub struct RegexManagerDiscardPolicy {
+    /// The [`RegexManager`] will check for and cleanup unused filters on this interval.
     pub cleanup_interval: Duration,
+    /// The [`RegexManager`] will discard a regex if it hasn't been used for this much time.
     pub discard_unused_time: Duration,
 }
 
@@ -67,6 +83,10 @@ impl Default for RegexManagerDiscardPolicy {
 
 type RandomState = std::hash::BuildHasherDefault<seahash::SeaHasher>;
 
+/// A manager that creates and stores all regular expressions used by filters.
+/// Rarely used entries are discarded to save memory.
+///
+/// The [`RegexManager`] is not thread safe, so any access to it must be synchronized externally.
 pub struct RegexManager {
     map: HashMap<*const NetworkFilter, RegexEntry, RandomState>,
     compiled_regex_count: usize,
@@ -98,6 +118,8 @@ fn make_regexp(filter: &NetworkFilter) -> CompiledRegex {
 }
 
 impl RegexManager {
+    /// Check whether or not a regex network filter matches a certain URL pattern, using the
+    /// [`RegexManager`]'s managed regex storage.
     pub fn matches(&mut self, filter: &NetworkFilter, pattern: &str) -> bool {
         if !filter.is_regex() && !filter.is_complete_regex() {
             return true;
@@ -133,6 +155,9 @@ impl RegexManager {
         };
     }
 
+    /// The [`RegexManager`] is just a struct and doesn't manage any worker threads, so this method
+    /// must be called periodically to ensure that it can track usage patterns of regexes over
+    /// time. This method will handle periodically discarding filters if necessary.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn update_time(&mut self) {
         self.now = Instant::now();
@@ -145,7 +170,7 @@ impl RegexManager {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn cleanup(&mut self) {
+    pub(crate) fn cleanup(&mut self) {
         let now = self.now;
         for v in self.map.values_mut() {
             if now - v.last_used >= self.discard_policy.discard_unused_time {
@@ -155,10 +180,12 @@ impl RegexManager {
         }
     }
 
+    /// Customize the discard behavior of this [`RegexManager`].
     pub fn set_discard_policy(&mut self, new_discard_policy: RegexManagerDiscardPolicy) {
         self.discard_policy = new_discard_policy;
     }
 
+    /// Discard one regex, identified by its id from a [`RegexDebugEntry`].
     #[cfg(feature = "regex-debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.map
@@ -188,6 +215,7 @@ impl RegexManager {
         self.compiled_regex_count
     }
 
+    /// Collect metrics that may be useful for creating an optimized [`RegexManagerDiscardPolicy`].
     #[cfg(feature = "regex-debug-info")]
     pub fn get_debug_info(&self) -> RegexDebugInfo {
         RegexDebugInfo {

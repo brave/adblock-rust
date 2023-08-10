@@ -335,10 +335,14 @@ impl Default for FilterFormat {
     }
 }
 
+/// Describes the type of a single filter.
 #[derive(Debug, PartialEq)]
 pub enum FilterType {
+    /// A network filter, used for changing the behavior of network requests
     Network,
+    /// A network filter, used for changing the behavior of fetched pages
     Cosmetic,
+    /// Something else that isn't supported
     NotSupported,
 }
 

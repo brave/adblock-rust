@@ -1,3 +1,6 @@
+//! Filters that take effect at the network request level, including blocking and response
+//! modification.
+
 use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexSet};

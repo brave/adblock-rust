@@ -19,22 +19,24 @@ use crate::optimizer;
 use crate::resources::ResourceStorage;
 use crate::utils;
 
+/// Options used when constructing a [`Blocker`].
 pub struct BlockerOptions {
     pub enable_optimizations: bool,
 }
 
+/// Describes how a particular network request should be handled.
 #[derive(Debug, Serialize)]
 pub struct BlockerResult {
+    /// Was a blocking filter matched for this request?
     pub matched: bool,
     /// Important is used to signal that a rule with the `important` option
     /// matched. An `important` match means that exceptions should not apply
     /// and no further checking is neccesary--the request should be blocked
     /// (empty body or cancelled).
     ///
-    /// Brave Browser keeps seperate instances of [`Blocker`] for default
-    /// lists and regional ones, so `important` here is used to correct
-    /// behaviour between them: checking should stop instead of moving to the
-    /// next instance iff an `important` rule matched.
+    /// Brave Browser keeps multiple instances of [`Blocker`], so `important`
+    /// here is used to correct behaviour between them: checking should stop
+    /// instead of moving to the next instance iff an `important` rule matched.
     pub important: bool,
     /// Specifies what to load instead of the original request, rather than
     /// just blocking it outright. This can come from a filter with a `redirect`
@@ -74,10 +76,9 @@ impl Default for BlockerResult {
     }
 }
 
+/// Possible errors when adding a filter to a [`Blocker`].
 #[derive(Debug, Error, PartialEq)]
 pub enum BlockerError {
-    #[error("optimized filter existence")]
-    OptimizedFilterExistence,
     #[error("$badfilter cannot be added (unsupported)")]
     BadFilterAddUnsupported,
     #[error("filter already exists")]
@@ -85,7 +86,7 @@ pub enum BlockerError {
 }
 
 #[cfg(feature = "object-pooling")]
-pub struct TokenPool {
+pub(crate) struct TokenPool {
     pub pool: Pool<Vec<utils::Hash>>
 }
 
@@ -600,6 +601,8 @@ impl Blocker {
         self.generic_hide.optimize();
     }
 
+    /// Has this exact filter already been added? Note that this is a best-effort method and may
+    /// miss some filters, especially if optimizations are enabled.
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
         if filter.is_csp() {
             self.csp.filter_exists(filter)
@@ -620,6 +623,9 @@ impl Blocker {
         }
     }
 
+    /// Add a single filter to this [`Blocker`].
+    ///
+    /// Filter optimization is skipped when using this method.
     pub fn add_filter(&mut self, filter: NetworkFilter) -> Result<(), BlockerError> {
         // Redirects are independent of blocking behavior.
         if filter.is_redirect() {
@@ -715,7 +721,7 @@ impl Blocker {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct NetworkFilterList {
+pub(crate) struct NetworkFilterList {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
@@ -826,10 +832,8 @@ impl NetworkFilterList {
         }
     }
 
+    /// This may not work if the list has been optimized.
     pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
-        // if self.optimized == Some(true) {
-        //     return Err(BlockerError::OptimizedFilterExistence)
-        // }
         let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
 
         if tokens.is_empty() {

@@ -1,5 +1,5 @@
-//! Tools for blocking at a page-content level, including CSS selector-based filtering and content
-//! script injection.
+//! Filters that take effect at a page-content level, including CSS selector-based filtering and
+//! content script injection.
 
 use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;

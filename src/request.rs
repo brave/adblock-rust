@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::url_parser;
 use crate::utils;
 
+/// The type of resource requested from the URL endpoint.
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
     Beacon,
@@ -28,6 +29,7 @@ pub enum RequestType {
     Xmlhttprequest,
 }
 
+/// Possible failure reasons when creating a [`Request`].
 #[derive(Debug, Error, PartialEq)]
 pub enum RequestError {
     #[error("hostname parsing failed")]
@@ -75,6 +77,7 @@ fn cpt_match_type(cpt: &str) -> RequestType {
     }
 }
 
+/// A network [`Request`], used as an interface for network blocking in the [`crate::Engine`].
 #[derive(Clone, Debug)]
 pub struct Request {
     pub request_type: RequestType,
@@ -166,6 +169,7 @@ impl Request {
         }
     }
 
+    /// Construct a new [`Request`].
     pub fn new(
         url: &str,
         source_url: &str,

@@ -55,6 +55,7 @@ impl CbRule {
     }
 }
 
+/// Corresponds to the `action` field of a Safari content blocking rule.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct CbAction {
     #[serde(rename = "type")]
@@ -67,6 +68,7 @@ pub struct CbAction {
     pub selector: Option<String>,
 }
 
+/// Corresponds to the `action.type` field of a Safari content blocking rule.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CbType {
@@ -86,6 +88,8 @@ pub enum CbType {
     MakeHttps,
 }
 
+/// Corresponds to possible entries in the `trigger.load_type` field of a Safari content blocking
+/// rule.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CbLoadType {
@@ -93,6 +97,8 @@ pub enum CbLoadType {
     ThirdParty,
 }
 
+/// Corresponds to possible entries in the `trigger.resource_type` field of a Safari content
+/// blocking rule.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CbResourceType {
@@ -107,6 +113,7 @@ pub enum CbResourceType {
     Popup,
 }
 
+/// Corresponds to the `trigger` field of a Safari content blocking rule.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct CbTrigger {
@@ -149,6 +156,8 @@ pub struct CbTrigger {
     pub unless_top_url: Option<Vec<String>>,
 }
 
+/// Possible failure reasons when attempting to convert an adblock rule into content filtering
+/// syntax.
 #[derive(Debug)]
 pub enum CbRuleCreationFailure {
     /// Currently, only filter rules parsed in debug mode can be translated into equivalent content
@@ -247,6 +256,7 @@ impl IntoIterator for CbRuleEquivalent {
     }
 }
 
+/// Returned by [`CbRuleEquivalent`]'s `IntoIterator` implementation.
 pub struct CbRuleEquivalentIterator {
     rules: [Option<CbRule>; 2],
     index: usize,
