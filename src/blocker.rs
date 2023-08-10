@@ -76,10 +76,6 @@ impl Default for BlockerResult {
 
 #[derive(Debug, Error, PartialEq)]
 pub enum BlockerError {
-    #[error("serialization failed")]
-    SerializationError,
-    #[error("deserialization failed")]
-    DeserializationError,
     #[error("optimized filter existence")]
     OptimizedFilterExistence,
     #[error("$badfilter cannot be added (unsupported)")]
