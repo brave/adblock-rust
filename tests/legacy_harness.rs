@@ -686,15 +686,13 @@ mod legacy_misc_tests {
         let mut engine2 = Engine::new(false);
         engine2.deserialize(&serialized).unwrap();
 
-        assert!(engine.filter_exists("||googlesyndication.com$third-party"));
-        assert!(engine2.filter_exists("||googlesyndication.com$third-party"));
-        assert!(!engine.filter_exists("||googleayndication.com$third-party"));
-        assert!(!engine2.filter_exists("||googleayndication.com$third-party"));
+        assert!(engine.check_network_request(&Request::new("https://googlesyndication.com/script.js", "https://example.com", "script").unwrap()).matched);
+        assert!(engine2.check_network_request(&Request::new("https://googlesyndication.com/script.js", "https://example.com", "script").unwrap()).matched);
+        assert!(!engine.check_network_request(&Request::new("https://googleayndication.com/script.js", "https://example.com", "script").unwrap()).matched);
+        assert!(!engine2.check_network_request(&Request::new("https://googleayndication.com/script.js", "https://example.com", "script").unwrap()).matched);
 
-        assert!(engine.filter_exists("@@||googlesyndication.ca"));
-        assert!(engine2.filter_exists("@@||googlesyndication.ca"));
-        assert!(!engine.filter_exists("googlesyndication.ca"));
-        assert!(!engine2.filter_exists("googlesyndication.ca"));
+        assert!(!engine.check_network_request(&Request::new("https://googlesyndication.ca/script.js", "https://example.com", "script").unwrap()).matched);
+        assert!(!engine2.check_network_request(&Request::new("https://googlesyndication.ca/script.js", "https://example.com", "script").unwrap()).matched);
     }
 
     #[test]

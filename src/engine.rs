@@ -154,22 +154,6 @@ impl Engine {
         self.blocker.get_csp_directives(request)
     }
 
-    /// Check if a given filter has been previously added to this `Engine`.
-    ///
-    /// Note that only network filters are currently supported by this method.
-    pub fn filter_exists(&self, filter: &str) -> bool {
-        use crate::filters::network::NetworkFilter;
-        let filter_parsed = NetworkFilter::parse(filter, false, Default::default());
-        match filter_parsed.map(|f| self.blocker.filter_exists(&f)) {
-            Ok(exists) => exists,
-            Err(_e) => {
-                #[cfg(test)]
-                eprintln!("Encountered unparseable filter when checking for filter existence: {:?}", _e);
-                false
-            }
-        }
-    }
-
     /// Sets this engine's tags to be _only_ the ones provided in `tags`.
     ///
     /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
