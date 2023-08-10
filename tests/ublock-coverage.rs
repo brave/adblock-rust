@@ -1,11 +1,14 @@
-use adblock::engine::Engine;
-use adblock::utils::rules_from_lists;
+use adblock::Engine;
+use adblock::request::Request;
 
 use serde::Deserialize;
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+
+mod test_utils;
+use test_utils::rules_from_lists;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
@@ -38,30 +41,28 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 }
 
 fn get_blocker_engine() -> Engine {
-    let rules = rules_from_lists(&vec![
-        String::from("data/regression-testing/easylist.txt"),
-        String::from("data/regression-testing/easyprivacy.txt"),
+    let rules = rules_from_lists([
+        "data/regression-testing/easylist.txt",
+        "data/regression-testing/easyprivacy.txt",
     ]);
 
-    Engine::from_rules_parametrised(&rules, Default::default(), true, false)
+    Engine::from_rules_parametrised(rules, Default::default(), true, false)
 }
 
-fn get_blocker_engine_default(extra_rules: &[&str]) -> Engine {
-    let mut rules = rules_from_lists(&vec![
-        String::from("data/easylist.to/easylist/easylist.txt"),
-        String::from("data/easylist.to/easylist/easyprivacy.txt"),
-        String::from("data/uBlockOrigin/unbreak.txt"),
-        String::from("data/uBlockOrigin/filters.txt"),
-        String::from("data/brave/brave-unbreak.txt"),
-        String::from("data/brave/coin-miners.txt"),
-        // String::from("data/test/abpjf.txt"),
+fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item=impl AsRef<str>>) -> Engine {
+    let rules = rules_from_lists([
+        "data/easylist.to/easylist/easylist.txt",
+        "data/easylist.to/easylist/easyprivacy.txt",
+        "data/uBlockOrigin/unbreak.txt",
+        "data/uBlockOrigin/filters.txt",
+        "data/brave/brave-unbreak.txt",
+        "data/brave/coin-miners.txt",
+        // "data/test/abpjf.txt",
     ]);
 
-    extra_rules
-        .iter()
-        .for_each(|rule| rules.push(rule.to_string()));
+    let all_rules = rules.chain(extra_rules.into_iter().map(|r| r.as_ref().to_string()));
 
-    Engine::from_rules_parametrised(&rules, Default::default(), true, false)
+    Engine::from_rules_parametrised(all_rules, Default::default(), true, false)
 }
 
 #[test]
@@ -69,12 +70,13 @@ fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
         let engine = Engine::from_rules_debug(
-            &[String::from("||www.facebook.com/*/plugin")],
+            ["||www.facebook.com/*/plugin"],
             Default::default(),
         );
 
+        let request = Request::new("https://www.facebook.com/v3.2/plugins/comments.ph", "", "").unwrap();
         let checked =
-            engine.check_network_urls("https://www.facebook.com/v3.2/plugins/comments.ph", "", "");
+            engine.check_network_request(&request);
 
         assert_eq!(checked.matched, true);
     }
@@ -85,8 +87,8 @@ fn check_specific_rules() {
 
         // exceptions have no effect if important filter matches
         let mut engine = Engine::from_rules_debug(
-            &[
-                String::from("||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com"),
+            [
+                "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com",
             ],
             Default::default(),
         );
@@ -94,13 +96,14 @@ fn check_specific_rules() {
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-resources.js"),
         );
-        engine.use_resources(&resources);
+        engine.use_resources(resources);
 
-        let checked = engine.check_network_urls(
+        let request = Request::new(
             "http://cdn.taboola.com/libtrc/test/loader.js",
             "http://cnet.com",
             "script",
-        );
+        ).unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, true);
         assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
@@ -108,45 +111,59 @@ fn check_specific_rules() {
 
 #[test]
 fn check_specifics_default() {
-    let mut engine = get_blocker_engine_default(&[
+    let mut engine = get_blocker_engine_default([
         "@@||www.google.*/aclk?$first-party",
         "@@||www.googleadservices.*/aclk?$first-party",
     ]);
     {
-        let checked = engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
+        let request = Request::new("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "").unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, true);
     }
     {
-        let checked = engine.check_network_urls("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
+        let request = Request::new(
             "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
-            "main_frame");
+            "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=",
+            "main_frame",
+        ).unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        let checked = engine.check_network_urls("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
+        let request = Request::new(
             "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
-            "main_frame");
+            "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=",
+            "main_frame",
+        ).unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        let checked = engine.check_network_urls("https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
+        let request = Request::new(
             "https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
-            "main_frame");
+            "https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf",
+            "main_frame",
+        ).unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
-        let checked = engine.check_network_urls("https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
-                "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
-                "main_frame");
+        let request = Request::new(
+            "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
+            "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace",
+            "main_frame",
+        ).unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
     }
     {
         engine.use_tags(&["fb-embeds", "twitter-embeds"]);
-        let checked = engine.check_network_urls(
+        let request = Request::new(
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
             "script",
-        );
+        ).unwrap();
+        let checked = engine.check_network_request(&request);
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");
         assert_eq!(checked.matched, false, "Matched on {:?}", checked.exception)
@@ -161,7 +178,8 @@ fn check_basic_works_after_deserialization() {
     deserialized_engine.deserialize(&serialized).unwrap();
 
     {
-        let checked = deserialized_engine.check_network_urls("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "");
+        let request = Request::new("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "").unwrap();
+        let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, true);
     }
 }
@@ -183,7 +201,8 @@ fn check_matching_equivalent() {
     let mut false_positive_rules: HashMap<String, (String, String, String)> = HashMap::new();
     let mut false_negative_exceptions: HashMap<String, (String, String, String)> = HashMap::new();
     for req in requests {
-        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+        let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+        let checked = engine.check_network_request(&request);
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
@@ -257,20 +276,13 @@ fn check_matching_hostnames() {
         let source_host = adblock::url_parser::parse_url(&req.sourceUrl).unwrap();
         let domain = url_host.domain();
         let source_domain = source_host.domain();
-        let third_party = if source_domain.is_empty() {
-            None
-        } else {
-            Some(source_domain != domain)
-        };
+        let third_party = source_domain != domain;
 
-        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
-        let checked_hostnames = engine.check_network_urls_with_hostnames(
-            &req.url,
-            url_host.hostname(),
-            source_host.hostname(),
-            &req.r#type,
-            third_party,
-        );
+        let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+        let preparsed_request = Request::preparsed(&req.url, url_host.hostname(), source_host.hostname(), &req.r#type, third_party);
+
+        let checked = engine.check_network_request(&request);
+        let checked_hostnames = engine.check_network_request(&preparsed_request);
 
         assert_eq!(checked.matched, checked_hostnames.matched);
         assert_eq!(checked.filter, checked_hostnames.filter);

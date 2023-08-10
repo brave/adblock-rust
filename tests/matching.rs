@@ -1,4 +1,4 @@
-use adblock::engine::Engine;
+use adblock::Engine;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
 use adblock::regex_manager::RegexManager;
@@ -44,7 +44,9 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
                 name: redirect.to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                content: redirect,
+                content: base64::encode(redirect),
+                dependencies: vec![],
+                permission: Default::default(),
             }
         })
         .collect()
@@ -70,7 +72,7 @@ fn check_filter_matching() {
             );
             let network_filter = network_filter_res.unwrap();
 
-            let request_res = Request::from_urls(&req.url, &req.sourceUrl, &req.r#type);
+            let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if request_res.is_ok() {
                 let request = request_res.unwrap();
@@ -87,7 +89,7 @@ fn check_filter_matching() {
         }
     }
 
-    assert_eq!(requests_checked, 9381); // A catch for regressions
+    assert_eq!(requests_checked, 9354); // A catch for regressions
 }
 
 #[test]
@@ -104,7 +106,7 @@ fn check_engine_matching() {
             let opts = ParseOptions::default();
             let mut engine = Engine::from_rules_debug(&[filter.clone()], opts);
             let resources = build_resources_from_filters(&[filter.clone()]);
-            engine.use_resources(&resources);
+            engine.use_resources(resources);
 
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
             assert!(
@@ -114,7 +116,8 @@ fn check_engine_matching() {
             );
             let network_filter = network_filter_res.unwrap();
 
-            let result = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+            let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+            let result = engine.check_network_request(&request);
 
             if network_filter.is_exception() {
                 assert!(

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::sync::Mutex;
 use std::path::Path;
-use adblock::engine::Engine as EngineInternal;
+use adblock::Engine as EngineInternal;
 use adblock::lists::{RuleTypes, FilterFormat, FilterListMetadata, FilterSet as FilterSetInternal, ParseOptions};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;
@@ -178,8 +178,13 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
         None => false,
     };
 
+    let request = match adblock::request::Request::new(&url, &source_url, &request_type) {
+        Ok(r) => r,
+        Err(e) => cx.throw_error(e.to_string())?,
+    };
+
     let result = if let Ok(engine) = this.0.lock() {
-        engine.check_network_urls(&url, &source_url, &request_type)
+        engine.check_network_request(&request)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
@@ -242,25 +247,6 @@ fn engine_serialize_raw(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     Ok(buffer)
 }
 
-fn engine_serialize_compressed(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-    let serialized = if let Ok(engine) = this.0.lock() {
-        engine.serialize_compressed().unwrap()
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-
-    // initialise new Array Buffer in the JS context
-    let mut buffer = JsArrayBuffer::new(&mut cx, serialized.len() as u32)?;
-    // copy data from Rust buffer to JS Array Buffer
-    cx.borrow_mut(&mut buffer, |bufferdata| {
-        let slice = bufferdata.as_mut_slice::<u8>();
-        slice.copy_from_slice(&serialized)
-    });
-
-    Ok(buffer)
-}
-
 fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
     let serialized_handle = cx.argument::<JsArrayBuffer>(1)?;
@@ -295,7 +281,7 @@ fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
     let resources: Vec<Resource> = json_ffi::from_js(&mut cx, resources_arg)?;
 
     if let Ok(mut engine) = this.0.lock() {
-        engine.use_resources(&resources)
+        engine.use_resources(resources)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
@@ -340,24 +326,11 @@ fn engine_add_resource(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     Ok(cx.boolean(success))
 }
 
-fn engine_get_resource(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let name: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.get_resource(&name)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    json_ffi::to_js(&mut cx, &result)
-}
-
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let url: String = cx.argument::<JsString>(0)?.value(&mut cx);
     let source_url: String = cx.argument::<JsString>(1)?.value(&mut cx);
     let request_type: String = cx.argument::<JsString>(2)?.value(&mut cx);
-    let request_ok = adblock::request::Request::from_urls(&url, &source_url, &request_type).is_ok();
+    let request_ok = adblock::request::Request::new(&url, &source_url, &request_type).is_ok();
 
     Ok(cx.boolean(request_ok))
 }
@@ -418,14 +391,12 @@ register_module!(mut m, {
     m.export_function("Engine_urlCosmeticResources", engine_url_cosmetic_resources)?;
     m.export_function("Engine_hiddenClassIdSelectors", engine_hidden_class_id_selectors)?;
     m.export_function("Engine_serializeRaw", engine_serialize_raw)?;
-    m.export_function("Engine_serializeCompressed", engine_serialize_compressed)?;
     m.export_function("Engine_deserialize", engine_deserialize)?;
     m.export_function("Engine_enableTag", engine_enable_tag)?;
     m.export_function("Engine_useResources", engine_use_resources)?;
     m.export_function("Engine_tagExists", engine_tag_exists)?;
     m.export_function("Engine_clearTags", engine_clear_tags)?;
     m.export_function("Engine_addResource", engine_add_resource)?;
-    m.export_function("Engine_getResource", engine_get_resource)?;
 
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;

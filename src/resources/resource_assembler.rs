@@ -13,17 +13,15 @@ static TOP_COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^/\*[\S\s]+?\n\*
 static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap());
 
 /// Represents a single entry of the `Map` from uBlock Origin's `redirect-resources.js`.
-///
-/// - `name` is the name of a resource, corresponding to its path in the `web_accessible_resources`
-/// directory
-///
-/// - `alias` is a list of optional additional names that can be used to reference the resource
-///
-/// - `data` is either `"text"` or `"blob"`, but is currently unused in `adblock-rust`. Within
-/// uBlock Origin, it's used to prevent text files from being encoded in base64 in a data URL.
 struct ResourceProperties {
+    /// The name of a resource, corresponding to its path in the `web_accessible_resources`
+    /// directory
     name: String,
+    /// A list of optional additional names that can be used to reference the resource
     alias: Vec<String>,
+    /// Either `"text"` or `"blob"`, but is currently unused in `adblock-rust`. Within uBlock
+    /// Origin, it's used to prevent text files from being encoded in base64 in a data URL.
+    #[allow(unused)]
     data: Option<String>,
 }
 
@@ -196,6 +194,8 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
                 .unwrap_or_default(),
             kind,
             content: base64::encode(&script),
+            dependencies: vec![],
+            permission: Default::default(),
         });
 
         name = None;
@@ -232,6 +232,8 @@ fn build_resource_from_file_contents(
         aliases,
         kind: ResourceType::Mime(mimetype),
         content,
+        dependencies: vec![],
+        permission: Default::default(),
     }
 }
 

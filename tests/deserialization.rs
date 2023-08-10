@@ -1,4 +1,5 @@
-use adblock::engine::Engine;
+use adblock::Engine;
+use adblock::request::Request;
 
 use serde::Deserialize;
 
@@ -66,7 +67,8 @@ fn check_works_same_after_deserialization() {
     let mut reqs_processed = 0;
     for req in requests {
         print!("{} ", reqs_processed);
-        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+        let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+        let checked = engine.check_network_request(&request);
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {

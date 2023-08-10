@@ -2,9 +2,12 @@
 
 use std::borrow::Cow;
 
+use thiserror::Error;
+
 use crate::url_parser;
 use crate::utils;
 
+/// The type of resource requested from the URL endpoint.
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
     Beacon,
@@ -26,10 +29,14 @@ pub enum RequestType {
     Xmlhttprequest,
 }
 
-#[derive(Debug, PartialEq)]
+/// Possible failure reasons when creating a [`Request`].
+#[derive(Debug, Error, PartialEq)]
 pub enum RequestError {
+    #[error("hostname parsing failed")]
     HostnameParseError,
+    #[error("source hostname parsing failed")]
     SourceHostnameParseError,
+    #[error("invalid Unicode provided")]
     UnicodeDecodingError,
 }
 
@@ -70,6 +77,7 @@ fn cpt_match_type(cpt: &str) -> RequestType {
     }
 }
 
+/// A network [`Request`], used as an interface for network blocking in the [`crate::Engine`].
 #[derive(Clone, Debug)]
 pub struct Request {
     pub request_type: RequestType,
@@ -77,16 +85,12 @@ pub struct Request {
     pub is_http: bool,
     pub is_https: bool,
     pub is_supported: bool,
-    pub is_first_party: Option<bool>,
-    pub is_third_party: Option<bool>,
+    pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) original_url: String,
-
-    // mutable fields, set later
-    hostname_end: usize,
 }
 
 impl Request {
@@ -105,41 +109,6 @@ impl Request {
         token_buffer.push(0);
     }
 
-    pub fn url_after_hostname(&self) -> &str {
-        &self.url[self.hostname_end..]
-    }
-
-    pub fn new(
-        raw_type: &str,
-        url: &str,
-        schema: &str,
-        hostname: &str,
-        domain: &str,
-        source_hostname: &str,
-        source_domain: &str,
-    ) -> Request {
-        let third_party = if source_domain.is_empty() {
-            None
-        } else {
-            Some(source_domain != domain)
-        };
-
-        let hostname_end = memchr::memmem::find(url.as_bytes(), hostname.as_bytes())
-            .unwrap_or(url.len())
-            + hostname.len();
-
-        Self::from_detailed_parameters(
-            raw_type,
-            url,
-            schema,
-            hostname,
-            source_hostname,
-            third_party,
-            hostname_end,
-            url.to_string(),
-        )
-    }
-
     #[allow(clippy::too_many_arguments)]
     fn from_detailed_parameters(
         raw_type: &str,
@@ -147,12 +116,9 @@ impl Request {
         schema: &str,
         hostname: &str,
         source_hostname: &str,
-        third_party: Option<bool>,
-        hostname_end: usize,
+        third_party: bool,
         original_url: String,
     ) -> Request {
-        let first_party = third_party.map(|p| !p);
-
         let is_http: bool;
         let is_https: bool;
         let is_supported: bool;
@@ -195,17 +161,16 @@ impl Request {
             url: url.to_owned(),
             hostname: hostname.to_owned(),
             source_hostname_hashes,
-            is_first_party: first_party,
             is_third_party: third_party,
             is_http,
             is_https,
             is_supported,
-            hostname_end,
             original_url,
         }
     }
 
-    pub fn from_urls(
+    /// Construct a new [`Request`].
+    pub fn new(
         url: &str,
         source_url: &str,
         request_type: &str,
@@ -214,11 +179,7 @@ impl Request {
             if let Some(parsed_source) = url_parser::parse_url(source_url) {
                 let source_domain = parsed_source.domain();
 
-                let third_party = if source_domain.is_empty() {
-                    None
-                } else {
-                    Some(source_domain != parsed_url.domain())
-                };
+                let third_party = source_domain != parsed_url.domain();
 
                 Ok(Request::from_detailed_parameters(
                     request_type,
@@ -227,7 +188,6 @@ impl Request {
                     parsed_url.hostname(),
                     parsed_source.hostname(),
                     third_party,
-                    parsed_url.hostname_pos.1,
                     url.to_string(),
                 ))
             } else {
@@ -237,8 +197,7 @@ impl Request {
                     parsed_url.schema(),
                     parsed_url.hostname(),
                     "",
-                    None,
-                    parsed_url.hostname_pos.1,
+                    true,
                     url.to_string(),
                 ))
             }
@@ -247,32 +206,18 @@ impl Request {
         }
     }
 
-    pub fn from_urls_with_hostname(
+    /// If you're building a [`Request`] in a context that already has access to parsed
+    /// representations of the input URLs, you can use this constructor to avoid extra lookups from
+    /// the public suffix list. Take care to pass data correctly.
+    pub fn preparsed(
         url: &str,
         hostname: &str,
         source_hostname: &str,
         request_type: &str,
-        third_party_request: Option<bool>,
+        third_party: bool,
     ) -> Request {
         let splitter = memchr::memchr(b':', url.as_bytes()).unwrap_or(0);
         let schema: &str = &url[..splitter];
-
-        let third_party = if third_party_request.is_none() {
-            let (domain_start, domain_end) = url_parser::get_host_domain(hostname);
-            let domain = &hostname[domain_start..domain_end];
-
-            let (source_domain_start, source_domain_end) =
-                url_parser::get_host_domain(source_hostname);
-            let source_domain = &source_hostname[source_domain_start..source_domain_end];
-
-            if source_domain.is_empty() {
-                None
-            } else {
-                Some(source_domain != domain)
-            }
-        } else {
-            third_party_request
-        };
 
         Request::from_detailed_parameters(
             request_type,
@@ -281,14 +226,8 @@ impl Request {
             hostname,
             source_hostname,
             third_party,
-            splitter + 2 + hostname.len(),
             url.to_string(),
         )
-    }
-
-    pub fn from_url(url: &str) -> Result<Request, RequestError> {
-        // Used in testing - assume empty source_url and default request type
-        Self::from_urls(url, "", "")
     }
 }
 
@@ -296,9 +235,31 @@ impl Request {
 mod tests {
     use super::*;
 
+    fn build_request(
+        raw_type: &str,
+        url: &str,
+        schema: &str,
+        hostname: &str,
+        domain: &str,
+        source_hostname: &str,
+        source_domain: &str,
+    ) -> Request {
+        let third_party = source_domain != domain;
+
+        Request::from_detailed_parameters(
+            raw_type,
+            url,
+            schema,
+            hostname,
+            source_hostname,
+            third_party,
+            url.to_string(),
+        )
+    }
+
     #[test]
     fn new_works() {
-        let simple_example = Request::new(
+        let simple_example = build_request(
             "document",
             "https://example.com/ad",
             "https",
@@ -309,8 +270,7 @@ mod tests {
         );
         assert_eq!(simple_example.is_https, true);
         assert_eq!(simple_example.is_supported, true);
-        assert_eq!(simple_example.is_first_party, Some(true));
-        assert_eq!(simple_example.is_third_party, Some(false));
+        assert_eq!(simple_example.is_third_party, false);
         assert_eq!(simple_example.request_type, RequestType::Document);
         assert_eq!(
             simple_example.source_hostname_hashes,
@@ -320,7 +280,7 @@ mod tests {
             ]),
         );
 
-        let unsupported_example = Request::new(
+        let unsupported_example = build_request(
             "document",
             "file://example.com/ad",
             "file",
@@ -333,7 +293,7 @@ mod tests {
         assert_eq!(unsupported_example.is_http, false);
         assert_eq!(unsupported_example.is_supported, false);
 
-        let first_party = Request::new(
+        let first_party = build_request(
             "document",
             "https://subdomain.example.com/ad",
             "https",
@@ -344,10 +304,9 @@ mod tests {
         );
         assert_eq!(first_party.is_https, true);
         assert_eq!(first_party.is_supported, true);
-        assert_eq!(first_party.is_first_party, Some(true));
-        assert_eq!(first_party.is_third_party, Some(false));
+        assert_eq!(first_party.is_third_party, false);
 
-        let third_party = Request::new(
+        let third_party = build_request(
             "document",
             "https://subdomain.anotherexample.com/ad",
             "https",
@@ -358,10 +317,9 @@ mod tests {
         );
         assert_eq!(third_party.is_https, true);
         assert_eq!(third_party.is_supported, true);
-        assert_eq!(third_party.is_first_party, Some(false));
-        assert_eq!(third_party.is_third_party, Some(true));
+        assert_eq!(third_party.is_third_party, true);
 
-        let websocket = Request::new(
+        let websocket = build_request(
             "document",
             "wss://subdomain.anotherexample.com/ad",
             "wss",
@@ -373,11 +331,10 @@ mod tests {
         assert_eq!(websocket.is_https, false);
         assert_eq!(websocket.is_https, false);
         assert_eq!(websocket.is_supported, true);
-        assert_eq!(websocket.is_first_party, Some(false));
-        assert_eq!(websocket.is_third_party, Some(true));
+        assert_eq!(websocket.is_third_party, true);
         assert_eq!(websocket.request_type, RequestType::Websocket);
 
-        let assumed_https = Request::new(
+        let assumed_https = build_request(
             "document",
             "//subdomain.anotherexample.com/ad",
             "",
@@ -399,7 +356,7 @@ mod tests {
 
     #[test]
     fn tokens_works() {
-        let simple_example = Request::new(
+        let simple_example = build_request(
             "document",
             "https://subdomain.example.com/ad",
             "https",
@@ -426,7 +383,7 @@ mod tests {
 
     #[test]
     fn parses_urls() {
-        let parsed = Request::from_urls(
+        let parsed = Request::new(
             "https://subdomain.example.com/ad",
             "https://example.com/",
             "document",
@@ -434,8 +391,7 @@ mod tests {
         .unwrap();
         assert_eq!(parsed.is_https, true);
         assert_eq!(parsed.is_supported, true);
-        assert_eq!(parsed.is_first_party, Some(true));
-        assert_eq!(parsed.is_third_party, Some(false));
+        assert_eq!(parsed.is_third_party, false);
         assert_eq!(parsed.request_type, RequestType::Document);
 
         // assert_eq!(parsed.domain, "example.com");
@@ -451,7 +407,7 @@ mod tests {
         );
         // assert_eq!(parsed.source_hostname, "example.com");
 
-        let bad_url = Request::from_urls(
+        let bad_url = Request::new(
             "subdomain.example.com/ad",
             "https://example.com/",
             "document",
@@ -460,75 +416,16 @@ mod tests {
     }
 
     #[test]
-    fn handles_explicit_third_party_param() {
-        {
-            // domain matches
-            let parsed = Request::from_urls_with_hostname(
-                "https://subdomain.example.com/ad",
-                "subdomain.example.com",
-                "example.com",
-                "document",
-                None,
-            );
-            assert_eq!(parsed.is_third_party, Some(false));
-        }
-        {
-            // domain does not match
-            let parsed = Request::from_urls_with_hostname(
-                "https://subdomain.example.com/ad",
-                "subdomain.example.com",
-                "anotherexample.com",
-                "document",
-                None,
-            );
-            assert_eq!(parsed.is_third_party, Some(true));
-        }
-        {
-            // cannot parse domain
-            let parsed = Request::from_urls_with_hostname(
-                "https://subdomain.example.com/ad",
-                "subdomain.example.com",
-                "",
-                "document",
-                None,
-            );
-            assert_eq!(parsed.is_third_party, None);
-        }
-        {
-            // third-partiness set to false
-            let parsed = Request::from_urls_with_hostname(
-                "https://subdomain.example.com/ad",
-                "subdomain.example.com",
-                "example.com",
-                "document",
-                Some(true),
-            );
-            assert_eq!(parsed.is_third_party, Some(true));
-        }
-        {
-            // third-partiness set to true
-            let parsed = Request::from_urls_with_hostname(
-                "https://subdomain.example.com/ad",
-                "subdomain.example.com",
-                "anotherexample.com",
-                "document",
-                Some(false),
-            );
-            assert_eq!(parsed.is_third_party, Some(false));
-        }
-    }
-
-    #[test]
     fn fuzzing_errors() {
         {
-            let parsed = Request::from_url("https://߶");
+            let parsed = Request::new("https://߶", "https://example.com", "other");
             assert!(parsed.is_ok());
         }
         {
-            let parsed = Request::from_url(&format!(
+            let parsed = Request::new(&format!(
                 "https://{}",
                 std::str::from_utf8(&[9, 9, 64]).unwrap()
-            ));
+            ), "https://example.com", "other");
             assert!(parsed.is_err());
         }
     }

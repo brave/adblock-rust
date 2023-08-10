@@ -1,5 +1,8 @@
-use adblock::engine::Engine;
-use adblock::lists::{FilterSet, ParseOptions};
+use adblock::{
+    Engine,
+    lists::{FilterSet, ParseOptions},
+    request::Request,
+};
 
 fn main() {
     let rules = vec![
@@ -13,12 +16,14 @@ fn main() {
     let mut filter_set = FilterSet::new(debug_info);
     filter_set.add_filters(&rules, ParseOptions::default());
 
-    let blocker = Engine::from_filter_set(filter_set, true);
-    let blocker_result = blocker.check_network_urls(
+    let engine = Engine::from_filter_set(filter_set, true);
+
+    let request = Request::new(
         "http://example.com/-advertisement-icon.",
         "http://example.com/helloworld",
         "image",
-    );
+    ).unwrap();
+    let blocker_result = engine.check_network_request(&request);
 
     println!("Blocker result: {:?}", blocker_result);
 }

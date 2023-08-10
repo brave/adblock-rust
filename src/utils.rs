@@ -5,10 +5,6 @@
 use seahash::hash;
 #[cfg(target_pointer_width = "32")]
 use seahash::reference::hash;
-#[cfg(not(target_arch = "wasm32"))]
-use std::fs::File;
-#[cfg(not(target_arch = "wasm32"))]
-use std::io::{BufRead, BufReader};
 
 pub type Hash = u64;
 
@@ -70,41 +66,6 @@ fn fast_tokenizer_no_regex(
     }
 }
 
-fn fast_tokenizer(
-    pattern: &str,
-    is_allowed_code: &dyn Fn(char) -> bool,
-    skip_first_token: bool,
-    skip_last_token: bool,
-    tokens_buffer: &mut Vec<Hash>,
-) {
-    let mut inside: bool = false;
-    let mut start = 0;
-    let chars = pattern.char_indices();
-
-    for (i, c) in chars {
-        if tokens_buffer.len() >= TOKENS_MAX {
-            break;
-        }
-        if is_allowed_code(c) {
-            if !inside {
-                inside = true;
-                start = i;
-            }
-        } else if inside {
-            inside = false;
-            if !skip_first_token || start != 0 {
-                let hash = fast_hash(&pattern[start..i]);
-                tokens_buffer.push(hash);
-            }
-        }
-    }
-
-    if !skip_last_token && inside {
-        let hash = fast_hash(&pattern[start..]);
-        tokens_buffer.push(hash);
-    }
-}
-
 pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }
@@ -137,48 +98,8 @@ pub(crate) fn tokenize_filter(
     tokens_buffer
 }
 
-fn compact_tokens<T: std::cmp::Ord>(tokens: &mut Vec<T>) {
-    tokens.sort_unstable();
-    tokens.dedup();
-}
-
 pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
-}
-
-const EXPECTED_RULES: usize = 75000;
-#[cfg(not(target_arch = "wasm32"))]
-pub fn read_file_lines(filename: &str) -> Vec<String> {
-    let f = File::open(filename).unwrap_or_else(|_| panic!("File {} not found", filename));
-    let reader = BufReader::new(f);
-    let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
-    for line in reader.lines() {
-        let l = line.unwrap();
-        rules.push(l);
-    }
-    rules.shrink_to_fit();
-    rules
-}
-#[cfg(not(target_arch = "wasm32"))]
-pub fn rules_from_lists(lists: &[String]) -> Vec<String> {
-    let mut rules: Vec<String> = Vec::with_capacity(EXPECTED_RULES);
-    for filename in lists {
-        let mut list_rules = read_file_lines(filename);
-        rules.append(&mut list_rules);
-    }
-    rules.shrink_to_fit();
-    rules
-}
-
-pub(crate) fn is_eof_error(e: &rmp_serde_legacy::decode::Error) -> bool {
-    if let rmp_serde_legacy::decode::Error::InvalidMarkerRead(e) = e {
-        if e.kind() == std::io::ErrorKind::UnexpectedEof
-            && format!("{}", e) == "failed to fill whole buffer"
-        {
-            return true;
-        }
-    }
-    false
 }
 
 #[cfg(test)]
@@ -275,13 +196,13 @@ mod tests {
 
     #[test]
     fn bin_lookup_works() {
-        assert_eq!(bin_lookup(&vec![], 42), false);
-        assert_eq!(bin_lookup(&vec![42], 42), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 42), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 1), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 3), true);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 43), false);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 0), false);
-        assert_eq!(bin_lookup(&vec![1, 2, 3, 4, 42], 5), false);
+        assert_eq!(bin_lookup(&[], 42), false);
+        assert_eq!(bin_lookup(&[42], 42), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 42), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 1), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 3), true);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 43), false);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 0), false);
+        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 5), false);
     }
 }

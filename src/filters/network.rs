@@ -1,3 +1,6 @@
+//! Filters that take effect at the network request level, including blocking and response
+//! modification.
+
 use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexSet};
@@ -9,8 +12,7 @@ use std::fmt;
 use crate::lists::ParseOptions;
 use crate::regex_manager::RegexManager;
 use crate::request;
-use crate::utils;
-use crate::utils::Hash;
+use crate::utils::{self, Hash};
 
 pub const TOKENS_BUFFER_SIZE: usize = 200;
 
@@ -999,11 +1001,6 @@ impl NetworkFilter {
         }
     }
 
-
-    fn get_cpt_mask(&self) -> NetworkFilterMask {
-        self.mask & NetworkFilterMask::FROM_ALL_TYPES
-    }
-
     pub fn is_exception(&self) -> bool {
         self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
     }
@@ -1357,7 +1354,7 @@ fn check_pattern_left_right_anchor_filter(
     let request_url = request.get_url(filter.match_case());
     match &filter.filter {
         FilterPart::Empty => true,
-        FilterPart::Simple(f) => return &request_url == f,
+        FilterPart::Simple(f) => &request_url == f,
         FilterPart::AnyOf(filters) => {
             for f in filters {
                 if &request_url == f {
@@ -1603,8 +1600,8 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
     if !check_cpt_allowed(filter, &request.request_type)
         || (request.is_https && !filter.for_https())
         || (request.is_http && !filter.for_http())
-        || (!filter.first_party() && request.is_first_party == Some(true))
-        || (!filter.third_party() && request.is_third_party == Some(true))
+        || (!filter.first_party() && !request.is_third_party)
+        || (!filter.third_party() && request.is_third_party)
     {
         return false;
     }
@@ -2522,7 +2519,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^".to_string());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -2534,7 +2531,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("www.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^".to_string());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -2546,7 +2543,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("malware.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||malware.example.com^".to_string());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||malware.example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("malware.example.com".to_string());
             defaults.is_plain = true;
@@ -2854,7 +2851,7 @@ mod match_tests {
 
     fn filter_match_url(filter: &str, url: &str, matching: bool) {
         let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
-        let request = request::Request::from_url(url).unwrap();
+        let request = request::Request::new(url, "https://example.com", "other").unwrap();
 
         assert!(
             network_filter.matches_test(&request) == matching,
@@ -2868,7 +2865,7 @@ mod match_tests {
 
     fn hosts_filter_match_url(filter: &str, url: &str, matching: bool) {
         let network_filter = NetworkFilter::parse_hosts_style(filter, true).unwrap();
-        let request = request::Request::from_url(url).unwrap();
+        let request = request::Request::new(url, "https://example.com", "other").unwrap();
 
         assert!(
             network_filter.matches_test(&request) == matching,
@@ -3036,7 +3033,7 @@ mod match_tests {
             let filter = "@@||fastly.net/ad2/$image,script,xmlhttprequest";
             let url = "https://0914.global.ssl.fastly.net/ad2/script/x.js?cb=1549980040838";
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
-            let request = request::Request::from_urls(
+            let request = request::Request::new(
                 url,
                 "https://www.gamespot.com/metro-exodus/",
                 "script",
@@ -3053,7 +3050,7 @@ mod match_tests {
             let filter = "@@||swatchseries.to/public/js/edit-show.js$script,domain=swatchseries.to";
             let url = "https://www1.swatchseries.to/public/js/edit-show.js";
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
-            let request = request::Request::from_urls(
+            let request = request::Request::new(
                 url,
                 "https://www1.swatchseries.to/serie/roswell_new_mexico",
                 "script",
@@ -3078,16 +3075,16 @@ mod match_tests {
     fn check_ws_vs_http_matching() {
         let network_filter = NetworkFilter::parse("|ws://$domain=4shared.com", true, Default::default()).unwrap();
 
-        assert!(network_filter.matches_test(&request::Request::from_urls("ws://example.com", "https://4shared.com", "websocket").unwrap()));
-        assert!(network_filter.matches_test(&request::Request::from_urls("wss://example.com", "https://4shared.com", "websocket").unwrap()));
-        assert!(!network_filter.matches_test(&request::Request::from_urls("http://example.com", "https://4shared.com", "script").unwrap()));
-        assert!(!network_filter.matches_test(&request::Request::from_urls("https://example.com", "https://4shared.com", "script").unwrap()));
+        assert!(network_filter.matches_test(&request::Request::new("ws://example.com", "https://4shared.com", "websocket").unwrap()));
+        assert!(network_filter.matches_test(&request::Request::new("wss://example.com", "https://4shared.com", "websocket").unwrap()));
+        assert!(!network_filter.matches_test(&request::Request::new("http://example.com", "https://4shared.com", "script").unwrap()));
+        assert!(!network_filter.matches_test(&request::Request::new("https://example.com", "https://4shared.com", "script").unwrap()));
 
         // The `ws://` and `wss://` protocols should be used, rather than the resource type.
-        assert!(network_filter.matches_test(&request::Request::from_urls("ws://example.com", "https://4shared.com", "script").unwrap()));
-        assert!(network_filter.matches_test(&request::Request::from_urls("wss://example.com", "https://4shared.com", "script").unwrap()));
-        assert!(!network_filter.matches_test(&request::Request::from_urls("http://example.com", "https://4shared.com", "websocket").unwrap()));
-        assert!(!network_filter.matches_test(&request::Request::from_urls("https://example.com", "https://4shared.com", "websocket").unwrap()));
+        assert!(network_filter.matches_test(&request::Request::new("ws://example.com", "https://4shared.com", "script").unwrap()));
+        assert!(network_filter.matches_test(&request::Request::new("wss://example.com", "https://4shared.com", "script").unwrap()));
+        assert!(!network_filter.matches_test(&request::Request::new("http://example.com", "https://4shared.com", "websocket").unwrap()));
+        assert!(!network_filter.matches_test(&request::Request::new("https://example.com", "https://4shared.com", "websocket").unwrap()));
     }
 
     #[test]
@@ -3096,17 +3093,17 @@ mod match_tests {
         // cpt test
         {
             let network_filter = NetworkFilter::parse("||foo$image", true, Default::default()).unwrap();
-            let request = request::Request::from_urls("https://foo.com/bar", "", "image").unwrap();
+            let request = request::Request::new("https://foo.com/bar", "", "image").unwrap();
             assert_eq!(check_options(&network_filter, &request), true);
         }
         {
             let network_filter = NetworkFilter::parse("||foo$image", true, Default::default()).unwrap();
-            let request = request::Request::from_urls("https://foo.com/bar", "", "script").unwrap();
+            let request = request::Request::new("https://foo.com/bar", "", "script").unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
         }
         {
             let network_filter = NetworkFilter::parse("||foo$~image", true, Default::default()).unwrap();
-            let request = request::Request::from_urls("https://foo.com/bar", "", "script").unwrap();
+            let request = request::Request::new("https://foo.com/bar", "", "script").unwrap();
             assert_eq!(check_options(&network_filter, &request), true);
         }
 
@@ -3114,14 +3111,14 @@ mod match_tests {
         {
             let network_filter = NetworkFilter::parse("||foo$~third-party", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://baz.foo.com", "")
+                request::Request::new("https://foo.com/bar", "http://baz.foo.com", "")
                     .unwrap();
             assert_eq!(check_options(&network_filter, &request), true);
         }
         {
             let network_filter = NetworkFilter::parse("||foo$~third-party", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://baz.bar.com", "")
+                request::Request::new("https://foo.com/bar", "http://baz.bar.com", "")
                     .unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
         }
@@ -3130,14 +3127,14 @@ mod match_tests {
         {
             let network_filter = NetworkFilter::parse("||foo$~first-party", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://baz.bar.com", "")
+                request::Request::new("https://foo.com/bar", "http://baz.bar.com", "")
                     .unwrap();
             assert_eq!(check_options(&network_filter, &request), true);
         }
         {
             let network_filter = NetworkFilter::parse("||foo$~first-party", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://baz.foo.com", "")
+                request::Request::new("https://foo.com/bar", "http://baz.foo.com", "")
                     .unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
         }
@@ -3146,13 +3143,13 @@ mod match_tests {
         {
             let network_filter = NetworkFilter::parse("||foo$domain=foo.com", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://foo.com", "").unwrap();
+                request::Request::new("https://foo.com/bar", "http://foo.com", "").unwrap();
             assert_eq!(check_options(&network_filter, &request), true);
         }
         {
             let network_filter = NetworkFilter::parse("||foo$domain=foo.com", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://bar.com", "").unwrap();
+                request::Request::new("https://foo.com/bar", "http://bar.com", "").unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
         }
 
@@ -3160,13 +3157,13 @@ mod match_tests {
         {
             let network_filter = NetworkFilter::parse("||foo$domain=~bar.com", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://foo.com", "").unwrap();
+                request::Request::new("https://foo.com/bar", "http://foo.com", "").unwrap();
             assert_eq!(check_options(&network_filter, &request), true);
         }
         {
             let network_filter = NetworkFilter::parse("||foo$domain=~bar.com", true, Default::default()).unwrap();
             let request =
-                request::Request::from_urls("https://foo.com/bar", "http://bar.com", "").unwrap();
+                request::Request::new("https://foo.com/bar", "http://bar.com", "").unwrap();
             assert_eq!(check_options(&network_filter, &request), false);
         }
     }
@@ -3175,43 +3172,43 @@ mod match_tests {
     fn check_domain_option_subsetting_works() {
         {
             let network_filter = NetworkFilter::parse("adv$domain=example.com|~foo.example.com", true, Default::default()).unwrap();
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://bar.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
         }
         {
             let network_filter = NetworkFilter::parse("adv$domain=~example.com|~foo.example.com", true, Default::default()).unwrap();
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == true);
         }
         {
             let network_filter = NetworkFilter::parse("adv$domain=example.com|foo.example.com", true, Default::default()).unwrap();
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://foo.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://bar.example.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
         }
         {
             let network_filter = NetworkFilter::parse("adv$domain=~example.com|foo.example.com", true, Default::default()).unwrap();
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://subfoo.foo.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://bar.example.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://anotherexample.com", "").unwrap()) == false);
         }
         {
             let network_filter = NetworkFilter::parse("adv$domain=com|~foo.com", true, Default::default()).unwrap();
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://foo.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://subfoo.foo.com", "").unwrap()) == false);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://bar.com", "").unwrap()) == true);
-            assert!(network_filter.matches_test(&request::Request::from_urls("http://example.net/adv", "http://co.uk", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://foo.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://subfoo.foo.com", "").unwrap()) == false);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://bar.com", "").unwrap()) == true);
+            assert!(network_filter.matches_test(&request::Request::new("http://example.net/adv", "http://co.uk", "").unwrap()) == false);
         }
     }
 
@@ -3250,7 +3247,7 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://bit.ly/bar/";
             let source = "http://123movies.com";
-            let request = request::Request::from_urls(url, source, "").unwrap();
+            let request = request::Request::new(url, source, "").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3264,7 +3261,7 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
             let source = "http://123movies.com";
-            let request = request::Request::from_urls(url, source, "xmlhttprequest").unwrap();
+            let request = request::Request::new(url, source, "xmlhttprequest").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3278,7 +3275,7 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://hello.club/123.css";
             let source = "http://123movies.com";
-            let request = request::Request::from_urls(url, source, "stylesheet").unwrap();
+            let request = request::Request::new(url, source, "stylesheet").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3290,14 +3287,14 @@ mod match_tests {
 
     #[test]
     #[ignore] // Not going to handle lookaround regexes
-    #[cfg(feature = "debug-info")]
+    #[cfg(feature = "regex-debug-info")]
     fn check_lookaround_regex_handled() {
         {
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
             let source = "http://123movies.com";
-            let request = request::Request::from_urls(url, source, "script").unwrap();
+            let request = request::Request::new(url, source, "script").unwrap();
             let mut regex_manager = RegexManager::default();
             assert!(regex_manager.get_compiled_regex_count() == 0);
             assert!(
@@ -3317,7 +3314,7 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://example.com/ad.js";
             let source = "http://auth.wi-fi.ru";
-            let request = request::Request::from_urls(url, source, "script").unwrap();
+            let request = request::Request::new(url, source, "script").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3330,7 +3327,7 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://example.com/ad.js";
             let source = "http://auth.wi-fi.ru";
-            let request = request::Request::from_urls(url, source, "script").unwrap();
+            let request = request::Request::new(url, source, "script").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3347,8 +3344,8 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
-            let request = request::Request::from_urls(url, source, "document").unwrap();
-            assert_eq!(request.is_third_party, Some(false));
+            let request = request::Request::new(url, source, "document").unwrap();
+            assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3361,8 +3358,8 @@ mod match_tests {
             let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
             let url = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
             let source = "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=";
-            let request = request::Request::from_urls(url, source, "main_frame").unwrap();
-            assert_eq!(request.is_third_party, Some(false));
+            let request = request::Request::new(url, source, "main_frame").unwrap();
+            assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request) == true,
                 "Expected match for {} on {}",
@@ -3388,17 +3385,17 @@ mod match_tests {
 mod hash_collision_tests {
     use super::*;
 
-    use crate::utils::Hash;
+    use crate::test_utils;
     use crate::lists::parse_filters;
     use std::collections::HashMap;
 
     #[test]
     fn check_rule_ids_no_collisions() {
-        let rules = utils::rules_from_lists(&[
-            String::from("data/easylist.to/easylist/easylist.txt"),
-            String::from("data/easylist.to/easylist/easyprivacy.txt"),
+        let rules = test_utils::rules_from_lists([
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let (network_filters, _) = parse_filters(&rules, true, Default::default());
+        let (network_filters, _) = parse_filters(rules, true, Default::default());
 
         let mut filter_ids: HashMap<Hash, String> = HashMap::new();
 

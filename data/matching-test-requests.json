@@ -38935,7 +38935,7 @@
   },
   {
     "check": true,
-    "filters": ["||mediaplex.com/ad/fm/$third-party", "/adfarm.$first-party,domain=~mediaplex.com"],
+    "filters": ["||mediaplex.com/ad/fm/$third-party"],
     "sourceUrl": "http://",
     "type": "subdocument",
     "url": "https://adfarm.mediaplex.com/ad/fm/"
@@ -38943,9 +38943,9 @@
   {
     "check": true,
     "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "http://",
+    "sourceUrl": "http://example.com",
     "type": "subdocument",
-    "url": "https://adfarm.mediaplex.com"
+    "url": "https://adfarm.example.com"
   },
   {
     "filters": ["@@||notebookcheck.$image,first-party"],
@@ -39664,13 +39664,6 @@
     "sourceUrl": "https://www.notebookcheck.net",
     "type": "image",
     "url": "https://www.notebookcheck.net"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "http://",
-    "type": "subdocument",
-    "url": "https://adfarm.mediaplex.com"
   },
   {
     "filters": ["||jsecoin.com^$third-party", "||jsecoin.com^"],
@@ -47140,61 +47133,11 @@
     "check": true,
     "filters": [
       "/adfarm.$~image,third-party,domain=~mediaplex.com",
-      "||mediaplex.com/ad/js/$third-party",
-      "/adfarm.$first-party,domain=~mediaplex.com"
+      "||mediaplex.com/ad/js/$third-party"
     ],
     "sourceUrl": "https://",
     "type": "script",
     "url": "https://adfarm.mediaplex.com/ad/js/"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
   },
   {
     "filters": ["||dc08i221b0n8a.cloudfront.net^$third-party"],
@@ -47251,13 +47194,6 @@
     "sourceUrl": "https://",
     "type": "script",
     "url": "https://tb.de17a.com/api/pageView?"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
   },
   {
     "filters": ["||qservz.com^$third-party"],
@@ -48760,48 +48696,6 @@
   },
   {
     "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
     "filters": ["||rule34hentai.net^$script,first-party"],
     "sourceUrl": "https://www.rule34hentai.net",
     "type": "script",
@@ -48855,13 +48749,6 @@
     "sourceUrl": "https://www.rule34hentai.net",
     "type": "script",
     "url": "https://www.rule34hentai.net"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
   },
   {
     "check": true,
@@ -48884,13 +48771,6 @@
     "url": "https://www.rule34hentai.net"
   },
   {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
     "filters": [
       "@@/wp-content/plugins/google-analytics-for-wordpress/*$script,stylesheet,first-party"
     ],
@@ -48905,62 +48785,6 @@
     "sourceUrl": "https://trashscanlations.com",
     "type": "script",
     "url": "https://trashscanlations.com/wp-content/plugins/akismet/"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
-  },
-  {
-    "check": true,
-    "filters": ["/adfarm.$first-party,domain=~mediaplex.com"],
-    "sourceUrl": "https://",
-    "type": "script",
-    "url": "https://adfarm.mediaplex.com"
   },
   {
     "filters": ["/160_600_"],

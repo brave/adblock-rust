@@ -15,18 +15,16 @@
 //!
 //! Check the [`Engine`] documentation to get started with adblocking.
 
-#![allow(dead_code)]
-
 // Own modules, currently everything is exposed, will need to limit
 pub mod blocker;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
 pub mod cosmetic_filter_cache;
 mod data_format;
-pub mod engine;
+mod engine;
 pub mod filters;
 pub mod lists;
-pub mod optimizer;
+mod optimizer;
 pub mod regex_manager;
 pub mod request;
 pub mod resources;
@@ -38,6 +36,10 @@ pub mod utils;
 pub use engine::Engine;
 #[doc(inline)]
 pub use lists::FilterSet;
+
+#[cfg(test)]
+#[path = "../tests/test_utils.rs"]
+mod test_utils;
 
 #[cfg(test)]
 mod sync_tests {

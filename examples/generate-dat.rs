@@ -1,4 +1,7 @@
-use adblock::engine::Engine;
+use adblock::{
+    Engine,
+    request::Request,
+};
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -13,12 +16,14 @@ fn main() {
     // Serialize
     let mut engine = Engine::from_rules_debug(&rules, Default::default());
     engine.use_tags(&["twitter-embeds"]);
+
+    let request = Request::new(
+        "https://platform.twitter.com/widgets.js",
+        "https://fmarier.github.io/brave-testing/social-widgets.html",
+        "script"
+    ).unwrap();
     assert!(engine
-        .check_network_urls(
-            "https://platform.twitter.com/widgets.js",
-            "https://fmarier.github.io/brave-testing/social-widgets.html",
-            "script"
-        )
+        .check_network_request(&request)
         .exception
         .is_some());
     let serialized = engine.serialize_raw().expect("Could not serialize!");

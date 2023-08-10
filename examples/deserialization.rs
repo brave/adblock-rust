@@ -1,4 +1,7 @@
-use adblock::engine::Engine;
+use adblock::{
+    Engine,
+    request::Request,
+};
 
 use serde::Deserialize;
 
@@ -26,8 +29,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 
     let mut reqs: Vec<RequestRuleMatch> = Vec::new();
     for result in rdr.deserialize() {
-        if result.is_ok() {
-            let record: RequestRuleMatch = result.expect("WAT");
+        if let Ok(record) = result {
             reqs.push(record);
         } else {
             println!("Could not parse {:?}", result);
@@ -74,7 +76,8 @@ fn main() {
         if reqs_processed % 10000 == 0 {
             println!("{} requests processed", reqs_processed);
         }
-        let checked = engine.check_network_urls(&req.url, &req.sourceUrl, &req.r#type);
+        let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+        let checked = engine.check_network_request(&request);
         if req.blocked == 1 && checked.matched != true {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {

@@ -1,13 +1,10 @@
-#[cfg(feature = "embedded-domain-resolver")]
-use addr::{parser::DomainName, psl::List};
 use criterion::*;
 use tokio::runtime::Runtime;
 
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
 use adblock::request::Request;
-#[cfg(feature = "resource-assembler")]
-use adblock::resources::resource_assembler::assemble_web_accessible_resources;
+use adblock::resources::ResourceStorage;
 
 const DEFAULT_LISTS_URL: &str =
     "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
@@ -16,21 +13,27 @@ async fn get_all_filters() -> Vec<String> {
     use futures::FutureExt;
 
     #[derive(serde::Serialize, serde::Deserialize)]
-    struct ListDescriptor {
+    struct ComponentDescriptor {
+        sources: Vec<SourceDescriptor>,
+    }
+
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct SourceDescriptor {
         url: String,
     }
 
-    let default_lists = reqwest::get(DEFAULT_LISTS_URL)
+    let default_components = reqwest::get(DEFAULT_LISTS_URL)
         .then(|resp| resp.expect("Could not get default filter listing").text())
         .map(|text| {
-            serde_json::from_str::<Vec<ListDescriptor>>(
+            serde_json::from_str::<Vec<ComponentDescriptor>>(
                 &text.expect("Could not get default filter listing as text"),
             )
             .expect("Could not parse default filter listing JSON")
         })
         .await;
 
-    let filters_fut: Vec<_> = default_lists
+    let filters_fut: Vec<_> = default_components[0]
+        .sources
         .iter()
         .map(|list| {
             reqwest::get(&list.url)
@@ -61,13 +64,10 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
 
     network_filters
         .into_iter()
+        .filter(NetworkFilter::is_redirect)
+        .filter(NetworkFilter::also_block_redirect)
         .filter(|rule| {
-            if let Some(ref redirect) = rule.modifier_option {
-                if redirect != "none" {
-                    return true;
-                }
-            }
-            false
+            rule.modifier_option.as_ref().unwrap() != "none"
         })
         .enumerate()
         .map(|(index, mut rule)| {
@@ -92,32 +92,66 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
         enable_optimizations: true,
     };
 
-    #[cfg(not(feature = "resource-assembler"))]
     let blocker = Blocker::new(rules, &blocker_options);
 
+    blocker
+}
+
+fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> ResourceStorage {
+    let mut resources = ResourceStorage::default();
+
     #[cfg(feature = "resource-assembler")]
-    let blocker = {
+    {
         use std::path::Path;
+        use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
-        let mut blocker = Blocker::new(rules, &blocker_options);
-
-        let mut resources = assemble_web_accessible_resources(
+        let mut resource_data = assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-resources.js"),
         );
         #[allow(deprecated)]
-        resources.append(
+        resource_data.append(
             &mut adblock::resources::resource_assembler::assemble_scriptlet_resources(Path::new(
                 "data/test/fake-uBO-files/scriptlets.js",
             )),
         );
 
-        blocker.use_resources(&resources);
+        resource_data
+            .into_iter()
+            .for_each(|resource| {
+                let _res = resources.add_resource(resource);
+            });
+    }
 
-        blocker
-    };
+    #[cfg(not(feature = "resource-assembler"))]
+    {
+        use adblock::resources::{Resource, ResourceType, MimeType};
 
-    blocker
+        filters
+            .iter()
+            .filter(|f| f.is_redirect())
+            .map(|f| {
+                let mut redirect = f.modifier_option.as_ref().unwrap().as_str();
+                // strip priority, if present
+                if let Some(i) = redirect.rfind(':') {
+                    redirect = &redirect[0..i];
+                }
+
+                Resource {
+                    name: redirect.to_owned(),
+                    aliases: vec![],
+                    kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
+                    content: base64::encode(redirect),
+                    dependencies: vec![],
+                    permission: Default::default(),
+                }
+            })
+            .for_each(|resource| {
+                let _res = resources.add_resource(resource);
+            });
+    }
+
+    resources
 }
 
 /// Maps network filter rules into `Request`s that would trigger those rules
@@ -158,57 +192,40 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
             let domain = &rule_hostname[..rule_hostname.find('/').unwrap()];
             let hostname = domain;
 
-            #[allow(unused)]
             let raw_line = rule.raw_line.clone().unwrap();
-            let (source_hostname, source_domain) = if rule.opt_domains.is_some() {
-                #[cfg(not(feature = "embedded-domain-resolver"))]
-                {
-                    panic!("this test requires the `embedded-domain-resolver` feature");
-                }
-                #[cfg(feature = "embedded-domain-resolver")]
-                {
-                    let domain_start = raw_line.rfind("domain=").unwrap() + "domain=".len();
-                    let from_start = &raw_line[domain_start..];
-                    let domain_end = from_start
-                        .find('|')
-                        .or_else(|| from_start.find(","))
-                        .or_else(|| Some(from_start.len()))
-                        .unwrap()
-                        + domain_start;
-                    let source_hostname = &raw_line[domain_start..domain_end];
+            let source_hostname = if rule.opt_domains.is_some() {
+                let domain_start = raw_line.rfind("domain=").unwrap() + "domain=".len();
+                let from_start = &raw_line[domain_start..];
+                let domain_end = from_start
+                    .find('|')
+                    .or_else(|| from_start.find(","))
+                    .or_else(|| Some(from_start.len()))
+                    .unwrap()
+                    + domain_start;
+                let source_hostname = &raw_line[domain_start..domain_end];
 
-                    let domain = List.parse_domain_name(source_hostname).unwrap();
-                    let suffix = domain.suffix();
-                    let domain_start =
-                        source_hostname[..source_hostname.len() - suffix.len() - 1].rfind('.');
-                    let source_domain = if let Some(domain_start) = domain_start {
-                        &source_hostname[domain_start + 1..]
-                    } else {
-                        source_hostname
-                    };
-                    (source_hostname, source_domain)
-                }
+                source_hostname
+            } else if rule.mask.contains(NetworkFilterMask::THIRD_PARTY) {
+                "always-third-party.com"
             } else {
-                (hostname, domain)
+                hostname
             };
 
+            let source_url = format!("https://{}", source_hostname);
+
             Request::new(
-                raw_type,
                 &url,
-                "https",
-                hostname,
-                domain,
-                source_hostname,
-                source_domain,
-            )
+                &source_url,
+                raw_type,
+            ).unwrap()
         })
         .collect::<Vec<_>>()
 }
 
-fn bench_fn(blocker: &Blocker, requests: &[Request]) {
+fn bench_fn(blocker: &Blocker, resources: &ResourceStorage, requests: &[Request]) {
     requests.iter().for_each(|request| {
-        let block_result = blocker.check(&request);
-        assert!(block_result.redirect.is_some());
+        let block_result = blocker.check(&request, &resources);
+        assert!(block_result.redirect.is_some(), "{:?}, {:?}", request, block_result);
     });
 }
 
@@ -218,6 +235,7 @@ fn redirect_performance(c: &mut Criterion) {
     let rules = get_redirect_rules();
 
     let blocker = get_preloaded_blocker(rules.clone());
+    let resources = build_resources_for_filters(&rules);
     let requests = build_custom_requests(rules.clone());
     let requests_len = requests.len() as u64;
 
@@ -225,7 +243,7 @@ fn redirect_performance(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("without_alias_lookup", move |b| {
-        b.iter(|| bench_fn(&blocker, &requests))
+        b.iter(|| bench_fn(&blocker, &resources, &requests))
     });
 
     group.finish();
