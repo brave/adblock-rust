@@ -102,17 +102,6 @@ pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
 
-pub(crate) fn is_eof_error(e: &rmp_serde_legacy::decode::Error) -> bool {
-    if let rmp_serde_legacy::decode::Error::InvalidMarkerRead(e) = e {
-        if e.kind() == std::io::ErrorKind::UnexpectedEof
-            && format!("{}", e) == "failed to fill whole buffer"
-        {
-            return true;
-        }
-    }
-    false
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -247,25 +247,6 @@ fn engine_serialize_raw(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     Ok(buffer)
 }
 
-fn engine_serialize_compressed(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-    let serialized = if let Ok(engine) = this.0.lock() {
-        engine.serialize_compressed().unwrap()
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-
-    // initialise new Array Buffer in the JS context
-    let mut buffer = JsArrayBuffer::new(&mut cx, serialized.len() as u32)?;
-    // copy data from Rust buffer to JS Array Buffer
-    cx.borrow_mut(&mut buffer, |bufferdata| {
-        let slice = bufferdata.as_mut_slice::<u8>();
-        slice.copy_from_slice(&serialized)
-    });
-
-    Ok(buffer)
-}
-
 fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
     let serialized_handle = cx.argument::<JsArrayBuffer>(1)?;
@@ -410,7 +391,6 @@ register_module!(mut m, {
     m.export_function("Engine_urlCosmeticResources", engine_url_cosmetic_resources)?;
     m.export_function("Engine_hiddenClassIdSelectors", engine_hidden_class_id_selectors)?;
     m.export_function("Engine_serializeRaw", engine_serialize_raw)?;
-    m.export_function("Engine_serializeCompressed", engine_serialize_compressed)?;
     m.export_function("Engine_deserialize", engine_deserialize)?;
     m.export_function("Engine_enableTag", engine_enable_tag)?;
     m.export_function("Engine_useResources", engine_use_resources)?;

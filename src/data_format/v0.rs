@@ -16,7 +16,6 @@ use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
 use super::{DeserializationError, SerializationError};
-use super::legacy::{LegacyRedirectResourceStorage, LegacyScriptletResourceStorage};
 
 /// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -124,6 +123,29 @@ impl Into<HostnameRuleDb> for LegacyHostnameRuleDb {
             unremove_class: HostnameFilterBin::default(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub(crate) struct LegacyRedirectResource {
+    pub content_type: String,
+    pub data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub(crate) struct LegacyRedirectResourceStorage {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    pub resources: HashMap<String, LegacyRedirectResource>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub(crate) struct LegacyScriptletResource {
+    scriptlet: String,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+pub(crate) struct LegacyScriptletResourceStorage {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    resources: HashMap<String, LegacyScriptletResource>,
 }
 
 /// `_bug` is no longer used, and is removed from future format versions.
