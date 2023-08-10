@@ -31,7 +31,13 @@ unsafe impl Send for RegexManager {}
 const DEFAULT_CLEAN_UP_INTERVAL: Duration = Duration::from_secs(30);
 const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
-#[cfg(feature = "debug-info")]
+#[cfg(feature = "regex-debug-info")]
+pub struct RegexDebugInfo {
+    pub regex_data: Vec<RegexDebugEntry>,
+    pub compiled_regex_count: usize,
+}
+
+#[cfg(feature = "regex-debug-info")]
 pub struct RegexDebugEntry {
     pub id: u64,
     pub regex: Option<String>,
@@ -153,7 +159,7 @@ impl RegexManager {
         self.discard_policy = new_discard_policy;
     }
 
-    #[cfg(feature = "debug-info")]
+    #[cfg(feature = "regex-debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.map
             .iter_mut()
@@ -163,8 +169,8 @@ impl RegexManager {
             });
     }
 
-    #[cfg(feature = "debug-info")]
-    pub fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
+    #[cfg(feature = "regex-debug-info")]
+    pub(crate) fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
         use itertools::Itertools;
         self.map
             .iter()
@@ -177,13 +183,21 @@ impl RegexManager {
             .collect_vec()
     }
 
-    #[cfg(feature = "debug-info")]
-    pub fn get_compiled_regex_count(&self) -> usize {
+    #[cfg(feature = "regex-debug-info")]
+    pub(crate) fn get_compiled_regex_count(&self) -> usize {
         self.compiled_regex_count
+    }
+
+    #[cfg(feature = "regex-debug-info")]
+    pub fn get_debug_info(&self) -> RegexDebugInfo {
+        RegexDebugInfo {
+            regex_data: self.get_debug_regex_data(),
+            compiled_regex_count: self.get_compiled_regex_count(),
+        }
     }
 }
 
-#[cfg(all(test, feature = "debug-info"))]
+#[cfg(all(test, feature = "regex-debug-info"))]
 mod tests {
     use super::*;
 

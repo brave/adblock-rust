@@ -55,11 +55,6 @@ impl Default for Engine {
     }
 }
 
-#[cfg(feature = "debug-info")]
-pub struct EngineDebugInfo {
-    pub blocker_debug_info: crate::blocker::BlockerDebugInfo,
-}
-
 impl Engine {
     /// Creates a new adblocking `Engine`. `Engine`s created without rules should generally only be
     /// used with deserialization.
@@ -251,14 +246,14 @@ impl Engine {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
-    #[cfg(feature = "debug-info")]
+    #[cfg(feature = "regex-debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.blocker.discard_regex(regex_id);
     }
 
-    #[cfg(feature = "debug-info")]
-    pub fn get_debug_info(&self) -> EngineDebugInfo {
-        EngineDebugInfo { blocker_debug_info: self.blocker.get_debug_info() }
+    #[cfg(feature = "regex-debug-info")]
+    pub fn get_regex_debug_info(&self) -> crate::regex_manager::RegexDebugInfo {
+        self.blocker.get_regex_debug_info()
     }
 }
 

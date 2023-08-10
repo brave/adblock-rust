@@ -84,12 +84,6 @@ pub enum BlockerError {
     FilterExists,
 }
 
-#[cfg(feature = "debug-info")]
-pub struct BlockerDebugInfo {
-    pub regex_data: Vec<crate::regex_manager::RegexDebugEntry>,
-    pub compiled_regex_count: usize,
-}
-
 #[cfg(feature = "object-pooling")]
 pub struct TokenPool {
     pub pool: Pool<Vec<utils::Hash>>
@@ -707,21 +701,17 @@ impl Blocker {
         regex_manager.set_discard_policy(new_discard_policy);
     }
 
-    #[cfg(feature = "debug-info")]
+    #[cfg(feature = "regex-debug-info")]
     pub fn discard_regex(&self, regex_id: u64) {
         let mut regex_manager = self.borrow_regex_manager();
         regex_manager.discard_regex(regex_id);
     }
 
-    #[cfg(feature = "debug-info")]
-    pub fn get_debug_info(&self) -> BlockerDebugInfo {
+    #[cfg(feature = "regex-debug-info")]
+    pub fn get_regex_debug_info(&self) -> crate::regex_manager::RegexDebugInfo {
         let regex_manager = self.borrow_regex_manager();
-        BlockerDebugInfo {
-            regex_data: regex_manager.get_debug_regex_data(),
-            compiled_regex_count: regex_manager.get_compiled_regex_count(),
-        }
+        regex_manager.get_debug_info()
     }
-
 }
 
 #[derive(Serialize, Deserialize, Default)]
