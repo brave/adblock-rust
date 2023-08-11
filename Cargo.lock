@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "adblock"
-version = "0.7.19"
+version = "0.8.0"
 dependencies = [
  "addr",
  "base64",
