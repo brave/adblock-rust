@@ -1,4 +1,5 @@
 use neon::prelude::*;
+use neon::types::buffer::TypedArray as _;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::sync::Mutex;
@@ -17,8 +18,8 @@ mod json_ffi {
     /// Call `JSON.stringify` to convert the input to a `JsString`, then call serde_json to parse
     /// it to an instance of a native Rust type
     pub fn from_js<'a, C: Context<'a>, T: DeserializeOwned>(cx: &mut C, input: Handle<JsValue>) -> NeonResult<T> {
-        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?.downcast::<JsObject, _>(cx).or_throw(cx)?;
-        let json_stringify: Handle<JsFunction> = json.get(cx, "stringify")?.downcast::<JsFunction, _>(cx).or_throw(cx)?;
+        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?;
+        let json_stringify: Handle<JsFunction> = json.get(cx, "stringify")?;
 
         let undefined = JsUndefined::new(cx);
         let js_string = json_stringify
@@ -36,12 +37,13 @@ mod json_ffi {
     pub fn to_js<'a, C: Context<'a>, T: serde::Serialize>(cx: &mut C, input: &T) -> JsResult<'a, JsValue> {
         let input_handle = JsString::new(cx, serde_json::to_string(&input).unwrap());
 
-        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?.downcast::<JsObject, _>(cx).or_throw(cx)?;
-        let json_parse: Handle<JsFunction> = json.get(cx, "parse")?.downcast::<JsFunction, _>(cx).or_throw(cx)?;
+        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?;
+        let json_parse: Handle<JsFunction> = json.get(cx, "parse")?;
 
-        let undefined = JsUndefined::new(cx);
         json_parse
-            .call(cx, undefined, [input_handle])
+            .call_with(cx)
+            .arg(input_handle)
+            .apply(cx)
     }
 }
 
@@ -237,12 +239,9 @@ fn engine_serialize_raw(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     };
 
     // initialise new Array Buffer in the JS context
-    let mut buffer = JsArrayBuffer::new(&mut cx, serialized.len() as u32)?;
+    let mut buffer = JsArrayBuffer::new(&mut cx, serialized.len())?;
     // copy data from Rust buffer to JS Array Buffer
-    cx.borrow_mut(&mut buffer, |bufferdata| {
-        let slice = bufferdata.as_mut_slice::<u8>();
-        slice.copy_from_slice(&serialized)
-    });
+    buffer.as_mut_slice(&mut cx).copy_from_slice(&serialized);
 
     Ok(buffer)
 }
@@ -252,10 +251,7 @@ fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
     let serialized_handle = cx.argument::<JsArrayBuffer>(1)?;
 
     if let Ok(mut engine) = this.0.lock() {
-        let _result = cx.borrow(&serialized_handle, |bufferdata| {
-            let slice = bufferdata.as_slice::<u8>();
-            engine.deserialize(&slice)
-        }).unwrap();
+        let _result = engine.deserialize(&serialized_handle.as_slice(&mut cx));
     }
 
     Ok(JsNull::new(&mut cx))
