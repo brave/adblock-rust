@@ -66,7 +66,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
         async fn get_all_filters() -> adblock::lists::FilterSet {
             use futures::FutureExt;
 
-            const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/default.json";
+            const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
 
             println!(
                 "Downloading list of filter lists from '{}'",
