@@ -88,7 +88,6 @@ bitflags::bitflags! {
     pub struct CosmeticFilterMask: u8 {
         const UNHIDE = 1 << 0;
         const SCRIPT_INJECT = 1 << 1;
-        const IS_UNICODE = 1 << 2;
         const IS_CLASS_SELECTOR = 1 << 3;
         const IS_ID_SELECTOR = 1 << 4;
         const IS_SIMPLE = 1 << 5;
@@ -174,7 +173,6 @@ impl CosmeticFilter {
     fn parse_before_sharp(
         line: &str,
         sharp_index: usize,
-        mask: &mut CosmeticFilterMask,
     ) -> Result<CosmeticFilterLocations, CosmeticFilterError> {
         let mut entities_vec = vec![];
         let mut not_entities_vec = vec![];
@@ -190,7 +188,6 @@ impl CosmeticFilter {
             if location.is_ascii() {
                 hostname.push_str(location);
             } else {
-                *mask |= CosmeticFilterMask::IS_UNICODE;
                 match idna::domain_to_ascii(location) {
                     Ok(x) if !x.is_empty() => hostname.push_str(&x),
                     _ => return Err(CosmeticFilterError::PunycodeError),
@@ -339,7 +336,7 @@ impl CosmeticFilter {
                 hostnames,
                 not_hostnames,
             } = if sharp_index > 0 {
-                CosmeticFilter::parse_before_sharp(line, sharp_index, &mut mask)?
+                CosmeticFilter::parse_before_sharp(line, sharp_index)?
             } else {
                 CosmeticFilterLocations::default()
             };
@@ -383,10 +380,6 @@ impl CosmeticFilter {
                 && mask.contains(CosmeticFilterMask::UNHIDE)
             {
                 return Err(CosmeticFilterError::DoubleNegation);
-            }
-
-            if !selector.is_ascii() {
-                mask |= CosmeticFilterMask::IS_UNICODE;
             }
 
             let key = if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
@@ -1035,7 +1028,6 @@ mod parse_tests {
 
         unhide: bool,
         script_inject: bool,
-        is_unicode: bool,
         is_class_selector: bool,
         is_id_selector: bool,
     }
@@ -1053,7 +1045,6 @@ mod parse_tests {
 
                 unhide: filter.mask.contains(CosmeticFilterMask::UNHIDE),
                 script_inject: filter.mask.contains(CosmeticFilterMask::SCRIPT_INJECT),
-                is_unicode: filter.mask.contains(CosmeticFilterMask::IS_UNICODE),
                 is_class_selector: filter.mask.contains(CosmeticFilterMask::IS_CLASS_SELECTOR),
                 is_id_selector: filter.mask.contains(CosmeticFilterMask::IS_ID_SELECTOR),
             }
@@ -1079,7 +1070,6 @@ mod parse_tests {
 
                 unhide: false,
                 script_inject: false,
-                is_unicode: false,
                 is_class_selector: false,
                 is_id_selector: false,
             }
@@ -1620,7 +1610,6 @@ mod parse_tests {
             "###неделя",
             CosmeticFilterBreakdown {
                 selector: "#неделя".to_string(),
-                is_unicode: true,
                 is_id_selector: true,
                 key: Some("неделя".to_string()),
                 ..Default::default()
@@ -1631,7 +1620,6 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: "#week".to_string(),
                 hostnames: sort_hash_domains(vec!["xn--lloworl-5ggb3f.com"]),
-                is_unicode: true,
                 is_id_selector: true,
                 key: Some("week".to_string()),
                 unhide: true,
