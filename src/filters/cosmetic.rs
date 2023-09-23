@@ -2,8 +2,6 @@
 //! content script injection.
 
 use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
-use once_cell::sync::Lazy;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -88,9 +86,6 @@ bitflags::bitflags! {
     pub struct CosmeticFilterMask: u8 {
         const UNHIDE = 1 << 0;
         const SCRIPT_INJECT = 1 << 1;
-        const IS_CLASS_SELECTOR = 1 << 3;
-        const IS_ID_SELECTOR = 1 << 4;
-        const IS_SIMPLE = 1 << 5;
 
         // Careful with checking for NONE - will always match
         const NONE = 0;
@@ -107,7 +102,6 @@ pub struct CosmeticFilter {
     pub not_hostnames: Option<Vec<Hash>>,
     pub raw_line: Option<Box<String>>,
     pub selector: String,
-    pub key: Option<String>,
     pub action: Option<CosmeticFilterAction>,
     pub permission: PermissionMask,
 }
@@ -382,28 +376,6 @@ impl CosmeticFilter {
                 return Err(CosmeticFilterError::DoubleNegation);
             }
 
-            let key = if !mask.contains(CosmeticFilterMask::SCRIPT_INJECT) {
-                if selector.starts_with('.') {
-                    let key = key_from_selector(&selector)?;
-                    mask |= CosmeticFilterMask::IS_CLASS_SELECTOR;
-                    if key == selector {
-                        mask |= CosmeticFilterMask::IS_SIMPLE;
-                    }
-                    Some(String::from(&key[1..]))
-                } else if selector.starts_with('#') {
-                    let key = key_from_selector(&selector)?;
-                    mask |= CosmeticFilterMask::IS_ID_SELECTOR;
-                    if key == selector {
-                        mask |= CosmeticFilterMask::IS_SIMPLE;
-                    }
-                    Some(String::from(&key[1..]))
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
             Ok(CosmeticFilter {
                 entities,
                 hostnames,
@@ -416,7 +388,6 @@ impl CosmeticFilter {
                     None
                 },
                 selector,
-                key,
                 action,
                 permission,
             })
@@ -915,102 +886,6 @@ mod css_validation {
     }
 }
 
-static RE_PLAIN_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.][\w\\-]+").unwrap());
-static RE_PLAIN_SELECTOR_ESCAPED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap());
-static RE_ESCAPE_SEQUENCE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap());
-
-/// Returns the first token of a CSS selector.
-///
-/// This should only be called once `selector` has been verified to start with either a "#" or "."
-/// character.
-fn key_from_selector(selector: &str) -> Result<String, CosmeticFilterError> {
-    // If there are no escape characters in the selector, just take the first class or id token.
-    let mat = RE_PLAIN_SELECTOR.find(selector);
-    if let Some(location) = mat {
-        let key = &location.as_str();
-        if find_char(b'\\', key.as_bytes()).is_none() {
-            return Ok((*key).into());
-        }
-    } else {
-        return Err(CosmeticFilterError::InvalidCssSelector);
-    }
-
-    // Otherwise, the characters in the selector must be escaped.
-    let mat = RE_PLAIN_SELECTOR_ESCAPED.find(selector);
-    if let Some(location) = mat {
-        let mut key = String::with_capacity(selector.len());
-        let escaped = &location.as_str();
-        let mut beginning = 0;
-        let mat = RE_ESCAPE_SEQUENCE.captures_iter(escaped);
-        for capture in mat {
-            // Unwrap is safe because the 0th capture group is the match itself
-            let location = capture.get(0).unwrap();
-            key += &escaped[beginning..location.start()];
-            beginning = location.end();
-            // Unwrap is safe because there is a capture group specified in the regex
-            let capture = capture.get(1).unwrap().as_str();
-            if capture.chars().count() == 1 {   // Check number of unicode characters rather than byte length
-                key += capture;
-            } else {
-                // This u32 conversion can overflow
-                let codepoint = u32::from_str_radix(&capture[..capture.len() - 1], 16)
-                    .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
-
-                // Not all u32s are valid Unicode codepoints
-                key += &core::char::from_u32(codepoint)
-                    .ok_or(CosmeticFilterError::InvalidCssSelector)?
-                    .to_string();
-            }
-        }
-        Ok(key + &escaped[beginning..])
-    } else {
-        Err(CosmeticFilterError::InvalidCssSelector)
-    }
-}
-
-#[cfg(test)]
-mod key_from_selector_tests {
-    use super::key_from_selector;
-
-    #[test]
-    fn no_escapes() {
-        assert_eq!(key_from_selector(r#"#selector"#).unwrap(), "#selector");
-        assert_eq!(key_from_selector(r#"#ad-box[href="https://popads.net"]"#).unwrap(), "#ad-box");
-        assert_eq!(key_from_selector(r#".p"#).unwrap(), ".p");
-        assert_eq!(key_from_selector(r#".ad #ad.adblockblock"#).unwrap(), ".ad");
-        assert_eq!(key_from_selector(r#"#container.contained"#).unwrap(), "#container");
-    }
-
-    #[test]
-    fn escaped_characters() {
-        assert_eq!(key_from_selector(r"#Meebo\:AdElement\.Root").unwrap(), "#Meebo:AdElement.Root");
-        assert_eq!(key_from_selector(r"#\ Banner\ Ad\ -\ 590\ x\ 90").unwrap(), "# Banner Ad - 590 x 90");
-        assert_eq!(key_from_selector(r"#\ rek").unwrap(), "# rek");
-        assert_eq!(key_from_selector(r#"#\:rr .nH[role="main"] .mq:first-child"#).unwrap(), "#:rr");
-        assert_eq!(key_from_selector(r#"#adspot-300x600\,300x250-pos-1"#).unwrap(), "#adspot-300x600,300x250-pos-1");
-        assert_eq!(key_from_selector(r#"#adv_\'146\'"#).unwrap(), "#adv_\'146\'");
-        assert_eq!(key_from_selector(r#"#oas-mpu-left\<\/div\>"#).unwrap(), "#oas-mpu-left</div>");
-        assert_eq!(key_from_selector(r#".Trsp\(op\).Trsdu\(3s\)"#).unwrap(), ".Trsp(op)");
-    }
-
-    #[test]
-    fn escape_codes() {
-        assert_eq!(key_from_selector(r#"#\5f _mom_ad_12"#).unwrap(), "#__mom_ad_12");
-        assert_eq!(key_from_selector(r#"#\5f _nq__hh[style="display:block!important"]"#).unwrap(), "#__nq__hh");
-        assert_eq!(key_from_selector(r#"#\31 000-014-ros"#).unwrap(), "#1000-014-ros");
-        assert_eq!(key_from_selector(r#"#\33 00X250ad"#).unwrap(), "#300X250ad");
-        assert_eq!(key_from_selector(r#"#\5f _fixme"#).unwrap(), "#__fixme");
-        assert_eq!(key_from_selector(r#"#\37 28ad"#).unwrap(), "#728ad");
-    }
-
-    #[test]
-    fn bad_escapes() {
-        assert!(key_from_selector(r#"#\5ffffffffff overflows"#).is_err());
-        assert!(key_from_selector(r#"#\5fffffff is_too_large"#).is_err());
-    }
-}
-
 #[cfg(test)]
 mod parse_tests {
     use super::*;
@@ -1023,13 +898,10 @@ mod parse_tests {
         not_entities: Option<Vec<Hash>>,
         not_hostnames: Option<Vec<Hash>>,
         selector: String,
-        key: Option<String>,
         action: Option<CosmeticFilterAction>,
 
         unhide: bool,
         script_inject: bool,
-        is_class_selector: bool,
-        is_id_selector: bool,
     }
 
     impl From<&CosmeticFilter> for CosmeticFilterBreakdown {
@@ -1040,13 +912,10 @@ mod parse_tests {
                 not_entities: filter.not_entities.as_ref().cloned(),
                 not_hostnames: filter.not_hostnames.as_ref().cloned(),
                 selector: filter.selector.clone(),
-                key: filter.key.as_ref().cloned(),
                 action: filter.action.as_ref().cloned(),
 
                 unhide: filter.mask.contains(CosmeticFilterMask::UNHIDE),
                 script_inject: filter.mask.contains(CosmeticFilterMask::SCRIPT_INJECT),
-                is_class_selector: filter.mask.contains(CosmeticFilterMask::IS_CLASS_SELECTOR),
-                is_id_selector: filter.mask.contains(CosmeticFilterMask::IS_ID_SELECTOR),
             }
         }
     }
@@ -1065,13 +934,10 @@ mod parse_tests {
                 not_entities: None,
                 not_hostnames: None,
                 selector: "".to_string(),
-                key: None,
                 action: None,
 
                 unhide: false,
                 script_inject: false,
-                is_class_selector: false,
-                is_id_selector: false,
             }
         }
     }
@@ -1100,8 +966,6 @@ mod parse_tests {
             "###selector",
             CosmeticFilterBreakdown {
                 selector: "#selector".to_string(),
-                is_id_selector: true,
-                key: Some("selector".to_string()),
                 ..Default::default()
             },
         );
@@ -1109,8 +973,6 @@ mod parse_tests {
             "##.selector",
             CosmeticFilterBreakdown {
                 selector: ".selector".to_string(),
-                is_class_selector: true,
-                key: Some("selector".to_string()),
                 ..Default::default()
             },
         );
@@ -1526,8 +1388,6 @@ mod parse_tests {
                 selector: r#".date:not(dt)"#.to_string(),
                 entities: sort_hash_domains(vec!["downloadsource"]),
                 action: Some(CosmeticFilterAction::Style("display: block !important;".into())),
-                is_class_selector: true,
-                key: Some("date".to_string()),
                 ..Default::default()
             },
         );
@@ -1541,8 +1401,6 @@ mod parse_tests {
                 selector: r#".video-wrapper > video[style]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["chip.de"]),
                 action: Some(CosmeticFilterAction::Style("display:block!important;padding-top:0!important;".into())),
-                is_class_selector: true,
-                key: Some("video-wrapper".to_string()),
                 ..Default::default()
             },
         );
@@ -1552,8 +1410,6 @@ mod parse_tests {
                 selector: r#".advertising.medium-rectangle"#.to_string(),
                 hostnames: sort_hash_domains(vec!["allmusic.com"]),
                 action: Some(CosmeticFilterAction::Style("min-height: 1px !important;".into())),
-                is_class_selector: true,
-                key: Some("advertising".to_string()),
                 ..Default::default()
             },
         );
@@ -1564,8 +1420,6 @@ mod parse_tests {
                 selector: r#".signup_wall_prevent_scroll .SiteHeader, .signup_wall_prevent_scroll .LoggedOutFooter, .signup_wall_prevent_scroll .ContentWrapper"#.to_string(),
                 hostnames: sort_hash_domains(vec!["quora.com"]),
                 action: Some(CosmeticFilterAction::Style("filter: none !important;".into())),
-                is_class_selector: true,
-                key: Some("signup_wall_prevent_scroll".to_string()),
                 ..Default::default()
             }
         );
@@ -1584,8 +1438,6 @@ mod parse_tests {
                 selector: r#"#login > div[style^="width"]"#.to_string(),
                 hostnames: sort_hash_domains(vec!["streamcloud.eu"]),
                 action: Some(CosmeticFilterAction::Style("display: block !important".into())),
-                is_id_selector: true,
-                key: Some("login".to_string()),
                 ..Default::default()
             },
         );
@@ -1610,8 +1462,6 @@ mod parse_tests {
             "###неделя",
             CosmeticFilterBreakdown {
                 selector: "#неделя".to_string(),
-                is_id_selector: true,
-                key: Some("неделя".to_string()),
                 ..Default::default()
             },
         );
@@ -1620,8 +1470,6 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: "#week".to_string(),
                 hostnames: sort_hash_domains(vec!["xn--lloworl-5ggb3f.com"]),
-                is_id_selector: true,
-                key: Some("week".to_string()),
                 unhide: true,
                 ..Default::default()
             }
