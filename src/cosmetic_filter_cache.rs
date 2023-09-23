@@ -15,6 +15,7 @@ use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
 
+use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
 
 /// Contains cosmetic filter information intended to be used on a particular URL.
@@ -138,29 +139,31 @@ impl CosmeticFilterCache {
 
     /// Add a filter, assuming it has already been determined to be a generic rule
     fn add_generic_filter(&mut self, rule: CosmeticFilter) {
-        if rule.mask.contains(CosmeticFilterMask::IS_CLASS_SELECTOR) {
-            if let Some(key) = &rule.key {
-                let key = key.clone();
-                if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
-                    self.simple_class_rules.insert(key);
+        if rule.selector.starts_with('.') {
+            if let Some(key) = key_from_selector(&rule.selector) {
+                assert!(key.starts_with('.'));
+                let class = key[1..].to_string();
+                if key == rule.selector {
+                    self.simple_class_rules.insert(class);
                 } else {
-                    if let Some(bucket) = self.complex_class_rules.get_mut(&key) {
+                    if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
                         bucket.push(rule.selector);
                     } else {
-                        self.complex_class_rules.insert(key, vec![rule.selector]);
+                        self.complex_class_rules.insert(class, vec![rule.selector]);
                     }
                 }
             }
-        } else if rule.mask.contains(CosmeticFilterMask::IS_ID_SELECTOR) {
-            if let Some(key) = &rule.key {
-                let key = key.clone();
-                if rule.mask.contains(CosmeticFilterMask::IS_SIMPLE) {
-                    self.simple_id_rules.insert(key);
+        } else if rule.selector.starts_with('#') {
+            if let Some(key) = key_from_selector(&rule.selector) {
+                assert!(key.starts_with('#'));
+                let id = key[1..].to_string();
+                if key == rule.selector {
+                    self.simple_id_rules.insert(id);
                 } else {
-                    if let Some(bucket) = self.complex_id_rules.get_mut(&key) {
+                    if let Some(bucket) = self.complex_id_rules.get_mut(&id) {
                         bucket.push(rule.selector);
                     } else {
-                        self.complex_id_rules.insert(key, vec![rule.selector]);
+                        self.complex_id_rules.insert(id, vec![rule.selector]);
                     }
                 }
             }
@@ -551,6 +554,103 @@ fn hostname_domain_hashes(hostname: &str, domain: &str) -> (Vec<Hash>, Vec<Hash>
         crate::filters::cosmetic::get_hostname_hashes_from_labels(hostname, domain);
 
     (request_entities, request_hostnames)
+}
+
+/// Returns the first token of a CSS selector.
+///
+/// This should only be called once `selector` has been verified to start with either a "#" or "."
+/// character.
+fn key_from_selector(selector: &str) -> Option<String> {
+    use once_cell::sync::Lazy;
+    use regex::Regex;
+
+    static RE_PLAIN_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.][\w\\-]+").unwrap());
+    static RE_PLAIN_SELECTOR_ESCAPED: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap());
+    static RE_ESCAPE_SEQUENCE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap());
+
+    // If there are no escape characters in the selector, just take the first class or id token.
+    let mat = RE_PLAIN_SELECTOR.find(selector);
+    if let Some(location) = mat {
+        let key = &location.as_str();
+        if find_char(b'\\', key.as_bytes()).is_none() {
+            return Some((*key).into());
+        }
+    } else {
+        return None;
+    }
+
+    // Otherwise, the characters in the selector must be escaped.
+    let mat = RE_PLAIN_SELECTOR_ESCAPED.find(selector);
+    if let Some(location) = mat {
+        let mut key = String::with_capacity(selector.len());
+        let escaped = &location.as_str();
+        let mut beginning = 0;
+        let mat = RE_ESCAPE_SEQUENCE.captures_iter(escaped);
+        for capture in mat {
+            // Unwrap is safe because the 0th capture group is the match itself
+            let location = capture.get(0).unwrap();
+            key += &escaped[beginning..location.start()];
+            beginning = location.end();
+            // Unwrap is safe because there is a capture group specified in the regex
+            let capture = capture.get(1).unwrap().as_str();
+            if capture.chars().count() == 1 {   // Check number of unicode characters rather than byte length
+                key += capture;
+            } else {
+                // This u32 conversion can overflow
+                let codepoint = u32::from_str_radix(&capture[..capture.len() - 1], 16).ok()?;
+
+                // Not all u32s are valid Unicode codepoints
+                key += &core::char::from_u32(codepoint)?
+                    .to_string();
+            }
+        }
+        Some(key + &escaped[beginning..])
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod key_from_selector_tests {
+    use super::key_from_selector;
+
+    #[test]
+    fn no_escapes() {
+        assert_eq!(key_from_selector(r#"#selector"#).unwrap(), "#selector");
+        assert_eq!(key_from_selector(r#"#ad-box[href="https://popads.net"]"#).unwrap(), "#ad-box");
+        assert_eq!(key_from_selector(r#".p"#).unwrap(), ".p");
+        assert_eq!(key_from_selector(r#".ad #ad.adblockblock"#).unwrap(), ".ad");
+        assert_eq!(key_from_selector(r#"#container.contained"#).unwrap(), "#container");
+    }
+
+    #[test]
+    fn escaped_characters() {
+        assert_eq!(key_from_selector(r"#Meebo\:AdElement\.Root").unwrap(), "#Meebo:AdElement.Root");
+        assert_eq!(key_from_selector(r"#\ Banner\ Ad\ -\ 590\ x\ 90").unwrap(), "# Banner Ad - 590 x 90");
+        assert_eq!(key_from_selector(r"#\ rek").unwrap(), "# rek");
+        assert_eq!(key_from_selector(r#"#\:rr .nH[role="main"] .mq:first-child"#).unwrap(), "#:rr");
+        assert_eq!(key_from_selector(r#"#adspot-300x600\,300x250-pos-1"#).unwrap(), "#adspot-300x600,300x250-pos-1");
+        assert_eq!(key_from_selector(r#"#adv_\'146\'"#).unwrap(), "#adv_\'146\'");
+        assert_eq!(key_from_selector(r#"#oas-mpu-left\<\/div\>"#).unwrap(), "#oas-mpu-left</div>");
+        assert_eq!(key_from_selector(r#".Trsp\(op\).Trsdu\(3s\)"#).unwrap(), ".Trsp(op)");
+    }
+
+    #[test]
+    fn escape_codes() {
+        assert_eq!(key_from_selector(r#"#\5f _mom_ad_12"#).unwrap(), "#__mom_ad_12");
+        assert_eq!(key_from_selector(r#"#\5f _nq__hh[style="display:block!important"]"#).unwrap(), "#__nq__hh");
+        assert_eq!(key_from_selector(r#"#\31 000-014-ros"#).unwrap(), "#1000-014-ros");
+        assert_eq!(key_from_selector(r#"#\33 00X250ad"#).unwrap(), "#300X250ad");
+        assert_eq!(key_from_selector(r#"#\5f _fixme"#).unwrap(), "#__fixme");
+        assert_eq!(key_from_selector(r#"#\37 28ad"#).unwrap(), "#728ad");
+    }
+
+    #[test]
+    fn bad_escapes() {
+        assert!(key_from_selector(r#"#\5ffffffffff overflows"#).is_none());
+        assert!(key_from_selector(r#"#\5fffffff is_too_large"#).is_none());
+    }
 }
 
 #[cfg(test)]
