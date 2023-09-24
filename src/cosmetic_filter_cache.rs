@@ -139,36 +139,37 @@ impl CosmeticFilterCache {
 
     /// Add a filter, assuming it has already been determined to be a generic rule
     fn add_generic_filter(&mut self, rule: CosmeticFilter) {
-        if rule.selector.starts_with('.') {
-            if let Some(key) = key_from_selector(&rule.selector) {
+        let selector = rule.plain_css_selector().expect("Procedural cosmetic filters cannot be generic").to_string();
+        if selector.starts_with('.') {
+            if let Some(key) = key_from_selector(&selector) {
                 assert!(key.starts_with('.'));
                 let class = key[1..].to_string();
-                if key == rule.selector {
+                if key == selector {
                     self.simple_class_rules.insert(class);
                 } else {
                     if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
-                        bucket.push(rule.selector);
+                        bucket.push(selector);
                     } else {
-                        self.complex_class_rules.insert(class, vec![rule.selector]);
+                        self.complex_class_rules.insert(class, vec![selector]);
                     }
                 }
             }
-        } else if rule.selector.starts_with('#') {
-            if let Some(key) = key_from_selector(&rule.selector) {
+        } else if selector.starts_with('#') {
+            if let Some(key) = key_from_selector(&selector) {
                 assert!(key.starts_with('#'));
                 let id = key[1..].to_string();
-                if key == rule.selector {
+                if key == selector {
                     self.simple_id_rules.insert(id);
                 } else {
                     if let Some(bucket) = self.complex_id_rules.get_mut(&id) {
-                        bucket.push(rule.selector);
+                        bucket.push(selector);
                     } else {
-                        self.complex_id_rules.insert(id, vec![rule.selector]);
+                        self.complex_id_rules.insert(id, vec![selector]);
                     }
                 }
             }
         } else {
-            self.misc_generic_selectors.insert(rule.selector);
+            self.misc_generic_selectors.insert(selector);
         }
     }
 
@@ -456,9 +457,18 @@ impl HostnameRuleDb {
         use crate::filters::cosmetic::CosmeticFilterAction;
         use SpecificFilterType::*;
 
+        if rule.plain_css_selector().is_none() {
+            return;
+        }
+
         let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
         let script_inject = rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT);
-        let selector = rule.selector;
+        let selector = if let Some(s) = rule.plain_css_selector() {
+            s.to_string()
+        } else {
+            // procedural filters - unhandled for now
+            return;
+        };
 
         let kind = match (unhide, script_inject, rule.action) {
             (false, false, None) => Hide(selector),
