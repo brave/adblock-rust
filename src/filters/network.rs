@@ -69,6 +69,8 @@ pub enum NetworkFilterError {
     CspWithContentType,
     #[error("match-case without full regex")]
     MatchCaseWithoutFullRegex,
+    #[error("domain regex syntax unsupported")]
+    DomainRegexSyntaxUnsupported,
 }
 
 bitflags::bitflags! {
@@ -381,6 +383,9 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
 
         result.push(match (option, negation) {
             ("domain", _) => {
+                if value.ends_with('/') {
+                    return Err(NetworkFilterError::DomainRegexSyntaxUnsupported);
+                }
                 let domains: Vec<(bool, String)> = value.split('|').map(|domain| {
                     if let Some(negated_domain) = domain.strip_prefix('~') {
                         (false, negated_domain.to_string())
@@ -2280,6 +2285,11 @@ mod parse_tests {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
             assert_eq!(filter.opt_domains, None);
             assert_eq!(filter.opt_not_domains, None);
+        }
+        // regex variant unsupported
+        {
+            let filter = NetworkFilter::parse(r#"||foo.com$domain=/img[a-z]{3-5}\.buzz/"#, true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::DomainRegexSyntaxUnsupported));
         }
     }
 
