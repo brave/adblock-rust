@@ -35,7 +35,7 @@ serde =  { version = "1.0", features = ["derive", "rc"] }
 seahash = "3"   # seahash 4 introduces a breaking hash algorithm change
 memchr = "2.4"
 base64 = "0.13"
-rmp-serde = "0.15"
+rmp-serde = "1.1"
 lifeguard = { version = "^ 0.6.1", optional = true }
 cssparser = { version = "0.28", optional = true }
 selectors = { version = "0.23", optional = true }
