@@ -14,6 +14,7 @@
     "rust"
   ],
   "main": "js/index.js",
+  "types": "js/index.d.ts",
   "author": "Anton Lazarev <alazarev@brave.com>",
   "contributors": [
     "Andrius Aucinas"
