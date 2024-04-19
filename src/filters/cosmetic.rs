@@ -40,6 +40,8 @@ pub enum CosmeticFilterError {
     HtmlFilteringUnsupported,
     #[error("scriptlet args could not be parsed")]
     InvalidScriptletArgs,
+    #[error("location modifiers are unsupported")]
+    LocationModifiersUnsupported,
 }
 
 /// Refer to <https://github.com/uBlockOrigin/uBlock-issues/wiki/Static-filter-syntax#action-operators>
@@ -178,6 +180,10 @@ impl CosmeticFilter {
         let mut not_entities_vec = vec![];
         let mut hostnames_vec = vec![];
         let mut not_hostnames_vec = vec![];
+
+        if line.starts_with('[') {
+            return Err(CosmeticFilterError::LocationModifiersUnsupported);
+        }
 
         for (location_type, location) in Self::locations_before_sharp(line, sharp_index) {
             let mut hostname = String::new();
