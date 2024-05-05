@@ -35,9 +35,9 @@ dependencies = [
 
 [[package]]
 name = "addr"
-version = "0.14.0"
+version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c54ccac949a2afafdfc889e15c753bbc6ee8783e026bbe3d057b00b13907db70"
+checksum = "a93b8a41dbe230ad5087cc721f8d41611de654542180586b315d9f4cf6b72bef"
 dependencies = [
  "psl",
  "psl-types",
