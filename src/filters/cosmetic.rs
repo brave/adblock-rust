@@ -192,8 +192,8 @@ impl CosmeticFilter {
             } else {
                 *mask |= CosmeticFilterMask::IS_UNICODE;
                 match idna::domain_to_ascii(location) {
-                    Ok(x) => hostname.push_str(&x),
-                    Err(_) => return Err(CosmeticFilterError::PunycodeError),
+                    Ok(x) if !x.is_empty() => hostname.push_str(&x),
+                    _ => return Err(CosmeticFilterError::PunycodeError),
                 }
             }
             let hash = crate::utils::fast_hash(&hostname);
@@ -1980,6 +1980,11 @@ mod matching_tests {
         assert!(parse_cf("example.com###adBanner:remove()").is_ok());
         assert!(parse_cf("example.com###adBanner:remove-attr(style)").is_ok());
         assert!(parse_cf("example.com###adBanner:remove-class(src)").is_ok());
+    }
+
+    #[test]
+    fn zero_width_space() {
+        assert!(parse_cf(r#"​##a[href^="https://www.g2fame.com/"] > img"#).is_err());
     }
 
     #[test]
