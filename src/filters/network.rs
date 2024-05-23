@@ -69,6 +69,8 @@ pub enum NetworkFilterError {
     CspWithContentType,
     #[error("match-case without full regex")]
     MatchCaseWithoutFullRegex,
+    #[error("no supported domains")]
+    NoSupportedDomains,
 }
 
 bitflags::bitflags! {
@@ -387,7 +389,12 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                     } else {
                         (true, domain.to_string())
                     }
-                }).collect();
+                })
+                    .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
+                    .collect();
+                if domains.is_empty() {
+                    return Err(NetworkFilterError::NoSupportedDomains);
+                }
                 NetworkFilterOption::Domain(domains)
             }
             ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
@@ -2286,6 +2293,10 @@ mod parse_tests {
             let filter = NetworkFilter::parse("||foo.com$from=bar.com", true, Default::default()).unwrap();
             assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("bar.com")]));
             assert_eq!(filter.opt_not_domains, None);
+        }
+        {
+            let filter = NetworkFilter::parse(r"||video.twimg.com/ext_tw_video/*/*.m3u8$domain=/^i[a-z]*\.strmrdr[a-z]+\..*/", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::NoSupportedDomains));
         }
     }
 
