@@ -644,12 +644,22 @@ impl NetworkFilter {
 
         // If any negated "network" types were set, then implicitly enable all network types.
         // The negated types will be applied later.
-        if (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES) != NetworkFilterMask::NONE {
+        //
+        // This doesn't apply to removeparam filters.
+        if !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+            && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES) != NetworkFilterMask::NONE {
             mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
         // If no positive types were set, then the filter should apply to all network types.
         if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() {
-            mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
+            // Removeparam is again a special case.
+            if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+                mask |= NetworkFilterMask::FROM_DOCUMENT
+                    | NetworkFilterMask::FROM_SUBDOCUMENT
+                    | NetworkFilterMask::FROM_XMLHTTPREQUEST;
+            } else {
+                mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
+            }
         }
 
         match parsed.pattern.left_anchor {
@@ -833,13 +843,6 @@ impl NetworkFilter {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
 
-        // `removeparam` rules apply to all request types by default, including document.
-        if mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
-            && (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty()
-        {
-            mask |= NetworkFilterMask::FROM_ALL_TYPES;
-        }
-
         // uBlock Origin would block main document `https://example.com` requests with all of the
         // following filters:
         // - ||example.com
@@ -854,7 +857,8 @@ impl NetworkFilter {
                 (cpt_mask_negative & NetworkFilterMask::FROM_ALL_TYPES).is_empty() &&
                 mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) &&
                 mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) &&
-                !end_url_anchor {
+                !end_url_anchor &&
+                !mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
         // Finally, apply any explicitly negated request types
