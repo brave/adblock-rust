@@ -46,12 +46,31 @@ pub enum CosmeticFilterError {
 
 /// Refer to <https://github.com/uBlockOrigin/uBlock-issues/wiki/Static-filter-syntax#action-operators>
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "arg")]
+#[serde(rename_all="kebab-case")]
 pub enum CosmeticFilterAction {
+    /// Rules with a remove action, e.g. `example.com##.ad:remove()`.
+    ///
+    /// Matching elements are to be removed from the DOM.
     Remove,
+    /// Rules with a custom style for an element, e.g. `example.com##.ad:style(margin: 0)`.
+    ///
     /// Argument is one or more CSS property declarations, separated by the standard ;. Some
     /// characters, strings, and values are forbidden.
+    ///
+    /// The specified CSS styling should be applied to matching elements in the DOM.
     Style(String),
+    /// Rules with a remove attribute action, e.g. `example.com##.ad:remove-attr(onclick)`.
+    ///
+    /// Argument is the name of an HTML attribute.
+    ///
+    /// The attribute should be removed from matching elements in the DOM.
     RemoveAttr(String),
+    /// Rules with a remove class action, e.g. `example.com##.ad:remove-class(advert)`.
+    ///
+    /// The parameter is the name of a CSS class.
+    ///
+    /// The class should be removed from matching elements in the DOM.
     RemoveClass(String),
 }
 
@@ -111,9 +130,19 @@ pub struct CosmeticFilter {
 /// Individual parts of a cosmetic filter's selector. Most rules have a CSS selector; some may also
 /// have one or more procedural operators.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "arg")]
+#[serde(rename_all="kebab-case")]
 pub enum CosmeticFilterOperator {
     CssSelector(String),
     HasText(String),
+    MatchesAttr(String),
+    MatchesCss(String),
+    MatchesCssBefore(String),
+    MatchesCssAfter(String),
+    MatchesPath(String),
+    MinTextLength(String),
+    Upward(String),
+    Xpath(String),
 }
 
 pub enum CosmeticFilterLocationType {
@@ -593,8 +622,17 @@ mod css_validation {
 
         fn is_procedural_operator(c: &selectors::parser::Component<SelectorImpl>) -> bool {
             use selectors::parser::Component;
+            // Avoid using `to_procedural_operator.is_some()`, which will re-allocate the argument string.
             match c {
                 Component::NonTSPseudoClass(NonTSPseudoClass::HasText(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesAttr(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCss(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCssBefore(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCssAfter(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesPath(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::MinTextLength(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::Upward(_)) => true,
+                Component::NonTSPseudoClass(NonTSPseudoClass::Xpath(_)) => true,
                 _ => false,
             }
         }
@@ -654,10 +692,16 @@ mod css_validation {
             for part in parts.into_iter().rev() {
                 use selectors::parser::Component;
                 match part {
-                    SelectorsPart::Component(Component::NonTSPseudoClass(NonTSPseudoClass::HasText(t))) => {
-                        output.push(CosmeticFilterOperator::CssSelector(pending_css_selector));
-                        pending_css_selector = String::new();
-                        output.push(CosmeticFilterOperator::HasText(t.to_owned()));
+                    SelectorsPart::Component(Component::NonTSPseudoClass(c)) => {
+                        if let Some(procedural_operator) = c.to_procedural_operator() {
+                            if !pending_css_selector.is_empty() {
+                                output.push(CosmeticFilterOperator::CssSelector(pending_css_selector));
+                                pending_css_selector = String::new();
+                            }
+                            output.push(procedural_operator);
+                        } else {
+                            c.to_css(&mut pending_css_selector).map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                        }
                     }
                     SelectorsPart::Component(other) => {
                         other.to_css(&mut pending_css_selector).map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
@@ -819,6 +863,7 @@ mod css_validation {
             let canonical_name = match (self.accept_abp_selectors, name.as_ref()) {
                 (true, "-abp-has") => Some("has"),
                 (true, "-abp-contains") => Some("has-text"),
+                (true, "contains") => Some("has-text"),
                 _ => None,
             }
             .unwrap_or(name.as_ref());
@@ -827,11 +872,41 @@ mod css_validation {
                     let text = to_css_nested(arguments)?;
                     return Ok(NonTSPseudoClass::HasText(text));
                 }
-                "-abp-contains" | "-abp-has" | "-abp-properties" | "if" | "if-not"
-                | "matches-attr" | "matches-css" | "matches-css-after" | "matches-css-before"
-                | "matches-media" | "matches-path" | "min-text-length" | "nth-ancestor"
-                | "properties" | "subject" | "upward" | "remove" | "remove-attr"
-                | "remove-class" | "watch-attr" | "xpath" => {
+                "matches-attr" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::MatchesAttr(text));
+                }
+                "matches-css" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::MatchesCss(text));
+                }
+                "matches-css-before" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::MatchesCssBefore(text));
+                }
+                "matches-css-after" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::MatchesCssAfter(text));
+                }
+                "matches-path" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::MatchesPath(text));
+                }
+                "min-text-length" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::MinTextLength(text));
+                }
+                "upward" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::Upward(text));
+                }
+                "xpath" => {
+                    let text = to_css_nested(arguments)?;
+                    return Ok(NonTSPseudoClass::Xpath(text));
+                }
+                "-abp-contains" | "-abp-has" | "-abp-properties" | "contains" | "if" | "if-not"
+                | "matches-property" | "nth-ancestor" | "properties" | "subject" | "remove"
+                | "remove-attr" | "remove-class" => {
                     return Err(arguments.new_custom_error(
                         SelectorParseErrorKind::UnsupportedPseudoClassOrElement(name),
                     ))
@@ -943,6 +1018,22 @@ mod css_validation {
     enum NonTSPseudoClass {
         /// The `:has-text` or `:-abp-contains` procedural operator.
         HasText(String),
+        /// The `:matches-attr` procedural operator.
+        MatchesAttr(String),
+        /// The `:matches-css` procedural operator.
+        MatchesCss(String),
+        /// The `:matches-css-before` procedural operator.
+        MatchesCssBefore(String),
+        /// The `:matches-css-after` procedural operator.
+        MatchesCssAfter(String),
+        /// The `:matches-path` procedural operator.
+        MatchesPath(String),
+        /// The `:min-text-length` procedural operator.
+        MinTextLength(String),
+        /// The `:upward` procedural operator.
+        Upward(String),
+        /// The `:xpath` procedural operator.
+        Xpath(String),
         /// Any native CSS pseudoclass that isn't a procedural operator. Second argument contains inner arguments, if present.
         AnythingElse(String, Option<String>),
     }
@@ -962,10 +1053,35 @@ mod css_validation {
             write!(dest, ":")?;
             match self {
                 Self::HasText(text) => write!(dest, "has-text({})", text)?,
+                Self::MatchesAttr(text) => write!(dest, "matches-attr({})", text)?,
+                Self::MatchesCss(text) => write!(dest, "matches-css({})", text)?,
+                Self::MatchesCssBefore(text) => write!(dest, "matches-css-before({})", text)?,
+                Self::MatchesCssAfter(text) => write!(dest, "matches-css-after({})", text)?,
+                Self::MatchesPath(text) => write!(dest, "matches-path({})", text)?,
+                Self::MinTextLength(text) => write!(dest, "min-text-length({})", text)?,
+                Self::Upward(text) => write!(dest, "upward({})", text)?,
+                Self::Xpath(text) => write!(dest, "xpath({})", text)?,
                 Self::AnythingElse(name, None) => write!(dest, "{}", name)?,
                 Self::AnythingElse(name, Some(args)) => write!(dest, "{}({})", name, args)?,
             }
             Ok(())
+        }
+    }
+
+    impl NonTSPseudoClass {
+        fn to_procedural_operator(&self) -> Option<CosmeticFilterOperator> {
+            match self {
+                NonTSPseudoClass::HasText(a) => Some(CosmeticFilterOperator::HasText(a.to_owned())),
+                NonTSPseudoClass::MatchesAttr(a) => Some(CosmeticFilterOperator::MatchesAttr(a.to_owned())),
+                NonTSPseudoClass::MatchesCss(a) => Some(CosmeticFilterOperator::MatchesCss(a.to_owned())),
+                NonTSPseudoClass::MatchesCssBefore(a) => Some(CosmeticFilterOperator::MatchesCssBefore(a.to_owned())),
+                NonTSPseudoClass::MatchesCssAfter(a) => Some(CosmeticFilterOperator::MatchesCssAfter(a.to_owned())),
+                NonTSPseudoClass::MatchesPath(a) => Some(CosmeticFilterOperator::MatchesPath(a.to_owned())),
+                NonTSPseudoClass::MinTextLength(a) => Some(CosmeticFilterOperator::MinTextLength(a.to_owned())),
+                NonTSPseudoClass::Upward(a) => Some(CosmeticFilterOperator::Upward(a.to_owned())),
+                NonTSPseudoClass::Xpath(a) => Some(CosmeticFilterOperator::Xpath(a.to_owned())),
+                _ => None,
+            }
         }
     }
 
@@ -1703,12 +1819,14 @@ mod parse_tests {
         assert!(parse_cf("yandex.*##.serp-item:if(:scope > div.organic div.organic__subtitle:matches-css-after(content: /[Рр]еклама/))").is_err());
         assert!(parse_cf(r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#).is_err());
         assert!(parse_cf(r#"readcomiconline.to##^script:has-text(this[atob)"#).is_err());
-        assert!(parse_cf("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)").is_err());
         assert!(parse_cf("##").is_err());
         assert!(parse_cf("").is_err());
 
         // `:has` was previously limited to procedural filtering, but is now a native CSS feature.
         assert!(parse_cf(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#).is_ok());
+
+        // `:has-text` and `:xpath` are now supported procedural filters
+        assert!(parse_cf("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)").is_ok());
     }
 
     #[test]
