@@ -39,7 +39,7 @@ rmp-serde = "0.15"
 lifeguard = { version = "^ 0.6.1", optional = true }
 cssparser = { version = "0.28", optional = true }
 selectors = { version = "0.23", optional = true }
-serde_json = { version = "1.0", optional = true }
+serde_json = "1.0"
 thiserror = "1.0"
 
 [dev-dependencies]
@@ -90,6 +90,6 @@ object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.
 unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.
 regex-debug-info = []
 css-validation = ["cssparser", "selectors"]
-content-blocking = ["serde_json"]
+content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
-resource-assembler = ["serde_json"]
+resource-assembler = []
