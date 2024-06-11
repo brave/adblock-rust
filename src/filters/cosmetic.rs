@@ -145,7 +145,7 @@ pub enum CosmeticFilterOperator {
     Xpath(String),
 }
 
-pub enum CosmeticFilterLocationType {
+pub(crate) enum CosmeticFilterLocationType {
     Entity,
     NotEntity,
     Hostname,
@@ -168,7 +168,7 @@ struct CosmeticFilterLocations {
 
 impl CosmeticFilter {
     #[inline]
-    pub fn locations_before_sharp(
+    pub(crate) fn locations_before_sharp(
         line: &str,
         sharp_index: usize,
     ) -> impl Iterator<Item = (CosmeticFilterLocationType, &str)> {
@@ -524,7 +524,7 @@ fn get_hashes_from_labels(hostname: &str, end: usize, start_of_domain: usize) ->
 
 /// Returns a `Vec` of the hashes of all segments of `hostname` that may match an
 /// entity-constrained rule.
-pub fn get_entity_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
+pub(crate) fn get_entity_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
     if let Some((hostname_without_public_suffix, public_suffix)) =
         get_hostname_without_public_suffix(hostname, domain)
     {
@@ -542,7 +542,7 @@ pub fn get_entity_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> 
 
 /// Returns a `Vec` of the hashes of all segments of `hostname` that may match a
 /// hostname-constrained rule.
-pub fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
+pub(crate) fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> Vec<Hash> {
     get_hashes_from_labels(hostname, hostname.len(), hostname.len() - domain.len())
 }
 
