@@ -9,7 +9,7 @@ use std::time::Duration;
 
 #[cfg(test)]
 #[cfg(not(target_arch = "wasm32"))]
-use mock_instant::Instant;
+use mock_instant::global::Instant;
 #[cfg(not(test))]
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
@@ -232,7 +232,7 @@ mod tests {
     use crate::filters::network::NetworkMatchable;
     use crate::request;
 
-    use mock_instant::MockClock;
+    use mock_instant::global::MockClock;
 
     fn make_filter(line: &str) -> NetworkFilter {
         NetworkFilter::parse(line, true, Default::default()).unwrap()
