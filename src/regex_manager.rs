@@ -1,4 +1,4 @@
-//! Compiled regexes can take up large amounts of memory. To reduce the overal memory footprint of
+//! Compiled regexes can take up large amounts of memory. To reduce the overall memory footprint of
 //! the [`crate::Engine`], infrequently used regexes can be discarded. The [`RegexManager`] is
 //! responsible for managing the storage of regexes used by filters.
 
