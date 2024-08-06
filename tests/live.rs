@@ -86,53 +86,13 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
             // 0th entry is the main default lists
             let default_lists = &default_catalog[0].sources;
 
-            println!(
-                "List of filter lists has {} filter lists total",
-                default_lists.len()
-            );
-            // ↑ Question about that:
-            // How many filter lists could a list of filter lists list if a list of filter lists could list filter lists?
-            // (asking for a friend, who may or may not be a woodchuck)
-
             assert!(default_lists.len() > 10); // sanity check
 
             let filters_fut: Vec<_> = default_lists
             .iter()
             .map(|list| {
                 println!("Starting download of filter, '{}'", list.url);
-                // 'easylist.to' is deployed via GitHub Pages. However, sometimes 'easylist.to' can
-                // take minutes to respond despite 'easylist.github.io' having no delay.
-                //
-                // In one test, the first request below ↓ took <1 second, and the second request took ~7 minutes
-                // time curl --fail -H 'Host: easylist.to' https://easylist.github.io/easylist/easylist.txt -o /dev/null
-                // time curl --fail https://easylist.to/easylist/easylist.txt -o /dev/null
-                //
-                // Toggle the `cfg` below if encountering this issue during local development.
-                // (e.g., add '--cfg override_easylist_host' to RUSTFLAGS)
-                #[cfg(any(override_easylist_host))]
-                let downloader = {
-                    let client = reqwest::Client::builder()
-                        .redirect(reqwest::redirect::Policy::none())
-                        .build()
-                        .unwrap();
-                    if list.url.starts_with("https://easylist.to") {
-                        // The use of 'http' rather than 'https' below is intentional. reqwest only
-                        // respects the host header if the target url is http, not https. (Unclear
-                        // whether that's a bug or intentional behavior.) One way to confirm that is
-                        // to send requests to http://httpbin.org/headers instead of github.io.
-                        client
-                            .get(&list.url.replace("https://easylist.to", "http://easylist.github.io"))
-                            .header(reqwest::header::HOST, "easylist.to")
-                            .send()
-                    } else {
-                        // leave all other filter list requests unmodified
-                        client.get(&list.url).send()
-                    }
-                };
-
-                #[cfg(not(override_easylist_host))]
-                let downloader = reqwest::get(&list.url);
-                downloader
+                reqwest::get(&list.url)
                     .then(move |resp| {
                         let response = resp.expect("Could not request rules");
                         if response.status() != 200 {
@@ -142,14 +102,11 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
                     }).map(move |text| {
                         let text = text.expect("Could not get rules as text");
                         println!("Finished download of filter, '{}' ({} bytes)", list.url, text.len());
-                        // Troubleshooting tip: uncomment the next line to save the downloaded filter lists
-                        // std::fs::write(format!("target/{}.txt", list.title), &text).unwrap();
                         ( list.format, text )
                     })
             })
             .collect();
 
-            // Troubleshooting tip: replace default() below with new(true) to expose raw filters
             let mut filter_set = adblock::lists::FilterSet::default();
 
             futures::future::join_all(filters_fut)
