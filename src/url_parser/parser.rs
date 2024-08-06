@@ -193,9 +193,6 @@ simple_enum_error! {
     ExpectedMoreChars => "Expected more characters",
 }
 
-#[cfg(feature = "heapsize")]
-known_heap_size!(0, ParseError);
-
 impl From<idna::Errors> for ParseError {
     fn from(_: idna::Errors) -> ParseError {
         ParseError::IdnaError
