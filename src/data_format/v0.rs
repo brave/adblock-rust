@@ -30,7 +30,7 @@ enum LegacySpecificFilterType {
 
 #[derive(Deserialize, Serialize, Default)]
 pub(crate) struct LegacyHostnameRuleDb {
-    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    #[serde(serialize_with = "stabilize_hashmap_serialization")]
     db: HashMap<Hash, Vec<LegacySpecificFilterType>>,
 }
 
@@ -141,7 +141,7 @@ pub(crate) struct LegacyRedirectResource {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub(crate) struct LegacyRedirectResourceStorage {
-    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    #[serde(serialize_with = "stabilize_hashmap_serialization")]
     pub resources: HashMap<String, LegacyRedirectResource>,
 }
 
@@ -152,7 +152,7 @@ pub(crate) struct LegacyScriptletResource {
 
 #[derive(Default, Deserialize, Serialize)]
 pub(crate) struct LegacyScriptletResourceStorage {
-    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    #[serde(serialize_with = "stabilize_hashmap_serialization")]
     resources: HashMap<String, LegacyScriptletResource>,
 }
 
@@ -216,7 +216,7 @@ where
 {
     #[derive(Serialize, Default)]
     struct NetworkFilterListV0SerializeFmt<'a> {
-        #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+        #[serde(serialize_with = "stabilize_hashmap_serialization")]
         filter_map: HashMap<crate::utils::Hash, Vec<NetworkFilterV0SerializeFmt<'a>>>,
     }
 
@@ -283,6 +283,11 @@ pub(crate) struct SerializeFormat<'a> {
     misc_generic_selectors: &'a HashSet<String>,
 
     scriptlets: LegacyScriptletResourceStorage,
+
+    #[serde(serialize_with = "stabilize_hashmap_serialization")]
+    procedural_action: &'a HashMap<Hash, Vec<String>>,
+    #[serde(serialize_with = "stabilize_hashmap_serialization")]
+    procedural_action_exception: &'a HashMap<Hash, Vec<String>>,
 }
 
 impl<'a> SerializeFormat<'a> {
@@ -382,6 +387,11 @@ pub(crate) struct DeserializeFormat {
     misc_generic_selectors: HashSet<String>,
 
     _scriptlets: LegacyScriptletResourceStorage,
+
+    #[serde(default)]
+    procedural_action: HashMap<Hash, Vec<String>>,
+    #[serde(default)]
+    procedural_action_exception: HashMap<Hash, Vec<String>>,
 }
 
 impl DeserializeFormat {
@@ -422,12 +432,21 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
             misc_generic_selectors: &cfc.misc_generic_selectors,
 
             scriptlets: LegacyScriptletResourceStorage::default(),
+
+            procedural_action: &cfc.specific_rules.procedural_action.0,
+            procedural_action_exception: &cfc.specific_rules.procedural_action_exception.0,
         }
     }
 }
 
 impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
     fn from(v: DeserializeFormat) -> Self {
+        use crate::cosmetic_filter_cache::HostnameFilterBin;
+
+        let mut specific_rules: HostnameRuleDb = v.specific_rules.into();
+        specific_rules.procedural_action = HostnameFilterBin(v.procedural_action);
+        specific_rules.procedural_action_exception = HostnameFilterBin(v.procedural_action_exception);
+
         (
             Blocker {
                 csp: v.csp.into(),
@@ -454,7 +473,7 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 complex_class_rules: v.complex_class_rules,
                 complex_id_rules: v.complex_id_rules,
 
-                specific_rules: v.specific_rules.into(),
+                specific_rules,
 
                 misc_generic_selectors: v.misc_generic_selectors,
             },
