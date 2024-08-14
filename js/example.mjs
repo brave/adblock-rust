@@ -1,5 +1,5 @@
-const adblockRust = require('adblock-rs');
-const fs = require('fs');
+import adblockRust from 'adblock-rs';
+import fs from 'node:fs';
 const dataPath = '../data/'
 
 const debugInfo = true;
