@@ -306,14 +306,7 @@ impl CosmeticFilterCache {
             hide_selectors
         };
 
-        let mut injected_script = String::new();
-        script_injections.iter().for_each(|(s, mask)| {
-            if let Ok(filled_template) = resources.get_scriptlet_resource(s, *mask) {
-                injected_script += "try {\n";
-                injected_script += &filled_template;
-                injected_script += "\n} catch ( e ) { }\n";
-            }
-        });
+        let injected_script = resources.get_scriptlet_resources(script_injections);
 
         UrlSpecificResources {
             hide_selectors,
