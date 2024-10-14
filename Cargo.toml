@@ -24,33 +24,33 @@ exclude = [
 
 [dependencies]
 addr = { version = "0.15", default-features = false, features = ["psl"], optional = true }
-url = "2.2"
-percent-encoding = "2.1"
-once_cell = "1.8"
-regex = "1.5"
-bitflags = "1.3"
-itertools = "0.10"
-idna = "0.2"
-serde =  { version = "1.0", features = ["derive", "rc"] }
-seahash = "3"   # seahash 4 introduces a breaking hash algorithm change
-memchr = "2.4"
 base64 = "0.13"
-rmp-serde = "0.15"
-lifeguard = { version = "^ 0.6.1", optional = true }
+bitflags = "1.3"
 cssparser = { version = "0.28", optional = true }
+idna = "0.2"
+itertools = "0.10"
+lifeguard = { version = "^0.6.1", optional = true }
+memchr = "2.7"
+once_cell = "1.20"
+percent-encoding = "2.3"
+regex = "1.11"
+rmp-serde = "0.15"
+seahash = "3" # seahash 4 introduces a breaking hash algorithm change
 selectors = { version = "0.23", optional = true }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 thiserror = "1.0"
+url = "2.5"
 
 [dev-dependencies]
 criterion = "0.5"
 csv = "1"
+futures = "0.3"
 mock_instant = { version = "0.5" }
 # By default, reqwest builds openssl from source, which fails on missing/incompatible system dependencies
 reqwest = { version = "0.11", features = ["rustls-tls"], default-features = false }
-futures = "0.3"
-tokio = { version = "1.24", features = ["rt-multi-thread"] }
 sha2 = "0.9"
+tokio = { version = "1.40", features = ["rt-multi-thread"] }
 
 [lib]
 bench = false
@@ -84,7 +84,12 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "unsync-regex-caching"]
+default = [
+    "embedded-domain-resolver",
+    "full-regex-handling",
+    "object-pooling",
+    "unsync-regex-caching",
+]
 full-regex-handling = []
 object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.
 unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.
@@ -93,3 +98,7 @@ css-validation = ["cssparser", "selectors"]
 content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
 resource-assembler = []
+
+[profile.release]
+lto = true
+codegen-units = 1
