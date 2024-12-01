@@ -27,5 +27,5 @@ fn main() {
     let checked = engine.check_network_request(&request);
     assert!(checked.filter.is_some());
     assert!(checked.exception.is_some());
-    println!("All good: {:?}", checked);
+    println!("All good: {checked:?}");
 }

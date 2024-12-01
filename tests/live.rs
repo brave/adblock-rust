@@ -34,7 +34,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
                 blocked: record.blocked,
             });
         } else {
-            println!("Could not parse {:?}", result);
+            println!("Could not parse {result:?}");
         }
     }
 
@@ -69,8 +69,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
             const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
 
             println!(
-                "Downloading list of filter lists from '{}'",
-                DEFAULT_LISTS_URL
+                "Downloading list of filter lists from '{DEFAULT_LISTS_URL}'"
             );
             let default_catalog: Vec<RemoteFilterCatalogEntry> = async {
                 let body = reqwest::get(DEFAULT_LISTS_URL)
@@ -281,7 +280,7 @@ fn check_live_brave_deserialized_file() {
     let requests = load_requests();
 
     for req in requests {
-        println!("Checking {:?}", req);
+        println!("Checking {req:?}");
         let checked = engine.check_network_request(&Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap());
         assert_eq!(
             checked.matched, req.blocked,

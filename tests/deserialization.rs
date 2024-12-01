@@ -31,7 +31,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
             let record: RequestRuleMatch = result.expect("WAT");
             reqs.push(record);
         } else {
-            println!("Could not parse {:?}", result);
+            println!("Could not parse {result:?}");
         }
     }
 
@@ -66,7 +66,7 @@ fn check_works_same_after_deserialization() {
     let mut false_negative_exceptions: HashMap<String, (String, String, String)> = HashMap::new();
     let mut reqs_processed = 0;
     for req in requests {
-        print!("{} ", reqs_processed);
+        print!("{reqs_processed} ");
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
         let checked = engine.check_network_request(&request);
         if req.blocked == 1 && checked.matched != true {
@@ -102,7 +102,7 @@ fn check_works_same_after_deserialization() {
 
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
-    assert!(ratio < 0.04, "Mismatch ratio was {}", ratio);
+    assert!(ratio < 0.04, "Mismatch ratio was {ratio}");
     assert!(
         false_positive_rules.len() < 3,
         "False positive rules higher than expected: {:?}",
