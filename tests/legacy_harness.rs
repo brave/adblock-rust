@@ -23,8 +23,7 @@ mod legacy_test_filters {
 
         assert_eq!(
             filter.mask, expected_filter_mask,
-            "Filter {} mask doesn't match expectation",
-            raw_filter
+            "Filter {raw_filter} mask doesn't match expectation"
         );
 
         let filter_string = filter.filter.string_view();
@@ -499,7 +498,7 @@ mod legacy_check_options {
         for (url, source_url, request_type, expectation) in tests {
             let request = Request::new(url, source_url, request_type).unwrap();
             assert!(engine.check_network_request(&request).matched == *expectation,
-                "Expected match = {} for {} from {} typed {} against {:?}", expectation, url, source_url, request_type, rules)
+                "Expected match = {expectation} for {url} from {source_url} typed {request_type} against {rules:?}")
         }
     }
 

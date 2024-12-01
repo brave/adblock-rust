@@ -1228,7 +1228,7 @@ pub(crate) fn compile_regex(
             // Should match start or end of url
             let left_anchor = if is_left_anchor { "^" } else { "" };
             let right_anchor = if is_right_anchor { "$" } else { "" };
-            let filter = format!("{}{}{}", left_anchor, repl, right_anchor);
+            let filter = format!("{left_anchor}{repl}{right_anchor}");
 
             escaped_patterns.push(filter);
         }
@@ -2589,7 +2589,7 @@ mod parse_tests {
         ];
 
         for option in options {
-            let filter = NetworkFilter::parse(&format!("||foo.com${}", option), true, Default::default());
+            let filter = NetworkFilter::parse(&format!("||foo.com${option}"), true, Default::default());
             assert!(filter.err().is_some());
         }
     }
@@ -2648,7 +2648,7 @@ mod parse_tests {
         for option in options {
             // positive
             {
-                let filter = NetworkFilter::parse(&format!("||foo.com${}", option), true, Default::default()).unwrap();
+                let filter = NetworkFilter::parse(&format!("||foo.com${option}"), true, Default::default()).unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
@@ -2661,7 +2661,7 @@ mod parse_tests {
 
             {
                 let filter =
-                    NetworkFilter::parse(&format!("||foo.com$object,{}", option), true, Default::default()).unwrap();
+                    NetworkFilter::parse(&format!("||foo.com$object,{option}"), true, Default::default()).unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
@@ -2675,7 +2675,7 @@ mod parse_tests {
 
             {
                 let filter =
-                    NetworkFilter::parse(&format!("||foo.com$domain=bar.com,{}", option), true, Default::default())
+                    NetworkFilter::parse(&format!("||foo.com$domain=bar.com,{option}"), true, Default::default())
                         .unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
@@ -2690,7 +2690,7 @@ mod parse_tests {
 
             // negative
             {
-                let filter = NetworkFilter::parse(&format!("||foo.com$~{}", option), true, Default::default()).unwrap();
+                let filter = NetworkFilter::parse(&format!("||foo.com$~{option}"), true, Default::default()).unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
@@ -2703,7 +2703,7 @@ mod parse_tests {
 
             {
                 let filter =
-                    NetworkFilter::parse(&format!("||foo.com${},~{}", option, option), true, Default::default())
+                    NetworkFilter::parse(&format!("||foo.com${option},~{option}"), true, Default::default())
                         .unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
@@ -2879,11 +2879,7 @@ mod match_tests {
 
         assert!(
             network_filter.matches_test(&request) == matching,
-            "Expected match={} for {} {:?} on {}",
-            matching,
-            filter,
-            network_filter,
-            url
+            "Expected match={matching} for {filter} {network_filter:?} on {url}"
         );
     }
 
@@ -2893,11 +2889,7 @@ mod match_tests {
 
         assert!(
             network_filter.matches_test(&request) == matching,
-            "Expected match={} for {} {:?} on {}",
-            matching,
-            filter,
-            network_filter,
-            url
+            "Expected match={matching} for {filter} {network_filter:?} on {url}"
         );
     }
 
@@ -3065,9 +3057,7 @@ mod match_tests {
             .unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -3082,9 +3072,7 @@ mod match_tests {
             .unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }
@@ -3274,9 +3262,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -3288,9 +3274,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "xmlhttprequest").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         //
@@ -3302,9 +3286,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "stylesheet").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }
@@ -3341,9 +3323,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "script").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -3354,9 +3334,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "script").unwrap();
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }
@@ -3372,9 +3350,7 @@ mod match_tests {
             assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -3386,9 +3362,7 @@ mod match_tests {
             assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request) == true,
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }

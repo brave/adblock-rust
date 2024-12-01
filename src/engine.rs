@@ -280,7 +280,7 @@ mod tests {
             let request = Request::new(&url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
             }
@@ -310,7 +310,7 @@ mod tests {
             let request = Request::new(&url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
             }
@@ -336,7 +336,7 @@ mod tests {
             let request = Request::new(&url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
             }
@@ -363,7 +363,7 @@ mod tests {
             let request = Request::new(&url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
             }
@@ -397,7 +397,7 @@ mod tests {
             let request = Request::new(&url, "", "").unwrap();
             let matched_rule = deserialized_engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
             }
@@ -420,7 +420,7 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(&url, "", "").unwrap();
         let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert!(matched_rule.matched, "Expected match for {url}");
     }
 
     #[test]
@@ -440,7 +440,7 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(&url, "", "").unwrap();
         let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(!matched_rule.matched, "Expected NO match for {}", url);
+        assert!(!matched_rule.matched, "Expected NO match for {url}");
 
         deserialized_engine.enable_tags(&["abc"]);
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -448,7 +448,7 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(&url, "", "").unwrap();
         let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert!(matched_rule.matched, "Expected match for {url}");
     }
 
     #[test]
@@ -457,7 +457,7 @@ mod tests {
             "ad-banner",
         ], Default::default());
         let serialized = engine.serialize_raw().unwrap();
-        println!("Engine serialized: {:?}", serialized);
+        println!("Engine serialized: {serialized:?}");
         engine.deserialize(&serialized).unwrap();
     }
 
@@ -468,7 +468,7 @@ mod tests {
         ], Default::default());
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize_raw().unwrap();
-        println!("Engine serialized: {:?}", serialized);
+        println!("Engine serialized: {serialized:?}");
         engine.deserialize(&serialized).unwrap();
     }
 
@@ -484,7 +484,7 @@ mod tests {
         ]);
 
         let serialized = engine.serialize_raw().unwrap();
-        println!("Engine serialized: {:?}", serialized);
+        println!("Engine serialized: {serialized:?}");
         engine.deserialize(&serialized).unwrap();
     }
 
@@ -511,14 +511,14 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(url, "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert!(matched_rule.matched, "Expected match for {url}");
         assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
 
         let url = "http://example.com/script.js";
         let request = Request::new(url, "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some(format!("data:application/javascript;base64,{}", base64::encode(format!("{}", script)))), "Expected redirect to contain resource");
+        assert!(matched_rule.matched, "Expected match for {url}");
+        assert_eq!(matched_rule.redirect, Some(format!("data:application/javascript;base64,{}", base64::encode(format!("{script}")))), "Expected redirect to contain resource");
     }
 
     #[test]
@@ -839,7 +839,7 @@ mod tests {
         engine.use_resources(resources);
 
         fn wrap_try(scriptlet_content: &str) -> String {
-            format!("try {{\n{}\n}} catch ( e ) {{ }}\n", scriptlet_content)
+            format!("try {{\n{scriptlet_content}\n}} catch ( e ) {{ }}\n")
         }
 
         assert_eq!(engine.url_cosmetic_resources("https://sub1.example.com").injected_script, wrap_try("refresh-defuser"));
