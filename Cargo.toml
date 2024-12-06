@@ -24,23 +24,23 @@ exclude = [
 
 [dependencies]
 addr = { version = "0.15", default-features = false, features = ["psl"], optional = true }
-url = "2.2"
-percent-encoding = "2.1"
-once_cell = "1.8"
-regex = "1.5"
-bitflags = "1.3"
-itertools = "0.10"
-idna = "0.2"
+url = "2"
+percent-encoding = "2"
+once_cell = "1"
+regex = "1"
+bitflags = "2"
+itertools = "0.13"
+idna = "1"
 serde =  { version = "1.0", features = ["derive", "rc"] }
 seahash = "3"   # seahash 4 introduces a breaking hash algorithm change
 memchr = "2.4"
 base64 = "0.13"
 rmp-serde = "0.15"
-lifeguard = { version = "^ 0.6.1", optional = true }
+lifeguard = { version = "^0.6.1", optional = true }
 cssparser = { version = "0.28", optional = true }
 selectors = { version = "0.23", optional = true }
-serde_json = "1.0"
-thiserror = "1.0"
+serde_json = "1"
+thiserror = "1"
 
 [dev-dependencies]
 criterion = "0.5"
