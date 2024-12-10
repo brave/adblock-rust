@@ -25,5 +25,5 @@ fn main() {
     ).unwrap();
     let blocker_result = engine.check_network_request(&request);
 
-    println!("Blocker result: {:?}", blocker_result);
+    println!("Blocker result: {blocker_result:?}");
 }
