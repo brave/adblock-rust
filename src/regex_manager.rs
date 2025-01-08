@@ -226,5 +226,5 @@ impl RegexManager {
 }
 
 #[cfg(test)]
-#[path ="../tests/unit/regex_manager.rs"]
+#[path = "../tests/unit/regex_manager.rs"]
 mod unit_tests;

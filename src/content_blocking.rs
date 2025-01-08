@@ -46,12 +46,32 @@ pub struct CbRule {
 impl CbRule {
     /// If this returns false, the rule will not compile and should not be used.
     fn is_ascii(&self) -> bool {
-        self.action.selector.iter().all(|s| s.is_ascii()) &&
-            self.trigger.url_filter.is_ascii() &&
-            self.trigger.if_domain.iter().flatten().all(|d| d.is_ascii()) &&
-            self.trigger.unless_domain.iter().flatten().all(|d| d.is_ascii()) &&
-            self.trigger.if_top_url.iter().flatten().all(|d| d.is_ascii()) &&
-            self.trigger.unless_top_url.iter().flatten().all(|d| d.is_ascii())
+        self.action.selector.iter().all(|s| s.is_ascii())
+            && self.trigger.url_filter.is_ascii()
+            && self
+                .trigger
+                .if_domain
+                .iter()
+                .flatten()
+                .all(|d| d.is_ascii())
+            && self
+                .trigger
+                .unless_domain
+                .iter()
+                .flatten()
+                .all(|d| d.is_ascii())
+            && self
+                .trigger
+                .if_top_url
+                .iter()
+                .flatten()
+                .all(|d| d.is_ascii())
+            && self
+                .trigger
+                .unless_top_url
+                .iter()
+                .flatten()
+                .all(|d| d.is_ascii())
     }
 }
 
@@ -385,47 +405,53 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                     let escaped_special_chars = SPECIAL_CHARS.replace_all(&hostname, r##"\$1"##);
                     format!("^[^:]+:(//)?([^/]+\\.)?{}", escaped_special_chars)
                 }
-                (crate::filters::network::FilterPart::Empty, None) => {
-                    if v.mask.contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS) {
-                        "^https?://"
-                    } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
-                        "^http://"
-                    } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
-                        "^https://"
-                    } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
-                        "^wss?://"
-                    } else {
-                        unreachable!("Invalid scheme information");
-                    }.to_string()
+                (crate::filters::network::FilterPart::Empty, None) => if v
+                    .mask
+                    .contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS)
+                {
+                    "^https?://"
+                } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
+                    "^http://"
+                } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
+                    "^https://"
+                } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
+                    "^wss?://"
+                } else {
+                    unreachable!("Invalid scheme information");
                 }
+                .to_string(),
             };
 
-            let (if_domain, unless_domain) = if v.opt_domains.is_some() || v.opt_not_domains.is_some() {
+            let (if_domain, unless_domain) = if v.opt_domains.is_some()
+                || v.opt_not_domains.is_some()
+            {
                 let mut if_domain = vec![];
                 let mut unless_domain = vec![];
 
                 // Unwraps are okay here - any rules with opt_domains or opt_not_domains must have
                 // an options section delimited by a '$' character, followed by a `domain=` option.
                 let opts = &raw_line[find_char(b'$', raw_line.as_bytes()).unwrap() + "$".len()..];
-                let domain_start_index = if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
-                    index
-                } else {
-                    return Err(CbRuleCreationFailure::FromNotSupported);
-                };
-                let domains_start =
-                    &opts[domain_start_index + "domain=".len()..];
+                let domain_start_index =
+                    if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
+                        index
+                    } else {
+                        return Err(CbRuleCreationFailure::FromNotSupported);
+                    };
+                let domains_start = &opts[domain_start_index + "domain=".len()..];
                 let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
                     &domains_start[..comma]
                 } else {
                     domains_start
-                }.split('|');
+                }
+                .split('|');
 
                 domains.for_each(|domain| {
-                    let (collection, domain) = if let Some(domain_stripped) = domain.strip_prefix('~') {
-                        (&mut unless_domain, domain_stripped)
-                    } else {
-                        (&mut if_domain, domain)
-                    };
+                    let (collection, domain) =
+                        if let Some(domain_stripped) = domain.strip_prefix('~') {
+                            (&mut unless_domain, domain_stripped)
+                        } else {
+                            (&mut if_domain, domain)
+                        };
 
                     let lowercase = domain.to_lowercase();
                     let normalized_domain = if lowercase.is_ascii() {

@@ -2,22 +2,22 @@
 
 use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
-use std::ops::DerefMut;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
+use std::ops::DerefMut;
+use std::sync::Arc;
 use thiserror::Error;
 
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
 use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::optimizer;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
-use crate::utils::{fast_hash, Hash};
-use crate::optimizer;
 use crate::resources::ResourceStorage;
 use crate::utils;
+use crate::utils::{fast_hash, Hash};
 
 /// Options used when constructing a [`Blocker`].
 pub struct BlockerOptions {
@@ -90,7 +90,7 @@ pub enum BlockerError {
 
 #[cfg(feature = "object-pooling")]
 pub(crate) struct TokenPool {
-    pub pool: Pool<Vec<utils::Hash>>
+    pub pool: Pool<Vec<utils::Hash>>,
 }
 
 #[cfg(feature = "object-pooling")]
@@ -99,8 +99,10 @@ impl Default for TokenPool {
         TokenPool {
             pool: lifeguard::pool()
                 .with(lifeguard::StartingSize(1))
-                .with(lifeguard::Supplier(|| Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)))
-                .build()
+                .with(lifeguard::Supplier(|| {
+                    Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)
+                }))
+                .build(),
         }
     }
 }
@@ -216,12 +218,9 @@ impl Blocker {
         // 4. exceptions - if any non-important match of forced
 
         // Always check important filters
-        let important_filter = self.importants.check(
-            request,
-            &request_tokens,
-            &NO_TAGS,
-            &mut regex_manager,
-        );
+        let important_filter =
+            self.importants
+                .check(request, &request_tokens, &NO_TAGS, &mut regex_manager);
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
@@ -233,12 +232,8 @@ impl Blocker {
                     &mut regex_manager,
                 )
                 .or_else(|| {
-                    self.filters.check(
-                        request,
-                        &request_tokens,
-                        &NO_TAGS,
-                        &mut regex_manager,
-                    )
+                    self.filters
+                        .check(request, &request_tokens, &NO_TAGS, &mut regex_manager)
                 })
         } else {
             important_filter
@@ -246,25 +241,21 @@ impl Blocker {
 
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
-            None if matched_rule || force_check_exceptions => {
-                self.exceptions.check(
-                    request,
-                    &request_tokens,
-                    &self.tags_enabled,
-                    &mut regex_manager,
-                )
-            }
+            None if matched_rule || force_check_exceptions => self.exceptions.check(
+                request,
+                &request_tokens,
+                &self.tags_enabled,
+                &mut regex_manager,
+            ),
             None => None,
             // If matched an important filter, exceptions don't atter
             Some(f) if f.is_important() => None,
-            Some(_) => {
-                self.exceptions.check(
-                    request,
-                    &request_tokens,
-                    &self.tags_enabled,
-                    &mut regex_manager,
-                )
-            }
+            Some(_) => self.exceptions.check(
+                request,
+                &request_tokens,
+                &self.tags_enabled,
+                &mut regex_manager,
+            ),
         };
 
         let redirect_filters = self.redirects.check_all(
@@ -292,17 +283,18 @@ impl Blocker {
                     if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
                         if !exceptions.contains(&redirect) {
                             // parse redirect + priority
-                            let (resource, priority) = if let Some(idx) = find_char_reverse(b':', redirect.as_bytes()) {
-                                let priority_str = &redirect[idx + 1..];
-                                let resource = &redirect[..idx];
-                                if let Ok(priority) = priority_str.parse::<i32>() {
-                                    (resource, priority)
+                            let (resource, priority) =
+                                if let Some(idx) = find_char_reverse(b':', redirect.as_bytes()) {
+                                    let priority_str = &redirect[idx + 1..];
+                                    let resource = &redirect[..idx];
+                                    if let Ok(priority) = priority_str.parse::<i32>() {
+                                        (resource, priority)
+                                    } else {
+                                        (&redirect[..], 0)
+                                    }
                                 } else {
                                     (&redirect[..], 0)
-                                }
-                            } else {
-                                (&redirect[..], 0)
-                            };
+                                };
                             if let Some((_, p1)) = resource_and_priority {
                                 if priority > p1 {
                                     resource_and_priority = Some((resource, priority));
@@ -327,7 +319,11 @@ impl Blocker {
             })
         });
 
-        let important = filter.is_some() && filter.as_ref().map(|f| f.is_important()).unwrap_or_else(|| false);
+        let important = filter.is_some()
+            && filter
+                .as_ref()
+                .map(|f| f.is_important())
+                .unwrap_or_else(|| false);
 
         let rewritten_url = if important {
             None
@@ -399,7 +395,8 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters = removeparam_filters.check_all(request, request_tokens, &NO_TAGS, regex_manager);
+            let filters =
+                removeparam_filters.check_all(request, request_tokens, &NO_TAGS, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
@@ -414,13 +411,24 @@ impl Blocker {
                 }
             }
             if rewrite {
-                let p = itertools::join(params.into_iter().filter(|(_, include)| *include).map(|(param, _)| param.to_string()), "&");
+                let p = itertools::join(
+                    params
+                        .into_iter()
+                        .filter(|(_, include)| *include)
+                        .map(|(param, _)| param.to_string()),
+                    "&",
+                );
                 let new_param_str = if p.is_empty() {
                     String::from("")
                 } else {
                     format!("?{}", p)
                 };
-                Some(format!("{}{}{}", &url[0..i], new_param_str, &url[hash_index..]))
+                Some(format!(
+                    "{}{}{}",
+                    &url[0..i],
+                    new_param_str,
+                    &url[hash_index..]
+                ))
             } else {
                 None
             }
@@ -434,7 +442,9 @@ impl Blocker {
     pub fn get_csp_directives(&self, request: &Request) -> Option<String> {
         use crate::request::RequestType;
 
-        if request.request_type != RequestType::Document && request.request_type != RequestType::Subdocument {
+        if request.request_type != RequestType::Document
+            && request.request_type != RequestType::Subdocument
+        {
             return None;
         }
 
@@ -473,7 +483,7 @@ impl Blocker {
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
                         // injections for matching pages.
-                        return None
+                        return None;
                     }
                 }
             } else if filter.is_csp() {
@@ -530,7 +540,10 @@ impl Blocker {
                     badfilters.push(filter);
                 }
             }
-            let badfilter_ids: HashSet<Hash> = badfilters.iter().map(|f| f.get_id_without_badfilter()).collect();
+            let badfilter_ids: HashSet<Hash> = badfilters
+                .iter()
+                .map(|f| f.get_id_without_badfilter())
+                .collect();
             for filter in network_filters {
                 // skip any bad filters
                 let filter_id = filter.get_id();
@@ -557,7 +570,9 @@ impl Blocker {
                     // `tag` + `redirect` is unsupported for now.
                     tagged_filters_all.push(filter);
                 } else {
-                    if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
+                    if (filter.is_redirect() && filter.also_block_redirect())
+                        || !filter.is_redirect()
+                    {
                         filters.push(filter);
                     }
                 }
@@ -674,7 +689,10 @@ impl Blocker {
     }
 
     pub fn enable_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = tags.iter().map(|&t| String::from(t)).collect::<HashSet<_>>()
+        let tag_set: HashSet<String> = tags
+            .iter()
+            .map(|&t| String::from(t))
+            .collect::<HashSet<_>>()
             .union(&self.tags_enabled)
             .cloned()
             .collect();
@@ -682,7 +700,8 @@ impl Blocker {
     }
 
     pub fn disable_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = self.tags_enabled
+        let tag_set: HashSet<String> = self
+            .tags_enabled
             .difference(&tags.iter().map(|&t| String::from(t)).collect())
             .cloned()
             .collect();
@@ -691,7 +710,9 @@ impl Blocker {
 
     fn tags_with_set(&mut self, tags_enabled: HashSet<String>) {
         self.tags_enabled = tags_enabled;
-        let filters: Vec<NetworkFilter> = self.tagged_filters_all.iter()
+        let filters: Vec<NetworkFilter> = self
+            .tagged_filters_all
+            .iter()
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
             .cloned()
             .collect();
@@ -702,10 +723,7 @@ impl Blocker {
         self.tags_enabled.iter().cloned().collect()
     }
 
-    pub fn set_regex_discard_policy(
-        &self,
-        new_discard_policy: RegexManagerDiscardPolicy
-    ) {
+    pub fn set_regex_discard_policy(&self, new_discard_policy: RegexManagerDiscardPolicy) {
         let mut regex_manager = self.borrow_regex_manager();
         regex_manager.set_discard_policy(new_discard_policy);
     }
@@ -767,9 +785,7 @@ impl NetworkFilterList {
             }
         }
 
-        let mut self_ = NetworkFilterList {
-            filter_map,
-        };
+        let mut self_ = NetworkFilterList { filter_map };
 
         if optimize {
             self_.optimize();
@@ -788,12 +804,15 @@ impl NetworkFilterList {
             for f in filters {
                 match Arc::try_unwrap(f) {
                     Ok(f) => unoptimized.push(f),
-                    Err(af) => unoptimizable.push(af)
+                    Err(af) => unoptimizable.push(af),
                 }
             }
 
             let mut optimized: Vec<_> = if unoptimized.len() > 1 {
-                optimizer::optimize(unoptimized).into_iter().map(Arc::new).collect()
+                optimizer::optimize(unoptimized)
+                    .into_iter()
+                    .map(Arc::new)
+                    .collect()
             } else {
                 // nothing to optimize
                 unoptimized.into_iter().map(Arc::new).collect()
@@ -832,7 +851,11 @@ impl NetworkFilterList {
                 }
             }
 
-            insert_dup(&mut self.filter_map, best_token, Arc::clone(&filter_pointer));
+            insert_dup(
+                &mut self.filter_map,
+                best_token,
+                Arc::clone(&filter_pointer),
+            );
         }
     }
 
@@ -896,7 +919,13 @@ impl NetworkFilterList {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                    if filter.matches(request, regex_manager)
+                        && filter
+                            .tag
+                            .as_ref()
+                            .map(|t| active_tags.contains(t))
+                            .unwrap_or(true)
+                    {
                         return Some(filter);
                     }
                 }
@@ -928,7 +957,13 @@ impl NetworkFilterList {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
                     for filter in filter_bucket {
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                        if filter.matches(request, regex_manager)
+                            && filter
+                                .tag
+                                .as_ref()
+                                .map(|t| active_tags.contains(t))
+                                .unwrap_or(true)
+                        {
                             filters.push(filter);
                         }
                     }
@@ -940,7 +975,13 @@ impl NetworkFilterList {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
+                    if filter.matches(request, regex_manager)
+                        && filter
+                            .tag
+                            .as_ref()
+                            .map(|t| active_tags.contains(t))
+                            .unwrap_or(true)
+                    {
                         filters.push(filter);
                     }
                 }
@@ -967,7 +1008,9 @@ where
     }
 }
 
-fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(map: &HashMap<K, Vec<V>, H>) -> usize {
+fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(
+    map: &HashMap<K, Vec<V>, H>,
+) -> usize {
     let mut size = 0usize;
     for (_, val) in map.iter() {
         size += val.len();
@@ -995,5 +1038,5 @@ fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Ha
 }
 
 #[cfg(test)]
-#[path ="../tests/unit/blocker.rs"]
+#[path = "../tests/unit/blocker.rs"]
 mod unit_tests;

@@ -2,8 +2,8 @@
 
 use std::convert::TryFrom;
 
-use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
+use crate::filters::network::{NetworkFilter, NetworkFilterError};
 use crate::resources::PermissionMask;
 
 use itertools::{Either, Itertools};
@@ -154,14 +154,14 @@ impl TryFrom<&str> for ExpiresInterval {
                 if (1..=HOURS_MAX).contains(&amount) {
                     return Ok(Self::Hours(amount));
                 }
-            },
+            }
             "day" | "days" => {
                 let amount = amount.parse::<u8>().map_err(|_| ())?;
                 if (1..=DAYS_MAX).contains(&amount) {
-                    return Ok(Self::Days(amount))
+                    return Ok(Self::Days(amount));
                 }
             }
-            _ => ()
+            _ => (),
         }
         Err(())
     }
@@ -200,14 +200,18 @@ impl FilterListMetadata {
         if let Some(kv) = line.strip_prefix("! ") {
             if let Some((key, value)) = kv.split_once(": ") {
                 match key {
-                    "Homepage" if self.homepage.is_none() => self.homepage = Some(value.to_string()),
+                    "Homepage" if self.homepage.is_none() => {
+                        self.homepage = Some(value.to_string())
+                    }
                     "Title" if self.title.is_none() => self.title = Some(value.to_string()),
                     "Expires" if self.expires.is_none() => {
                         if let Ok(expires) = ExpiresInterval::try_from(value) {
                             self.expires = Some(expires);
                         }
                     }
-                    "Redirect" if self.redirect.is_none() => self.redirect = Some(value.to_string()),
+                    "Redirect" if self.redirect.is_none() => {
+                        self.redirect = Some(value.to_string())
+                    }
                     _ => (),
                 }
             }
@@ -236,8 +240,13 @@ impl FilterSet {
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
     /// successfully are ignored. Returns any discovered metadata about the list of rules added.
-    pub fn add_filters(&mut self, filters: impl IntoIterator<Item=impl AsRef<str>>, opts: ParseOptions) -> FilterListMetadata {
-        let (metadata, mut parsed_network_filters, mut parsed_cosmetic_filters) = parse_filters_with_metadata(filters, self.debug, opts);
+    pub fn add_filters(
+        &mut self,
+        filters: impl IntoIterator<Item = impl AsRef<str>>,
+        opts: ParseOptions,
+    ) -> FilterListMetadata {
+        let (metadata, mut parsed_network_filters, mut parsed_cosmetic_filters) =
+            parse_filters_with_metadata(filters, self.debug, opts);
         self.network_filters.append(&mut parsed_network_filters);
         self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
         metadata
@@ -262,11 +271,13 @@ impl FilterSet {
     ///
     /// This function will fail if the `FilterSet` was not created in debug mode.
     #[cfg(feature = "content-blocking")]
-    pub fn into_content_blocking(self) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {
+    pub fn into_content_blocking(
+        self,
+    ) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {
         use crate::content_blocking;
 
         if !self.debug {
-            return Err(())
+            return Err(());
         }
 
         let mut ignore_previous_rules = vec![];
@@ -275,26 +286,37 @@ impl FilterSet {
         let mut filters_used = vec![];
 
         self.network_filters.into_iter().for_each(|filter| {
-            let original_rule = *filter.raw_line.clone().expect("All rules should be in debug mode");
-            if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter) {
+            let original_rule = *filter
+                .raw_line
+                .clone()
+                .expect("All rules should be in debug mode");
+            if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
+            {
                 filters_used.push(original_rule);
-                equivalent.into_iter().for_each(|cb_rule| {
-                    match &cb_rule.action.typ {
-                        content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
+                equivalent
+                    .into_iter()
+                    .for_each(|cb_rule| match &cb_rule.action.typ {
+                        content_blocking::CbType::IgnorePreviousRules => {
+                            ignore_previous_rules.push(cb_rule)
+                        }
                         _ => other_rules.push(cb_rule),
-                    }
-                });
+                    });
             }
         });
 
         let add_fp_document_exception = !filters_used.is_empty();
 
         self.cosmetic_filters.into_iter().for_each(|filter| {
-            let original_rule = *filter.raw_line.clone().expect("All rules should be in debug mode");
+            let original_rule = *filter
+                .raw_line
+                .clone()
+                .expect("All rules should be in debug mode");
             if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
                 filters_used.push(original_rule);
                 match &cb_rule.action.typ {
-                    content_blocking::CbType::IgnorePreviousRules => ignore_previous_rules.push(cb_rule),
+                    content_blocking::CbType::IgnorePreviousRules => {
+                        ignore_previous_rules.push(cb_rule)
+                    }
                     _ => other_rules.push(cb_rule),
                 }
             }
@@ -402,17 +424,19 @@ pub fn parse_filter(
     }
 
     match opts.format {
-        FilterFormat::Standard => {
-            match (detect_filter_type(filter), opts.rule_types) {
-                (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => NetworkFilter::parse(filter, debug, opts)
+        FilterFormat::Standard => match (detect_filter_type(filter), opts.rule_types) {
+            (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => {
+                NetworkFilter::parse(filter, debug, opts)
                     .map(|f| f.into())
-                    .map_err(|e| e.into()),
-                (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => CosmeticFilter::parse(filter, debug, opts.permissions)
-                    .map(|f| f.into())
-                    .map_err(|e| e.into()),
-                _ => Err(FilterParseError::Unsupported),
+                    .map_err(|e| e.into())
             }
-        }
+            (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => {
+                CosmeticFilter::parse(filter, debug, opts.permissions)
+                    .map(|f| f.into())
+                    .map_err(|e| e.into())
+            }
+            _ => Err(FilterParseError::Unsupported),
+        },
         FilterFormat::Hosts => {
             // Hosts-style rules can only ever be network rules
             if !opts.rule_types.loads_network_rules() {
@@ -437,7 +461,11 @@ pub fn parse_filter(
 
             // Take the last of at most 2 whitespace separated fields
             let mut filter_parts = filter.split_whitespace();
-            let hostname = match (filter_parts.next(), filter_parts.next(), filter_parts.next()) {
+            let hostname = match (
+                filter_parts.next(),
+                filter_parts.next(),
+                filter_parts.next(),
+            ) {
                 (None, None, None) => return Err(FilterParseError::Unsupported),
                 (Some(hostname), None, None) => hostname,
                 (Some(_ip), Some(hostname), None) => hostname,
@@ -461,22 +489,19 @@ pub fn parse_filter(
 
 /// Parse an entire list of filters, ignoring any errors
 pub fn parse_filters(
-    list: impl IntoIterator<Item=impl AsRef<str>>,
+    list: impl IntoIterator<Item = impl AsRef<str>>,
     debug: bool,
     opts: ParseOptions,
 ) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
-    let (_metadata, network_filters, cosmetic_filters) = parse_filters_with_metadata(
-        list,
-        debug,
-        opts,
-    );
+    let (_metadata, network_filters, cosmetic_filters) =
+        parse_filters_with_metadata(list, debug, opts);
 
     (network_filters, cosmetic_filters)
 }
 
 /// Parse an entire list of filters, ignoring any errors
 pub fn parse_filters_with_metadata(
-    list: impl IntoIterator<Item=impl AsRef<str>>,
+    list: impl IntoIterator<Item = impl AsRef<str>>,
     debug: bool,
     opts: ParseOptions,
 ) -> (FilterListMetadata, Vec<NetworkFilter>, Vec<CosmeticFilter>) {
@@ -523,7 +548,12 @@ fn detect_filter_type(filter: &str) -> FilterType {
         // Check the next few bytes for a second `#`
         // Indexing is safe here because it uses the filter's byte
         // representation and guards against short strings
-        if find_char(b'#', &filter.as_bytes()[after_sharp_index..(after_sharp_index+4).min(filter.len())]).is_some() {
+        if find_char(
+            b'#',
+            &filter.as_bytes()[after_sharp_index..(after_sharp_index + 4).min(filter.len())],
+        )
+        .is_some()
+        {
             return FilterType::Cosmetic;
         }
     }

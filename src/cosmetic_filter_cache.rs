@@ -9,10 +9,7 @@
 //! relevant to a particular page.
 
 use crate::filters::cosmetic::{
-    CosmeticFilter,
-    CosmeticFilterAction,
-    CosmeticFilterMask,
-    CosmeticFilterOperator,
+    CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
@@ -130,7 +127,10 @@ impl CosmeticFilterCache {
 
     /// Add a filter, assuming it has already been determined to be a generic rule
     fn add_generic_filter(&mut self, rule: CosmeticFilter) {
-        let selector = rule.plain_css_selector().expect("Procedural cosmetic filters cannot be generic").to_string();
+        let selector = rule
+            .plain_css_selector()
+            .expect("Procedural cosmetic filters cannot be generic")
+            .to_string();
         if selector.starts_with('.') {
             if let Some(key) = key_from_selector(&selector) {
                 assert!(key.starts_with('.'));
@@ -184,8 +184,8 @@ impl CosmeticFilterCache {
     /// stateless with regard to active page sessions.
     pub fn hidden_class_id_selectors(
         &self,
-        classes: impl IntoIterator<Item=impl AsRef<str>>,
-        ids: impl IntoIterator<Item=impl AsRef<str>>,
+        classes: impl IntoIterator<Item = impl AsRef<str>>,
+        ids: impl IntoIterator<Item = impl AsRef<str>>,
         exceptions: &HashSet<String>,
     ) -> Vec<String> {
         let mut selectors = vec![];
@@ -198,7 +198,12 @@ impl CosmeticFilterCache {
                 selectors.push(format!(".{}", class));
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
-                selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)).map(|s| s.to_owned()));
+                selectors.extend(
+                    bucket
+                        .iter()
+                        .filter(|sel| !exceptions.contains(*sel))
+                        .map(|s| s.to_owned()),
+                );
             }
         });
         ids.into_iter().for_each(|id| {
@@ -207,7 +212,12 @@ impl CosmeticFilterCache {
                 selectors.push(format!("#{}", id));
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
-                selectors.extend(bucket.iter().filter(|sel| !exceptions.contains(*sel)).map(|s| s.to_owned()));
+                selectors.extend(
+                    bucket
+                        .iter()
+                        .filter(|sel| !exceptions.contains(*sel))
+                        .map(|s| s.to_owned()),
+                );
             }
         });
 
@@ -242,26 +252,50 @@ impl CosmeticFilterCache {
 
         let mut except_all_scripts = false;
 
-        let hashes: Vec<&Hash> = request_entities.iter().chain(request_hostnames.iter()).collect();
+        let hashes: Vec<&Hash> = request_entities
+            .iter()
+            .chain(request_hostnames.iter())
+            .collect();
 
-        fn populate_set(hash: &Hash, source_bin: &HostnameFilterBin<String>, dest_set: &mut HashSet<String>) {
+        fn populate_set(
+            hash: &Hash,
+            source_bin: &HostnameFilterBin<String>,
+            dest_set: &mut HashSet<String>,
+        ) {
             if let Some(s) = source_bin.get(hash) {
-                s.iter().for_each(|s| { dest_set.insert(s.to_owned()); });
+                s.iter().for_each(|s| {
+                    dest_set.insert(s.to_owned());
+                });
             }
         }
         for hash in hashes.iter() {
-            populate_set(hash, &self.specific_rules.hide, &mut specific_hide_selectors);
-            populate_set(hash, &self.specific_rules.procedural_action, &mut procedural_actions);
+            populate_set(
+                hash,
+                &self.specific_rules.hide,
+                &mut specific_hide_selectors,
+            );
+            populate_set(
+                hash,
+                &self.specific_rules.procedural_action,
+                &mut procedural_actions,
+            );
             // special behavior: `script_injections` doesn't have to own the strings yet, since the
             // scripts need to be fetched and templated later
             if let Some(s) = self.specific_rules.inject_script.get(hash) {
                 s.iter().for_each(|(s, mask)| {
-                    script_injections.entry(s).and_modify(|entry| *entry |= *mask).or_insert(*mask);
+                    script_injections
+                        .entry(s)
+                        .and_modify(|entry| *entry |= *mask)
+                        .or_insert(*mask);
                 });
             }
         }
 
-        fn prune_set(hash: &Hash, source_bin: &HostnameFilterBin<String>, dest_set: &mut HashSet<String>) {
+        fn prune_set(
+            hash: &Hash,
+            source_bin: &HostnameFilterBin<String>,
+            dest_set: &mut HashSet<String>,
+        ) {
             if let Some(s) = source_bin.get(hash) {
                 s.iter().for_each(|s| {
                     dest_set.remove(s);
@@ -276,7 +310,11 @@ impl CosmeticFilterCache {
                     exceptions.insert(s.to_owned());
                 });
             }
-            prune_set(hash, &self.specific_rules.procedural_action_exception, &mut procedural_actions);
+            prune_set(
+                hash,
+                &self.specific_rules.procedural_action_exception,
+                &mut procedural_actions,
+            );
             // same logic but not using prune_set since strings are unowned, (see above)
             if let Some(s) = self.specific_rules.uninject_script.get(hash) {
                 for s in s {
@@ -402,8 +440,13 @@ impl ProceduralOrActionFilter {
     /// Returns `(selector, style)` if the filter can be expressed in pure CSS.
     pub fn as_css(&self) -> Option<(String, String)> {
         match (&self.selector[..], &self.action) {
-            ([CosmeticFilterOperator::CssSelector(selector)], None) => Some((selector.to_string(), "display: none !important".to_string())),
-            ([CosmeticFilterOperator::CssSelector(selector)], Some(CosmeticFilterAction::Style(style))) => Some((selector.to_string(), style.to_string())),
+            ([CosmeticFilterOperator::CssSelector(selector)], None) => {
+                Some((selector.to_string(), "display: none !important".to_string()))
+            }
+            (
+                [CosmeticFilterOperator::CssSelector(selector)],
+                Some(CosmeticFilterAction::Style(style)),
+            ) => Some((selector.to_string(), style.to_string())),
             _ => None,
         }
     }
@@ -424,22 +467,27 @@ impl HostnameRuleDb {
         let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
         let script_inject = rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT);
 
-        let kind = match (script_inject, rule.plain_css_selector().map(|s| s.to_string()), rule.action) {
+        let kind = match (
+            script_inject,
+            rule.plain_css_selector().map(|s| s.to_string()),
+            rule.action,
+        ) {
             (false, Some(selector), None) => Hide(selector),
             (true, Some(selector), None) => InjectScript((selector, rule.permission)),
-            (false, selector, action) => ProceduralOrAction(serde_json::to_string(&ProceduralOrActionFilter {
-                selector: selector.map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)]).unwrap_or(rule.selector),
-                action
-            }).unwrap()),
+            (false, selector, action) => ProceduralOrAction(
+                serde_json::to_string(&ProceduralOrActionFilter {
+                    selector: selector
+                        .map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)])
+                        .unwrap_or(rule.selector),
+                    action,
+                })
+                .unwrap(),
+            ),
             (true, _, Some(_)) => return, // script injection with action - shouldn't be possible
             (true, None, _) => return, // script injection without plain CSS selector - shouldn't be possible
         };
 
-        let kind = if unhide {
-            kind.negated()
-        } else {
-            kind
-        };
+        let kind = if unhide { kind.negated() } else { kind };
 
         let tokens_to_insert = std::iter::empty()
             .chain(rule.hostnames.unwrap_or(Vec::new()))
@@ -514,7 +562,8 @@ fn key_from_selector(selector: &str) -> Option<String> {
     static RE_PLAIN_SELECTOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[#.][\w\\-]+").unwrap());
     static RE_PLAIN_SELECTOR_ESCAPED: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"^[#.](?:\\[0-9A-Fa-f]+ |\\.|\w|-)+").unwrap());
-    static RE_ESCAPE_SEQUENCE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap());
+    static RE_ESCAPE_SEQUENCE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\\([0-9A-Fa-f]+ |.)").unwrap());
 
     // If there are no escape characters in the selector, just take the first class or id token.
     let mat = RE_PLAIN_SELECTOR.find(selector);
@@ -541,15 +590,15 @@ fn key_from_selector(selector: &str) -> Option<String> {
             beginning = location.end();
             // Unwrap is safe because there is a capture group specified in the regex
             let capture = capture.get(1).unwrap().as_str();
-            if capture.chars().count() == 1 {   // Check number of unicode characters rather than byte length
+            if capture.chars().count() == 1 {
+                // Check number of unicode characters rather than byte length
                 key += capture;
             } else {
                 // This u32 conversion can overflow
                 let codepoint = u32::from_str_radix(&capture[..capture.len() - 1], 16).ok()?;
 
                 // Not all u32s are valid Unicode codepoints
-                key += &core::char::from_u32(codepoint)?
-                    .to_string();
+                key += &core::char::from_u32(codepoint)?.to_string();
             }
         }
         Some(key + &escaped[beginning..])
@@ -559,5 +608,5 @@ fn key_from_selector(selector: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-#[path ="../tests/unit/cosmetic_filter_cache.rs"]
+#[path = "../tests/unit/cosmetic_filter_cache.rs"]
 mod unit_tests;
