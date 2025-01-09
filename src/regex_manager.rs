@@ -128,7 +128,7 @@ type RandomState = std::hash::BuildHasherDefault<seahash::SeaHasher>;
 ///
 /// The [`RegexManager`] is not thread safe, so any access to it must be synchronized externally.
 pub struct RegexManager {
-    map: HashMap<*const NetworkFilter, RegexEntry, RandomState>,
+    map: HashMap<u64, RegexEntry, RandomState>,
     compiled_regex_count: usize,
     now: Instant,
     #[cfg_attr(target_arch = "wasm32", allow(unused))]
@@ -240,7 +240,7 @@ impl RegexManager {
         if !filter.is_regex() && !filter.is_complete_regex() {
             return true;
         }
-        let key = filter as *const NetworkFilter;
+        let key = (filter as *const NetworkFilter) as u64;
         use std::collections::hash_map::Entry;
         match self.map.entry(key) {
             Entry::Occupied(mut e) => {
