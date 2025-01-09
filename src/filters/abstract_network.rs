@@ -1,4 +1,4 @@
-use memchr::memchr as find_char;
+use memchr::memrchr as find_char_reverse;
 
 use super::network::NetworkFilterError;
 
@@ -105,7 +105,7 @@ impl AbstractNetworkFilter {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = find_char(b'$', line.as_bytes());
+        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
 
         let mut options = None;
         if let Some(options_index) = maybe_options_index {
