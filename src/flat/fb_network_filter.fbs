@@ -1,0 +1,24 @@
+// flatc --rust --gen-object-api -o src/flat/ src/flat/network_filter.fbs
+
+namespace fb;
+
+table NetworkFilter {
+  mask: uint32;  // NetworkFilterMask (network.rs)
+
+  // opt_domains[0] and opt_not_domains[0] contains the united (by or operation) hash of all hashes of [1..]
+  // This type of storage saves 8 bytes per filter if these arrays are empty.
+  opt_domains: [uint64];
+  opt_not_domains: [uint64];
+
+  patterns: [string];
+  modifier_option: string;
+  hostname: string;
+
+  tag: string;
+}
+
+table NetworkFilterList {
+  global_list: [NetworkFilter] (required);
+}
+
+root_type NetworkFilterList;
