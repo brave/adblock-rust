@@ -313,6 +313,10 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
 }
 
 impl NetworkFilter {
+    pub fn key(&self) -> u64 {
+        (self as *const Self) as u64
+    }
+
     pub fn parse(line: &str, debug: bool, _opts: ParseOptions) -> Result<Self, NetworkFilterError> {
         let parsed = AbstractNetworkFilter::parse(line)?;
 
@@ -933,7 +937,7 @@ impl NetworkMatchable for NetworkFilter {
             self.mask,
             self.filter.iter(),
             self.hostname.as_deref(),
-            (self as *const NetworkFilter) as u64,
+            self.key(),
             request,
             regex_manager,
         )

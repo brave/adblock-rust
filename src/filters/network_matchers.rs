@@ -83,22 +83,22 @@ impl NetworkFilterMask {
     }
 
     #[inline(always)]
-    fn third_party(&self) -> bool {
+    pub fn third_party(&self) -> bool {
         self.contains(NetworkFilterMask::THIRD_PARTY)
     }
 
     #[inline(always)]
-    fn first_party(&self) -> bool {
+    pub fn first_party(&self) -> bool {
         self.contains(NetworkFilterMask::FIRST_PARTY)
     }
 
     #[inline(always)]
-    fn for_http(&self) -> bool {
+    pub fn for_http(&self) -> bool {
         self.contains(NetworkFilterMask::FROM_HTTP)
     }
 
     #[inline(always)]
-    fn for_https(&self) -> bool {
+    pub fn for_https(&self) -> bool {
         self.contains(NetworkFilterMask::FROM_HTTPS)
     }
 
@@ -548,3 +548,7 @@ pub fn check_options<'a>(
 
     true
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/filters/network_matchers.rs"]
+mod unit_tests;
