@@ -3,10 +3,7 @@
 
 use memchr::{memchr as find_char, memmem};
 use once_cell::sync::Lazy;
-use regex::{
-    bytes::Regex as BytesRegex, bytes::RegexBuilder as BytesRegexBuilder,
-    bytes::RegexSet as BytesRegexSet, bytes::RegexSetBuilder as BytesRegexSetBuilder, Regex,
-};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -184,45 +181,54 @@ impl From<&request::RequestType> for NetworkFilterMask {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum CompiledRegex {
-    Compiled(BytesRegex),
-    CompiledSet(BytesRegexSet),
-    MatchAll,
-    RegexParsingError(regex::Error),
-}
-
-impl CompiledRegex {
-    pub fn is_match(&self, pattern: &str) -> bool {
-        match &self {
-            CompiledRegex::MatchAll => true, // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => false, // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => r.is_match(pattern.as_bytes()),
-            CompiledRegex::CompiledSet(r) => {
-                // let matches: Vec<_> = r.matches(pattern).into_iter().collect();
-                // println!("Matching {} against RegexSet: {:?}", pattern, matches);
-                r.is_match(pattern.as_bytes())
-            }
-        }
-    }
-}
-
-impl fmt::Display for CompiledRegex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self {
-            CompiledRegex::MatchAll => write!(f, ".*"), // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => write!(f, "ERROR"), // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => write!(f, "{}", r.as_str()),
-            CompiledRegex::CompiledSet(r) => write!(f, "{}", r.patterns().join(" | ")),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FilterPart {
     Empty,
     Simple(String),
     AnyOf(Vec<String>),
+}
+
+pub struct FilterPartIterator<'a> {
+    filter_part: &'a FilterPart,
+    index: usize,
+}
+
+impl<'a> Iterator for FilterPartIterator<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.filter_part {
+            FilterPart::Empty => None,
+            FilterPart::Simple(s) => {
+                if self.index == 0 {
+                    self.index += 1;
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            }
+            FilterPart::AnyOf(vec) => {
+                if self.index < vec.len() {
+                    let result = Some(vec[self.index].as_str());
+                    self.index += 1;
+                    result
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+// Implement ExactSizeIterator for FilterPartIterator
+impl<'a> ExactSizeIterator for FilterPartIterator<'a> {
+    fn len(&self) -> usize {
+        match self.filter_part {
+            FilterPart::Empty => 0,
+            FilterPart::Simple(_) => 1,
+            FilterPart::AnyOf(vec) => vec.len(),
+        }
+    }
 }
 
 impl FilterPart {
@@ -231,6 +237,13 @@ impl FilterPart {
             FilterPart::Empty => None,
             FilterPart::Simple(s) => Some(s.clone()),
             FilterPart::AnyOf(s) => Some(s.join("|")),
+        }
+    }
+
+    pub fn iter(&self) -> FilterPartIterator {
+        FilterPartIterator {
+            filter_part: self,
+            index: 0,
         }
     }
 }
@@ -989,84 +1002,6 @@ fn compute_filter_id(
     }
 
     hash
-}
-
-/// Compiles a filter pattern to a regex. This is only performed *lazily* for
-/// filters containing at least a * or ^ symbol. Because Regexes are expansive,
-/// we try to convert some patterns to plain filters.
-#[allow(clippy::trivial_regex)]
-pub(crate) fn compile_regex(
-    filter: &FilterPart,
-    is_right_anchor: bool,
-    is_left_anchor: bool,
-    is_complete_regex: bool,
-) -> CompiledRegex {
-    // Escape special regex characters: |.$+?{}()[]\
-    static SPECIAL_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap());
-    // * can match anything
-    static WILDCARD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*").unwrap());
-    // ^ can match any separator or the end of the pattern
-    static ANCHOR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\^(.)").unwrap());
-    // ^ can match any separator or the end of the pattern
-    static ANCHOR_RE_EOL: Lazy<Regex> = Lazy::new(|| Regex::new(r"\^$").unwrap());
-
-    let filters: Vec<String> = match filter {
-        FilterPart::Empty => vec![],
-        FilterPart::Simple(s) => vec![s.clone()],
-        FilterPart::AnyOf(f) => f.clone(),
-    };
-
-    let mut escaped_patterns = Vec::with_capacity(filters.len());
-    for filter_str in filters {
-        // If any filter is empty, the entire set matches anything
-        if filter_str.is_empty() {
-            return CompiledRegex::MatchAll;
-        }
-        if is_complete_regex {
-            // unescape unrecognised escaping sequences, otherwise a normal regex
-            let unescaped = filter_str[1..filter_str.len() - 1]
-                .replace("\\/", "/")
-                .replace("\\:", ":");
-
-            escaped_patterns.push(unescaped);
-        } else {
-            let repl = SPECIAL_RE.replace_all(&filter_str, "\\$1");
-            let repl = WILDCARD_RE.replace_all(&repl, ".*");
-            // in adblock rules, '^' is a separator.
-            // The separator character is anything but a letter, a digit, or one of the following: _ - . %
-            let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d\\._%-])$1");
-            let repl = ANCHOR_RE_EOL.replace_all(&repl, "(?:[^\\w\\d\\._%-]|$)");
-
-            // Should match start or end of url
-            let left_anchor = if is_left_anchor { "^" } else { "" };
-            let right_anchor = if is_right_anchor { "$" } else { "" };
-            let filter = format!("{}{}{}", left_anchor, repl, right_anchor);
-
-            escaped_patterns.push(filter);
-        }
-    }
-
-    if escaped_patterns.is_empty() {
-        CompiledRegex::MatchAll
-    } else if escaped_patterns.len() == 1 {
-        let pattern = &escaped_patterns[0];
-        match BytesRegexBuilder::new(pattern).unicode(false).build() {
-            Ok(compiled) => CompiledRegex::Compiled(compiled),
-            Err(e) => {
-                // println!("Regex parsing failed ({:?})", e);
-                CompiledRegex::RegexParsingError(e)
-            }
-        }
-    } else {
-        match BytesRegexSetBuilder::new(escaped_patterns)
-            .unicode(false)
-            .build()
-        {
-            Ok(compiled) => CompiledRegex::CompiledSet(compiled),
-            Err(e) => CompiledRegex::RegexParsingError(e),
-        }
-    }
 }
 
 /// Check if the sub-string contained between the indices start and end is a
