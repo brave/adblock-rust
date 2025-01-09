@@ -925,13 +925,9 @@ pub trait NetworkMatchable {
 
 impl NetworkMatchable for NetworkFilter {
     fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
-        use crate::filters::network_matchers::{check_options, check_pattern};
+        use crate::filters::network_matchers::{check_options, check_pattern, check_domains};
         check_options(
             self.mask,
-            self.opt_domains.as_deref(),
-            self.opt_domains_union,
-            self.opt_not_domains.as_deref(),
-            self.opt_not_domains_union,
             request,
         ) && check_pattern(
             self.mask,
@@ -940,6 +936,10 @@ impl NetworkMatchable for NetworkFilter {
             self.key(),
             request,
             regex_manager,
+        ) && check_domains(
+            self.opt_domains.as_deref(),
+            self.opt_not_domains.as_deref(),
+            request,
         )
     }
 

@@ -31,18 +31,10 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
     pub fn add(&mut self, network_filter: NetworkFilter) -> u32 {
         let opt_domains = network_filter
             .opt_domains
-            .map(|mut opt_domains| {
-                opt_domains.insert(0, network_filter.opt_domains_union.unwrap());
-                opt_domains
-            })
             .map(|v| self.builder.create_vector(&v));
 
         let opt_not_domains = network_filter
             .opt_not_domains
-            .map(|mut opt_not_domains| {
-                opt_not_domains.insert(0, network_filter.opt_not_domains_union.unwrap());
-                opt_not_domains
-            })
             .map(|v| self.builder.create_vector(&v));
 
         let modifier_option = network_filter
@@ -189,14 +181,14 @@ impl<'a> From<&'a fb::NetworkFilter<'a>> for FlatNetworkFilterView<'a> {
 
 impl<'a> NetworkMatchable for FlatNetworkFilterView<'a> {
     fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
-        use crate::filters::network_matchers::{check_options, check_pattern};
+        use crate::filters::network_matchers::{check_options, check_pattern, check_domains};
         check_options(
             self.mask,
-            self.opt_domains.map(|d| d[1..].as_ref()),
-            self.opt_domains.map(|d| d[0]),
-            self.opt_not_domains.map(|d| d[1..].as_ref()),
-            self.opt_not_domains.map(|d| d[0]),
             request,
+        ) && check_domains(
+          self.opt_domains.map(|d| d.as_ref()),
+          self.opt_not_domains.map(|d| d.as_ref()),
+          request,
         ) && check_pattern(
             self.mask,
             self.patterns.iter(),
