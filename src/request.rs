@@ -87,6 +87,7 @@ pub struct Request {
     pub is_supported: bool,
     pub is_third_party: bool,
     pub url: String,
+    pub url_lower_cased: String,
     pub hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
@@ -98,7 +99,7 @@ impl Request {
         if case_sensitive {
             Cow::Borrowed(&self.url)
         } else {
-            Cow::Owned(self.url.to_ascii_lowercase())
+            Cow::Borrowed(&self.url_lower_cased)
         }
     }
 
@@ -159,6 +160,7 @@ impl Request {
         Request {
             request_type,
             url: url.to_owned(),
+            url_lower_cased: url.to_ascii_lowercase().to_owned(),
             hostname: hostname.to_owned(),
             source_hostname_hashes,
             is_third_party: third_party,
