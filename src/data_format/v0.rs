@@ -355,6 +355,9 @@ impl From<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
                     )
                 })
                 .collect(),
+            // TODO(boocmp): ???
+            flat_filters_buffer: vec![],
+            flat_filter_map: HashMap::new(),
         }
     }
 }

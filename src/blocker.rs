@@ -11,7 +11,9 @@ use thiserror::Error;
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::filters::fb_network::flat::fb::{self};
+use crate::filters::fb_network::FlatNetworkFilterView;
+use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkMatchable};
 use crate::optimizer;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
@@ -745,6 +747,8 @@ impl Blocker {
 pub(crate) struct NetworkFilterList {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
+    pub(crate) flat_filters_buffer: Vec<u8>,
+    pub(crate) flat_filter_map: HashMap<Hash, Vec<u32>>,
 }
 
 impl NetworkFilterList {
@@ -762,6 +766,9 @@ impl NetworkFilterList {
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
         let mut filter_map = HashMap::with_capacity(filter_tokens.len());
+
+        let mut flat_filter_map = HashMap::with_capacity(filter_tokens.len());
+        let mut flat_builder = crate::filters::fb_network::FlatNetworkFiltersListBuilder::new();
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -780,12 +787,21 @@ impl NetworkFilterList {
                             _ => {}
                         }
                     }
+                    insert_dup(
+                        &mut flat_filter_map,
+                        best_token,
+                        flat_builder.add((*filter_pointer).clone()),
+                    );
                     insert_dup(&mut filter_map, best_token, Arc::clone(&filter_pointer));
                 }
             }
         }
 
-        let mut self_ = NetworkFilterList { filter_map };
+        let mut self_ = NetworkFilterList {
+            filter_map,
+            flat_filters_buffer: flat_builder.finish(),
+            flat_filter_map: flat_filter_map,
+        };
 
         if optimize {
             self_.optimize();
@@ -885,7 +901,63 @@ impl NetworkFilterList {
     /// match from each would be functionally equivalent. For example, if two different exception
     /// filters match a certain request, it doesn't matter _which_ one is matched - the request
     /// will be excepted either way.
-    pub fn check(
+    pub fn check_fnf(
+        &self,
+        request: &Request,
+        request_tokens: &[Hash],
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Option<NetworkFilterMask> {
+        if self.flat_filter_map.is_empty() {
+            return None;
+        }
+
+        let storage =
+            unsafe { fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer) };
+        let filters = storage.global_list();
+
+        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
+            for token in source_hostname_hashes {
+                if let Some(filter_bucket) = self.flat_filter_map.get(token) {
+                    for filter_index in filter_bucket {
+                        let flat_filter = filters.get(*filter_index as usize);
+                        let mut filter = FlatNetworkFilterView::from(&flat_filter);
+                        filter.key = *filter_index as u64;
+
+                        if filter.matches(request, regex_manager)
+                            && filter.tag.map_or(true, |t| active_tags.contains(t))
+                        {
+                            return Some(filter.mask);
+                        }
+                    }
+                }
+            }
+        }
+
+        for token in request_tokens {
+            if let Some(filter_bucket) = self.flat_filter_map.get(token) {
+                for filter_index in filter_bucket {
+                    let flat_filter = filters.get(*filter_index as usize);
+                    let mut filter = FlatNetworkFilterView::from(&flat_filter);
+                    filter.key = *filter_index as u64;
+
+                    if filter.matches(request, regex_manager)
+                        && filter.tag.map_or(true, |t| active_tags.contains(t))
+                    {
+                        return Some(filter.mask);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Returns the first found filter, if any, that matches the given request. The backing storage
+    /// has a non-deterministic order, so this should be used for any category of filters where a
+    /// match from each would be functionally equivalent. For example, if two different exception
+    /// filters match a certain request, it doesn't matter _which_ one is matched - the request
+    /// will be excepted either way.
+    pub fn check_nf(
         &self,
         request: &Request,
         request_tokens: &[Hash],
@@ -933,6 +1005,25 @@ impl NetworkFilterList {
         }
 
         None
+    }
+
+    pub fn check(
+        &self,
+        request: &Request,
+        request_tokens: &[Hash],
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Option<&NetworkFilter> {
+        let r = self.check_fnf(request, request_tokens, active_tags, regex_manager);
+        if r.is_none() {
+            None
+        } else {
+            if let Some((_, value)) = self.filter_map.iter().next() {
+                Some(&value[0])
+            } else {
+                None
+            }
+        }
     }
 
     /// Returns _all_ filters that match the given request. This should be used for any category of

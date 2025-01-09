@@ -41,6 +41,7 @@ cssparser = { version = "0.28", optional = true }
 selectors = { version = "0.23", optional = true }
 serde_json = "1.0"
 thiserror = "1.0"
+flatbuffers = "24.12.23"
 
 [dev-dependencies]
 criterion = "0.5"
@@ -54,6 +55,9 @@ sha2 = "0.9"
 
 [lib]
 bench = false
+
+[profile.bench]
+debug = true
 
 [[bench]]
 name = "bench_regex"

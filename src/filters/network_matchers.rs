@@ -3,43 +3,11 @@
 // ---------------------------------------------------------------------------
 
 use memchr::memmem;
-use once_cell::sync::Lazy;
 
 use crate::filters::network::NetworkFilterMask;
 use crate::regex_manager::RegexManager;
 use crate::request;
 use crate::utils::{self, Hash};
-
-trait AnyOrExt: Iterator {
-    fn any_or<F>(self, default: bool, predicate: F) -> bool
-    where
-        F: FnMut(Self::Item) -> bool,
-        Self: Sized,
-    {
-        let mut iter = self.peekable();
-        if iter.peek().is_none() {
-            default
-        } else {
-            iter.any(predicate)
-        }
-    }
-
-    fn any_or_calc<C, F>(self, default: C, predicate: F) -> bool
-    where
-        C: Fn() -> bool,
-        F: FnMut(Self::Item) -> bool,
-        Self: Sized,
-    {
-        let mut iter = self.peekable();
-        if iter.peek().is_none() {
-            default()
-        } else {
-            iter.any(predicate)
-        }
-    }
-}
-
-impl<I: Iterator> AnyOrExt for I {}
 
 impl NetworkFilterMask {
     #[inline(always)]
@@ -179,14 +147,17 @@ fn is_anchored_by_hostname(
 // pattern
 fn check_pattern_plain_filter_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     request: &request::Request,
 ) -> bool
 where
     FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
 {
+    if filters.len() == 0 {
+        return true;
+    }
     let request_url = request.get_url(mask.match_case());
-    filters.any_or(true, |f| {
+    filters.any(|f| {
         memmem::find(request_url.as_bytes(), f.as_bytes()).is_some()
     })
 }
@@ -194,40 +165,49 @@ where
 // pattern|
 fn check_pattern_right_anchor_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     request: &request::Request,
 ) -> bool
 where
     FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
 {
+    if filters.len() == 0 {
+        return true;
+    }
     let request_url = request.get_url(mask.match_case());
-    filters.any_or(true, |f| request_url.ends_with(f))
+    filters.any(|f| request_url.ends_with(f))
 }
 
 // |pattern
 fn check_pattern_left_anchor_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     request: &request::Request,
 ) -> bool
 where
     FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
 {
+    if filters.len() == 0 {
+        return true;
+    }
     let request_url = request.get_url(mask.match_case());
-    filters.any_or(true, |f| request_url.starts_with(f))
+    filters.any(|f| request_url.starts_with(f))
 }
 
 // |pattern|
 fn check_pattern_left_right_anchor_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     request: &request::Request,
 ) -> bool
 where
     FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
 {
+    if filters.len() == 0 {
+        return true;
+    }
     let request_url = request.get_url(mask.match_case());
-    filters.any_or(true, |f| &request_url == f)
+    filters.any(|f| &request_url == f)
 }
 
 // pattern*^
@@ -242,6 +222,9 @@ fn check_pattern_regex_filter_at<'a, FiltersIter>(
 where
     FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
 {
+    if filters.len() == 0 {
+        return true;
+    }
     let request_url = request.get_url(mask.match_case());
     regex_manager.matches(mask, filters, key, &request_url[start_from..])
 }
@@ -271,7 +254,6 @@ fn check_pattern_hostname_anchor_regex_filter<'a, FiltersIter>(
 where
     FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
 {
-    let request_url = request.get_url(mask.match_case());
     hostname
         .as_ref()
         .map(|hostname| {
@@ -280,6 +262,7 @@ where
                 &request.hostname,
                 mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
             ) {
+                let request_url = request.get_url(mask.match_case());
                 check_pattern_regex_filter_at(
                     mask,
                     filters,
@@ -314,8 +297,7 @@ where
                 &request.hostname,
                 mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
             ) {
-                let mut iter = filters.peekable();
-                if iter.peek().is_none() {
+                if filters.len() == 0 {
                     // In this specific case it means that the specified hostname should match
                     // at the end of the hostname of the request. This allows to prevent false
                     // positive like ||foo.bar which would match https://foo.bar.baz where
@@ -323,7 +305,7 @@ where
                     request.hostname.len() == hostname.len()        // if lengths are equal, hostname equality is implied by anchoring check
                           || request.hostname.ends_with(hostname)
                 } else {
-                    check_pattern_right_anchor_filter(mask, iter, request)
+                    check_pattern_right_anchor_filter(mask, filters, request)
                 }
             } else {
                 false
@@ -335,7 +317,7 @@ where
 // |||pattern|
 fn check_pattern_hostname_left_right_anchor_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     hostname: Option<&'a str>,
     request: &request::Request,
 ) -> bool
@@ -354,14 +336,16 @@ where
                 &request.hostname,
                 mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
             ) {
+                if filters.len() == 0 {
+                    return true;
+                }
                 let request_url = request.get_url(mask.match_case());
-                let url_after_hostname =
-                    Lazy::new(|| get_url_after_hostname(&request_url, hostname));
-                filters.any_or(true, |f| {
+                let url_after_hostname = get_url_after_hostname(&request_url, hostname);
+                filters.any(|f| {
                     // Since it must follow immediatly after the hostname and be a suffix of
                     // the URL, we conclude that filter must be equal to the part of the
                     // url following the hostname.
-                    (*url_after_hostname) == f
+                    url_after_hostname == f
                 })
             } else {
                 false
@@ -374,7 +358,7 @@ where
 // exactly after the hostname, with nothing in between.
 fn check_pattern_hostname_left_anchor_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     hostname: Option<&'a str>,
     request: &request::Request,
 ) -> bool
@@ -389,15 +373,18 @@ where
                 &request.hostname,
                 mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
             ) {
-                let request_url = request.get_url(mask.match_case());
-                let url_after_hostname =
-                    Lazy::new(|| get_url_after_hostname(&request_url, hostname));
-                filters.any_or(true, |f| {
-                    // Since this is not a regex, the filter pattern must follow the hostname
-                    // with nothing in between. So we extract the part of the URL following
-                    // after hostname and will perform the matching on it.
-                    url_after_hostname.starts_with(f)
-                })
+                if filters.len() == 0 {
+                    return true;
+                } else {
+                    let request_url = request.get_url(mask.match_case());
+                    let url_after_hostname = get_url_after_hostname(&request_url, hostname);
+                    filters.any(|f| {
+                        // Since this is not a regex, the filter pattern must follow the hostname
+                        // with nothing in between. So we extract the part of the URL following
+                        // after hostname and will perform the matching on it.
+                        url_after_hostname.starts_with(f)
+                    })
+                }
             } else {
                 false
             }
@@ -408,7 +395,7 @@ where
 // ||pattern
 fn check_pattern_hostname_anchor_filter<'a, FiltersIter>(
     mask: NetworkFilterMask,
-    filters: FiltersIter,
+    mut filters: FiltersIter,
     hostname: Option<&'a str>,
     request: &request::Request,
 ) -> bool
@@ -423,10 +410,12 @@ where
                 &request.hostname,
                 mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
             ) {
+                if filters.len() == 0 {
+                    return true;
+                }
                 let request_url = request.get_url(mask.match_case());
-                let url_after_hostname =
-                    Lazy::new(|| get_url_after_hostname(&request_url, hostname));
-                filters.any_or(true, |f| {
+                let url_after_hostname = get_url_after_hostname(&request_url, hostname);
+                filters.any(|f| {
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
                     (*url_after_hostname).contains(f)
                 })
