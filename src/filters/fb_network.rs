@@ -6,6 +6,7 @@ use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::regex_manager::RegexManager;
 use crate::request::{self};
 use crate::utils::Hash;
+use flatbuffers::{Table, Follow};
 
 extern crate flatbuffers;
 #[allow(dead_code, unused_imports, unsafe_code)]
@@ -147,34 +148,66 @@ pub struct FlatNetworkFilterView<'a> {
     pub tag: Option<&'a str>,
 }
 
+impl<'a> FlatNetworkFilterView<'a> {
+  #[inline]
+  unsafe fn get_from_vtable<T: Follow<'a> + 'a>(
+      table: &Table<'a>,
+      offset: usize,
+      default: Option<T::Inner>,
+  ) -> Option<T::Inner> {
+      if offset == 0 {
+          return default;
+      }
+      Some(<T>::follow(table.buf(), table.loc() + offset))
+  }
+}
+
 impl<'a> From<fb::NetworkFilter<'a>> for FlatNetworkFilterView<'a> {
     #[inline(always)]
     fn from(filter: fb::NetworkFilter<'a>) -> Self {
-        let opt_domains = filter.opt_domains().map(|domains| unsafe {
-            let bytes = domains.bytes();
-            std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u64,
-                bytes.len() / std::mem::size_of::<u64>(),
-            )
-        });
-        let opt_not_domains = filter.opt_not_domains().map(|domains| unsafe {
-            let bytes = domains.bytes();
-            std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u64,
-                bytes.len() / std::mem::size_of::<u64>(),
-            )
-        });
+
+              // Safety:
+        // Created from valid Table for this object
+        // which contains valid values in these slots
+        let vtable = filter._tab.vtable();
+
+        let mask_offset = vtable.get(fb::NetworkFilter::VT_MASK) as usize;
+        let opt_domains_offset = vtable.get(fb::NetworkFilter::VT_OPT_DOMAINS) as usize;
+        let opt_not_domains_offset = vtable.get(fb::NetworkFilter::VT_OPT_NOT_DOMAINS) as usize;
+        let patterns_offset = vtable.get(fb::NetworkFilter::VT_PATTERNS) as usize;
+        let modifier_option_offset = vtable.get(fb::NetworkFilter::VT_MODIFIER_OPTION) as usize;
+        let hostname_offset = vtable.get(fb::NetworkFilter::VT_HOSTNAME) as usize;
+        let tag_offset = vtable.get(fb::NetworkFilter::VT_TAG) as usize;
+
+        let mask = unsafe { FlatNetworkFilterView::get_from_vtable::<u32>(&filter._tab, mask_offset, Some(0)).unwrap() };
+        let opt_domains_raw = unsafe { FlatNetworkFilterView::get_from_vtable::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(&filter._tab, opt_domains_offset, None) };
+        let opt_not_domains_raw = unsafe { FlatNetworkFilterView::get_from_vtable::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(&filter._tab, opt_not_domains_offset, None) };
+        let patterns = unsafe { FlatNetworkFilterView::get_from_vtable::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(&filter._tab, patterns_offset, None) };
+        let modifier_option = unsafe { FlatNetworkFilterView::get_from_vtable::<flatbuffers::ForwardsUOffset<&str>>(&filter._tab, modifier_option_offset, None) };
+        let hostname = unsafe { FlatNetworkFilterView::get_from_vtable::<flatbuffers::ForwardsUOffset<&str>>(&filter._tab, hostname_offset, None) };
+        let tag = unsafe { FlatNetworkFilterView::get_from_vtable::<flatbuffers::ForwardsUOffset<&str>>(&filter._tab, tag_offset, None) };
+
         Self {
             key: (filter._tab.buf().as_ptr() as *const u64) as u64,
-            mask: unsafe { NetworkFilterMask::from_bits_unchecked(filter.mask()) },
-            patterns: FlatPatterns {
-                data: filter.patterns(),
-            },
-            modifier_option: filter.modifier_option(),
-            hostname: filter.hostname(),
-            opt_domains: opt_domains,
-            opt_not_domains: opt_not_domains,
-            tag: filter.tag(),
+            mask: unsafe { NetworkFilterMask::from_bits_unchecked(mask) },
+            patterns: FlatPatterns { data: patterns },
+            modifier_option,
+            hostname,
+            opt_domains: opt_domains_raw.map(|domains| unsafe {
+                let bytes = domains.bytes();
+                std::slice::from_raw_parts(
+                    bytes.as_ptr() as *const u64,
+                    bytes.len() / std::mem::size_of::<u64>(),
+                )
+            }),
+            opt_not_domains: opt_not_domains_raw.map(|domains| unsafe {
+                let bytes = domains.bytes();
+                std::slice::from_raw_parts(
+                    bytes.as_ptr() as *const u64,
+                    bytes.len() / std::mem::size_of::<u64>(),
+                )
+            }),
+            tag,
         }
     }
 }
