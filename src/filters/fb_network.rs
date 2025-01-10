@@ -147,9 +147,9 @@ pub struct FlatNetworkFilterView<'a> {
     pub tag: Option<&'a str>,
 }
 
-impl<'a> From<&'a fb::NetworkFilter<'a>> for FlatNetworkFilterView<'a> {
+impl<'a> From<fb::NetworkFilter<'a>> for FlatNetworkFilterView<'a> {
     #[inline(always)]
-    fn from(filter: &'a fb::NetworkFilter<'a>) -> Self {
+    fn from(filter: fb::NetworkFilter<'a>) -> Self {
         let opt_domains = filter.opt_domains().map(|domains| unsafe {
             let bytes = domains.bytes();
             std::slice::from_raw_parts(

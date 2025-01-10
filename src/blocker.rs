@@ -896,6 +896,46 @@ impl NetworkFilterList {
         false
     }
 
+
+    fn load_fb_filter(&self, index: usize) -> FlatNetworkFilterView<'_> {
+        let storage =
+            unsafe { fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer) };
+        let filters = storage.global_list();
+        let flat_filter = filters.get(index);
+        let mut filter = FlatNetworkFilterView::from(flat_filter);
+        filter.key = index as u64;
+        filter
+    }
+
+    // fn load_fb_filter(&self, index: usize) -> &FlatNetworkFilterView<'static> {
+    //     // use std::num::NonZeroUsize;
+    //     unsafe {
+    //         static mut CACHE: Lazy<LruCache<usize, FlatNetworkFilterView<'static>>> =
+    //             //  Lazy::new(|| LruCache::new(NonZeroUsize::new(5000).unwrap()));
+    //             Lazy::new(|| LruCache::unbounded());
+
+
+    //         // Check if the filter is already in the cache
+    //         if let Some(cached_filter) = CACHE.get(&index) {
+    //             return cached_filter;
+    //         }
+
+
+    //         // If not in cache, load the filter
+    //         let storage: fb::NetworkFilterList<'static> =
+    //         fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer);
+    //         let filters = storage.global_list();
+    //         let flat_filter = filters.get(index);
+    //         let mut filter: FlatNetworkFilterView<'static> = FlatNetworkFilterView::from(flat_filter);
+    //         filter.key = index as u64;
+
+    //         // Insert the loaded filter into the cache
+    //         CACHE.put(index, filter);
+
+    //         CACHE.get(&index).unwrap()
+    //    }
+    // }
+
     /// Returns the first found filter, if any, that matches the given request. The backing storage
     /// has a non-deterministic order, so this should be used for any category of filters where a
     /// match from each would be functionally equivalent. For example, if two different exception
@@ -912,17 +952,11 @@ impl NetworkFilterList {
             return None;
         }
 
-        let storage =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer) };
-        let filters = storage.global_list();
-
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.flat_filter_map.get(token) {
                     for filter_index in filter_bucket {
-                        let flat_filter = filters.get(*filter_index as usize);
-                        let mut filter = FlatNetworkFilterView::from(&flat_filter);
-                        filter.key = *filter_index as u64;
+                       let filter = self.load_fb_filter(*filter_index as usize);
 
                         if filter.matches(request, regex_manager)
                             && filter.tag.map_or(true, |t| active_tags.contains(t))
@@ -937,9 +971,7 @@ impl NetworkFilterList {
         for token in request_tokens {
             if let Some(filter_bucket) = self.flat_filter_map.get(token) {
                 for filter_index in filter_bucket {
-                    let flat_filter = filters.get(*filter_index as usize);
-                    let mut filter = FlatNetworkFilterView::from(&flat_filter);
-                    filter.key = *filter_index as u64;
+                    let filter = self.load_fb_filter(*filter_index as usize);
 
                     if filter.matches(request, regex_manager)
                         && filter.tag.map_or(true, |t| active_tags.contains(t))
