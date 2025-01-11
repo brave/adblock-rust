@@ -151,7 +151,9 @@ mod parse_tests {
         check_parse_result(
             r#"soundtrackcollector.com,the-numbers.com##a[href^="http://affiliates.allposters.com/"]"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"a[href^="http://affiliates.allposters.com/"]"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"a[href^="http://affiliates.allposters.com/"]"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec!["soundtrackcollector.com", "the-numbers.com"]),
                 ..Default::default()
             },
@@ -199,7 +201,9 @@ mod parse_tests {
         check_parse_result(
             r#"adforum.com,alliednews.com,americustimesrecorder.com,andovertownsman.com,athensreview.com,batesvilleheraldtribune.com,bdtonline.com,channel24.pk,chickashanews.com,claremoreprogress.com,cleburnetimesreview.com,clintonherald.com,commercejournal.com,commercial-news.com,coopercrier.com,cordeledispatch.com,corsicanadailysun.com,crossville-chronicle.com,cullmantimes.com,dailyiowegian.com,dailyitem.com,daltondailycitizen.com,derrynews.com,duncanbanner.com,eagletribune.com,edmondsun.com,effinghamdailynews.com,enewscourier.com,enidnews.com,farmtalknewspaper.com,fayettetribune.com,flasharcade.com,flashgames247.com,flyergroup.com,foxsportsasia.com,gainesvilleregister.com,gloucestertimes.com,goshennews.com,greensburgdailynews.com,heraldbanner.com,heraldbulletin.com,hgazette.com,homemagonline.com,itemonline.com,jacksonvilleprogress.com,jerusalemonline.com,joplinglobe.com,journal-times.com,journalexpress.net,kexp.org,kokomotribune.com,lockportjournal.com,mankatofreepress.com,mcalesternews.com,mccrearyrecord.com,mcleansborotimesleader.com,meadvilletribune.com,meridianstar.com,mineralwellsindex.com,montgomery-herald.com,mooreamerican.com,moultrieobserver.com,muskogeephoenix.com,ncnewsonline.com,newburyportnews.com,newsaegis.com,newsandtribune.com,niagara-gazette.com,njeffersonnews.com,normantranscript.com,opposingviews.com,orangeleader.com,oskaloosa.com,ottumwacourier.com,outlookmoney.com,palestineherald.com,panews.com,paulsvalleydailydemocrat.com,pellachronicle.com,pharostribune.com,pressrepublican.com,pryordailytimes.com,randolphguide.com,record-eagle.com,register-herald.com,register-news.com,reporter.net,rockwallheraldbanner.com,roysecityheraldbanner.com,rushvillerepublican.com,salemnews.com,sentinel-echo.com,sharonherald.com,shelbyvilledailyunion.com,siteslike.com,standardmedia.co.ke,starbeacon.com,stwnewspress.com,suwanneedemocrat.com,tahlequahdailypress.com,theadanews.com,theawesomer.com,thedailystar.com,thelandonline.com,themoreheadnews.com,thesnaponline.com,tiftongazette.com,times-news.com,timesenterprise.com,timessentinel.com,timeswv.com,tonawanda-news.com,tribdem.com,tribstar.com,unionrecorder.com,valdostadailytimes.com,washtimesherald.com,waurikademocrat.com,wcoutlook.com,weatherforddemocrat.com,woodwardnews.net,wrestlinginc.com##div[style="width:300px; height:250px;"]"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"div[style="width:300px; height:250px;"]"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"div[style="width:300px; height:250px;"]"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec![
                     "adforum.com",
                     "alliednews.com",
@@ -362,7 +366,9 @@ mod parse_tests {
         check_parse_result(
             r#"tf2maps.net##a[href="http://forums.tf2maps.net/payments.php"]"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"a[href="http://forums.tf2maps.net/payments.php"]"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"a[href="http://forums.tf2maps.net/payments.php"]"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec!["tf2maps.net"]),
                 ..Default::default()
             },
@@ -370,7 +376,9 @@ mod parse_tests {
         check_parse_result(
             r#"rarbg.to,rarbg.unblockall.org,rarbgaccess.org,rarbgmirror.com,rarbgmirror.org,rarbgmirror.xyz,rarbgproxy.com,rarbgproxy.org,rarbgunblock.com##a[href][target="_blank"] > button"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"a[href][target="_blank"] > button"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"a[href][target="_blank"] > button"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec![
                     "rarbg.to",
                     "rarbg.unblockall.org",
@@ -406,7 +414,9 @@ mod parse_tests {
         check_parse_result(
             r#"haus-garten-test.de,sozialversicherung-kompetent.de##+js(set-constant.js, Object.keys, trueFunc)"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"set-constant.js, Object.keys, trueFunc"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"set-constant.js, Object.keys, trueFunc"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec![
                     "haus-garten-test.de",
                     "sozialversicherung-kompetent.de",
@@ -418,7 +428,9 @@ mod parse_tests {
         check_parse_result(
             r#"airliners.de,auszeit.bio,autorevue.at,clever-tanken.de,fanfiktion.de,finya.de,frag-mutti.de,frustfrei-lernen.de,fussballdaten.de,gameswelt.*,liga3-online.de,lz.de,mt.de,psychic.de,rimondo.com,spielen.de,weltfussball.at,weristdeinfreund.de##+js(abort-current-inline-script.js, Number.isNaN)"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"abort-current-inline-script.js, Number.isNaN"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"abort-current-inline-script.js, Number.isNaN"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec![
                     "airliners.de",
                     "auszeit.bio",
@@ -446,7 +458,9 @@ mod parse_tests {
         check_parse_result(
             r#"prad.de##+js(abort-on-property-read.js, document.cookie)"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"abort-on-property-read.js, document.cookie"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"abort-on-property-read.js, document.cookie"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec!["prad.de"]),
                 script_inject: true,
                 ..Default::default()
@@ -455,7 +469,9 @@ mod parse_tests {
         check_parse_result(
             r#"computerbild.de##+js(abort-on-property-read.js, Date.prototype.toUTCString)"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"abort-on-property-read.js, Date.prototype.toUTCString"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"abort-on-property-read.js, Date.prototype.toUTCString"#.to_string(),
+                ),
                 hostnames: sort_hash_domains(vec!["computerbild.de"]),
                 script_inject: true,
                 ..Default::default()
@@ -494,7 +510,9 @@ mod parse_tests {
         check_parse_result(
             r#"monova.*#@#script + [class] > [class]:first-child"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"script + [class] > [class]:first-child"#.to_string()),
+                selector: SelectorType::PlainCss(
+                    r#"script + [class] > [class]:first-child"#.to_string(),
+                ),
                 entities: sort_hash_domains(vec!["monova"]),
                 unhide: true,
                 ..Default::default()
@@ -515,7 +533,9 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: SelectorType::PlainCss(r#".date:not(dt)"#.to_string()),
                 entities: sort_hash_domains(vec!["downloadsource"]),
-                action: Some(CosmeticFilterAction::Style("display: block !important;".into())),
+                action: Some(CosmeticFilterAction::Style(
+                    "display: block !important;".into(),
+                )),
                 ..Default::default()
             },
         );
@@ -528,7 +548,9 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: SelectorType::PlainCss(r#".video-wrapper > video[style]"#.to_string()),
                 hostnames: sort_hash_domains(vec!["chip.de"]),
-                action: Some(CosmeticFilterAction::Style("display:block!important;padding-top:0!important;".into())),
+                action: Some(CosmeticFilterAction::Style(
+                    "display:block!important;padding-top:0!important;".into(),
+                )),
                 ..Default::default()
             },
         );
@@ -537,7 +559,9 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: SelectorType::PlainCss(r#".advertising.medium-rectangle"#.to_string()),
                 hostnames: sort_hash_domains(vec!["allmusic.com"]),
-                action: Some(CosmeticFilterAction::Style("min-height: 1px !important;".into())),
+                action: Some(CosmeticFilterAction::Style(
+                    "min-height: 1px !important;".into(),
+                )),
                 ..Default::default()
             },
         );
@@ -556,7 +580,10 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: SelectorType::PlainCss(r#"body#styleguide-v2"#.to_string()),
                 hostnames: sort_hash_domains(vec!["imdb.com"]),
-                action: Some(CosmeticFilterAction::Style("background-color: #e3e2dd !important; background-image: none !important;".into())),
+                action: Some(CosmeticFilterAction::Style(
+                    "background-color: #e3e2dd !important; background-image: none !important;"
+                        .into(),
+                )),
                 ..Default::default()
             },
         );
@@ -565,7 +592,9 @@ mod parse_tests {
             CosmeticFilterBreakdown {
                 selector: SelectorType::PlainCss(r#"#login > div[style^="width"]"#.to_string()),
                 hostnames: sort_hash_domains(vec!["streamcloud.eu"]),
-                action: Some(CosmeticFilterAction::Style("display: block !important".into())),
+                action: Some(CosmeticFilterAction::Style(
+                    "display: block !important".into(),
+                )),
                 ..Default::default()
             },
         );
@@ -578,7 +607,9 @@ mod parse_tests {
                     "moondoge.co.in",
                     "moonliteco.in",
                 ]),
-                action: Some(CosmeticFilterAction::Style("visibility: collapse !important".into())),
+                action: Some(CosmeticFilterAction::Style(
+                    "visibility: collapse !important".into(),
+                )),
                 ..Default::default()
             },
         );
@@ -600,7 +631,7 @@ mod parse_tests {
                 hostnames: sort_hash_domains(vec!["xn--lloworl-5ggb3f.com"]),
                 unhide: true,
                 ..Default::default()
-            }
+            },
         );
     }
 
@@ -624,11 +655,9 @@ mod parse_tests {
                 &format!("example.com##{}", raw),
                 CosmeticFilterBreakdown {
                     selector: SelectorType::Procedural(expected_selectors),
-                    hostnames: sort_hash_domains(vec![
-                        "example.com",
-                    ]),
+                    hostnames: sort_hash_domains(vec!["example.com"]),
                     ..Default::default()
-                }
+                },
             );
         }
         check_procedural(
@@ -685,13 +714,18 @@ mod parse_tests {
     #[cfg(feature = "css-validation")]
     fn unsupported() {
         assert!(parse_cf("yandex.*##.serp-item:if(:scope > div.organic div.organic__subtitle:matches-css-after(content: /[Рр]еклама/))").is_err());
-        assert!(parse_cf(r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#).is_err());
+        assert!(parse_cf(
+            r#"facebook.com,facebookcorewwwi.onion##.ego_column:if(a[href^="/campaign/landing"])"#
+        )
+        .is_err());
         assert!(parse_cf(r#"readcomiconline.to##^script:has-text(this[atob)"#).is_err());
         assert!(parse_cf("##").is_err());
         assert!(parse_cf("").is_err());
 
         // `:has` was previously limited to procedural filtering, but is now a native CSS feature.
-        assert!(parse_cf(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#).is_ok());
+        assert!(
+            parse_cf(r#"thedailywtf.com##.article-body > div:has(a[href*="utm_medium"])"#).is_ok()
+        );
 
         // `:has-text` and `:xpath` are now supported procedural filters
         assert!(parse_cf("twitter.com##article:has-text(/Promoted|Gesponsert|Реклама|Promocionado/):xpath(../..)").is_ok());
@@ -780,10 +814,38 @@ mod util_tests {
 
     #[test]
     fn label_hashing() {
-        assert_eq!(get_hashes_from_labels("foo.bar.baz", 11, 11), vec![fast_hash("baz"), fast_hash("bar.baz"), fast_hash("foo.bar.baz")]);
-        assert_eq!(get_hashes_from_labels("foo.bar.baz.com", 15, 8), vec![fast_hash("baz.com"), fast_hash("bar.baz.com"), fast_hash("foo.bar.baz.com")]);
-        assert_eq!(get_hashes_from_labels("foo.bar.baz.com", 11, 11), vec![fast_hash("baz"), fast_hash("bar.baz"), fast_hash("foo.bar.baz")]);
-        assert_eq!(get_hashes_from_labels("foo.bar.baz.com", 11, 8), vec![fast_hash("baz"), fast_hash("bar.baz"), fast_hash("foo.bar.baz")]);
+        assert_eq!(
+            get_hashes_from_labels("foo.bar.baz", 11, 11),
+            vec![
+                fast_hash("baz"),
+                fast_hash("bar.baz"),
+                fast_hash("foo.bar.baz")
+            ]
+        );
+        assert_eq!(
+            get_hashes_from_labels("foo.bar.baz.com", 15, 8),
+            vec![
+                fast_hash("baz.com"),
+                fast_hash("bar.baz.com"),
+                fast_hash("foo.bar.baz.com")
+            ]
+        );
+        assert_eq!(
+            get_hashes_from_labels("foo.bar.baz.com", 11, 11),
+            vec![
+                fast_hash("baz"),
+                fast_hash("bar.baz"),
+                fast_hash("foo.bar.baz")
+            ]
+        );
+        assert_eq!(
+            get_hashes_from_labels("foo.bar.baz.com", 11, 8),
+            vec![
+                fast_hash("baz"),
+                fast_hash("bar.baz"),
+                fast_hash("foo.bar.baz")
+            ]
+        );
     }
 
     #[test]
@@ -791,16 +853,24 @@ mod util_tests {
         assert_eq!(get_hostname_without_public_suffix("", ""), None);
         assert_eq!(get_hostname_without_public_suffix("com", ""), None);
         assert_eq!(get_hostname_without_public_suffix("com", "com"), None);
-        assert_eq!(get_hostname_without_public_suffix("foo.com", "foo.com"), Some(("foo", "com")));
-        assert_eq!(get_hostname_without_public_suffix("foo.bar.com", "bar.com"), Some(("foo.bar", "com")));
-        assert_eq!(get_hostname_without_public_suffix("test.github.io", "test.github.io"), Some(("test", "github.io")));
+        assert_eq!(
+            get_hostname_without_public_suffix("foo.com", "foo.com"),
+            Some(("foo", "com"))
+        );
+        assert_eq!(
+            get_hostname_without_public_suffix("foo.bar.com", "bar.com"),
+            Some(("foo.bar", "com"))
+        );
+        assert_eq!(
+            get_hostname_without_public_suffix("test.github.io", "test.github.io"),
+            Some(("test", "github.io"))
+        );
     }
 }
 
 #[cfg(test)]
 mod matching_tests {
     use super::super::*;
-    use crate::utils::bin_lookup;
 
     trait MatchByStr {
         fn matches(&self, request_entities: &[Hash], request_hostnames: &[Hash]) -> bool;
@@ -841,7 +911,7 @@ mod matching_tests {
             if let Some(ref filter_not_hostnames) = self.not_hostnames {
                 if request_hostnames
                     .iter()
-                    .any(|hash| bin_lookup(filter_not_hostnames, *hash))
+                    .any(|hash| utils::bin_lookup(filter_not_hostnames, *hash))
                 {
                     return false;
                 }
@@ -850,7 +920,7 @@ mod matching_tests {
             if let Some(ref filter_not_entities) = self.not_entities {
                 if request_entities
                     .iter()
-                    .any(|hash| bin_lookup(filter_not_entities, *hash))
+                    .any(|hash| utils::bin_lookup(filter_not_entities, *hash))
                 {
                     return false;
                 }
@@ -860,7 +930,7 @@ mod matching_tests {
                 if let Some(ref filter_hostnames) = self.hostnames {
                     if request_hostnames
                         .iter()
-                        .any(|hash| bin_lookup(filter_hostnames, *hash))
+                        .any(|hash| utils::bin_lookup(filter_hostnames, *hash))
                     {
                         return true;
                     }
@@ -869,7 +939,7 @@ mod matching_tests {
                 if let Some(ref filter_entities) = self.entities {
                     if request_entities
                         .iter()
-                        .any(|hash| bin_lookup(filter_entities, *hash))
+                        .any(|hash| utils::bin_lookup(filter_entities, *hash))
                     {
                         return true;
                     }
@@ -1020,7 +1090,9 @@ mod matching_tests {
 
     #[test]
     fn multiple_selectors() {
-        assert!(parse_cf("youtube.com##.masthead-ad-control,.ad-div,.pyv-afc-ads-container").is_ok());
+        assert!(
+            parse_cf("youtube.com##.masthead-ad-control,.ad-div,.pyv-afc-ads-container").is_ok()
+        );
         assert!(parse_cf("m.economictimes.com###appBanner,#stickyBanner").is_ok());
         assert!(parse_cf("googledrivelinks.com###wpsafe-generate, #wpsafe-link:style(display: block !important;)").is_ok());
     }
@@ -1048,16 +1120,35 @@ mod matching_tests {
     #[test]
     #[cfg(feature = "css-validation")]
     fn abp_has_conversion() {
-        let rule = parse_cf("imgur.com#?#div.Gallery-Sidebar-PostContainer:-abp-has(div.promoted-hover)").unwrap();
-        assert_eq!(rule.plain_css_selector(), Some("div.Gallery-Sidebar-PostContainer:has(div.promoted-hover)"));
-        let rule = parse_cf(r##"webtools.fineaty.com#?#div[class*=" hidden-"]:-abp-has(.adsbygoogle)"##).unwrap();
-        assert_eq!(rule.plain_css_selector(), Some(r#"div[class*=" hidden-"]:has(.adsbygoogle)"#));
+        let rule =
+            parse_cf("imgur.com#?#div.Gallery-Sidebar-PostContainer:-abp-has(div.promoted-hover)")
+                .unwrap();
+        assert_eq!(
+            rule.plain_css_selector(),
+            Some("div.Gallery-Sidebar-PostContainer:has(div.promoted-hover)")
+        );
+        let rule =
+            parse_cf(r##"webtools.fineaty.com#?#div[class*=" hidden-"]:-abp-has(.adsbygoogle)"##)
+                .unwrap();
+        assert_eq!(
+            rule.plain_css_selector(),
+            Some(r#"div[class*=" hidden-"]:has(.adsbygoogle)"#)
+        );
         let rule = parse_cf(r##"facebook.com,facebookcorewwwi.onion#?#._6y8t:-abp-has(a[href="/ads/about/?entry_product=ad_preferences"])"##).unwrap();
-        assert_eq!(rule.plain_css_selector(), Some(r#"._6y8t:has(a[href="/ads/about/?entry_product=ad_preferences"])"#));
-        let rule = parse_cf(r##"mtgarena.pro#?##root > div > div:-abp-has(> .vm-placement)"##).unwrap();
-        assert_eq!(rule.plain_css_selector(), Some(r#"#root > div > div:has(> .vm-placement)"#));
+        assert_eq!(
+            rule.plain_css_selector(),
+            Some(r#"._6y8t:has(a[href="/ads/about/?entry_product=ad_preferences"])"#)
+        );
+        let rule =
+            parse_cf(r##"mtgarena.pro#?##root > div > div:-abp-has(> .vm-placement)"##).unwrap();
+        assert_eq!(
+            rule.plain_css_selector(),
+            Some(r#"#root > div > div:has(> .vm-placement)"#)
+        );
         // Error without `#?#`:
-        assert!(parse_cf(r##"mtgarena.pro###root > div > div:-abp-has(> .vm-placement)"##).is_err());
+        assert!(
+            parse_cf(r##"mtgarena.pro###root > div > div:-abp-has(> .vm-placement)"##).is_err()
+        );
     }
 }
 
@@ -1069,21 +1160,42 @@ mod css_validation_tests {
     #[test]
     fn bad_selector_inputs() {
         assert!(validate_css_selector(r#"rm -rf ./*"#, false).is_err());
-        assert!(validate_css_selector(r#"javascript:alert("All pseudo-classes are valid")"#, false).is_ok());
-        assert!(validate_css_selector(r#"javascript:alert("But opening comments are still forbidden" /*)"#, false).is_err());
+        assert!(validate_css_selector(
+            r#"javascript:alert("All pseudo-classes are valid")"#,
+            false
+        )
+        .is_ok());
+        assert!(validate_css_selector(
+            r#"javascript:alert("But opening comments are still forbidden" /*)"#,
+            false
+        )
+        .is_err());
         assert!(validate_css_selector(r#"This is not a CSS selector."#, false).is_err());
         assert!(validate_css_selector(r#"./malware.sh"#, false).is_err());
         assert!(validate_css_selector(r#"https://safesite.ru"#, false).is_err());
-        assert!(validate_css_selector(r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#, false).is_err());
+        assert!(validate_css_selector(
+            r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#,
+            false
+        )
+        .is_err());
         assert!(validate_css_selector(r#"#!/usr/bin/sh"#, false).is_err());
         assert!(validate_css_selector(r#"input,input/*"#, false).is_err());
         // Accept a closing comment within a string. It should still be impossible to create an
         // opening comment to match it.
-        assert!(validate_css_selector(r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#, false).is_ok());
+        assert!(validate_css_selector(
+            r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#,
+            false
+        )
+        .is_ok());
     }
 
     #[test]
     fn escaped_quote_in_tag_name() {
-        assert_eq!(validate_css_selector(r#"head\""#, false), Ok(vec![CosmeticFilterOperator::CssSelector(r#"head\""#.to_string())]));
+        assert_eq!(
+            validate_css_selector(r#"head\""#, false),
+            Ok(vec![CosmeticFilterOperator::CssSelector(
+                r#"head\""#.to_string()
+            )])
+        );
     }
 }

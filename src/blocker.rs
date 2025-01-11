@@ -749,6 +749,8 @@ pub(crate) struct NetworkFilterList {
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
     pub(crate) flat_filters_buffer: Vec<u8>,
     pub(crate) flat_filter_map: HashMap<Hash, Vec<u32>>,
+    pub(crate) include_domains_map: HashMap<Hash, u16>,
+    pub(crate) exclude_domains_map: HashMap<Hash, u16>,
 }
 
 impl NetworkFilterList {
@@ -766,9 +768,6 @@ impl NetworkFilterList {
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
         let mut filter_map = HashMap::with_capacity(filter_tokens.len());
-
-        let mut flat_filter_map = HashMap::with_capacity(filter_tokens.len());
-        let mut flat_builder = crate::filters::fb_network::FlatNetworkFiltersListBuilder::new();
         {
             for (filter_pointer, multi_tokens) in filter_tokens {
                 for tokens in multi_tokens {
@@ -787,11 +786,6 @@ impl NetworkFilterList {
                             _ => {}
                         }
                     }
-                    insert_dup(
-                        &mut flat_filter_map,
-                        best_token,
-                        flat_builder.add((*filter_pointer).clone()),
-                    );
                     insert_dup(&mut filter_map, best_token, Arc::clone(&filter_pointer));
                 }
             }
@@ -799,8 +793,10 @@ impl NetworkFilterList {
 
         let mut self_ = NetworkFilterList {
             filter_map,
-            flat_filters_buffer: flat_builder.finish(),
-            flat_filter_map: flat_filter_map,
+            flat_filters_buffer: vec![],
+            flat_filter_map: HashMap::new(),
+            include_domains_map: HashMap::new(),
+            exclude_domains_map: HashMap::new(),
         };
 
         if optimize {
@@ -808,6 +804,32 @@ impl NetworkFilterList {
         } else {
             self_.filter_map.shrink_to_fit();
         }
+
+        let mut flat_builder = crate::filters::fb_network::FlatNetworkFiltersListBuilder::new();
+
+        for (key, value) in &self_.filter_map {
+            for v in value {
+                let nf = (*(*v)).clone();
+                let index = flat_builder.add(nf);
+                insert_dup(&mut self_.flat_filter_map, *key, index);
+            }
+        }
+        self_.flat_filters_buffer = flat_builder.finish();
+
+        let root = unsafe { fb::root_as_network_filter_list_unchecked(&self_.flat_filters_buffer) };
+
+        for (index, item) in root.unique_include_domains().iter().enumerate() {
+            self_
+                .include_domains_map
+                .insert(item, u16::try_from(index).expect("ok"));
+        }
+        for (index, item) in root.unique_exclude_domains().iter().enumerate() {
+            self_
+                .exclude_domains_map
+                .insert(item, u16::try_from(index).expect("ok"));
+        }
+        self_.include_domains_map.shrink_to_fit();
+        self_.exclude_domains_map.shrink_to_fit();
 
         self_
     }
@@ -916,32 +938,20 @@ impl NetworkFilterList {
             unsafe { fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer) };
         let filters = storage.global_list();
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.flat_filter_map.get(token) {
-                    for filter_index in filter_bucket {
-                        let flat_filter = filters.get(*filter_index as usize);
-                        let mut filter = FlatNetworkFilterView::from(&flat_filter);
-                        filter.key = *filter_index as u64;
-
-                        if filter.matches(request, regex_manager)
-                            && filter.tag.map_or(true, |t| active_tags.contains(t))
-                        {
-                            return Some(filter.mask);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in request_tokens {
+        for token in request
+            .source_hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .chain(request_tokens.into_iter())
+        {
             if let Some(filter_bucket) = self.flat_filter_map.get(token) {
                 for filter_index in filter_bucket {
                     let flat_filter = filters.get(*filter_index as usize);
                     let mut filter = FlatNetworkFilterView::from(&flat_filter);
                     filter.key = *filter_index as u64;
 
-                    if filter.matches(request, regex_manager)
+                    if filter.matches(request, self, regex_manager)
                         && filter.tag.map_or(true, |t| active_tags.contains(t))
                     {
                         return Some(filter.mask);
@@ -973,7 +983,7 @@ impl NetworkFilterList {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
                     for filter in filter_bucket {
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
+                        if filter.matches(request, self, regex_manager)
                             && filter
                                 .tag
                                 .as_ref()
@@ -991,7 +1001,7 @@ impl NetworkFilterList {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
+                    if filter.matches(request, self, regex_manager)
                         && filter
                             .tag
                             .as_ref()
@@ -1048,7 +1058,7 @@ impl NetworkFilterList {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
                     for filter in filter_bucket {
                         // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
+                        if filter.matches(request, self, regex_manager)
                             && filter
                                 .tag
                                 .as_ref()
@@ -1066,7 +1076,7 @@ impl NetworkFilterList {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
+                    if filter.matches(request, self, regex_manager)
                         && filter
                             .tag
                             .as_ref()

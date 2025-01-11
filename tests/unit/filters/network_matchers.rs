@@ -386,14 +386,12 @@ mod match_tests {
     }
 
     fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
-        super::super::check_options(
-            filter.mask,
-            filter.opt_domains.as_deref(),
-            filter.opt_domains_union,
-            filter.opt_not_domains.as_deref(),
-            filter.opt_not_domains_union,
-            request,
-        )
+        super::super::check_options(filter.mask, request)
+            && super::super::check_domains(
+                filter.opt_domains.as_deref(),
+                filter.opt_not_domains.as_deref(),
+                request,
+            )
     }
 
     #[test]

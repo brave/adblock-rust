@@ -91,14 +91,15 @@ mod tests {
     }
 
     #[test]
-    fn bin_lookup_works() {
-        assert_eq!(bin_lookup(&[], 42), false);
-        assert_eq!(bin_lookup(&[42], 42), true);
-        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 42), true);
-        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 1), true);
-        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 3), true);
-        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 43), false);
-        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 0), false);
-        assert_eq!(bin_lookup(&[1, 2, 3, 4, 42], 5), false);
+    fn eytzinger_search_works() {
+        let input = vec![1, 2, 3, 4, 5, 6, 7, 8, 10];
+        let expected = vec![0, 6, 4, 8, 2, 5, 7, 10, 1, 3];
+        let result = eytzinger_layout(&input[..]);
+        assert_eq!(expected, result.as_slice());
+
+        assert!(eytzinger_search(result.as_ref(), 2));
+        assert!(eytzinger_search(result.as_ref(), 4));
+        assert!(!eytzinger_search(result.as_ref(), 9));
+        assert!(!eytzinger_search(result.as_ref(), 0));
     }
 }

@@ -5,10 +5,8 @@ namespace fb;
 table NetworkFilter {
   mask: uint32;  // NetworkFilterMask (network.rs)
 
-  // opt_domains[0] and opt_not_domains[0] contains the united (by or operation) hash of all hashes of [1..]
-  // This type of storage saves 8 bytes per filter if these arrays are empty.
-  opt_domains: [uint64];
-  opt_not_domains: [uint64];
+  opt_domains: [uint16];
+  opt_not_domains: [uint16];
 
   patterns: [string];
   modifier_option: string;
@@ -19,6 +17,9 @@ table NetworkFilter {
 
 table NetworkFilterList {
   global_list: [NetworkFilter] (required);
+
+  unique_include_domains: [uint64] (required);
+  unique_exclude_domains: [uint64] (required);  
 }
 
 root_type NetworkFilterList;

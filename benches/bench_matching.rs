@@ -2,11 +2,11 @@ use criterion::*;
 
 use serde::{Deserialize, Serialize};
 
-use adblock::Engine;
 use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
 use adblock::resources::ResourceStorage;
 use adblock::url_parser::parse_url;
+use adblock::Engine;
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
@@ -36,11 +36,11 @@ fn load_requests() -> Vec<TestRequest> {
     reqs
 }
 
-fn get_blocker(rules: impl IntoIterator<Item=impl AsRef<str>>) -> Blocker {
+fn get_blocker(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Blocker {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
     let blocker_options = BlockerOptions {
-        enable_optimizations: true,
+        enable_optimizations: false,
     };
 
     Blocker::new(network_filters, &blocker_options)
@@ -57,11 +57,15 @@ fn bench_rule_matching(engine: &Engine, requests: &Vec<TestRequest>) -> (u32, u3
             passes += 1;
         }
     });
-    // println!("Got {} matches, {} passes, {} errors", matches, passes, errors);
+    println!("Got {} matches, {} passes", matches, passes);
     (matches, passes)
 }
 
-fn bench_matching_only(blocker: &Blocker, resources: &ResourceStorage, requests: &Vec<Request>) -> (u32, u32) {
+fn bench_matching_only(
+    blocker: &Blocker,
+    resources: &ResourceStorage,
+    requests: &Vec<Request>,
+) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(|parsed| {
@@ -139,9 +143,7 @@ fn rule_match(c: &mut Criterion) {
 fn rule_match_parsed_el(c: &mut Criterion) {
     let mut group = c.benchmark_group("rule-match-parsed");
 
-    let rules = rules_from_lists(&[
-        "data/easylist.to/easylist/easylist.txt",
-    ]);
+    let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
         .into_iter()
@@ -219,9 +221,7 @@ fn serialization(c: &mut Criterion) {
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
     });
     group.bench_function("el", move |b| {
-        let full_rules = rules_from_lists(&[
-            "data/easylist.to/easylist/easylist.txt",
-        ]);
+        let full_rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
         b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
@@ -256,9 +256,7 @@ fn deserialization(c: &mut Criterion) {
         })
     });
     group.bench_function("el", move |b| {
-        let full_rules = rules_from_lists(&[
-            "data/easylist.to/easylist/easylist.txt",
-        ]);
+        let full_rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
         let serialized = engine.serialize_raw().unwrap();
@@ -292,9 +290,7 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(20);
 
-    fn requests_parsed(
-        requests: &[TestRequest],
-    ) -> Vec<(String, String, String, String, bool)> {
+    fn requests_parsed(requests: &[TestRequest]) -> Vec<(String, String, String, String, bool)> {
         requests
             .iter()
             .map(|r| {

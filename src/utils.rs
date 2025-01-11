@@ -98,8 +98,41 @@ pub(crate) fn tokenize_filter(
     tokens_buffer
 }
 
+// input should be asc sorted.
+#[inline]
+pub fn eytzinger_layout(input: &[u32]) -> Vec<u32> {
+    #[inline(always)]
+    fn eytzinger(a: &[u32], b: &mut [u32], mut i: usize, k: usize) -> usize {
+        if k <= a.len() {
+            i = eytzinger(a, b, i, 2 * k);
+            b[k] = a[i];
+            i = eytzinger(a, b, i + 1, 2 * k + 1);
+        }
+        i
+    }
+    let mut result = Vec::with_capacity(input.len() + 1);
+    result.resize(result.capacity(), 0);
+    eytzinger(&input, &mut result, 0, 1);
+
+    result
+}
+
+#[inline(always)]
+pub fn eytzinger_search(input: &[u32], target: u32) -> bool {
+    // branchless impl
+    let mut index: usize = 1;
+    while index < input.len() {
+        let el = input[index];
+        index = 2 * index + usize::from(el < target);
+    }
+    index >>= index.trailing_ones() + 1;
+
+    usize::from(input[index] == target) * index != 0
+}
+
 pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
-    arr.binary_search(&elt).is_ok()
+    //arr.binary_search(&elt).is_ok()
+    arr.contains(&elt)
 }
 
 #[cfg(test)]

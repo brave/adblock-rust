@@ -9,6 +9,7 @@ use thiserror::Error;
 
 use std::fmt;
 
+use crate::blocker::NetworkFilterList;
 use crate::filters::abstract_network::{
     AbstractNetworkFilter, NetworkFilterLeftAnchor, NetworkFilterOption, NetworkFilterRightAnchor,
 };
@@ -917,30 +918,41 @@ impl fmt::Display for NetworkFilter {
 }
 
 pub trait NetworkMatchable {
-    fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool;
+    fn matches(
+        &self,
+        request: &request::Request,
+        filter_list: &NetworkFilterList,
+        regex_manager: &mut RegexManager,
+    ) -> bool;
 
     #[cfg(test)]
     fn matches_test(&self, request: &request::Request) -> bool;
 }
 
 impl NetworkMatchable for NetworkFilter {
-    fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
-        use crate::filters::network_matchers::{check_options, check_pattern};
-        check_options(
-            self.mask,
+    fn matches(
+        &self,
+        request: &request::Request,
+        network_list: &NetworkFilterList,
+        regex_manager: &mut RegexManager,
+    ) -> bool {
+        //use crate::filters::network_matchers::{check_domains, check_options, check_pattern};
+        /*check_options(self.mask, request)
+        &&*/
+        /*check_domains(
             self.opt_domains.as_deref(),
-            self.opt_domains_union,
             self.opt_not_domains.as_deref(),
-            self.opt_not_domains_union,
             request,
-        ) && check_pattern(
+        )*/
+        /*&& check_pattern(
             self.mask,
             self.filter.iter(),
             self.hostname.as_deref(),
             self.key(),
             request,
             regex_manager,
-        )
+        )*/
+        false
     }
 
     #[cfg(test)]
