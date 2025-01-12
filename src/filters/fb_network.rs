@@ -1,12 +1,14 @@
+use std::collections::HashMap;
 use std::vec;
 
 use flatbuffers::WIPOffset;
+use itertools::Itertools;
 
 use crate::blocker::NetworkFilterList;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask};
 use crate::regex_manager::RegexManager;
 use crate::request::{self};
-use crate::utils::{self, Hash};
+use crate::utils::Hash;
 
 extern crate flatbuffers;
 #[allow(dead_code, unused_imports, unsafe_code)]
@@ -20,8 +22,8 @@ pub struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
-    include_domains: Vec<Hash>,
     exclude_domains: Vec<Hash>,
+    include_domains_map: HashMap<u64, u16>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -29,8 +31,8 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         Self {
             builder: flatbuffers::FlatBufferBuilder::new(),
             filters: vec![],
-            include_domains: vec![],
             exclude_domains: vec![],
+            include_domains_map: HashMap::new(),
         }
     }
 
@@ -43,26 +45,50 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         }
     }
 
-    pub fn add(&mut self, network_filter: NetworkFilter) -> u32 {
-        let opt_domains = network_filter.opt_domains.map(|v| {
-            let mut o: Vec<u16> = v
-                .into_iter()
-                .map(|x| Self::get_or_insert(&mut self.include_domains, x))
-                .collect();
-            o.sort_unstable();
-            o.dedup();
-            self.builder.create_vector(&o)
-        });
+    fn dedup_slice(slice: &mut [u16]) -> &mut [u16] {
+        if slice.is_empty() {
+            return slice;
+        }
 
-        let opt_not_domains = network_filter.opt_not_domains.map(|v| {
-            let mut o: Vec<u16> = v
+        let mut write_index = 1;
+        for read_index in 1..slice.len() {
+            if slice[read_index] != slice[write_index - 1] {
+                slice[write_index] = slice[read_index];
+                write_index += 1;
+            }
+        }
+        &mut slice[..write_index]
+    }
+
+    pub fn add(&mut self, network_filter: NetworkFilter) -> u32 {
+        let mut opt_domains_flat: Option<WIPOffset<flatbuffers::Vector<u16>>> = None;
+        let mut opt_not_domains_flat: Option<WIPOffset<flatbuffers::Vector<u16>>> = None;
+        if let Some(opt_domains) = network_filter.opt_domains {
+          let mut arr: [u16; 10000] = [0; 10000];
+          let mut index = 0;
+          for domain in opt_domains {
+            let len = self.include_domains_map.len();
+            let id = self.include_domains_map.entry(domain).or_insert(len as u16);
+            arr[index] = *id;
+            index += 1;
+          }
+          // Sort and dedup array:
+          arr[..index].sort_unstable();
+          let deduped_slice = Self::dedup_slice(&mut arr[..index]);
+          let v = self.builder.create_vector_from_iter(deduped_slice.iter());
+          opt_domains_flat = Some(v);
+        }
+
+
+        if let Some(exclude_domains) = network_filter.opt_not_domains {
+          let mut o: Vec<u16> = exclude_domains
                 .into_iter()
                 .map(|x| Self::get_or_insert(&mut self.exclude_domains, x))
                 .collect();
             o.sort_unstable();
             o.dedup();
-            self.builder.create_vector(&o)
-        });
+            opt_not_domains_flat = Some(self.builder.create_vector(&o));
+        }
 
         let modifier_option = network_filter
             .modifier_option
@@ -93,8 +119,8 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
                 mask: network_filter.mask.bits(),
                 patterns: patterns,
                 modifier_option: modifier_option,
-                opt_domains: opt_domains,
-                opt_not_domains: opt_not_domains,
+                opt_domains: opt_domains_flat,
+                opt_not_domains: opt_not_domains_flat,
                 hostname: hostname,
                 tag: tag,
             },
@@ -107,7 +133,9 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
     pub fn finish(&mut self) -> Vec<u8> {
         let filters = self.builder.create_vector(&self.filters);
 
-        let include_domains = self.builder.create_vector(&self.include_domains);
+        let include_domains = self.builder.create_vector_from_iter(
+          self.include_domains_map.iter().map(|(k, v)| (v, k)).sorted().map(|(k, v)| *v)
+        );
         let exclude_domains = self.builder.create_vector(&self.exclude_domains);
 
         let storage = fb::NetworkFilterList::create(
@@ -124,7 +152,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         println!(
             "bytes {} i {} e {}",
             r.len(),
-            self.include_domains.len(),
+            self.include_domains_map.len(),
             self.exclude_domains.len()
         );
         r
