@@ -8,9 +8,6 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 use thiserror::Error;
 
-#[cfg(feature = "object-pooling")]
-use lifeguard::Pool;
-
 use crate::filters::fb_network::flat::fb::{self};
 use crate::filters::fb_network::FlatNetworkFilterView;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkMatchable};
@@ -18,7 +15,6 @@ use crate::optimizer;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
-use crate::utils;
 use crate::utils::{fast_hash, Hash};
 
 /// Options used when constructing a [`Blocker`].
@@ -90,25 +86,6 @@ pub enum BlockerError {
     FilterExists,
 }
 
-#[cfg(feature = "object-pooling")]
-pub(crate) struct TokenPool {
-    pub pool: Pool<Vec<utils::Hash>>,
-}
-
-#[cfg(feature = "object-pooling")]
-impl Default for TokenPool {
-    fn default() -> TokenPool {
-        TokenPool {
-            pool: lifeguard::pool()
-                .with(lifeguard::StartingSize(1))
-                .with(lifeguard::Supplier(|| {
-                    Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)
-                }))
-                .build(),
-        }
-    }
-}
-
 // only check for tags in tagged and exception rule buckets,
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
@@ -130,10 +107,6 @@ pub struct Blocker {
     pub(crate) tagged_filters_all: Vec<NetworkFilter>,
 
     pub(crate) enable_optimizations: bool,
-
-    // Not serialized
-    #[cfg(feature = "object-pooling")]
-    pub(crate) pool: TokenPool,
 
     // Not serialized
     #[cfg(feature = "unsync-regex-caching")]
@@ -169,24 +142,8 @@ impl Blocker {
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
-        let mut request_tokens;
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        hostname_request.get_tokens(&mut request_tokens);
-
         self.generic_hide
-            .check(
-                hostname_request,
-                &request_tokens,
-                &HashSet::new(),
-                &mut regex_manager,
-            )
+            .check(hostname_request, &HashSet::new(), &mut regex_manager)
             .is_some()
     }
 
@@ -202,17 +159,6 @@ impl Blocker {
             return BlockerResult::default();
         }
 
-        let mut request_tokens;
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        request.get_tokens(&mut request_tokens);
-
         // Check the filters in the following order:
         // 1. $important (not subject to exceptions)
         // 2. redirection ($redirect=resource)
@@ -220,52 +166,34 @@ impl Blocker {
         // 4. exceptions - if any non-important match of forced
 
         // Always check important filters
-        let important_filter =
-            self.importants
-                .check(request, &request_tokens, &NO_TAGS, &mut regex_manager);
+        let important_filter = self.importants.check(request, &NO_TAGS, &mut regex_manager);
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             self.filters_tagged
-                .check(
-                    request,
-                    &request_tokens,
-                    &self.tags_enabled,
-                    &mut regex_manager,
-                )
-                .or_else(|| {
-                    self.filters
-                        .check(request, &request_tokens, &NO_TAGS, &mut regex_manager)
-                })
+                .check(request, &self.tags_enabled, &mut regex_manager)
+                .or_else(|| self.filters.check(request, &NO_TAGS, &mut regex_manager))
         } else {
             important_filter
         };
 
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
-            None if matched_rule || force_check_exceptions => self.exceptions.check(
-                request,
-                &request_tokens,
-                &self.tags_enabled,
-                &mut regex_manager,
-            ),
+            None if matched_rule || force_check_exceptions => {
+                self.exceptions
+                    .check(request, &self.tags_enabled, &mut regex_manager)
+            }
             None => None,
             // If matched an important filter, exceptions don't atter
             Some(f) if f.is_important() => None,
-            Some(_) => self.exceptions.check(
-                request,
-                &request_tokens,
-                &self.tags_enabled,
-                &mut regex_manager,
-            ),
+            Some(_) => self
+                .exceptions
+                .check(request, &self.tags_enabled, &mut regex_manager),
         };
 
-        let redirect_filters = self.redirects.check_all(
-            request,
-            &request_tokens,
-            &NO_TAGS,
-            regex_manager.deref_mut(),
-        );
+        let redirect_filters =
+            self.redirects
+                .check_all(request, &NO_TAGS, regex_manager.deref_mut());
 
         // Extract the highest priority redirect directive.
         // 1. Exceptions - can bail immediately if found
@@ -330,12 +258,7 @@ impl Blocker {
         let rewritten_url = if important {
             None
         } else {
-            Self::apply_removeparam(
-                &self.removeparam,
-                request,
-                &request_tokens,
-                regex_manager.deref_mut(),
-            )
+            Self::apply_removeparam(&self.removeparam, request, regex_manager.deref_mut())
         };
 
         // If something has already matched before but we don't know what, still return a match
@@ -353,7 +276,6 @@ impl Blocker {
     fn apply_removeparam(
         removeparam_filters: &NetworkFilterList,
         request: &Request,
-        request_tokens: &[Hash],
         regex_manager: &mut RegexManager,
     ) -> Option<String> {
         /// Represents an `&`-separated argument from a URL query parameter string
@@ -397,8 +319,7 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters =
-                removeparam_filters.check_all(request, request_tokens, &NO_TAGS, regex_manager);
+            let filters = removeparam_filters.check_all(request, &NO_TAGS, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
@@ -450,25 +371,11 @@ impl Blocker {
             return None;
         }
 
-        let mut request_tokens;
         let mut regex_manager = self.borrow_regex_manager();
 
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        request.get_tokens(&mut request_tokens);
-
-        let filters = self.csp.check_all(
-            request,
-            &request_tokens,
-            &self.tags_enabled,
-            &mut regex_manager,
-        );
+        let filters = self
+            .csp
+            .check_all(request, &self.tags_enabled, &mut regex_manager);
 
         if filters.is_empty() {
             return None;
@@ -600,8 +507,6 @@ impl Blocker {
             // Options
             enable_optimizations: options.enable_optimizations,
 
-            #[cfg(feature = "object-pooling")]
-            pool: TokenPool::default(),
             regex_manager: Default::default(),
         }
     }
@@ -904,7 +809,6 @@ impl NetworkFilterList {
     pub fn check_fnf(
         &self,
         request: &Request,
-        request_tokens: &[Hash],
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<NetworkFilterMask> {
@@ -916,32 +820,20 @@ impl NetworkFilterList {
             unsafe { fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer) };
         let filters = storage.global_list();
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.flat_filter_map.get(token) {
-                    for filter_index in filter_bucket {
-                        let flat_filter = filters.get(*filter_index as usize);
-                        let mut filter = FlatNetworkFilterView::from(&flat_filter);
-                        filter.key = *filter_index as u64;
-
-                        if filter.matches(request, regex_manager)
-                            && filter.tag.map_or(true, |t| active_tags.contains(t))
-                        {
-                            return Some(filter.mask);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in request_tokens {
+        for token in request
+            .source_hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .chain(request.get_tokens().into_iter())
+        {
             if let Some(filter_bucket) = self.flat_filter_map.get(token) {
                 for filter_index in filter_bucket {
                     let flat_filter = filters.get(*filter_index as usize);
                     let mut filter = FlatNetworkFilterView::from(&flat_filter);
                     filter.key = *filter_index as u64;
 
-                    if filter.matches(request, regex_manager)
+                    if filter.matches(request, self, regex_manager)
                         && filter.tag.map_or(true, |t| active_tags.contains(t))
                     {
                         return Some(filter.mask);
@@ -960,7 +852,6 @@ impl NetworkFilterList {
     pub fn check_nf(
         &self,
         request: &Request,
-        request_tokens: &[Hash],
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<&NetworkFilter> {
@@ -987,7 +878,7 @@ impl NetworkFilterList {
             }
         }
 
-        for token in request_tokens {
+        for token in &request.request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -1010,11 +901,10 @@ impl NetworkFilterList {
     pub fn check(
         &self,
         request: &Request,
-        request_tokens: &[Hash],
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<&NetworkFilter> {
-        let r = self.check_fnf(request, request_tokens, active_tags, regex_manager);
+        let r = self.check_fnf(request, active_tags, regex_manager);
         if r.is_none() {
             None
         } else {
@@ -1033,7 +923,6 @@ impl NetworkFilterList {
     pub fn check_all(
         &self,
         request: &Request,
-        request_tokens: &[Hash],
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Vec<&NetworkFilter> {
@@ -1062,7 +951,7 @@ impl NetworkFilterList {
             }
         }
 
-        for token in request_tokens {
+        for token in &request.request_tokens {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
