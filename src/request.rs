@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use thiserror::Error;
 
 use crate::url_parser;
-use crate::utils;
+use crate::utils::{self, Tokens};
 
 /// The type of resource requested from the URL endpoint.
 #[derive(Clone, PartialEq, Debug)]
@@ -89,7 +89,8 @@ pub struct Request {
     pub url: String,
     pub url_lower_cased: String,
     pub hostname: String,
-    pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub request_tokens: Tokens,
+    pub source_hostname_hashes: Option<Tokens>,
 
     pub(crate) original_url: String,
 }
@@ -103,11 +104,8 @@ impl Request {
         }
     }
 
-    pub fn get_tokens(&self, token_buffer: &mut Vec<utils::Hash>) {
-        token_buffer.clear();
-        utils::tokenize_pooled(&self.url.to_ascii_lowercase(), token_buffer);
-        // Add zero token as a fallback to wildcard rule bucket
-        token_buffer.push(0);
+    pub fn get_tokens(&self) -> &Tokens {
+        &self.request_tokens
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -144,12 +142,22 @@ impl Request {
             }
         }
 
+        let url_lower_cased = url.to_ascii_lowercase();
+        let mut request_tokens = utils::tokenize(&url_lower_cased);
+        // Add zero token as a fallback to wildcard rule bucket
+        request_tokens.push(0).expect("Ok");
+
         let source_hostname_hashes = if !source_hostname.is_empty() {
-            let mut hashes = Vec::with_capacity(4);
-            hashes.push(utils::fast_hash(source_hostname));
+            let mut hashes = Tokens::new();
+            hashes.push(utils::fast_hash(source_hostname)).unwrap();
             for (i, c) in source_hostname.char_indices() {
                 if c == '.' && i + 1 < source_hostname.len() {
-                    hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
+                    if hashes
+                        .push(utils::fast_hash(&source_hostname[i + 1..]))
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
             }
             Some(hashes)
@@ -160,8 +168,9 @@ impl Request {
         Request {
             request_type,
             url: url.to_owned(),
-            url_lower_cased: url.to_ascii_lowercase().to_owned(),
+            url_lower_cased: url_lower_cased.to_owned(),
             hostname: hostname.to_owned(),
+            request_tokens: request_tokens,
             source_hostname_hashes,
             is_third_party: third_party,
             is_http,
