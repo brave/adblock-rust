@@ -157,9 +157,7 @@ where
         return true;
     }
     let request_url = request.get_url(mask.match_case());
-    filters.any(|f| {
-        memmem::find(request_url.as_bytes(), f.as_bytes()).is_some()
-    })
+    filters.any(|f| memmem::find(request_url.as_bytes(), f.as_bytes()).is_some())
 }
 
 // pattern|
@@ -471,14 +469,8 @@ where
     }
 }
 
-pub fn check_options<'a>(
-    mask: NetworkFilterMask,
-    opt_domains: Option<&'a [Hash]>,
-    opt_domains_union: Option<Hash>,
-    opt_not_domains: Option<&'a [Hash]>,
-    opt_not_domains_union: Option<Hash>,
-    request: &request::Request,
-) -> bool {
+#[inline(always)]
+pub fn check_options<'a>(mask: NetworkFilterMask, request: &request::Request) -> bool {
     // Bad filter never matches
     if mask.is_badfilter() {
         return false;
@@ -494,19 +486,14 @@ pub fn check_options<'a>(
         return false;
     }
 
+    true
+}
+
+#[inline(always)]
+pub fn check_included_domains(opt_domains: Option<&[Hash]>, request: &request::Request) -> bool {
     // Source URL must be among these domains to match
     if let Some(included_domains) = opt_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            // If the union of included domains is recorded
-            if let Some(included_domains_union) = opt_domains_union {
-                // If there isn't any source hash that matches the union, there's no match at all
-                if source_hashes
-                    .iter()
-                    .all(|h| h & included_domains_union != *h)
-                {
-                    return false;
-                }
-            }
             if source_hashes
                 .iter()
                 .all(|h| !utils::bin_lookup(included_domains, *h))
@@ -515,18 +502,17 @@ pub fn check_options<'a>(
             }
         }
     }
+    true
+}
 
+#[inline(always)]
+pub fn check_excluded_domains(
+    opt_not_domains: Option<&[Hash]>,
+    request: &request::Request,
+) -> bool {
     if let Some(excluded_domains) = opt_not_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            // If the union of excluded domains is recorded
-            if let Some(excluded_domains_union) = opt_not_domains_union {
-                // If there's any source hash that matches the union, check the actual values
-                if source_hashes.iter().any(|h| {
-                    (h & excluded_domains_union == *h) && utils::bin_lookup(excluded_domains, *h)
-                }) {
-                    return false;
-                }
-            } else if source_hashes
+            if source_hashes
                 .iter()
                 .any(|h| utils::bin_lookup(excluded_domains, *h))
             {

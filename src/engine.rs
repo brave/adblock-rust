@@ -3,6 +3,7 @@
 use crate::blocker::{Blocker, BlockerOptions, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::lists::{FilterSet, ParseOptions};
+use crate::network_filter_list::NetworkFilterListTrait;
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage};
@@ -42,20 +43,20 @@ use std::collections::HashSet;
 /// Once the page has been loaded, any new CSS classes or ids that appear on the page should be passed to
 /// [`Engine::hidden_class_id_selectors`] on an ongoing basis to determine additional elements that
 /// should be hidden dynamically.
-pub struct Engine {
-    blocker: Blocker,
+pub struct Engine<FilterListType: NetworkFilterListTrait> {
+    blocker: Blocker<FilterListType>,
     cosmetic_cache: CosmeticFilterCache,
     resources: ResourceStorage,
 }
 
-impl Default for Engine {
+impl<FilterListType: NetworkFilterListTrait> Default for Engine<FilterListType> {
     /// Equivalent to `Engine::new(true)`.
     fn default() -> Self {
         Self::new(true)
     }
 }
 
-impl Engine {
+impl<FilterListType: NetworkFilterListTrait> Engine<FilterListType> {
     /// Creates a new adblocking `Engine`. `Engine`s created without rules should generally only be
     /// used with deserialization.
     /// - `optimize` specifies whether or not to attempt to compress the internal representation by
