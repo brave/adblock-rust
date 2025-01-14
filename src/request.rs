@@ -108,6 +108,19 @@ impl Request {
         &self.request_tokens
     }
 
+    pub fn checkable_tokens_iter(
+        &self,
+    ) -> core::iter::Chain<
+        core::iter::Flatten<core::option::IntoIter<&Tokens>>,
+        std::slice::Iter<'_, u64>,
+    > {
+        self.source_hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .chain(self.get_tokens().into_iter())
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn from_detailed_parameters(
         raw_type: &str,
