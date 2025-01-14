@@ -40,11 +40,8 @@ mod tests {
         assert_eq!(simple_example.is_third_party, false);
         assert_eq!(simple_example.request_type, RequestType::Document);
         assert_eq!(
-            simple_example.source_hostname_hashes,
-            Some(vec![
-                utils::fast_hash("example.com"),
-                utils::fast_hash("com")
-            ]),
+            simple_example.source_hostname_hashes.unwrap().as_slice(),
+            vec![utils::fast_hash("example.com"), utils::fast_hash("com")],
         );
 
         let unsupported_example = build_request(
@@ -140,8 +137,7 @@ mod tests {
                 .as_slice(),
             tokenize(&["subdomain.example.com", "example.com", "com",], &[]).as_slice()
         );
-        let mut tokens = Vec::new();
-        simple_example.get_tokens(&mut tokens);
+        let tokens = simple_example.get_tokens();
         assert_eq!(
             tokens.as_slice(),
             tokenize(&["https", "subdomain", "example", "com", "ad"], &[0]).as_slice()
@@ -166,11 +162,8 @@ mod tests {
 
         // assert_eq!(parsed.source_domain, "example.com");
         assert_eq!(
-            parsed.source_hostname_hashes,
-            Some(vec![
-                utils::fast_hash("example.com"),
-                utils::fast_hash("com")
-            ]),
+            parsed.source_hostname_hashes.unwrap().as_slice(),
+            [utils::fast_hash("example.com"), utils::fast_hash("com")],
         );
         // assert_eq!(parsed.source_hostname, "example.com");
 
@@ -189,10 +182,11 @@ mod tests {
             assert!(parsed.is_ok());
         }
         {
-            let parsed = Request::new(&format!(
-                "https://{}",
-                std::str::from_utf8(&[9, 9, 64]).unwrap()
-            ), "https://example.com", "other");
+            let parsed = Request::new(
+                &format!("https://{}", std::str::from_utf8(&[9, 9, 64]).unwrap()),
+                "https://example.com",
+                "other",
+            );
             assert!(parsed.is_err());
         }
     }

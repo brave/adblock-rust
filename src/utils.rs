@@ -77,12 +77,19 @@ impl<T, const N: usize> StackVec<T, N> {
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.data[..self.len].iter()
     }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub fn as_slice(&self) -> &[T] {
+        &self.data[..self.len]
+    }
 }
 
 impl<'a, T, const N: usize> IntoIterator for &'a StackVec<T, N> {
     type Item = &'a T;
     type IntoIter = std::slice::Iter<'a, T>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -91,12 +98,14 @@ impl<'a, T, const N: usize> IntoIterator for &'a StackVec<T, N> {
 impl<T, const N: usize> Deref for StackVec<T, N> {
     type Target = [T];
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.data[..self.len]
     }
 }
 
 impl<T, const N: usize> DerefMut for StackVec<T, N> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data[..self.len]
     }

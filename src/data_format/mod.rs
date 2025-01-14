@@ -11,6 +11,7 @@ pub(crate) mod utils;
 
 use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::CosmeticFilterCache;
+use crate::network_filter_list::NetworkFilterList;
 
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.
@@ -37,7 +38,10 @@ impl From<rmp_serde::encode::Error> for SerializationError {
 }
 
 impl<'a> SerializeFormat<'a> {
-    pub(crate) fn build(blocker: &'a Blocker, cfc: &'a CosmeticFilterCache) -> Self {
+    pub(crate) fn build(
+        blocker: &'a Blocker<NetworkFilterList>,
+        cfc: &'a CosmeticFilterCache,
+    ) -> Self {
         Self::V0(v0::SerializeFormat::from((blocker, cfc)))
     }
 
@@ -75,7 +79,7 @@ impl From<rmp_serde::decode::Error> for DeserializationError {
 }
 
 impl DeserializeFormat {
-    pub(crate) fn build(self) -> (Blocker, CosmeticFilterCache) {
+    pub(crate) fn build(self) -> (Blocker<NetworkFilterList>, CosmeticFilterCache) {
         match self {
             Self::V0(v) => v.into(),
         }

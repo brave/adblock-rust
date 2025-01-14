@@ -31,8 +31,8 @@ pub trait NetworkFilterListTrait {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub(crate) struct NetworkFilterList {
-    //#[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+pub struct NetworkFilterList {
+    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
@@ -310,8 +310,11 @@ impl NetworkFilterListTrait for NetworkFilterList {
 /// Inserts a value into the `Vec` under the specified key in the `HashMap`. The entry will be
 /// created if it does not exist. If it already exists, it will be inserted in the `Vec` in a
 /// sorted order.
-fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
-where
+pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
+    map: &mut HashMap<K, Vec<V>, H>,
+    k: K,
+    v: V,
+) where
     K: std::cmp::Ord + std::hash::Hash,
     V: PartialOrd,
 {
@@ -323,7 +326,7 @@ where
     }
 }
 
-fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(
+pub(crate) fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(
     map: &HashMap<K, Vec<V>, H>,
 ) -> usize {
     let mut size = 0usize;
@@ -333,7 +336,9 @@ fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHash
     size
 }
 
-fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Hash, u32>) {
+pub(crate) fn token_histogram<T>(
+    filter_tokens: &[(T, Vec<Vec<Hash>>)],
+) -> (u32, HashMap<Hash, u32>) {
     let mut tokens_histogram: HashMap<Hash, u32> = HashMap::new();
     let mut number_of_tokens = 0;
     for (_, tokens) in filter_tokens.iter() {
@@ -444,3 +449,7 @@ fn check_nf(
 
     None
 }*/
+
+#[cfg(test)]
+#[path = "../tests/unit/network_filter_list.rs"]
+mod unit_tests;

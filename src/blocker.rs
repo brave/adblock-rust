@@ -415,7 +415,10 @@ impl<FilterListType: NetworkFilterListTrait> Blocker<FilterListType> {
         Some(merged)
     }
 
-    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Blocker {
+    pub fn new(
+        network_filters: Vec<NetworkFilter>,
+        options: &BlockerOptions,
+    ) -> Blocker<FilterListType> {
         // Capacity of filter subsets estimated based on counts in EasyList and EasyPrivacy - if necessary
         // the Vectors will grow beyond the pre-set capacity, but it is more efficient to allocate all at once
         // $csp=
