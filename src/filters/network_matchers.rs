@@ -2,87 +2,14 @@
 // Filter matching
 // ---------------------------------------------------------------------------
 
+use std::collections::HashMap;
+
 use memchr::memmem;
 
-use crate::filters::network::NetworkFilterMask;
+use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::regex_manager::RegexManager;
 use crate::request;
 use crate::utils::{self, Hash};
-
-impl NetworkFilterMask {
-    #[inline(always)]
-    pub fn match_case(&self) -> bool {
-        self.contains(NetworkFilterMask::MATCH_CASE)
-    }
-
-    #[inline(always)]
-    pub fn is_hostname_anchor(&self) -> bool {
-        self.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
-    }
-
-    #[inline(always)]
-    pub fn is_right_anchor(&self) -> bool {
-        self.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
-    }
-
-    #[inline(always)]
-    pub fn is_left_anchor(&self) -> bool {
-        self.contains(NetworkFilterMask::IS_LEFT_ANCHOR)
-    }
-
-    #[inline(always)]
-    pub fn is_regex(&self) -> bool {
-        self.contains(NetworkFilterMask::IS_REGEX)
-    }
-
-    #[inline(always)]
-    pub fn is_complete_regex(&self) -> bool {
-        self.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
-    }
-
-    #[inline(always)]
-    pub fn is_badfilter(&self) -> bool {
-        self.contains(NetworkFilterMask::BAD_FILTER)
-    }
-
-    #[inline(always)]
-    pub fn is_exception(&self) -> bool {
-        self.contains(NetworkFilterMask::IS_EXCEPTION)
-    }
-
-    #[inline(always)]
-    pub fn third_party(&self) -> bool {
-        self.contains(NetworkFilterMask::THIRD_PARTY)
-    }
-
-    #[inline(always)]
-    pub fn first_party(&self) -> bool {
-        self.contains(NetworkFilterMask::FIRST_PARTY)
-    }
-
-    #[inline(always)]
-    pub fn for_http(&self) -> bool {
-        self.contains(NetworkFilterMask::FROM_HTTP)
-    }
-
-    #[inline(always)]
-    pub fn for_https(&self) -> bool {
-        self.contains(NetworkFilterMask::FROM_HTTPS)
-    }
-
-    #[inline(always)]
-    pub fn check_cpt_allowed(&self, cpt: &request::RequestType) -> bool {
-        match NetworkFilterMask::from(cpt) {
-            // TODO this is not ideal, but required to allow regexed exception rules without an
-            // explicit `$document` option to apply uBO-style.
-            // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
-            NetworkFilterMask::FROM_DOCUMENT => {
-                self.contains(NetworkFilterMask::FROM_DOCUMENT) || self.is_exception()
-            }
-            mask => self.contains(mask),
-        }
-    }
-}
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
     let start =
@@ -426,6 +353,7 @@ where
 
 /// Efficiently checks if a certain network filter matches against a network
 /// request.
+#[inline]
 pub fn check_pattern<'a, FiltersIter>(
     mask: NetworkFilterMask,
     filters: FiltersIter,
@@ -506,6 +434,27 @@ pub fn check_included_domains(opt_domains: Option<&[Hash]>, request: &request::R
 }
 
 #[inline(always)]
+pub fn check_included_domains_m(
+    opt_domains: Option<&[u16]>,
+    request: &request::Request,
+    mapping: &HashMap<Hash, u16>,
+) -> bool {
+    // Source URL must be among these domains to match
+    if let Some(included_domains) = opt_domains.as_ref() {
+        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
+            if source_hashes.iter().all(|h| {
+                mapping
+                    .get(h)
+                    .map_or(true, |index| !utils::bin_lookup(included_domains, *index))
+            }) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+#[inline(always)]
 pub fn check_excluded_domains(
     opt_not_domains: Option<&[Hash]>,
     request: &request::Request,
@@ -516,6 +465,27 @@ pub fn check_excluded_domains(
                 .iter()
                 .any(|h| utils::bin_lookup(excluded_domains, *h))
             {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
+#[inline(always)]
+pub fn check_excluded_domains_m(
+    opt_not_domains: Option<&[u16]>,
+    request: &request::Request,
+    mapping: &HashMap<Hash, u16>,
+) -> bool {
+    if let Some(excluded_domains) = opt_not_domains.as_ref() {
+        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
+            if source_hashes.iter().any(|h| {
+                mapping
+                    .get(h)
+                    .map_or(false, |index| utils::bin_lookup(excluded_domains, *index))
+            }) {
                 return false;
             }
         }

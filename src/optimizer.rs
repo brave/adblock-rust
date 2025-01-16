@@ -1,4 +1,6 @@
-use crate::filters::network::{FilterPart, NetworkFilter, NetworkFilterMask};
+use crate::filters::network::{
+    FilterPart, NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper,
+};
 use itertools::*;
 use std::collections::HashMap;
 
