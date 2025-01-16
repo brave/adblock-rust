@@ -1470,6 +1470,7 @@ mod placeholder_string_tests {
 
 #[cfg(test)]
 mod legacy_rule_parsing_tests {
+    use super::super::*;
     use crate::blocker::{Blocker, BlockerOptions};
     use crate::lists::{parse_filters, FilterFormat, ParseOptions};
     use crate::network_filter_list::vec_hashmap_len;

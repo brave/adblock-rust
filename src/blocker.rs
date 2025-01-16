@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::ops::DerefMut;
 use thiserror::Error;
 
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 pub(crate) use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;

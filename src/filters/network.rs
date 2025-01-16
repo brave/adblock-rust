@@ -150,6 +150,124 @@ bitflags::bitflags! {
         const NONE = 0;
     }
 }
+pub trait NetworkFilterMaskHelper {
+    fn has_flag(&self, v: NetworkFilterMask) -> bool;
+
+    #[inline]
+    fn is_exception(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_EXCEPTION)
+    }
+
+    #[inline]
+    fn is_hostname_anchor(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
+    }
+
+    #[inline]
+    fn is_right_anchor(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_RIGHT_ANCHOR)
+    }
+
+    #[inline]
+    fn is_left_anchor(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_LEFT_ANCHOR)
+    }
+
+    #[inline]
+    fn match_case(&self) -> bool {
+        self.has_flag(NetworkFilterMask::MATCH_CASE)
+    }
+
+    #[inline]
+    fn is_important(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_IMPORTANT)
+    }
+
+    #[inline]
+    fn is_redirect(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_REDIRECT)
+    }
+
+    #[inline]
+    fn is_removeparam(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_REMOVEPARAM)
+    }
+
+    #[inline]
+    fn also_block_redirect(&self) -> bool {
+        self.has_flag(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
+    }
+
+    #[inline]
+    fn is_badfilter(&self) -> bool {
+        self.has_flag(NetworkFilterMask::BAD_FILTER)
+    }
+
+    #[inline]
+    fn is_generic_hide(&self) -> bool {
+        self.has_flag(NetworkFilterMask::GENERIC_HIDE)
+    }
+
+    #[inline]
+    fn is_regex(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_REGEX)
+    }
+
+    #[inline]
+    fn is_complete_regex(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_COMPLETE_REGEX)
+    }
+
+    #[inline]
+    fn is_plain(&self) -> bool {
+        !self.is_regex()
+    }
+
+    #[inline]
+    fn is_csp(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_CSP)
+    }
+
+    #[inline]
+    fn third_party(&self) -> bool {
+        self.has_flag(NetworkFilterMask::THIRD_PARTY)
+    }
+
+    #[inline]
+    fn first_party(&self) -> bool {
+        self.has_flag(NetworkFilterMask::FIRST_PARTY)
+    }
+
+    #[inline]
+    fn for_http(&self) -> bool {
+        self.has_flag(NetworkFilterMask::FROM_HTTP)
+    }
+
+    #[inline]
+    fn for_https(&self) -> bool {
+        self.has_flag(NetworkFilterMask::FROM_HTTPS)
+    }
+
+    #[inline]
+    fn check_cpt_allowed(&self, cpt: &request::RequestType) -> bool {
+        match NetworkFilterMask::from(cpt) {
+            // TODO this is not ideal, but required to allow regexed exception rules without an
+            // explicit `$document` option to apply uBO-style.
+            // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
+            NetworkFilterMask::FROM_DOCUMENT => {
+                self.has_flag(NetworkFilterMask::FROM_DOCUMENT) || self.is_exception()
+            }
+            mask => self.has_flag(mask),
+        }
+    }
+}
+
+impl NetworkFilterMaskHelper for NetworkFilterMask {
+    #[inline]
+    fn has_flag(&self, v: NetworkFilterMask) -> bool {
+        self.contains(v)
+    }
+}
 
 impl fmt::Display for NetworkFilterMask {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -841,69 +959,11 @@ impl NetworkFilter {
             vec![tokens]
         }
     }
+}
 
-    pub fn is_exception(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_EXCEPTION)
-    }
-
-    pub fn is_hostname_anchor(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
-    }
-
-    pub fn is_right_anchor(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
-    }
-
-    pub fn is_left_anchor(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR)
-    }
-
-    pub fn is_important(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_IMPORTANT)
-    }
-
-    pub fn is_redirect(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_REDIRECT)
-    }
-
-    pub fn is_removeparam(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
-    }
-
-    pub fn also_block_redirect(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
-    }
-
-    pub fn is_badfilter(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::BAD_FILTER)
-    }
-
-    pub fn is_generic_hide(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::GENERIC_HIDE)
-    }
-
-    pub fn is_regex(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_REGEX)
-    }
-
-    pub fn is_complete_regex(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX)
-    }
-
-    fn is_plain(&self) -> bool {
-        !self.is_regex()
-    }
-
-    pub fn is_csp(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::IS_CSP)
-    }
-
-    fn for_http(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::FROM_HTTP)
-    }
-
-    fn for_https(&self) -> bool {
-        self.mask.contains(NetworkFilterMask::FROM_HTTPS)
+impl NetworkFilterMaskHelper for NetworkFilter {
+    fn has_flag(&self, v: NetworkFilterMask) -> bool {
+        self.mask.contains(v)
     }
 }
 

@@ -1,4 +1,5 @@
 use adblock::filters::network::NetworkFilter;
+use adblock::filters::network::NetworkFilterMaskHelper;
 use adblock::filters::network::NetworkMatchable;
 use adblock::regex_manager::RegexManager;
 use adblock::request::Request;
