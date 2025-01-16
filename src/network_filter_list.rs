@@ -1,4 +1,6 @@
-use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::filters::network::{
+    NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
+};
 use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
@@ -7,6 +9,18 @@ use crate::utils::{fast_hash, Hash};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+pub struct CheckResult {
+    pub filter_mask: NetworkFilterMask,
+    pub modifier_option: Option<String>,
+}
+
+impl NetworkFilterMaskHelper for CheckResult {
+    #[inline]
+    fn has_flag(&self, v: NetworkFilterMask) -> bool {
+        self.filter_mask.contains(v)
+    }
+}
 
 pub trait NetworkFilterListTrait {
     fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self
@@ -21,13 +35,13 @@ pub trait NetworkFilterListTrait {
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Option<NetworkFilter>;
+    ) -> Option<CheckResult>;
     fn check_all(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Vec<NetworkFilter>;
+    ) -> Vec<CheckResult>;
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -82,39 +96,6 @@ impl NetworkFilterListTrait for NetworkFilterList {
             self_.filter_map.shrink_to_fit();
         }
 
-        /*
-                let mut flat_builder = crate::filters::fb_network::FlatNetworkFiltersListBuilder::new();
-
-                for (key, value) in &self_.filter_map {
-                    for v in value {
-                        let nf = (*(*v)).clone();
-                        let index = flat_builder.add(nf);
-                        insert_dup(&mut self_.flat_filter_map, *key, index);
-                    }
-                }
-                self_.flat_filters_buffer = flat_builder.finish();
-
-                let root = unsafe { fb::root_as_network_filter_list_unchecked(&self_.flat_filters_buffer) };
-
-                for (index, item) in root.unique_include_domains().iter().enumerate() {
-                    self_
-                        .include_domains_map
-                        .insert(item, u16::try_from(index).expect("ok"));
-                }
-                for (index, item) in root.unique_exclude_domains().iter().enumerate() {
-                    self_
-                        .exclude_domains_map
-                        .insert(item, u16::try_from(index).expect("ok"));
-                }
-                self_.include_domains_map.shrink_to_fit();
-                self_.exclude_domains_map.shrink_to_fit();
-
-                println!(
-                    "nf {:?} fnf {:?}",
-                    self_.filter_map.get(&0).map(|v| v.len()),
-                    self_.flat_filter_map.get(&0).map(|v| v.len()),
-                );
-        */
         self_
     }
 
@@ -183,55 +164,32 @@ impl NetworkFilterListTrait for NetworkFilterList {
 
     /// This may not work if the list has been optimized.
     fn filter_exists(&self, filter: &NetworkFilter) -> bool {
-        let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
-
-        if tokens.is_empty() {
-            tokens.push(0)
-        }
-
-        for token in tokens {
-            if let Some(filters) = self.filter_map.get(&token) {
-                for saved_filter in filters {
-                    if saved_filter.id == filter.id {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
+        let tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
+        tokens.into_iter().chain(std::iter::once(0)).any(|token| {
+            self.filter_map.get(&token).map_or(false, |filters| {
+                filters
+                    .iter()
+                    .any(|saved_filter| saved_filter.id == filter.id)
+            })
+        })
     }
 
+    /// Returns the first found filter, if any, that matches the given request. The backing storage
+    /// has a non-deterministic order, so this should be used for any category of filters where a
+    /// match from each would be functionally equivalent. For example, if two different exception
+    /// filters match a certain request, it doesn't matter _which_ one is matched - the request
+    /// will be excepted either way.
     fn check(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Option<NetworkFilter> {
+    ) -> Option<CheckResult> {
         if self.filter_map.is_empty() {
             return None;
         }
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            return Some(filter.as_ref().clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in &request.request_tokens {
+        for token in request.checkable_tokens_iter() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -242,7 +200,10 @@ impl NetworkFilterListTrait for NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        return Some(filter.as_ref().clone());
+                        return Some(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option.clone(),
+                        });
                     }
                 }
             }
@@ -260,33 +221,14 @@ impl NetworkFilterListTrait for NetworkFilterList {
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Vec<NetworkFilter> {
-        let mut filters: Vec<NetworkFilter> = vec![];
+    ) -> Vec<CheckResult> {
+        let mut filters: Vec<CheckResult> = vec![];
 
         if self.filter_map.is_empty() {
             return filters;
         }
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            filters.push(filter.as_ref().clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in &request.request_tokens {
+        for token in request.checkable_tokens_iter() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -297,12 +239,180 @@ impl NetworkFilterListTrait for NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        filters.push(filter.as_ref().clone());
+                        filters.push(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        filters
+    }
+}
+
+use crate::filters::fb_network::flat::fb;
+use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
+
+pub struct FlatNetworkFilterList {
+    flatbuffer_memory: Vec<u8>,
+    pub(crate) filter_map: HashMap<Hash, Vec<u32>>,
+    pub(crate) domain_hashes_mapping: HashMap<Hash, u16>,
+}
+
+impl NetworkFilterListTrait for FlatNetworkFilterList {
+    fn new(filters: Vec<NetworkFilter>, _optimize: bool) -> Self {
+        // Compute tokens for all filters
+        let filter_tokens: Vec<_> = filters
+            .into_iter()
+            .map(|filter| {
+                let tokens = filter.get_tokens();
+                (filter, tokens)
+            })
+            .collect();
+        // compute the tokens' frequency histogram
+        let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
+
+        // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
+        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
+        let mut filter_map = HashMap::new();
+        {
+            for (filter, multi_tokens) in filter_tokens.into_iter() {
+                for tokens in multi_tokens {
+                    let mut best_token: Hash = 0;
+                    let mut min_count = total_number_of_tokens + 1;
+                    for token in tokens {
+                        match tokens_histogram.get(&token) {
+                            None => {
+                                min_count = 0;
+                                best_token = token
+                            }
+                            Some(&count) if count < min_count => {
+                                min_count = count;
+                                best_token = token
+                            }
+                            _ => {}
+                        }
+                    }
+                    let index = flat_builder.add(&filter);
+                    insert_dup(&mut filter_map, best_token, index);
+                }
+            }
+        }
+
+        let flatbuffer_memory = flat_builder.finish();
+        let root = fb::root_as_network_filter_list(&flatbuffer_memory)
+            .expect("Ok because it is created in the previous line");
+
+        let mut domain_hashes_mapping: HashMap<Hash, u16> = HashMap::new();
+        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
+            domain_hashes_mapping.insert(hash, u16::try_from(index).expect("< u16 max"));
+        }
+
+        filter_map.shrink_to_fit();
+        domain_hashes_mapping.shrink_to_fit();
+
+        /*println!(
+            "bytes {} fm {} dh {}",
+            flatbuffer_memory.len(),
+            filter_map.len(),
+            domain_hashes_mapping.len()
+        );*/
+
+        Self {
+            flatbuffer_memory,
+            filter_map,
+            domain_hashes_mapping,
+        }
+    }
+
+    fn optimize(&mut self) {}
+
+    fn add_filter(&mut self, _filter: NetworkFilter) {}
+
+    fn filter_exists(&self, _filter: &NetworkFilter) -> bool {
+        false
+    }
+
+    /// Returns the first found filter, if any, that matches the given request. The backing storage
+    /// has a non-deterministic order, so this should be used for any category of filters where a
+    /// match from each would be functionally equivalent. For example, if two different exception
+    /// filters match a certain request, it doesn't matter _which_ one is matched - the request
+    /// will be excepted either way.
+    fn check(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Option<CheckResult> {
+        if self.filter_map.is_empty() {
+            return None;
+        }
+
+        let filters_list =
+            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
+        let network_filters = filters_list.network_filters();
+
+        for token in request.checkable_tokens_iter() {
+            if let Some(filter_bucket) = self.filter_map.get(token) {
+                for filter_index in filter_bucket {
+                    let fb_filter = network_filters.get(*filter_index as usize);
+                    let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
+
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().map_or(true, |t| active_tags.contains(t))
+                    {
+                        return Some(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                        });
                     }
                 }
             }
         }
 
+        None
+    }
+
+    /// Returns _all_ filters that match the given request. This should be used for any category of
+    /// filters where a match from each may carry unique information. For example, if two different
+    /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
+    /// each directive should be combined for the final result.
+    fn check_all(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Vec<CheckResult> {
+        let mut filters: Vec<CheckResult> = vec![];
+
+        if self.filter_map.is_empty() {
+            return filters;
+        }
+
+        let filters_list =
+            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
+        let network_filters = filters_list.network_filters();
+
+        for token in request.checkable_tokens_iter() {
+            if let Some(filter_bucket) = self.filter_map.get(token) {
+                for filter_index in filter_bucket {
+                    let fb_filter = network_filters.get(*filter_index as usize);
+                    let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
+
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().map_or(true, |t| active_tags.contains(t))
+                    {
+                        filters.push(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                        });
+                    }
+                }
+            }
+        }
         filters
     }
 }
@@ -356,99 +466,6 @@ pub(crate) fn token_histogram<T>(
 
     (number_of_tokens, tokens_histogram)
 }
-
-/*
-
-  /// Returns the first found filter, if any, that matches the given request. The backing storage
-  /// has a non-deterministic order, so this should be used for any category of filters where a
-  /// match from each would be functionally equivalent. For example, if two different exception
-  /// filters match a certain request, it doesn't matter _which_ one is matched - the request
-  /// will be excepted either way.
-  fn check_fnf(
-    &self,
-    request: &Request,
-    active_tags: &HashSet<String>,
-    regex_manager: &mut RegexManager,
-) -> Option<NetworkFilterMask> {
-    if self.flat_filter_map.is_empty() {
-        return None;
-    }
-
-    let storage =
-        unsafe { fb::root_as_network_filter_list_unchecked(&self.flat_filters_buffer) };
-    let filters = storage.global_list();
-
-    for token in request.checkable_tokens_iter() {
-        if let Some(filter_bucket) = self.flat_filter_map.get(token) {
-            for filter_index in filter_bucket {
-                let flat_filter = filters.get(*filter_index as usize);
-                let mut filter = FlatNetworkFilterView::from(&flat_filter);
-                filter.key = *filter_index as u64;
-
-                if filter.matches(request, self, regex_manager)
-                    && filter.tag.map_or(true, |t| active_tags.contains(t))
-                {
-                    return Some(filter.mask);
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Returns the first found filter, if any, that matches the given request. The backing storage
-/// has a non-deterministic order, so this should be used for any category of filters where a
-/// match from each would be functionally equivalent. For example, if two different exception
-/// filters match a certain request, it doesn't matter _which_ one is matched - the request
-/// will be excepted either way.
-fn check_nf(
-    &self,
-    request: &Request,
-    active_tags: &HashSet<String>,
-    regex_manager: &mut RegexManager,
-) -> Option<&NetworkFilter> {
-    if self.filter_map.is_empty() {
-        return None;
-    }
-
-    if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-        for token in source_hostname_hashes {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter in filter_bucket {
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, self, regex_manager)
-                        && filter
-                            .tag
-                            .as_ref()
-                            .map(|t| active_tags.contains(t))
-                            .unwrap_or(true)
-                    {
-                        return Some(filter);
-                    }
-                }
-            }
-        }
-    }
-
-    for token in &request.request_tokens {
-        if let Some(filter_bucket) = self.filter_map.get(token) {
-            for filter in filter_bucket {
-                // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                if filter.matches(request, self, regex_manager)
-                    && filter
-                        .tag
-                        .as_ref()
-                        .map(|t| active_tags.contains(t))
-                        .unwrap_or(true)
-                {
-                    return Some(filter);
-                }
-            }
-        }
-    }
-
-    None
-}*/
 
 #[cfg(test)]
 #[path = "../tests/unit/network_filter_list.rs"]

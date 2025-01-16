@@ -2,12 +2,12 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
-use crate::filters::network::{NetworkFilter, NetworkFilterMask};
+use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
+use crate::network_filter_list::FlatNetworkFilterList;
 use crate::regex_manager::RegexManager;
 use crate::request::{self};
 use crate::utils::Hash;
 
-extern crate flatbuffers;
 #[allow(dead_code, unused_imports, unsafe_code)]
 #[path = "../flat/fb_network_filter_generated.rs"]
 pub mod flat;
@@ -18,6 +18,8 @@ use super::network::NetworkMatchable;
 pub struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
+
+    unique_domains: Vec<Hash>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -25,43 +27,60 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         Self {
             builder: flatbuffers::FlatBufferBuilder::new(),
             filters: vec![],
+            unique_domains: vec![],
         }
     }
 
-    pub fn add(&mut self, network_filter: NetworkFilter) -> u32 {
-        let opt_domains = network_filter
-            .opt_domains
-            .map(|mut opt_domains| {
-                opt_domains.insert(0, network_filter.opt_domains_union.unwrap());
-                opt_domains
-            })
-            .map(|v| self.builder.create_vector(&v));
+    fn get_or_insert(arr: &mut Vec<Hash>, h: Hash) -> u16 {
+        if let Some(index) = arr.iter().position(|&x| x == h) {
+            u16::try_from(index).expect("< u16 max")
+        } else {
+            arr.push(h);
+            u16::try_from(arr.len() - 1).expect("< u16 max")
+        }
+    }
 
-        let opt_not_domains = network_filter
-            .opt_not_domains
-            .map(|mut opt_not_domains| {
-                opt_not_domains.insert(0, network_filter.opt_not_domains_union.unwrap());
-                opt_not_domains
-            })
-            .map(|v| self.builder.create_vector(&v));
+    pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
+        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
+            let mut o: Vec<u16> = v
+                .into_iter()
+                .map(|x| Self::get_or_insert(&mut self.unique_domains, *x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            self.builder.create_vector(&o)
+        });
+
+        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
+            let mut o: Vec<u16> = v
+                .into_iter()
+                .map(|x| Self::get_or_insert(&mut self.unique_domains, *x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            self.builder.create_vector(&o)
+        });
 
         let modifier_option = network_filter
             .modifier_option
+            .as_ref()
             .map(|s| self.builder.create_shared_string(&s));
 
         let hostname = network_filter
             .hostname
-            .map(|s| self.builder.create_string(&s));
+            .as_ref()
+            .map(|s| self.builder.create_shared_string(&s));
 
         let tag = network_filter
             .tag
+            .as_ref()
             .map(|s| self.builder.create_shared_string(&s));
 
         let patterns = if network_filter.filter.iter().len() > 0 {
             let offsets: Vec<WIPOffset<&str>> = network_filter
                 .filter
                 .iter()
-                .map(|s| self.builder.create_string(s))
+                .map(|s| self.builder.create_shared_string(s))
                 .collect();
             Some(self.builder.create_vector(&offsets))
         } else {
@@ -88,27 +107,44 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
     pub fn finish(&mut self) -> Vec<u8> {
         let filters = self.builder.create_vector(&self.filters);
 
+        let unique_domains = self.builder.create_vector(&self.unique_domains);
+
         let storage = fb::NetworkFilterList::create(
             &mut self.builder,
             &&fb::NetworkFilterListArgs {
-                global_list: Some(filters),
+                network_filters: Some(filters),
+                unique_domains_hashes: Some(unique_domains),
             },
         );
         self.builder.finish(storage, None);
 
-        Vec::from(self.builder.finished_data())
+        let r = Vec::from(self.builder.finished_data());
+        /*println!(
+            "bytes {} i {} e {}",
+            r.len(),
+            self.include_domains.len(),
+            self.exclude_domains.len()
+        );*/
+        r
     }
 }
 pub struct FlatPatterns<'a> {
-    data: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+    patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
 }
 
 impl<'a> FlatPatterns<'a> {
     #[inline(always)]
+    pub fn new(
+        patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+    ) -> Self {
+        Self { patterns }
+    }
+
+    #[inline(always)]
     pub fn iter(&self) -> FlatPatternsIterator {
         FlatPatternsIterator {
             patterns: self,
-            len: self.data.map_or(0, |d| d.len()),
+            len: self.patterns.map_or(0, |d| d.len()),
             index: 0,
         }
     }
@@ -125,7 +161,7 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.patterns.data.map_or(None, |fi| {
+        self.patterns.patterns.map_or(None, |fi| {
             if self.index < self.len {
                 self.index += 1;
                 Some(fi.get(self.index - 1))
@@ -144,67 +180,87 @@ impl<'a> ExactSizeIterator for FlatPatternsIterator<'a> {
     }
 }
 
-pub struct FlatNetworkFilterView<'a> {
-    pub key: u64,
+pub struct FlatNetworkFilter<'a> {
+    key: u64,
+    owner: &'a FlatNetworkFilterList,
+    fb_filter: &'a fb::NetworkFilter<'a>,
+
     pub mask: NetworkFilterMask,
-    pub patterns: FlatPatterns<'a>,
-    pub modifier_option: Option<&'a str>,
-    pub hostname: Option<&'a str>,
-    pub opt_domains: Option<&'a [Hash]>,
-    pub opt_not_domains: Option<&'a [Hash]>,
-    pub tag: Option<&'a str>,
 }
 
-impl<'a> From<&'a fb::NetworkFilter<'a>> for FlatNetworkFilterView<'a> {
+impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
-    fn from(filter: &'a fb::NetworkFilter<'a>) -> Self {
-        let opt_domains = filter.opt_domains().map(|domains| unsafe {
-            let bytes = domains.bytes();
-            std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u64,
-                bytes.len() / std::mem::size_of::<u64>(),
-            )
-        });
-        let opt_not_domains = filter.opt_not_domains().map(|domains| unsafe {
-            let bytes = domains.bytes();
-            std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u64,
-                bytes.len() / std::mem::size_of::<u64>(),
-            )
-        });
+    pub fn create(
+        filter: &'a fb::NetworkFilter<'a>,
+        index: u32,
+        owner: &'a FlatNetworkFilterList,
+    ) -> Self {
         Self {
-            key: (filter._tab.buf().as_ptr() as *const u64) as u64,
+            fb_filter: filter,
+            key: index as u64,
             mask: unsafe { NetworkFilterMask::from_bits_unchecked(filter.mask()) },
-            patterns: FlatPatterns {
-                data: filter.patterns(),
-            },
-            modifier_option: filter.modifier_option(),
-            hostname: filter.hostname(),
-            opt_domains: opt_domains,
-            opt_not_domains: opt_not_domains,
-            tag: filter.tag(),
+            owner: owner,
         }
+    }
+
+    #[inline(always)]
+    pub fn tag(&self) -> Option<&'a str> {
+        self.fb_filter.tag()
+    }
+
+    #[inline(always)]
+    pub fn modifier_option(&self) -> Option<String> {
+        self.fb_filter.modifier_option().map(|o| o.to_string())
     }
 }
 
-impl<'a> NetworkMatchable for FlatNetworkFilterView<'a> {
+impl<'a> NetworkFilterMaskHelper for FlatNetworkFilter<'a> {
+    #[inline]
+    fn has_flag(&self, v: NetworkFilterMask) -> bool {
+        self.mask.contains(v)
+    }
+}
+
+impl<'a> NetworkMatchable for FlatNetworkFilter<'a> {
     fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
-        use crate::filters::network_matchers::{check_options, check_pattern};
-        check_options(
+        use crate::filters::network_matchers::{
+            check_excluded_domains_m, check_included_domains_m, check_options, check_pattern,
+        };
+        if !check_options(self.mask, request) {
+            return false;
+        }
+        let opt_not_domains = self.fb_filter.opt_not_domains().map(|domains| unsafe {
+            let bytes = domains.bytes();
+            std::slice::from_raw_parts(
+                bytes.as_ptr() as *const u16,
+                bytes.len() / std::mem::size_of::<u16>(),
+            )
+        });
+        if !check_excluded_domains_m(opt_not_domains, request, &self.owner.domain_hashes_mapping) {
+            return false;
+        }
+        let opt_domains = self.fb_filter.opt_domains().map(|domains| unsafe {
+            let bytes = domains.bytes();
+            std::slice::from_raw_parts(
+                bytes.as_ptr() as *const u16,
+                bytes.len() / std::mem::size_of::<u16>(),
+            )
+        });
+        if !check_included_domains_m(opt_domains, request, &self.owner.domain_hashes_mapping) {
+            return false;
+        }
+        let patterns = FlatPatterns::new(self.fb_filter.patterns());
+        if !check_pattern(
             self.mask,
-            self.opt_domains.map(|d| d[1..].as_ref()),
-            self.opt_domains.map(|d| d[0]),
-            self.opt_not_domains.map(|d| d[1..].as_ref()),
-            self.opt_not_domains.map(|d| d[0]),
-            request,
-        ) && check_pattern(
-            self.mask,
-            self.patterns.iter(),
-            self.hostname,
+            patterns.iter(),
+            self.fb_filter.hostname(),
             self.key,
             request,
             regex_manager,
-        )
+        ) {
+            return false;
+        }
+        true
     }
 
     #[cfg(test)]

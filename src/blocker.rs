@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::ops::DerefMut;
 use thiserror::Error;
 
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterListTrait;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
@@ -265,8 +265,8 @@ impl<FilterListType: NetworkFilterListTrait> Blocker<FilterListType> {
             important,
             redirect,
             rewritten_url,
-            exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
-            filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
+            exception: None, // TODO exception.as_ref().map(|f| f.to_string()), // copy the exception
+            filter: None,  // TODO filter.as_ref().map(|f| f.to_string()),       // copy the filter
         }
     }
 
@@ -385,7 +385,7 @@ impl<FilterListType: NetworkFilterListTrait> Blocker<FilterListType> {
             if filter.is_exception() {
                 if filter.is_csp() {
                     if let Some(csp_directive) = filter.modifier_option {
-                        disabled_directives.insert(csp_directive);
+                        disabled_directives.insert(csp_directive.to_string());
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
                         // injections for matching pages.
@@ -394,7 +394,7 @@ impl<FilterListType: NetworkFilterListTrait> Blocker<FilterListType> {
                 }
             } else if filter.is_csp() {
                 if let Some(csp_directive) = filter.modifier_option {
-                    enabled_directives.insert(csp_directive);
+                    enabled_directives.insert(csp_directive.to_string());
                 }
             }
         }

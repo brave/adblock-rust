@@ -6,7 +6,7 @@ use adblock::{
 
 fn main() {
     let rules = vec![
-        String::from("-advertisement-icon."),
+        String::from("-advertisement-icon.$domain=example.com|hui.ru|pizda.com"),
         String::from("-advertisement-management/"),
         String::from("-advertisement."),
         String::from("-advertisement/script."),
