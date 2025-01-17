@@ -9,6 +9,44 @@ use adblock::resources::ResourceStorage;
 use adblock::url_parser::parse_url;
 use adblock::Engine;
 
+// Custom allocator
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::alloc::{GlobalAlloc, Layout, System};
+struct TrackingAllocator {
+  allocated: AtomicUsize,
+}
+
+impl TrackingAllocator {
+  const fn new() -> Self {
+      Self {
+          allocated: AtomicUsize::new(0),
+      }
+  }
+
+  fn allocated(&self) -> usize {
+      self.allocated.load(Ordering::SeqCst)
+  }
+}
+
+unsafe impl GlobalAlloc for TrackingAllocator {
+  unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+      let ptr = System.alloc(layout); // Use the default allocator
+      if !ptr.is_null() {
+          self.allocated.fetch_add(layout.size(), Ordering::SeqCst);
+      }
+      ptr
+  }
+
+  unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+      System.dealloc(ptr, layout); // Use the default allocator
+      self.allocated.fetch_sub(layout.size(), Ordering::SeqCst);
+  }
+}
+
+// Use the custom allocator as the global allocator
+#[global_allocator]
+static GLOBAL: TrackingAllocator = TrackingAllocator::new();
+
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
 use test_utils::rules_from_lists;
@@ -138,7 +176,10 @@ fn rule_match(c: &mut Criterion) {
     });
     group.bench_function("easylist", move |b| {
         let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
+        let before = GLOBAL.allocated();
         let engine = Engine::from_rules(rules, Default::default());
+        let after = GLOBAL.allocated();
+        println!("Allocated new memory: {} bytes", after - before);
         b.iter(|| bench_rule_matching(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
