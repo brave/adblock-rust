@@ -254,16 +254,20 @@ impl NetworkFilterListTrait for NetworkFilterList {
 use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
 
+pub struct KeyItem {
+  pub hash: Hash,
+  pub filter_index: u32,
+}
 pub struct FlatNetworkFilterList {
-    flatbuffer_memory: Vec<u8>,
-    pub(crate) filter_map: HashMap<Hash, Vec<u32>>,
+    pub flatbuffer_memory: Vec<u8>,
+    pub(crate) sorted_filters: Vec<KeyItem>,
     pub(crate) domain_hashes_mapping: HashMap<Hash, u16>,
 }
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
     fn new(filters: Vec<NetworkFilter>, _optimize: bool) -> Self {
         // Compute tokens for all filters
-        let filter_tokens: Vec<_> = filters
+        let mut filter_tokens: Vec<_> = filters
             .into_iter()
             .map(|filter| {
                 let tokens = filter.get_tokens();
@@ -273,11 +277,9 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         // compute the tokens' frequency histogram
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
-        // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
-        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
-        let mut filter_map = HashMap::new();
+        let mut filter_map = HashMap::with_capacity(filter_tokens.len());
         {
-            for (filter, multi_tokens) in filter_tokens.into_iter() {
+            for (filter, multi_tokens) in filter_tokens.drain(..).into_iter() {
                 for tokens in multi_tokens {
                     let mut best_token: Hash = 0;
                     let mut min_count = total_number_of_tokens + 1;
@@ -294,11 +296,23 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                             _ => {}
                         }
                     }
-                    let index = flat_builder.add(&filter);
-                    insert_dup(&mut filter_map, best_token, index);
+                    insert_dup(&mut filter_map, best_token, filter.clone());
                 }
             }
         }
+
+        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
+        let mut sorted_filters = Vec::new();
+        for (token, filters) in filter_map {
+            for filter in filters {
+                let index = flat_builder.add(&filter);
+                sorted_filters.push(KeyItem {
+                  hash: token,
+                  filter_index: index,
+                });
+            }
+        }
+        sorted_filters.sort_by(|a, b| a.hash.cmp(&b.hash));
 
         let flatbuffer_memory = flat_builder.finish();
         let root = fb::root_as_network_filter_list(&flatbuffer_memory)
@@ -309,7 +323,8 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
             domain_hashes_mapping.insert(hash, u16::try_from(index).expect("< u16 max"));
         }
 
-        filter_map.shrink_to_fit();
+        sorted_filters.sort_by(|a, b| a.hash.cmp(&b.hash));
+
         domain_hashes_mapping.shrink_to_fit();
 
         /*println!(
@@ -321,7 +336,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
 
         Self {
             flatbuffer_memory,
-            filter_map,
+            sorted_filters: Vec::from(sorted_filters), // shrink to fit,
             domain_hashes_mapping,
         }
     }
@@ -345,7 +360,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<CheckResult> {
-        if self.filter_map.is_empty() {
+        if self.sorted_filters.is_empty() {
             return None;
         }
 
@@ -354,10 +369,17 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         let network_filters = filters_list.network_filters();
 
         for token in request.checkable_tokens_iter() {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
+            if let Ok(index) = self.sorted_filters.binary_search_by(|item| item.hash.cmp(&token)) {
+                let mut index = index;
+                // TODO: optimize
+                while index > 0 && self.sorted_filters[index].hash == *token {
+                  index -= 1
+                }
+                index += 1;
+                loop {
+                    let filter_index = self.sorted_filters[index].filter_index;
+                    let fb_filter = network_filters.get(filter_index as usize);
+                    let filter = FlatNetworkFilter::create(&fb_filter, filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
@@ -368,6 +390,10 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                             modifier_option: filter.modifier_option(),
                         });
                     }
+                  index += 1;
+                  if index >= self.sorted_filters.len() || self.sorted_filters[index].hash != *token {
+                    break;
+                  }
                 }
             }
         }
@@ -387,7 +413,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
     ) -> Vec<CheckResult> {
         let mut filters: Vec<CheckResult> = vec![];
 
-        if self.filter_map.is_empty() {
+        if self.sorted_filters.is_empty() {
             return filters;
         }
 
@@ -396,10 +422,17 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         let network_filters = filters_list.network_filters();
 
         for token in request.checkable_tokens_iter() {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
+            if let Ok(index) = self.sorted_filters.binary_search_by(|item| item.hash.cmp(&token)) {
+                let mut index = index;
+                // TODO: optimize
+                while index > 0 && self.sorted_filters[index].hash == *token {
+                  index -= 1
+                }
+                index += 1;
+                loop {
+                    let filter_index = self.sorted_filters[index].filter_index;
+                    let fb_filter = network_filters.get(filter_index as usize);
+                    let filter = FlatNetworkFilter::create(&fb_filter, filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
@@ -409,6 +442,10 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
                         });
+                    }
+                    index += 1;
+                    if index >= self.sorted_filters.len() || self.sorted_filters[index].hash != *token {
+                      break;
                     }
                 }
             }
