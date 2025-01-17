@@ -7,7 +7,7 @@ use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 pub struct CheckResult {
@@ -256,8 +256,36 @@ use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilde
 
 pub struct FlatNetworkFilterList {
     flatbuffer_memory: Vec<u8>,
-    pub(crate) filter_map: HashMap<Hash, Vec<u32>>,
+    pub(crate) filter_map: FlatMultimap<Hash, u32>,
     pub(crate) domain_hashes_mapping: HashMap<Hash, u16>,
+}
+
+fn total_bytes_in_hashmap(map: &HashMap<u64, Vec<u32>>) -> usize {
+    let mut total_bytes = 0;
+
+    // Memory usage of the HashMap itself
+    // Each bucket in the HashMap stores a hash (usize), a key (u64), and a value (Vec<u32> pointer).
+    // On a 64-bit system:
+    // - Hash: 8 bytes
+    // - Key: 8 bytes
+    // - Value pointer: 8 bytes
+    // Total per bucket: 24 bytes
+    let hashmap_bucket_size = 8 + 8 + 8; // 24 bytes per bucket
+    total_bytes += map.capacity() * hashmap_bucket_size;
+
+    // Iterate over the HashMap to calculate memory usage of keys and values
+    for (key, value) in map {
+        // Size of the key (u64)
+        total_bytes += std::mem::size_of::<u64>();
+
+        // Size of the Vec<u32> metadata (pointer + length + capacity)
+        total_bytes += std::mem::size_of::<Vec<u32>>();
+
+        // Size of the u32 elements in the Vec (based on capacity, not len)
+        total_bytes += value.capacity() * std::mem::size_of::<u32>();
+    }
+
+    total_bytes
 }
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
@@ -275,7 +303,8 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
 
         // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
         let mut flat_builder = FlatNetworkFiltersListBuilder::new();
-        let mut filter_map = HashMap::new();
+        let mut filter_map = FlatMultimap::new();
+        let mut total_index = 0;
         {
             for (filter, multi_tokens) in filter_tokens.into_iter() {
                 for tokens in multi_tokens {
@@ -295,7 +324,8 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                         }
                     }
                     let index = flat_builder.add(&filter);
-                    insert_dup(&mut filter_map, best_token, index);
+                    total_index = index;
+                    insert_dup_b(&mut filter_map, best_token, index);
                 }
             }
         }
@@ -313,11 +343,16 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         domain_hashes_mapping.shrink_to_fit();
 
         /*println!(
-            "bytes {} fm {} dh {}",
+            "bytes {} fm {} fmc {} dh {} total {} cap {}, len {}",
             flatbuffer_memory.len(),
-            filter_map.len(),
-            domain_hashes_mapping.len()
-        );*/
+            filter_map_n.len(),
+            filter_map_n.capacity(),
+            domain_hashes_mapping.len(),
+            total_index,
+            cap,
+            len,
+        );
+        println!("---> filter_map {}", total_bytes_in_hashmap(&filter_map_n));*/
 
         Self {
             flatbuffer_memory,
@@ -354,22 +389,22 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         let network_filters = filters_list.network_filters();
 
         for token in request.checkable_tokens_iter() {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
+            //if let Some(filter_bucket) = self.filter_map.get_all(token) {
+            for filter_index in self.filter_map.get_all(token) {
+                let fb_filter = network_filters.get(*filter_index as usize);
+                let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
-                    {
-                        return Some(CheckResult {
-                            filter_mask: filter.mask,
-                            modifier_option: filter.modifier_option(),
-                        });
-                    }
+                // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                if filter.matches(request, regex_manager)
+                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                {
+                    return Some(CheckResult {
+                        filter_mask: filter.mask,
+                        modifier_option: filter.modifier_option(),
+                    });
                 }
             }
+            //}
         }
 
         None
@@ -387,7 +422,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
     ) -> Vec<CheckResult> {
         let mut filters: Vec<CheckResult> = vec![];
 
-        if self.filter_map.is_empty() {
+        /*if self.filter_map.is_empty() {
             return filters;
         }
 
@@ -412,7 +447,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                     }
                 }
             }
-        }
+        }*/
         filters
     }
 }
@@ -434,6 +469,14 @@ pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
         Ok(_pos) => (), // Can occur if the exact same rule is inserted twice. No reason to add anything.
         Err(slot) => entry.insert(slot, v),
     }
+}
+
+pub(crate) fn insert_dup_b<K, V>(map: &mut FlatMultimap<K, V>, k: K, v: V)
+where
+    K: std::cmp::Ord + std::hash::Hash,
+    V: PartialOrd,
+{
+    map.insert(k, v);
 }
 
 pub(crate) fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(
@@ -470,3 +513,50 @@ pub(crate) fn token_histogram<T>(
 #[cfg(test)]
 #[path = "../tests/unit/network_filter_list.rs"]
 mod unit_tests;
+
+#[derive(Debug)]
+pub struct FlatMultimap<K, V> {
+    data: Vec<(K, V)>,
+}
+
+impl<K, V> FlatMultimap<K, V>
+where
+    K: Ord,
+{
+    pub fn new() -> Self {
+        FlatMultimap { data: Vec::new() }
+    }
+
+    pub fn insert(&mut self, key: K, value: V) {
+        let index = self.data.partition_point(|(k, _)| k < &key);
+        self.data.insert(index, (key, value));
+    }
+
+    pub fn get_all<'a>(&'a self, key: &'a K) -> impl Iterator<Item = &V> + 'a {
+        let start = self.find_first_index(key);
+        self.data[start..]
+            .iter()
+            .take_while(move |(k, _)| k == key)
+            .map(|(_, v)| v)
+    }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
+        self.data.iter()
+    }
+
+    fn find_first_index(&self, key: &K) -> usize {
+        self.data.partition_point(|(k, _)| k < key)
+    }
+
+    pub fn shrink_to_fit(&mut self) {
+        self.data.shrink_to_fit();
+    }
+}

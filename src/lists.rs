@@ -248,7 +248,7 @@ impl FilterSet {
         let (metadata, mut parsed_network_filters, mut parsed_cosmetic_filters) =
             parse_filters_with_metadata(filters, self.debug, opts);
         self.network_filters.append(&mut parsed_network_filters);
-        self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
+        //self.cosmetic_filters.append(&mut parsed_cosmetic_filters);
         metadata
     }
 
