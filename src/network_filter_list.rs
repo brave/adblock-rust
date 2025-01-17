@@ -254,13 +254,9 @@ impl NetworkFilterListTrait for NetworkFilterList {
 use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
 
-pub struct KeyItem {
-  pub hash: Hash,
-  pub filter_index: u32,
-}
+
 pub struct FlatNetworkFilterList {
     pub flatbuffer_memory: Vec<u8>,
-    pub(crate) sorted_filters: Vec<KeyItem>,
     pub(crate) domain_hashes_mapping: HashMap<Hash, u16>,
 }
 
@@ -302,19 +298,25 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         }
 
         let mut flat_builder = FlatNetworkFiltersListBuilder::new();
-        let mut sorted_filters = Vec::new();
-        for (token, filters) in filter_map {
+        let mut s = Vec::new();
+        for (token, filters) in filter_map.drain() {
             for filter in filters {
                 let index = flat_builder.add(&filter);
-                sorted_filters.push(KeyItem {
-                  hash: token,
-                  filter_index: index,
-                });
+                s.push((token, index));
             }
         }
-        sorted_filters.sort_by(|a, b| a.hash.cmp(&b.hash));
+        s.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let flatbuffer_memory = flat_builder.finish();
+
+        let mut sorted_hashes = Vec::with_capacity(s.len());
+        let mut sorted_filters = Vec::with_capacity(s.len());
+
+        for (index, filter) in s {
+            sorted_hashes.push(index);
+            sorted_filters.push(filter);
+        }
+
+        let flatbuffer_memory = flat_builder.finish(sorted_hashes, sorted_filters);
         let root = fb::root_as_network_filter_list(&flatbuffer_memory)
             .expect("Ok because it is created in the previous line");
 
@@ -322,8 +324,6 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
             domain_hashes_mapping.insert(hash, u16::try_from(index).expect("< u16 max"));
         }
-
-        sorted_filters.sort_by(|a, b| a.hash.cmp(&b.hash));
 
         domain_hashes_mapping.shrink_to_fit();
 
@@ -336,7 +336,6 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
 
         Self {
             flatbuffer_memory,
-            sorted_filters: Vec::from(sorted_filters), // shrink to fit,
             domain_hashes_mapping,
         }
     }
@@ -360,41 +359,36 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<CheckResult> {
-        if self.sorted_filters.is_empty() {
-            return None;
-        }
-
         let filters_list =
             unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let hashes = unsafe {
+          let bytes = filters_list.sorted_hashes().bytes();
+          std::slice::from_raw_parts(
+              bytes.as_ptr() as *const u64,
+              bytes.len() / std::mem::size_of::<u64>(),
+          )
+        };
+
+        if hashes.len() != filters_list.sorted_network_filters().len() || hashes.len() == 0 {
+          return None;
+        }
 
         for token in request.checkable_tokens_iter() {
-            if let Ok(index) = self.sorted_filters.binary_search_by(|item| item.hash.cmp(&token)) {
-                let mut index = index;
-                // TODO: optimize
-                while index > 0 && self.sorted_filters[index].hash == *token {
-                  index -= 1
+            let mut index = hashes.partition_point(|item| item < token);
+            while index < hashes.len() && hashes[index] == *token {
+                let fb_filter = filters_list.sorted_network_filters().get(index);
+                let filter = FlatNetworkFilter::create(&fb_filter, index.try_into().unwrap(), self);
+
+                // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                if filter.matches(request, regex_manager)
+                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                {
+                    return Some(CheckResult {
+                        filter_mask: filter.mask,
+                        modifier_option: filter.modifier_option(),
+                    });
                 }
                 index += 1;
-                loop {
-                    let filter_index = self.sorted_filters[index].filter_index;
-                    let fb_filter = network_filters.get(filter_index as usize);
-                    let filter = FlatNetworkFilter::create(&fb_filter, filter_index, self);
-
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
-                    {
-                        return Some(CheckResult {
-                            filter_mask: filter.mask,
-                            modifier_option: filter.modifier_option(),
-                        });
-                    }
-                  index += 1;
-                  if index >= self.sorted_filters.len() || self.sorted_filters[index].hash != *token {
-                    break;
-                  }
-                }
             }
         }
 
@@ -413,41 +407,38 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
     ) -> Vec<CheckResult> {
         let mut filters: Vec<CheckResult> = vec![];
 
-        if self.sorted_filters.is_empty() {
-            return filters;
-        }
-
         let filters_list =
             unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+
+        let hashes = unsafe {
+          let bytes = filters_list.sorted_hashes().bytes();
+          std::slice::from_raw_parts(
+              bytes.as_ptr() as *const u64,
+              bytes.len() / std::mem::size_of::<u64>(),
+          )
+        };
+
+        if hashes.len() != filters_list.sorted_network_filters().len() || hashes.len() == 0 {
+          return filters;
+        }
 
         for token in request.checkable_tokens_iter() {
-            if let Ok(index) = self.sorted_filters.binary_search_by(|item| item.hash.cmp(&token)) {
-                let mut index = index;
-                // TODO: optimize
-                while index > 0 && self.sorted_filters[index].hash == *token {
-                  index -= 1
+            let mut index = hashes.partition_point(|item| item < token);
+            while index < hashes.len() && hashes[index] == *token {
+                let fb_filter = filters_list.sorted_network_filters().get(index);
+                let filter = FlatNetworkFilter::create(&fb_filter, index, self);
+
+
+                // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                if filter.matches(request, regex_manager)
+                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                {
+                    filters.push(CheckResult {
+                        filter_mask: filter.mask,
+                        modifier_option: filter.modifier_option(),
+                    });
                 }
                 index += 1;
-                loop {
-                    let filter_index = self.sorted_filters[index].filter_index;
-                    let fb_filter = network_filters.get(filter_index as usize);
-                    let filter = FlatNetworkFilter::create(&fb_filter, filter_index, self);
-
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
-                    {
-                        filters.push(CheckResult {
-                            filter_mask: filter.mask,
-                            modifier_option: filter.modifier_option(),
-                        });
-                    }
-                    index += 1;
-                    if index >= self.sorted_filters.len() || self.sorted_filters[index].hash != *token {
-                      break;
-                    }
-                }
             }
         }
         filters

@@ -17,8 +17,6 @@ use super::network::NetworkMatchable;
 
 pub struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
-    filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
-
     unique_domains: Vec<Hash>,
 }
 
@@ -26,7 +24,6 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
     pub fn new() -> Self {
         Self {
             builder: flatbuffers::FlatBufferBuilder::new(),
-            filters: vec![],
             unique_domains: vec![],
         }
     }
@@ -40,7 +37,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         }
     }
 
-    pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
+    pub fn add(&mut self, network_filter: &NetworkFilter) -> WIPOffset<fb::NetworkFilter<'a>> {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
             let mut o: Vec<u16> = v
                 .into_iter()
@@ -100,19 +97,21 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
             },
         );
 
-        self.filters.push(filter);
-        u32::try_from(self.filters.len() - 1).expect("< u32::MAX")
+        return filter;
     }
 
-    pub fn finish(&mut self) -> Vec<u8> {
-        let filters = self.builder.create_vector(&self.filters);
+    pub fn finish(&mut self, sorted_hashes: Vec<Hash>, sorted_filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>) -> Vec<u8> {
+
+      let hashes = self.builder.create_vector(&sorted_hashes);
+      let filters = self.builder.create_vector(&sorted_filters);
 
         let unique_domains = self.builder.create_vector(&self.unique_domains);
 
         let storage = fb::NetworkFilterList::create(
             &mut self.builder,
             &&fb::NetworkFilterListArgs {
-                network_filters: Some(filters),
+                sorted_hashes: Some(hashes),
+                sorted_network_filters: Some(filters),
                 unique_domains_hashes: Some(unique_domains),
             },
         );
@@ -192,7 +191,7 @@ impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
     pub fn create(
         filter: &'a fb::NetworkFilter<'a>,
-        index: u32,
+        index: usize,
         owner: &'a FlatNetworkFilterList,
     ) -> Self {
         Self {

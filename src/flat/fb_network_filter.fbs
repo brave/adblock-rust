@@ -1,4 +1,4 @@
-// flatc --rust --gen-object-api -o src/flat/ src/flat/network_filter.fbs
+// flatc --rust --gen-object-api -o src/flat/ src/flat/fb_network_filter.fbs
 
 namespace fb;
 
@@ -19,7 +19,8 @@ table NetworkFilter {
 }
 
 table NetworkFilterList {
-  network_filters: [NetworkFilter] (required);
+  sorted_hashes: [uint64] (required);
+  sorted_network_filters: [NetworkFilter] (required);
   unique_domains_hashes: [uint64] (required);
 }
 

@@ -322,8 +322,9 @@ impl<'a> flatbuffers::Follow<'a> for NetworkFilterList<'a> {
 }
 
 impl<'a> NetworkFilterList<'a> {
-  pub const VT_NETWORK_FILTERS: flatbuffers::VOffsetT = 4;
-  pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
+  pub const VT_SORTED_HASHES: flatbuffers::VOffsetT = 4;
+  pub const VT_SORTED_NETWORK_FILTERS: flatbuffers::VOffsetT = 6;
+  pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -336,13 +337,18 @@ impl<'a> NetworkFilterList<'a> {
   ) -> flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
     let mut builder = NetworkFilterListBuilder::new(_fbb);
     if let Some(x) = args.unique_domains_hashes { builder.add_unique_domains_hashes(x); }
-    if let Some(x) = args.network_filters { builder.add_network_filters(x); }
+    if let Some(x) = args.sorted_network_filters { builder.add_sorted_network_filters(x); }
+    if let Some(x) = args.sorted_hashes { builder.add_sorted_hashes(x); }
     builder.finish()
   }
 
   pub fn unpack(&self) -> NetworkFilterListT {
-    let network_filters = {
-      let x = self.network_filters();
+    let sorted_hashes = {
+      let x = self.sorted_hashes();
+      x.into_iter().collect()
+    };
+    let sorted_network_filters = {
+      let x = self.sorted_network_filters();
       x.iter().map(|t| t.unpack()).collect()
     };
     let unique_domains_hashes = {
@@ -350,17 +356,25 @@ impl<'a> NetworkFilterList<'a> {
       x.into_iter().collect()
     };
     NetworkFilterListT {
-      network_filters,
+      sorted_hashes,
+      sorted_network_filters,
       unique_domains_hashes,
     }
   }
 
   #[inline]
-  pub fn network_filters(&self) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
+  pub fn sorted_hashes(&self) -> flatbuffers::Vector<'a, u64> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter>>>>(NetworkFilterList::VT_NETWORK_FILTERS, None).unwrap()}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(NetworkFilterList::VT_SORTED_HASHES, None).unwrap()}
+  }
+  #[inline]
+  pub fn sorted_network_filters(&self) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter>>>>(NetworkFilterList::VT_SORTED_NETWORK_FILTERS, None).unwrap()}
   }
   #[inline]
   pub fn unique_domains_hashes(&self) -> flatbuffers::Vector<'a, u64> {
@@ -378,21 +392,24 @@ impl flatbuffers::Verifiable for NetworkFilterList<'_> {
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
     use self::flatbuffers::Verifiable;
     v.visit_table(pos)?
-     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>>>("network_filters", Self::VT_NETWORK_FILTERS, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("sorted_hashes", Self::VT_SORTED_HASHES, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>>>("sorted_network_filters", Self::VT_SORTED_NETWORK_FILTERS, true)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("unique_domains_hashes", Self::VT_UNIQUE_DOMAINS_HASHES, true)?
      .finish();
     Ok(())
   }
 }
 pub struct NetworkFilterListArgs<'a> {
-    pub network_filters: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>>>,
+    pub sorted_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+    pub sorted_network_filters: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>>>,
     pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for NetworkFilterListArgs<'a> {
   #[inline]
   fn default() -> Self {
     NetworkFilterListArgs {
-      network_filters: None, // required field
+      sorted_hashes: None, // required field
+      sorted_network_filters: None, // required field
       unique_domains_hashes: None, // required field
     }
   }
@@ -404,8 +421,12 @@ pub struct NetworkFilterListBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> 
 }
 impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterListBuilder<'a, 'b, A> {
   #[inline]
-  pub fn add_network_filters(&mut self, network_filters: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<NetworkFilter<'b >>>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(NetworkFilterList::VT_NETWORK_FILTERS, network_filters);
+  pub fn add_sorted_hashes(&mut self, sorted_hashes: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(NetworkFilterList::VT_SORTED_HASHES, sorted_hashes);
+  }
+  #[inline]
+  pub fn add_sorted_network_filters(&mut self, sorted_network_filters: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<NetworkFilter<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(NetworkFilterList::VT_SORTED_NETWORK_FILTERS, sorted_network_filters);
   }
   #[inline]
   pub fn add_unique_domains_hashes(&mut self, unique_domains_hashes: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
@@ -422,7 +443,8 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterListBuilder<'a, 'b
   #[inline]
   pub fn finish(self) -> flatbuffers::WIPOffset<NetworkFilterList<'a>> {
     let o = self.fbb_.end_table(self.start_);
-    self.fbb_.required(o, NetworkFilterList::VT_NETWORK_FILTERS,"network_filters");
+    self.fbb_.required(o, NetworkFilterList::VT_SORTED_HASHES,"sorted_hashes");
+    self.fbb_.required(o, NetworkFilterList::VT_SORTED_NETWORK_FILTERS,"sorted_network_filters");
     self.fbb_.required(o, NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,"unique_domains_hashes");
     flatbuffers::WIPOffset::new(o.value())
   }
@@ -431,7 +453,8 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterListBuilder<'a, 'b
 impl core::fmt::Debug for NetworkFilterList<'_> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut ds = f.debug_struct("NetworkFilterList");
-      ds.field("network_filters", &self.network_filters());
+      ds.field("sorted_hashes", &self.sorted_hashes());
+      ds.field("sorted_network_filters", &self.sorted_network_filters());
       ds.field("unique_domains_hashes", &self.unique_domains_hashes());
       ds.finish()
   }
@@ -439,13 +462,15 @@ impl core::fmt::Debug for NetworkFilterList<'_> {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct NetworkFilterListT {
-  pub network_filters: Vec<NetworkFilterT>,
+  pub sorted_hashes: Vec<u64>,
+  pub sorted_network_filters: Vec<NetworkFilterT>,
   pub unique_domains_hashes: Vec<u64>,
 }
 impl Default for NetworkFilterListT {
   fn default() -> Self {
     Self {
-      network_filters: Default::default(),
+      sorted_hashes: Default::default(),
+      sorted_network_filters: Default::default(),
       unique_domains_hashes: Default::default(),
     }
   }
@@ -455,8 +480,12 @@ impl NetworkFilterListT {
     &self,
     _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>
   ) -> flatbuffers::WIPOffset<NetworkFilterList<'b>> {
-    let network_filters = Some({
-      let x = &self.network_filters;
+    let sorted_hashes = Some({
+      let x = &self.sorted_hashes;
+      _fbb.create_vector(x)
+    });
+    let sorted_network_filters = Some({
+      let x = &self.sorted_network_filters;
       let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();_fbb.create_vector(&w)
     });
     let unique_domains_hashes = Some({
@@ -464,7 +493,8 @@ impl NetworkFilterListT {
       _fbb.create_vector(x)
     });
     NetworkFilterList::create(_fbb, &NetworkFilterListArgs{
-      network_filters,
+      sorted_hashes,
+      sorted_network_filters,
       unique_domains_hashes,
     })
   }
