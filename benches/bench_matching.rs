@@ -41,6 +41,22 @@ unsafe impl GlobalAlloc for TrackingAllocator {
       System.dealloc(ptr, layout); // Use the default allocator
       self.allocated.fetch_sub(layout.size(), Ordering::SeqCst);
   }
+
+  unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+    let ptr = System.alloc_zeroed(layout);
+    if !ptr.is_null() {
+      self.allocated.fetch_add(layout.size(), Ordering::SeqCst);
+    }
+    ptr
+  }
+
+  unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+    let ptr = System.realloc(ptr, layout, new_size);
+    if !ptr.is_null() {
+      self.allocated.fetch_add(new_size - layout.size(), Ordering::SeqCst);
+    }
+    ptr
+  }
 }
 
 // Use the custom allocator as the global allocator
