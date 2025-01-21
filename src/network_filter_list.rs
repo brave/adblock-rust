@@ -151,23 +151,14 @@ impl NetworkFilterListTrait for NetworkFilterList {
 
     /// This may not work if the list has been optimized.
     fn filter_exists(&self, filter: &NetworkFilter) -> bool {
-        let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
-
-        if tokens.is_empty() {
-            tokens.push(0)
-        }
-
-        for token in tokens {
-            if let Some(filters) = self.filter_map.get(&token) {
-                for saved_filter in filters {
-                    if saved_filter.id == filter.id {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
+        let tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
+        tokens.into_iter().chain(std::iter::once(0)).any(|token| {
+            self.filter_map.get(&token).map_or(false, |filters| {
+                filters
+                    .iter()
+                    .any(|saved_filter| saved_filter.id == filter.id)
+            })
+        })
     }
 
     /// Returns the first found filter, if any, that matches the given request. The backing storage
@@ -185,26 +176,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
             return None;
         }
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            return Some(filter);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in &request.request_tokens {
+        for token in request.checkable_tokens_iter() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -215,7 +187,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        return Some(filter);
+                        return Some(&filter);
                     }
                 }
             }
@@ -240,26 +212,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
             return filters;
         }
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            filters.push(filter);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in &request.request_tokens {
+        for token in request.checkable_tokens_iter() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -270,12 +223,11 @@ impl NetworkFilterListTrait for NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        filters.push(filter);
+                        filters.push(&filter);
                     }
                 }
             }
         }
-
         filters
     }
 }
