@@ -266,42 +266,16 @@ pub struct FlatNetworkFilterList {
 }
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
-    fn new(filters: Vec<NetworkFilter>, _optimize: bool) -> Self {
-        // Compute tokens for all filters
-        let filter_tokens: Vec<_> = filters
-            .into_iter()
-            .map(|filter| {
-                let tokens = filter.get_tokens();
-                (filter, tokens)
-            })
-            .collect();
-        // compute the tokens' frequency histogram
-        let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
+    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
+        let mut temp_list = NetworkFilterList::new(filters, optimize);
 
-        // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
         let mut flat_builder = FlatNetworkFiltersListBuilder::new();
-        let mut filter_map = HashMap::new();
-        {
-            for (filter, multi_tokens) in filter_tokens.into_iter() {
-                for tokens in multi_tokens {
-                    let mut best_token: Hash = 0;
-                    let mut min_count = total_number_of_tokens + 1;
-                    for token in tokens {
-                        match tokens_histogram.get(&token) {
-                            None => {
-                                min_count = 0;
-                                best_token = token
-                            }
-                            Some(&count) if count < min_count => {
-                                min_count = count;
-                                best_token = token
-                            }
-                            _ => {}
-                        }
-                    }
-                    let index = flat_builder.add(&filter);
-                    insert_dup(&mut filter_map, best_token, index);
-                }
+        let mut filter_map = HashMap::<Hash, Vec<u32>>::new();
+
+        for (key, vec) in temp_list.filter_map.drain() {
+            for filter in vec.into_iter() {
+                let index = flat_builder.add(&(*filter));
+                insert_dup(&mut filter_map, key, index);
             }
         }
 
@@ -397,7 +371,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter_index in filter_bucket {
                     let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::create(&fb_filter, *filter_index, self);
+                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
