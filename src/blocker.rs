@@ -88,15 +88,15 @@ pub enum BlockerError {
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
 /// Stores network filters for efficient querying.
-pub struct Blocker {
-    pub(crate) csp: NetworkFilterList,
-    pub(crate) exceptions: NetworkFilterList,
-    pub(crate) importants: NetworkFilterList,
-    pub(crate) redirects: NetworkFilterList,
-    pub(crate) removeparam: NetworkFilterList,
-    pub(crate) filters_tagged: NetworkFilterList,
-    pub(crate) filters: NetworkFilterList,
-    pub(crate) generic_hide: NetworkFilterList,
+pub struct Blocker<NetworkFilterListType: NetworkFilterListTrait = NetworkFilterList> {
+    pub(crate) csp: NetworkFilterListType,
+    pub(crate) exceptions: NetworkFilterListType,
+    pub(crate) importants: NetworkFilterListType,
+    pub(crate) redirects: NetworkFilterListType,
+    pub(crate) removeparam: NetworkFilterListType,
+    pub(crate) filters_tagged: NetworkFilterListType,
+    pub(crate) filters: NetworkFilterListType,
+    pub(crate) generic_hide: NetworkFilterListType,
 
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained

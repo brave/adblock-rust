@@ -9,7 +9,7 @@ use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 
-pub(crate) trait NetworkFilterListTrait {
+pub trait NetworkFilterListTrait {
     fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self
     where
         Self: Sized;
@@ -32,7 +32,7 @@ pub(crate) trait NetworkFilterListTrait {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub(crate) struct NetworkFilterList {
+pub struct NetworkFilterList {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
