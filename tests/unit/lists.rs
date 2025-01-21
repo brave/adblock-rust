@@ -6,62 +6,146 @@ mod tests {
     fn parse_hosts_style() {
         {
             let input = "www.malware.com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_ok());
         }
         {
             let input = "www.malware.com/virus.txt";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
         {
             let input = "127.0.0.1 www.malware.com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_ok());
         }
         {
             let input = "127.0.0.1\t\twww.malware.com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_ok());
         }
         {
             let input = "0.0.0.0    www.malware.com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_ok());
         }
         {
             let input = "0.0.0.0    www.malware.com     # replace after issue #289336 is addressed";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_ok());
         }
         {
             let input = "! Title: list.txt";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
         {
             let input = "127.0.0.1 localhost";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
         {
             let input = "127.0.0.1 com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
         {
             let input = ".com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
         {
             let input = "*.com";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
         {
             let input = "www.";
-            let result = parse_filter(input, true, ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
+            let result = parse_filter(
+                input,
+                true,
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
             assert!(result.is_err());
         }
     }
@@ -127,40 +211,72 @@ mod tests {
     #[test]
     #[cfg(feature = "css-validation")]
     fn parse_filter_opening_comment() {
-        assert!(parse_filter(
-            "##input,input/*",
-            true,
-            Default::default(),
-        ).is_err());
+        assert!(parse_filter("##input,input/*", true, Default::default(),).is_err());
     }
 
     #[test]
     fn test_parse_expires_interval() {
         assert_eq!(ExpiresInterval::try_from("0 hour"), Err(()));
         assert_eq!(ExpiresInterval::try_from("0 hours"), Err(()));
-        assert_eq!(ExpiresInterval::try_from("1 hour"), Ok(ExpiresInterval::Hours(1)));
-        assert_eq!(ExpiresInterval::try_from("1 hours"), Ok(ExpiresInterval::Hours(1)));
-        assert_eq!(ExpiresInterval::try_from("2 hours"), Ok(ExpiresInterval::Hours(2)));
-        assert_eq!(ExpiresInterval::try_from("2 hour"), Ok(ExpiresInterval::Hours(2)));
+        assert_eq!(
+            ExpiresInterval::try_from("1 hour"),
+            Ok(ExpiresInterval::Hours(1))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("1 hours"),
+            Ok(ExpiresInterval::Hours(1))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("2 hours"),
+            Ok(ExpiresInterval::Hours(2))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("2 hour"),
+            Ok(ExpiresInterval::Hours(2))
+        );
         assert_eq!(ExpiresInterval::try_from("3.5 hours"), Err(()));
-        assert_eq!(ExpiresInterval::try_from("336 hours"), Ok(ExpiresInterval::Hours(336)));
+        assert_eq!(
+            ExpiresInterval::try_from("336 hours"),
+            Ok(ExpiresInterval::Hours(336))
+        );
         assert_eq!(ExpiresInterval::try_from("337 hours"), Err(()));
 
         assert_eq!(ExpiresInterval::try_from("0 day"), Err(()));
         assert_eq!(ExpiresInterval::try_from("0 days"), Err(()));
-        assert_eq!(ExpiresInterval::try_from("1 day"), Ok(ExpiresInterval::Days(1)));
-        assert_eq!(ExpiresInterval::try_from("1 days"), Ok(ExpiresInterval::Days(1)));
-        assert_eq!(ExpiresInterval::try_from("2 days"), Ok(ExpiresInterval::Days(2)));
-        assert_eq!(ExpiresInterval::try_from("2 day"), Ok(ExpiresInterval::Days(2)));
+        assert_eq!(
+            ExpiresInterval::try_from("1 day"),
+            Ok(ExpiresInterval::Days(1))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("1 days"),
+            Ok(ExpiresInterval::Days(1))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("2 days"),
+            Ok(ExpiresInterval::Days(2))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("2 day"),
+            Ok(ExpiresInterval::Days(2))
+        );
         assert_eq!(ExpiresInterval::try_from("3.5 days"), Err(()));
-        assert_eq!(ExpiresInterval::try_from("14 days"), Ok(ExpiresInterval::Days(14)));
+        assert_eq!(
+            ExpiresInterval::try_from("14 days"),
+            Ok(ExpiresInterval::Days(14))
+        );
         assert_eq!(ExpiresInterval::try_from("15 days"), Err(()));
 
         assert_eq!(ExpiresInterval::try_from("-5 hours"), Err(()));
         assert_eq!(ExpiresInterval::try_from("+5 hours"), Err(()));
 
-        assert_eq!(ExpiresInterval::try_from("2 days (update frequency)"), Ok(ExpiresInterval::Days(2)));
-        assert_eq!(ExpiresInterval::try_from("2 hours (update frequency)"), Ok(ExpiresInterval::Hours(2)));
+        assert_eq!(
+            ExpiresInterval::try_from("2 days (update frequency)"),
+            Ok(ExpiresInterval::Days(2))
+        );
+        assert_eq!(
+            ExpiresInterval::try_from("2 hours (update frequency)"),
+            Ok(ExpiresInterval::Hours(2))
+        );
     }
 
     #[test]
@@ -180,7 +296,10 @@ mod tests {
         let metadata = filter_set.add_filters(list, ParseOptions::default());
 
         assert_eq!(metadata.title, Some("0131 Block List".to_string()));
-        assert_eq!(metadata.homepage, Some("https://austinhuang.me/0131-block-list".to_string()));
+        assert_eq!(
+            metadata.homepage,
+            Some("https://austinhuang.me/0131-block-list".to_string())
+        );
         assert_eq!(metadata.expires, Some(ExpiresInterval::Days(7)));
         assert_eq!(metadata.redirect, None);
     }
@@ -206,7 +325,10 @@ mod tests {
         let metadata = filter_set.add_filters(list, ParseOptions::default());
 
         assert_eq!(metadata.title, Some("ABPVN Advanced".to_string()));
-        assert_eq!(metadata.homepage, Some("https://www.haopro.net/".to_string()));
+        assert_eq!(
+            metadata.homepage,
+            Some("https://www.haopro.net/".to_string())
+        );
         assert_eq!(metadata.expires, Some(ExpiresInterval::Days(7)));
         assert_eq!(metadata.redirect, None);
     }
@@ -214,8 +336,7 @@ mod tests {
     #[test]
     fn test_read_metadata() {
         {
-            let list =
-r##"! Title: uBlock₀ filters – Annoyances
+            let list = r##"! Title: uBlock₀ filters – Annoyances
 ! Description: Filters optimized for uBlock Origin, to be used with Fanboy's
 !              and/or Adguard's "Annoyances" list(s)
 ! Expires: 4 days
@@ -225,14 +346,19 @@ r##"! Title: uBlock₀ filters – Annoyances
 ! Forums: https://github.com/uBlockOrigin/uAssets/issues"##;
             let metadata = read_list_metadata(&list);
 
-            assert_eq!(metadata.title, Some("uBlock₀ filters – Annoyances".to_string()));
-            assert_eq!(metadata.homepage, Some("https://github.com/uBlockOrigin/uAssets".to_string()));
+            assert_eq!(
+                metadata.title,
+                Some("uBlock₀ filters – Annoyances".to_string())
+            );
+            assert_eq!(
+                metadata.homepage,
+                Some("https://github.com/uBlockOrigin/uAssets".to_string())
+            );
             assert_eq!(metadata.expires, Some(ExpiresInterval::Days(4)));
             assert_eq!(metadata.redirect, None);
         }
         {
-            let list =
-r##"[uBlock Origin]
+            let list = r##"[uBlock Origin]
 ! Title: PersianBlocker
 ! Description: سرانجام، یک لیست بهینه و گسترده برای مسدودسازی تبلیغ ها و ردیاب ها در سایت های پارسی زبان!
 ! Expires: 2 days
@@ -252,7 +378,10 @@ r##"[uBlock Origin]
             let metadata = read_list_metadata(&list);
 
             assert_eq!(metadata.title, Some("PersianBlocker".to_string()));
-            assert_eq!(metadata.homepage, Some("https://github.com/MasterKia/PersianBlocker".to_string()));
+            assert_eq!(
+                metadata.homepage,
+                Some("https://github.com/MasterKia/PersianBlocker".to_string())
+            );
             assert_eq!(metadata.expires, Some(ExpiresInterval::Days(2)));
             assert_eq!(metadata.redirect, None);
         }
@@ -277,24 +406,46 @@ r##"[uBlock Origin]
             assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
         }
         {
-            let input = r#"odkrywamyzakryte.com#%#//scriptlet("abort-on-property-read", "sc_adv_out")"#;
+            let input =
+                r#"odkrywamyzakryte.com#%#//scriptlet("abort-on-property-read", "sc_adv_out")"#;
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+            assert!(matches!(
+                result,
+                Err(FilterParseError::Cosmetic(
+                    CosmeticFilterError::UnsupportedSyntax
+                ))
+            ));
         }
         {
             let input = "bikeradar.com,spiegel.de#@%#!function(){function b(){}function a(a){return{get:function(){return a},set:b}}function c(a)";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+            assert!(matches!(
+                result,
+                Err(FilterParseError::Cosmetic(
+                    CosmeticFilterError::UnsupportedSyntax
+                ))
+            ));
         }
         {
             let input = "nczas.com#$#.adsbygoogle { position: absolute!important; left: -3000px!important; }";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+            assert!(matches!(
+                result,
+                Err(FilterParseError::Cosmetic(
+                    CosmeticFilterError::UnsupportedSyntax
+                ))
+            ));
         }
         {
-            let input = "kurnik.pl#@$#.adsbygoogle { height: 1px !important; width: 1px !important; }";
+            let input =
+                "kurnik.pl#@$#.adsbygoogle { height: 1px !important; width: 1px !important; }";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Err(FilterParseError::Cosmetic(CosmeticFilterError::UnsupportedSyntax))));
+            assert!(matches!(
+                result,
+                Err(FilterParseError::Cosmetic(
+                    CosmeticFilterError::UnsupportedSyntax
+                ))
+            ));
         }
     }
 }

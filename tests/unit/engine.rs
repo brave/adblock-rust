@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::resources::MimeType;
     use crate::lists::FilterFormat;
+    use crate::resources::MimeType;
 
     #[test]
     fn tags_enable_adds_tags() {
@@ -29,7 +29,11 @@ mod tests {
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
-                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+                assert!(
+                    !matched_rule.matched,
+                    "Expected no match for {}, matched with {:?}",
+                    url, matched_rule.filter
+                );
             }
         });
     }
@@ -59,7 +63,11 @@ mod tests {
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
-                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+                assert!(
+                    !matched_rule.matched,
+                    "Expected no match for {}, matched with {:?}",
+                    url, matched_rule.filter
+                );
             }
         });
     }
@@ -85,7 +93,11 @@ mod tests {
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
-                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+                assert!(
+                    !matched_rule.matched,
+                    "Expected no match for {}, matched with {:?}",
+                    url, matched_rule.filter
+                );
             }
         });
     }
@@ -112,7 +124,11 @@ mod tests {
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
-                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+                assert!(
+                    !matched_rule.matched,
+                    "Expected no match for {}, matched with {:?}",
+                    url, matched_rule.filter
+                );
             }
         });
     }
@@ -146,7 +162,11 @@ mod tests {
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
             } else {
-                assert!(!matched_rule.matched, "Expected no match for {}, matched with {:?}", url, matched_rule.filter);
+                assert!(
+                    !matched_rule.matched,
+                    "Expected no match for {}, matched with {:?}",
+                    url, matched_rule.filter
+                );
             }
         });
     }
@@ -156,11 +176,13 @@ mod tests {
         // deserialization_generate_simple();
         // assert!(false);
         // converted from the legacy compressed format
-        let serialized = [209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128,
-            145, 128, 145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 157, 145, 206, 0, 3,
-            31, 255, 129, 1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192,
-            192, 192, 192, 207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 145, 128, 144, 195,
-            145, 128, 144, 144, 128, 128, 145, 128, 144, 145, 128];
+        let serialized = [
+            209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
+            145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 157, 145, 206, 0, 3, 31, 255,
+            129, 1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192,
+            192, 192, 207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 145, 128, 144, 195, 145,
+            128, 144, 144, 128, 128, 145, 128, 144, 145, 128,
+        ];
         let mut deserialized_engine = Engine::default();
         deserialized_engine.deserialize(&serialized).unwrap();
 
@@ -175,11 +197,13 @@ mod tests {
         // deserialization_generate_tags();
         // assert!(false);
         // converted from the legacy compressed format
-        let serialized = [209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128,
-            145, 128, 145, 128, 145, 128, 145, 157, 145, 206, 0, 3, 31, 255, 129, 1, 169, 97, 100,
-            45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 163, 97, 98, 99, 192,
-            207, 126, 212, 53, 83, 113, 159, 143, 134, 192, 192, 195, 145, 128, 144, 144, 128, 128,
-            145, 128, 144, 145, 128];
+        let serialized = [
+            209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
+            145, 128, 145, 128, 145, 157, 145, 206, 0, 3, 31, 255, 129, 1, 169, 97, 100, 45, 98,
+            97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 163, 97, 98, 99, 192, 207, 126,
+            212, 53, 83, 113, 159, 143, 134, 192, 192, 195, 145, 128, 144, 144, 128, 128, 145, 128,
+            144, 145, 128,
+        ];
         let mut deserialized_engine = Engine::default();
 
         deserialized_engine.enable_tags(&[]);
@@ -200,9 +224,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_simple() {
-        let mut engine = Engine::from_rules(&[
-            "ad-banner",
-        ], Default::default());
+        let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
         let serialized = engine.serialize_raw().unwrap();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
@@ -210,9 +232,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_tags() {
-        let mut engine = Engine::from_rules(&[
-            "ad-banner$tag=abc",
-        ], Default::default());
+        let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize_raw().unwrap();
         println!("Engine serialized: {:?}", serialized);
@@ -221,9 +241,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_resources() {
-        let mut engine = Engine::from_rules(&[
-            "ad-banner$redirect=nooptext",
-        ], Default::default());
+        let mut engine = Engine::from_rules(&["ad-banner$redirect=nooptext"], Default::default());
 
         engine.use_resources([
             Resource::simple("nooptext", MimeType::TextPlain, ""),
@@ -237,10 +255,10 @@ mod tests {
 
     #[test]
     fn redirect_resource_insertion_works() {
-        let mut engine = Engine::from_rules(&[
-            "ad-banner$redirect=nooptext",
-            "script.js$redirect=noop.js",
-        ], Default::default());
+        let mut engine = Engine::from_rules(
+            &["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],
+            Default::default(),
+        );
 
         let script = r#"
 (function() {
@@ -259,62 +277,167 @@ mod tests {
         let request = Request::new(url, "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
         assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some("data:text/plain;base64,".to_owned()), "Expected redirect to contain resource");
+        assert_eq!(
+            matched_rule.redirect,
+            Some("data:text/plain;base64,".to_owned()),
+            "Expected redirect to contain resource"
+        );
 
         let url = "http://example.com/script.js";
         let request = Request::new(url, "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
         assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(matched_rule.redirect, Some(format!("data:application/javascript;base64,{}", base64::encode(format!("{}", script)))), "Expected redirect to contain resource");
+        assert_eq!(
+            matched_rule.redirect,
+            Some(format!(
+                "data:application/javascript;base64,{}",
+                base64::encode(format!("{}", script))
+            )),
+            "Expected redirect to contain resource"
+        );
     }
 
     #[test]
     fn document() {
-        let filters = [
-            "||example.com$document",
-            "@@||sub.example.com$document",
-        ];
+        let filters = ["||example.com$document", "@@||sub.example.com$document"];
 
         let engine = Engine::from_rules_debug(&filters, Default::default());
 
-        assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
-        assert!(!engine.check_network_request(&Request::new("https://example.com", "https://example.com", "script").unwrap()).matched);
-        assert!(engine.check_network_request(&Request::new("https://sub.example.com", "https://sub.example.com", "document").unwrap()).exception.is_some());
+        assert!(
+            engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document")
+                        .unwrap()
+                )
+                .matched
+        );
+        assert!(
+            !engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "script").unwrap()
+                )
+                .matched
+        );
+        assert!(engine
+            .check_network_request(
+                &Request::new(
+                    "https://sub.example.com",
+                    "https://sub.example.com",
+                    "document"
+                )
+                .unwrap()
+            )
+            .exception
+            .is_some());
     }
 
     #[test]
     fn implicit_all() {
         {
             let engine = Engine::from_rules_debug(["||example.com^"], Default::default());
-            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+            assert!(
+                engine
+                    .check_network_request(
+                        &Request::new("https://example.com", "https://example.com", "document")
+                            .unwrap()
+                    )
+                    .matched
+            );
         }
         {
-            let engine = Engine::from_rules_debug(["||example.com^$first-party"], Default::default());
-            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+            let engine =
+                Engine::from_rules_debug(["||example.com^$first-party"], Default::default());
+            assert!(
+                engine
+                    .check_network_request(
+                        &Request::new("https://example.com", "https://example.com", "document")
+                            .unwrap()
+                    )
+                    .matched
+            );
         }
         {
             let engine = Engine::from_rules_debug(["||example.com^$script"], Default::default());
-            assert!(!engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+            assert!(
+                !engine
+                    .check_network_request(
+                        &Request::new("https://example.com", "https://example.com", "document")
+                            .unwrap()
+                    )
+                    .matched
+            );
         }
         {
             let engine = Engine::from_rules_debug(["||example.com^$~script"], Default::default());
-            assert!(!engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+            assert!(
+                !engine
+                    .check_network_request(
+                        &Request::new("https://example.com", "https://example.com", "document")
+                            .unwrap()
+                    )
+                    .matched
+            );
         }
         {
-            let engine = Engine::from_rules_debug(["||example.com^$document", "@@||example.com^$generichide"], Default::default());
-            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+            let engine = Engine::from_rules_debug(
+                ["||example.com^$document", "@@||example.com^$generichide"],
+                Default::default(),
+            );
+            assert!(
+                engine
+                    .check_network_request(
+                        &Request::new("https://example.com", "https://example.com", "document")
+                            .unwrap()
+                    )
+                    .matched
+            );
         }
         {
-            let engine = Engine::from_rules_debug(["example.com"], ParseOptions { format: FilterFormat::Hosts, ..Default::default() });
-            assert!(engine.check_network_request(&Request::new("https://example.com", "https://example.com", "document").unwrap()).matched);
+            let engine = Engine::from_rules_debug(
+                ["example.com"],
+                ParseOptions {
+                    format: FilterFormat::Hosts,
+                    ..Default::default()
+                },
+            );
+            assert!(
+                engine
+                    .check_network_request(
+                        &Request::new("https://example.com", "https://example.com", "document")
+                            .unwrap()
+                    )
+                    .matched
+            );
         }
         {
             let engine = Engine::from_rules_debug(["||example.com/path"], Default::default());
-            assert!(!engine.check_network_request(&Request::new("https://example.com/path", "https://example.com/path", "document").unwrap()).matched);
+            assert!(
+                !engine
+                    .check_network_request(
+                        &Request::new(
+                            "https://example.com/path",
+                            "https://example.com/path",
+                            "document"
+                        )
+                        .unwrap()
+                    )
+                    .matched
+            );
         }
         {
             let engine = Engine::from_rules_debug(["||example.com/path^"], Default::default());
-            assert!(!engine.check_network_request(&Request::new("https://example.com/path", "https://example.com/path", "document").unwrap()).matched);
+            assert!(
+                !engine
+                    .check_network_request(
+                        &Request::new(
+                            "https://example.com/path",
+                            "https://example.com/path",
+                            "document"
+                        )
+                        .unwrap()
+                    )
+                    .matched
+            );
         }
     }
 
@@ -323,27 +446,37 @@ mod tests {
         let filters = [
             "##.donotblock",
             "##a[href=\"generic.com\"]",
-
             "@@||example.com$generichide",
             "example.com##.block",
-
             "@@||example2.com/test.html$generichide",
             "example2.com##.block",
         ];
         let url_results = [
             ("https://example.com", vec![".block"], true),
             ("https://example.com/test.html", vec![".block"], true),
-            ("https://example2.com", vec![".block", "a[href=\"generic.com\"]"], false),
+            (
+                "https://example2.com",
+                vec![".block", "a[href=\"generic.com\"]"],
+                false,
+            ),
             ("https://example2.com/test.html", vec![".block"], true),
         ];
 
         let engine = Engine::from_rules(&filters, Default::default());
 
-        url_results.into_iter().for_each(|(url, expected_result, expected_generichide)| {
-            let result = engine.url_cosmetic_resources(url);
-            assert_eq!(result.hide_selectors, expected_result.iter().map(|s| s.to_string()).collect::<HashSet<_>>());
-            assert_eq!(result.generichide, expected_generichide);
-        });
+        url_results
+            .into_iter()
+            .for_each(|(url, expected_result, expected_generichide)| {
+                let result = engine.url_cosmetic_resources(url);
+                assert_eq!(
+                    result.hide_selectors,
+                    expected_result
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<HashSet<_>>()
+                );
+                assert_eq!(result.generichide, expected_generichide);
+            });
     }
 
     #[test]
@@ -355,9 +488,13 @@ mod tests {
         ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
-        engine.add_resource(
-            Resource::simple("addthis.com/addthis_widget.js", MimeType::ApplicationJavascript, "window.addthis = undefined"),
-        ).unwrap();
+        engine
+            .add_resource(Resource::simple(
+                "addthis.com/addthis_widget.js",
+                MimeType::ApplicationJavascript,
+                "window.addthis = undefined",
+            ))
+            .unwrap();
 
         let request = Request::new("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script").unwrap();
         let result = engine.check_network_request(&request);
@@ -370,12 +507,18 @@ mod tests {
         {
             // match case without regex is discarded
             let engine = Engine::from_rules_debug(["ad.png$match-case"], Default::default());
-            let request = Request::new("https://example.com/ad.png", "https://example.com", "image").unwrap();
+            let request =
+                Request::new("https://example.com/ad.png", "https://example.com", "image").unwrap();
             assert!(!engine.check_network_request(&request).matched);
         }
         {
             // /^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz
-            let engine = Engine::from_rules_debug([r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#], Default::default());
+            let engine = Engine::from_rules_debug(
+                [
+                    r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#,
+                ],
+                Default::default(),
+            );
             let request = Request::new("https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "document").unwrap();
             assert!(engine.check_network_request(&request).matched);
         }
@@ -408,8 +551,18 @@ mod tests {
         }*/
         {
             // /^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com
-            let engine = Engine::from_rules_debug([r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#], Default::default());
-            let request = Request::new("http://abcde.abcde.com/aaaaabbbbb.apk", "http://abcde.abcde.com/aaaaabbbbb.apk", "document").unwrap();
+            let engine = Engine::from_rules_debug(
+                [
+                    r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#,
+                ],
+                Default::default(),
+            );
+            let request = Request::new(
+                "http://abcde.abcde.com/aaaaabbbbb.apk",
+                "http://abcde.abcde.com/aaaaabbbbb.apk",
+                "document",
+            )
+            .unwrap();
             assert!(engine.check_network_request(&request).matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
@@ -450,8 +603,16 @@ mod tests {
         }*/
         {
             // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case
-            let engine = Engine::from_rules_debug([r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#], Default::default());
-            let request = Request::new("https://examples.top/abcd.json", "https://examples.com/abcd.json", "xhr").unwrap();
+            let engine = Engine::from_rules_debug(
+                [r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#],
+                Default::default(),
+            );
+            let request = Request::new(
+                "https://examples.top/abcd.json",
+                "https://examples.com/abcd.json",
+                "xhr",
+            )
+            .unwrap();
             assert!(engine.check_network_request(&request).matched);
         }
         // fails - inferring unescaped `$` inside regex pattern
@@ -483,10 +644,16 @@ mod tests {
         }*/
         {
             // /^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case
-            let engine = Engine::from_rules_debug([r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#], Default::default());
-            let request = Request::new("https://cdn.abcde.xyz/app.js",
-                                       "https://cdn.abcde.com/app.js",
-                                       "script").unwrap();
+            let engine = Engine::from_rules_debug(
+                [r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#],
+                Default::default(),
+            );
+            let request = Request::new(
+                "https://cdn.abcde.xyz/app.js",
+                "https://cdn.abcde.com/app.js",
+                "script",
+            )
+            .unwrap();
             assert!(engine.check_network_request(&request).matched);
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
@@ -500,10 +667,18 @@ mod tests {
         }*/
         {
             // /^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case
-            let engine = Engine::from_rules_debug([r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#], Default::default());
-            let request = Request::new("https://cdn.jsdelivr.net/npm/abcd@latest/dist/script.min.js",
-                                       "https://cdn.jsdelivr.com/npm/abcd@latest/dist/script.min.js",
-                                       "script").unwrap();
+            let engine = Engine::from_rules_debug(
+                [
+                    r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#,
+                ],
+                Default::default(),
+            );
+            let request = Request::new(
+                "https://cdn.jsdelivr.net/npm/abcd@latest/dist/script.min.js",
+                "https://cdn.jsdelivr.com/npm/abcd@latest/dist/script.min.js",
+                "script",
+            )
+            .unwrap();
             assert!(engine.check_network_request(&request).matched);
         }
         // fails - inferring unescaped `$` inside regex pattern
@@ -540,7 +715,11 @@ mod tests {
         const BRAVE_PERM: PermissionMask = PermissionMask::from_bits(0b00000011);
 
         let resources = [
-            Resource::simple("refresh-defuser.js", MimeType::ApplicationJavascript, "refresh-defuser"),
+            Resource::simple(
+                "refresh-defuser.js",
+                MimeType::ApplicationJavascript,
+                "refresh-defuser",
+            ),
             Resource {
                 name: "trusted-set-cookie.js".to_string(),
                 aliases: vec![],
@@ -560,27 +739,36 @@ mod tests {
         ];
 
         let mut filter_set = FilterSet::new(false);
-        filter_set.add_filters([
-            "sub1.example.com##+js(refresh-defuser)",
-            "sub2.example.com##+js(trusted-set-cookie)",
-            "sub3.example.com##+js(brave-fix)"
-        ], Default::default());
-        filter_set.add_filters([
-            "sub4.example.com##+js(refresh-defuser)",
-            "sub5.example.com##+js(trusted-set-cookie)",
-            "sub6.example.com##+js(brave-fix)"
-        ], ParseOptions {
-            permissions: UBO_PERM,
-            ..Default::default()
-        });
-        filter_set.add_filters([
-            "sub7.example.com##+js(refresh-defuser)",
-            "sub8.example.com##+js(trusted-set-cookie)",
-            "sub9.example.com##+js(brave-fix)"
-        ], ParseOptions {
-            permissions: BRAVE_PERM,
-            ..Default::default()
-        });
+        filter_set.add_filters(
+            [
+                "sub1.example.com##+js(refresh-defuser)",
+                "sub2.example.com##+js(trusted-set-cookie)",
+                "sub3.example.com##+js(brave-fix)",
+            ],
+            Default::default(),
+        );
+        filter_set.add_filters(
+            [
+                "sub4.example.com##+js(refresh-defuser)",
+                "sub5.example.com##+js(trusted-set-cookie)",
+                "sub6.example.com##+js(brave-fix)",
+            ],
+            ParseOptions {
+                permissions: UBO_PERM,
+                ..Default::default()
+            },
+        );
+        filter_set.add_filters(
+            [
+                "sub7.example.com##+js(refresh-defuser)",
+                "sub8.example.com##+js(trusted-set-cookie)",
+                "sub9.example.com##+js(brave-fix)",
+            ],
+            ParseOptions {
+                permissions: BRAVE_PERM,
+                ..Default::default()
+            },
+        );
 
         let mut engine = Engine::from_filter_set(filter_set, true);
         engine.use_resources(resources);
@@ -589,17 +777,62 @@ mod tests {
             format!("try {{\n{}\n}} catch ( e ) {{ }}\n", scriptlet_content)
         }
 
-        assert_eq!(engine.url_cosmetic_resources("https://sub1.example.com").injected_script, wrap_try("refresh-defuser"));
-        assert_eq!(engine.url_cosmetic_resources("https://sub2.example.com").injected_script, "");
-        assert_eq!(engine.url_cosmetic_resources("https://sub3.example.com").injected_script, "");
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub1.example.com")
+                .injected_script,
+            wrap_try("refresh-defuser")
+        );
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub2.example.com")
+                .injected_script,
+            ""
+        );
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub3.example.com")
+                .injected_script,
+            ""
+        );
 
-        assert_eq!(engine.url_cosmetic_resources("https://sub4.example.com").injected_script, wrap_try("refresh-defuser"));
-        assert_eq!(engine.url_cosmetic_resources("https://sub5.example.com").injected_script, wrap_try("trusted-set-cookie"));
-        assert_eq!(engine.url_cosmetic_resources("https://sub6.example.com").injected_script, "");
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub4.example.com")
+                .injected_script,
+            wrap_try("refresh-defuser")
+        );
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub5.example.com")
+                .injected_script,
+            wrap_try("trusted-set-cookie")
+        );
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub6.example.com")
+                .injected_script,
+            ""
+        );
 
-        assert_eq!(engine.url_cosmetic_resources("https://sub7.example.com").injected_script, wrap_try("refresh-defuser"));
-        assert_eq!(engine.url_cosmetic_resources("https://sub8.example.com").injected_script, wrap_try("trusted-set-cookie"));
-        assert_eq!(engine.url_cosmetic_resources("https://sub9.example.com").injected_script, wrap_try("brave-fix"));
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub7.example.com")
+                .injected_script,
+            wrap_try("refresh-defuser")
+        );
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub8.example.com")
+                .injected_script,
+            wrap_try("trusted-set-cookie")
+        );
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://sub9.example.com")
+                .injected_script,
+            wrap_try("brave-fix")
+        );
     }
 
     #[test]
@@ -635,6 +868,11 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
 } catch ( e ) { }
 "#.to_owned());
 
-        assert_eq!(engine.url_cosmetic_resources("https://example.com").injected_script, "");
+        assert_eq!(
+            engine
+                .url_cosmetic_resources("https://example.com")
+                .injected_script,
+            ""
+        );
     }
 }

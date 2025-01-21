@@ -36,33 +36,33 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
 
     // Look up table for characters that need escaping in a product string
     static ESCAPED: [u8; 256] = [
-    // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      UU, UU, UU, UU, UU, UU, UU, UU, BB, TT, NN, UU, FF, RR, UU, UU, // 0
-      UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, // 1
-      __, __, QU, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
-      __, __, __, __, __, __, __, __, __, __, __, __, BS, __, __, __, // 5
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
-      __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
+        // 0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+        UU, UU, UU, UU, UU, UU, UU, UU, BB, TT, NN, UU, FF, RR, UU, UU, // 0
+        UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, UU, // 1
+        __, __, QU, __, __, __, __, __, __, __, __, __, __, __, __, __, // 2
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 3
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 4
+        __, __, __, __, __, __, __, __, __, __, __, __, BS, __, __, __, // 5
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 6
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 7
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 8
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // 9
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // A
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // B
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // C
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // D
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // E
+        __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, // F
     ];
 
     #[inline(never)]
     fn write_string_complex(output: &mut Vec<u8>, string: &str, mut start: usize) {
-        output.extend_from_slice(&string.as_bytes()[ .. start]);
+        output.extend_from_slice(&string.as_bytes()[..start]);
 
         for (index, ch) in string.bytes().enumerate().skip(start) {
             let escape = ESCAPED[ch as usize];
             if escape > 0 {
-                output.extend_from_slice(&string.as_bytes()[start .. index]);
+                output.extend_from_slice(&string.as_bytes()[start..index]);
                 output.extend_from_slice(&[b'\\', escape]);
                 start = index + 1;
             }
@@ -70,7 +70,7 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
                 output.extend_from_slice(format!("{:04x}", ch).as_bytes());
             }
         }
-        output.extend_from_slice(&string.as_bytes()[start ..]);
+        output.extend_from_slice(&string.as_bytes()[start..]);
     }
 
     let mut output = Vec::with_capacity(arg.as_bytes().len() + 2);
@@ -101,9 +101,8 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
 /// Gets the function name from a JS function definition
 fn extract_function_name(fn_def: &str) -> Option<&str> {
     // This is not bulletproof, but should be robust against most issues.
-    const FUNCTION_NAME_RE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r#"^function\s+([^\(\)\{\}\s]+)\s*\("#).unwrap()
-    });
+    const FUNCTION_NAME_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r#"^function\s+([^\(\)\{\}\s]+)\s*\("#).unwrap());
 
     FUNCTION_NAME_RE.captures(&fn_def).map(|captures| {
         // capture 1 is always present in the above regex if any match was made
@@ -114,16 +113,14 @@ fn extract_function_name(fn_def: &str) -> Option<&str> {
 impl ResourceStorage {
     /// Convenience constructor that allows building storage for many resources at once. Errors are
     /// silently consumed.
-    pub fn from_resources(resources: impl IntoIterator<Item=Resource>) -> Self {
+    pub fn from_resources(resources: impl IntoIterator<Item = Resource>) -> Self {
         let mut self_ = Self::default();
 
         resources.into_iter().for_each(|resource| {
-            self_
-                .add_resource(resource)
-                .unwrap_or_else(|_e| {
-                    #[cfg(test)]
-                    eprintln!("Failed to add resource: {:?}", _e)
-                })
+            self_.add_resource(resource).unwrap_or_else(|_e| {
+                #[cfg(test)]
+                eprintln!("Failed to add resource: {:?}", _e)
+            })
         });
 
         self_
@@ -159,7 +156,10 @@ impl ResourceStorage {
 
     /// Given the contents of the `+js(...)` parts of multiple filters, return a script string
     /// appropriate for injection in a page.
-    pub fn get_scriptlet_resources<'a>(&self, script_injections: impl IntoIterator<Item = (&'a str, PermissionMask)>) -> String {
+    pub fn get_scriptlet_resources<'a>(
+        &self,
+        script_injections: impl IntoIterator<Item = (&'a str, PermissionMask)>,
+    ) -> String {
         let mut deps = vec![];
         let mut invokations = String::new();
 
@@ -192,7 +192,12 @@ impl ResourceStorage {
     ///
     /// Note that no ordering is guaranteed; function definitions in JS can appear after they are
     /// used.
-    fn recursive_dependencies<'a: 'b, 'b>(&'a self, new_dep: &str, prev_deps: &mut Vec<&'b Resource>, filter_permission: PermissionMask) -> Result<(), ScriptletResourceError> {
+    fn recursive_dependencies<'a: 'b, 'b>(
+        &'a self,
+        new_dep: &str,
+        prev_deps: &mut Vec<&'b Resource>,
+        filter_permission: PermissionMask,
+    ) -> Result<(), ScriptletResourceError> {
         if prev_deps.iter().find(|dep| dep.name == new_dep).is_some() {
             return Ok(());
         }
@@ -210,7 +215,12 @@ impl ResourceStorage {
 
     /// Given the contents of a single `+js(...)` filter part, return a scriptlet string
     /// appropriate for injection in a page.
-    fn get_scriptlet_resource<'a: 'b, 'b>(&'a self, scriptlet_args: &str, filter_permission: PermissionMask, required_deps: &mut Vec<&'b Resource>) -> Result<String, ScriptletResourceError> {
+    fn get_scriptlet_resource<'a: 'b, 'b>(
+        &'a self,
+        scriptlet_args: &str,
+        filter_permission: PermissionMask,
+        required_deps: &mut Vec<&'b Resource>,
+    ) -> Result<String, ScriptletResourceError> {
         // `unwrap` is safe because these are guaranteed valid at filter parsing.
         let scriptlet_args = parse_scriptlet_args(scriptlet_args).unwrap();
 
@@ -233,7 +243,7 @@ impl ResourceStorage {
 
         for dep in resource.dependencies.iter() {
             self.recursive_dependencies(dep, required_deps, filter_permission)?;
-        };
+        }
 
         let template = String::from_utf8(base64::decode(&resource.content)?)?;
 
@@ -241,15 +251,26 @@ impl ResourceStorage {
             // newer function-style resource: pass args using function call syntax
 
             // add the scriptlet itself as a dependency and invoke via function name
-            if required_deps.iter().find(|dep| dep.name == resource.name).is_none() {
+            if required_deps
+                .iter()
+                .find(|dep| dep.name == resource.name)
+                .is_none()
+            {
                 required_deps.push(resource);
             }
 
             use itertools::Itertools as _;
-            Ok(format!("{}({})", function_name, args.iter().map(|arg| stringify_arg::<true>(arg)).join(", ")))
+            Ok(format!(
+                "{}({})",
+                function_name,
+                args.iter().map(|arg| stringify_arg::<true>(arg)).join(", ")
+            ))
         } else {
             // older template-style resource: replace first instances with args
-            Ok(patch_template_scriptlet(template, args.iter().map(|arg| stringify_arg::<false>(arg))))
+            Ok(patch_template_scriptlet(
+                template,
+                args.iter().map(|arg| stringify_arg::<false>(arg)),
+            ))
         }
     }
 
@@ -285,7 +306,11 @@ impl ResourceStorage {
         resource
     }
 
-    fn get_permissioned_resource(&self, scriptlet_name: &str, filter_permission: PermissionMask) -> Result<&Resource, ScriptletResourceError> {
+    fn get_permissioned_resource(
+        &self,
+        scriptlet_name: &str,
+        filter_permission: PermissionMask,
+    ) -> Result<&Resource, ScriptletResourceError> {
         let resource = self
             .get_internal_resource(&scriptlet_name)
             .ok_or(ScriptletResourceError::NoMatchingScriptlet)?;
@@ -369,14 +394,20 @@ fn template_argument_regex(i: usize) -> Regex {
 }
 
 /// Omit the 0th element of `args` (the scriptlet name) when calling this method.
-fn patch_template_scriptlet(mut template: String, args: impl IntoIterator<Item = impl AsRef<str>>) -> String {
+fn patch_template_scriptlet(
+    mut template: String,
+    args: impl IntoIterator<Item = impl AsRef<str>>,
+) -> String {
     // `regex` treats `$` as a special character. Instead, `$$` is interpreted as a literal `$`
     // character.
-    args.into_iter().take(TEMPLATE_ARGUMENT_RE.len()).enumerate().for_each(|(i, arg)| {
-        template = TEMPLATE_ARGUMENT_RE[i]
-            .replace(&template, arg.as_ref().replace('$', "$$"))
-            .to_string();
-    });
+    args.into_iter()
+        .take(TEMPLATE_ARGUMENT_RE.len())
+        .enumerate()
+        .for_each(|(i, arg)| {
+            template = TEMPLATE_ARGUMENT_RE[i]
+                .replace(&template, arg.as_ref().replace('$', "$$"))
+                .to_string();
+        });
     template
 }
 
@@ -421,7 +452,7 @@ fn index_next_unescaped_separator(s: &str, separator: char) -> (Option<usize>, b
             }
         } else {
             // no match
-            return (None, needs_transform)
+            return (None, needs_transform);
         }
     }
     // don't index beyond the end of the string
@@ -490,7 +521,7 @@ pub(crate) fn parse_scriptlet_args(mut args: &str) -> Option<Vec<String>> {
                 (i, needs_transform) = index_next_unescaped_separator(args, qc);
                 if let Some(i) = i {
                     arg = &args[..i];
-                    args = &args[i+1..];
+                    args = &args[i + 1..];
                     // consume whitespace following the quote
                     if let Some(i) = args.find(|c: char| !c.is_whitespace()) {
                         args = &args[i..];

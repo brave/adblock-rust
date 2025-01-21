@@ -1,7 +1,7 @@
 use adblock::{
-    Engine,
     lists::{FilterSet, ParseOptions},
     request::Request,
+    Engine,
 };
 
 fn main() {
@@ -22,7 +22,8 @@ fn main() {
         "http://example.com/-advertisement-icon.",
         "http://example.com/helloworld",
         "image",
-    ).unwrap();
+    )
+    .unwrap();
     let blocker_result = engine.check_network_request(&request);
 
     println!("Blocker result: {:?}", blocker_result);

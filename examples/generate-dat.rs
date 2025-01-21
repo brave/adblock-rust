@@ -1,7 +1,4 @@
-use adblock::{
-    Engine,
-    request::Request,
-};
+use adblock::{request::Request, Engine};
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -20,12 +17,10 @@ fn main() {
     let request = Request::new(
         "https://platform.twitter.com/widgets.js",
         "https://fmarier.github.io/brave-testing/social-widgets.html",
-        "script"
-    ).unwrap();
-    assert!(engine
-        .check_network_request(&request)
-        .exception
-        .is_some());
+        "script",
+    )
+    .unwrap();
+    assert!(engine.check_network_request(&request).exception.is_some());
     let serialized = engine.serialize_raw().expect("Could not serialize!");
 
     // Write to file

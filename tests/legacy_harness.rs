@@ -242,8 +242,14 @@ mod legacy_test_filters {
             "/banner[0-9]+/",
             NetworkFilterMask::DEFAULT_OPTIONS | NetworkFilterMask::IS_COMPLETE_REGEX,
             Some("/banner[0-9]+/"),
-            &["http://example.com/banner123", "http://example.com/testbanner1"],
-            &["http://example.com/banners", "http://example.com/banners123"],
+            &[
+                "http://example.com/banner123",
+                "http://example.com/testbanner1",
+            ],
+            &[
+                "http://example.com/banners",
+                "http://example.com/banners123",
+            ],
         );
     }
 
@@ -297,15 +303,20 @@ mod legacy_test_filters {
         );
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
-        let filter = NetworkFilter::parse("||googlesyndication.com/safeframe/$third-party,script", true, Default::default()).unwrap();
+        let filter = NetworkFilter::parse(
+            "||googlesyndication.com/safeframe/$third-party,script",
+            true,
+            Default::default(),
+        )
+        .unwrap();
         let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "https://this-is-always-third-party.com", "script").unwrap();
         assert!(filter.matches(&request, &mut RegexManager::default()));
     }
 }
 
 mod legacy_check_match {
-    use adblock::Engine;
     use adblock::request::Request;
+    use adblock::Engine;
 
     fn check_match<'a>(
         rules: &[&'a str],
@@ -362,49 +373,52 @@ mod legacy_check_match {
 
     #[test]
     fn exception_rules() {
-        check_match(&[
-            "adv",
-            "@@advice."
-        ],
-        &["http://example.com/advert.html"],
-        &["http://example.com/advice.html"],
-        &[]);
-
-        check_match(&[
-            "@@|http://example.com",
-            "@@advice.",
-            "adv",
-            "!foo"
-        ],
-        &[
-            "http://examples.com/advert.html",
-        ], &[
-            "http://example.com/advice.html",
-            "http://example.com/advert.html",
-            "http://examples.com/advice.html",
-            "http://examples.com/#!foo",
-        ],
-        &[]);
-
-        {
-        // Explicitly write out the full case instead of using check_match helper
-        // or tweaking it to allow passing in the source domain for this one case
-        let engine = Engine::from_rules(
-            [
-                "/ads/freewheel/*",
-                "@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com",
-            ],
-            Default::default(),
+        check_match(
+            &["adv", "@@advice."],
+            &["http://example.com/advert.html"],
+            &["http://example.com/advice.html"],
+            &[],
         );
-        let mut engine_deserialized = Engine::default();          // second empty
-        {
-            let engine_serialized = engine.serialize_raw().unwrap();
-            engine_deserialized.deserialize(&engine_serialized).unwrap();   // override from serialized copy
-        }
 
-        let request = Request::new("http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js", "http://cnn.com", "").unwrap();
-        assert_eq!(engine.check_network_request(&request).matched, false);
-        assert_eq!(engine_deserialized.check_network_request(&request).matched, false);
+        check_match(
+            &["@@|http://example.com", "@@advice.", "adv", "!foo"],
+            &["http://examples.com/advert.html"],
+            &[
+                "http://example.com/advice.html",
+                "http://example.com/advert.html",
+                "http://examples.com/advice.html",
+                "http://examples.com/#!foo",
+            ],
+            &[],
+        );
+
+        {
+            // Explicitly write out the full case instead of using check_match helper
+            // or tweaking it to allow passing in the source domain for this one case
+            let engine = Engine::from_rules(
+                [
+                    "/ads/freewheel/*",
+                    "@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com",
+                ],
+                Default::default(),
+            );
+            let mut engine_deserialized = Engine::default(); // second empty
+            {
+                let engine_serialized = engine.serialize_raw().unwrap();
+                engine_deserialized.deserialize(&engine_serialized).unwrap(); // override from serialized copy
+            }
+
+            let request = Request::new(
+                "http://z.cdn.turner.com/xslo/cvp/ads/freewheel/js/0/AdManager.js",
+                "http://cnn.com",
+                "",
+            )
+            .unwrap();
+            assert_eq!(engine.check_network_request(&request).matched, false);
+            assert_eq!(
+                engine_deserialized.check_network_request(&request).matched,
+                false
+            );
         }
 
         check_match(
@@ -490,184 +504,384 @@ mod legacy_check_match {
 }
 
 mod legacy_check_options {
-    use adblock::Engine;
     use adblock::request::Request;
+    use adblock::Engine;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
-        let engine = Engine::from_rules(rules, Default::default());              // first one with the provided rules
+        let engine = Engine::from_rules(rules, Default::default()); // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
             let request = Request::new(url, source_url, request_type).unwrap();
-            assert!(engine.check_network_request(&request).matched == *expectation,
-                "Expected match = {} for {} from {} typed {} against {:?}", expectation, url, source_url, request_type, rules)
+            assert!(
+                engine.check_network_request(&request).matched == *expectation,
+                "Expected match = {} for {} from {} typed {} against {:?}",
+                expectation,
+                url,
+                source_url,
+                request_type,
+                rules
+            )
         }
     }
 
     #[test]
     fn option_no_option() {
-        check_option_rule(&["||example.com"], &[
-            ("http://example.com", "https://example.com", "", true),
-            ("http://example2.com", "https://example.com", "", false),
-            ("http://example.com", "https://example.com", "", true)
-        ]);
+        check_option_rule(
+            &["||example.com"],
+            &[
+                ("http://example.com", "https://example.com", "", true),
+                ("http://example2.com", "https://example.com", "", false),
+                ("http://example.com", "https://example.com", "", true),
+            ],
+        );
     }
 
     #[test]
     fn check_options_third_party() {
-
-        check_option_rule(&["||example.com^$third-party"], &[
-            ("http://example.com", "http://brianbondy.com","script", true),
-            ("http://example.com", "http://example.com", "script",false),
-            ("http://ad.example.com", "http://brianbondy.com","script", true),
-            ("http://ad.example.com", "http://example.com", "script",false),
-            ("http://example2.com", "http://brianbondy.com", "script",false),
-            ("http://example2.com", "http://example.com", "script",false),
-            ("http://example.com.au", "http://brianbondy.com", "script",false),
-            ("http://example.com.au", "http://example.com", "script",false),
-        ]);
+        check_option_rule(
+            &["||example.com^$third-party"],
+            &[
+                (
+                    "http://example.com",
+                    "http://brianbondy.com",
+                    "script",
+                    true,
+                ),
+                ("http://example.com", "http://example.com", "script", false),
+                (
+                    "http://ad.example.com",
+                    "http://brianbondy.com",
+                    "script",
+                    true,
+                ),
+                (
+                    "http://ad.example.com",
+                    "http://example.com",
+                    "script",
+                    false,
+                ),
+                (
+                    "http://example2.com",
+                    "http://brianbondy.com",
+                    "script",
+                    false,
+                ),
+                ("http://example2.com", "http://example.com", "script", false),
+                (
+                    "http://example.com.au",
+                    "http://brianbondy.com",
+                    "script",
+                    false,
+                ),
+                (
+                    "http://example.com.au",
+                    "http://example.com",
+                    "script",
+                    false,
+                ),
+            ],
+        );
     }
 
     #[test]
     fn check_options_ping() {
         // We should block ping rules if the resource type is FOPing
-        check_option_rule(&["||example.com^$ping"], &[
-            ("http://example.com", "http://example.com", "ping", true),
-            ("http://example.com", "http://example.com", "image", false),
-        ]);
+        check_option_rule(
+            &["||example.com^$ping"],
+            &[
+                ("http://example.com", "http://example.com", "ping", true),
+                ("http://example.com", "http://example.com", "image", false),
+            ],
+        );
     }
 
     #[test]
     fn check_options_popup() {
         // Make sure we ignore popup rules for now
-        check_option_rule(&["||example.com^$popup"], &[
-               ("http://example.com", "http://example.com", "popup", false),
-        ]);
+        check_option_rule(
+            &["||example.com^$popup"],
+            &[("http://example.com", "http://example.com", "popup", false)],
+        );
     }
 
     #[test]
     fn check_options_third_party_notscript() {
-        check_option_rule(&["||example.com^$third-party,~script"], &[
-            ("http://example.com", "http://example2.com", "script", false),
-            ("http://example.com", "http://example2.com", "other", true),
-            ("http://example2.com", "http://example2.com", "other", false),
-            ("http://example.com", "http://example.com", "other", false),
-        ]);
+        check_option_rule(
+            &["||example.com^$third-party,~script"],
+            &[
+                ("http://example.com", "http://example2.com", "script", false),
+                ("http://example.com", "http://example2.com", "other", true),
+                ("http://example2.com", "http://example2.com", "other", false),
+                ("http://example.com", "http://example.com", "other", false),
+            ],
+        );
     }
 
     #[test]
     fn check_options_domain_list() {
-        check_option_rule(&["adv$domain=example.com|example.net"], &[
-            ("http://example.net/adv", "http://example.com", "", true),
-            ("http://somewebsite.com/adv", "http://example.com", "", true),
-            ("http://www.example.net/adv", "http://www.example.net", "", true),
-            ("http://my.subdomain.example.com/adv", "http://my.subdomain.example.com", "", true),
-            ("http://my.subdomain.example.com/adv", "http://my.subdomain.example.com", "", true),
-            ("http://example.com/adv", "http://badexample.com", "", false),
-            ("http://example.com/adv", "http://otherdomain.net", "", false),
-            ("http://example.net/ad", "http://example.com", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=example.com|example.net"],
+            &[
+                ("http://example.net/adv", "http://example.com", "", true),
+                ("http://somewebsite.com/adv", "http://example.com", "", true),
+                (
+                    "http://www.example.net/adv",
+                    "http://www.example.net",
+                    "",
+                    true,
+                ),
+                (
+                    "http://my.subdomain.example.com/adv",
+                    "http://my.subdomain.example.com",
+                    "",
+                    true,
+                ),
+                (
+                    "http://my.subdomain.example.com/adv",
+                    "http://my.subdomain.example.com",
+                    "",
+                    true,
+                ),
+                ("http://example.com/adv", "http://badexample.com", "", false),
+                (
+                    "http://example.com/adv",
+                    "http://otherdomain.net",
+                    "",
+                    false,
+                ),
+                ("http://example.net/ad", "http://example.com", "", false),
+            ],
+        );
 
-        check_option_rule(&["adv$domain=~example.com"], &[
-            ("http://example.net/adv", "http://otherdomain.com", "", true),
-            ("http://somewebsite.com/adv", "http://example.com", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=~example.com"],
+            &[
+                ("http://example.net/adv", "http://otherdomain.com", "", true),
+                (
+                    "http://somewebsite.com/adv",
+                    "http://example.com",
+                    "",
+                    false,
+                ),
+            ],
+        );
 
-        check_option_rule(&["adv$domain=~example.com|~example.net"], &[
-            ("http://example.net/adv", "http://example.net", "", false),
-            ("http://somewebsite.com/adv", "http://example.com", "", false),
-            ("http://www.example.net/adv", "http://www.example.net", "", false),
-            ("http://my.subdomain.example.com/adv", "http://my.subdomain.example.com", "", false),
-            ("http://example.com/adv", "http://badexample.com", "", true),
-            ("http://example.com/adv", "http://otherdomain.net", "", true),
-            ("http://example.net/ad", "http://example.net", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=~example.com|~example.net"],
+            &[
+                ("http://example.net/adv", "http://example.net", "", false),
+                (
+                    "http://somewebsite.com/adv",
+                    "http://example.com",
+                    "",
+                    false,
+                ),
+                (
+                    "http://www.example.net/adv",
+                    "http://www.example.net",
+                    "",
+                    false,
+                ),
+                (
+                    "http://my.subdomain.example.com/adv",
+                    "http://my.subdomain.example.com",
+                    "",
+                    false,
+                ),
+                ("http://example.com/adv", "http://badexample.com", "", true),
+                ("http://example.com/adv", "http://otherdomain.net", "", true),
+                ("http://example.net/ad", "http://example.net", "", false),
+            ],
+        );
 
-        check_option_rule(&["adv$domain=example.com|~example.net"], &[
-            ("http://example.net/adv", "http://example.net", "", false),
-            ("http://somewebsite.com/adv", "http://example.com", "", true),
-            ("http://www.example.net/adv", "http://www.example.net", "", false),
-            ("http://my.subdomain.example.com/adv", "http://my.subdomain.example.com", "", true),
-            ("http://example.com/adv", "http://badexample.com", "", false),
-            ("http://example.com/adv", "http://otherdomain.net", "", false),
-            ("http://example.net/ad", "http://example.net", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=example.com|~example.net"],
+            &[
+                ("http://example.net/adv", "http://example.net", "", false),
+                ("http://somewebsite.com/adv", "http://example.com", "", true),
+                (
+                    "http://www.example.net/adv",
+                    "http://www.example.net",
+                    "",
+                    false,
+                ),
+                (
+                    "http://my.subdomain.example.com/adv",
+                    "http://my.subdomain.example.com",
+                    "",
+                    true,
+                ),
+                ("http://example.com/adv", "http://badexample.com", "", false),
+                (
+                    "http://example.com/adv",
+                    "http://otherdomain.net",
+                    "",
+                    false,
+                ),
+                ("http://example.net/ad", "http://example.net", "", false),
+            ],
+        );
     }
 
     #[test]
     fn check_options_domain_not_subdomain() {
-        check_option_rule(&["adv$domain=example.com|~foo.example.com"], &[
-            ("http://example.net/adv", "http://example.com", "", true),
-            ("http://example.net/adv", "http://foo.example.com", "", false),
-            ("http://example.net/adv", "http://www.foo.example.com", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=example.com|~foo.example.com"],
+            &[
+                ("http://example.net/adv", "http://example.com", "", true),
+                (
+                    "http://example.net/adv",
+                    "http://foo.example.com",
+                    "",
+                    false,
+                ),
+                (
+                    "http://example.net/adv",
+                    "http://www.foo.example.com",
+                    "",
+                    false,
+                ),
+            ],
+        );
 
-        check_option_rule(&["adv$domain=~example.com|foo.example.com"], &[
-            ("http://example.net/adv", "http://example.com", "", false),
-            ("http://example.net/adv", "http://foo.example.com", "", false),
-            ("http://example.net/adv", "http://www.foo.example.com", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=~example.com|foo.example.com"],
+            &[
+                ("http://example.net/adv", "http://example.com", "", false),
+                (
+                    "http://example.net/adv",
+                    "http://foo.example.com",
+                    "",
+                    false,
+                ),
+                (
+                    "http://example.net/adv",
+                    "http://www.foo.example.com",
+                    "",
+                    false,
+                ),
+            ],
+        );
 
-        check_option_rule(&["adv$domain=example.com|~foo.example.com,script"], &[
-            ("http://example.net/adv", "http://example.com", "script", true),
-            ("http://example.net/adv", "http://foo.example.com", "script", false),
-            ("http://example.net/adv", "http://www.foo.example.com", "script", false),
-            ("http://example.net/adv", "http://example.com", "", false),
-            ("http://example.net/adv", "http://foo.example.com", "", false),
-            ("http://example.net/adv", "http://www.foo.example.com", "", false),
-        ]);
+        check_option_rule(
+            &["adv$domain=example.com|~foo.example.com,script"],
+            &[
+                (
+                    "http://example.net/adv",
+                    "http://example.com",
+                    "script",
+                    true,
+                ),
+                (
+                    "http://example.net/adv",
+                    "http://foo.example.com",
+                    "script",
+                    false,
+                ),
+                (
+                    "http://example.net/adv",
+                    "http://www.foo.example.com",
+                    "script",
+                    false,
+                ),
+                ("http://example.net/adv", "http://example.com", "", false),
+                (
+                    "http://example.net/adv",
+                    "http://foo.example.com",
+                    "",
+                    false,
+                ),
+                (
+                    "http://example.net/adv",
+                    "http://www.foo.example.com",
+                    "",
+                    false,
+                ),
+            ],
+        );
     }
 
     #[test]
     fn check_options_exception_notscript() {
-        check_option_rule(&["adv", "@@advice.$~script"], &[
-            ("http://example.com/advice.html", "", "other", false),
-            ("http://example.com/advice.html", "", "script", true),
-            ("http://example.com/advert.html", "", "other", true),
-            ("http://example.com/advert.html", "", "script", true),
-        ]);
+        check_option_rule(
+            &["adv", "@@advice.$~script"],
+            &[
+                ("http://example.com/advice.html", "", "other", false),
+                ("http://example.com/advice.html", "", "script", true),
+                ("http://example.com/advert.html", "", "other", true),
+                ("http://example.com/advert.html", "", "script", true),
+            ],
+        );
     }
 
     #[test]
     fn check_options_third_party_flags() {
         // Single matching context domain to domain list
-        check_option_rule(&["||mzstatic.com^$image,object-subrequest,domain=dailymotion.com"], &[
-            ("http://www.dailymotion.com", "http://dailymotion.com", "", false),
-        ]);
+        check_option_rule(
+            &["||mzstatic.com^$image,object-subrequest,domain=dailymotion.com"],
+            &[(
+                "http://www.dailymotion.com",
+                "http://dailymotion.com",
+                "",
+                false,
+            )],
+        );
 
         // Third party flags work correctly
-        check_option_rule(&["||s1.wp.com^$subdocument,third-party"], &[
-            ("http://s1.wp.com/_static", "http://windsorstar.com", "", false),
-        ]);
+        check_option_rule(
+            &["||s1.wp.com^$subdocument,third-party"],
+            &[(
+                "http://s1.wp.com/_static",
+                "http://windsorstar.com",
+                "",
+                false,
+            )],
+        );
 
         // Third party flags work correctly
-        check_option_rule(&["/scripts/ad."], &[
-            ("http://a.fsdn.com/sd/js/scripts/ad.js?release_20160112", "http://slashdot.org", "script", true),
-        ]);
+        check_option_rule(
+            &["/scripts/ad."],
+            &[(
+                "http://a.fsdn.com/sd/js/scripts/ad.js?release_20160112",
+                "http://slashdot.org",
+                "script",
+                true,
+            )],
+        );
     }
 }
 
 mod legacy_misc_tests {
-    use adblock::Engine;
     use adblock::filters::network::NetworkFilter;
     use adblock::request::Request;
+    use adblock::Engine;
 
     #[test]
-    fn demo_app() { // Demo app test
+    fn demo_app() {
+        // Demo app test
         let engine = Engine::from_rules(
             ["||googlesyndication.com/safeframe/$third-party"],
             Default::default(),
         );
 
-        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", "http://slashdot.org", "script").unwrap();
+        let request = Request::new(
+            "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
+            "http://slashdot.org",
+            "script",
+        )
+        .unwrap();
         assert!(engine.check_network_request(&request).matched)
     }
 
     #[test]
-    fn host_anchored_filters_parse_correctly() { // Host anchor is calculated correctly
-        let filter = NetworkFilter::parse("||test.com$third-party", false, Default::default()).unwrap();
+    fn host_anchored_filters_parse_correctly() {
+        // Host anchor is calculated correctly
+        let filter =
+            NetworkFilter::parse("||test.com$third-party", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
 
-        let filter = NetworkFilter::parse("||test.com/ok$third-party", false, Default::default()).unwrap();
+        let filter =
+            NetworkFilter::parse("||test.com/ok$third-party", false, Default::default()).unwrap();
         assert_eq!(filter.hostname, Some(String::from("test.com")));
 
         let filter = NetworkFilter::parse("||test.com/ok", false, Default::default()).unwrap();
@@ -676,23 +890,94 @@ mod legacy_misc_tests {
 
     #[test]
     fn serialization_tests() {
-        let engine = Engine::from_rules_parametrised([
-            "||googlesyndication.com$third-party",
-            "@@||googlesyndication.ca",
-            "a$explicitcancel",
-        ], Default::default(), true, false);    // enable debugging and disable optimizations
+        let engine = Engine::from_rules_parametrised(
+            [
+                "||googlesyndication.com$third-party",
+                "@@||googlesyndication.ca",
+                "a$explicitcancel",
+            ],
+            Default::default(),
+            true,
+            false,
+        ); // enable debugging and disable optimizations
 
         let serialized = engine.serialize_raw().unwrap();
         let mut engine2 = Engine::new(false);
         engine2.deserialize(&serialized).unwrap();
 
-        assert!(engine.check_network_request(&Request::new("https://googlesyndication.com/script.js", "https://example.com", "script").unwrap()).matched);
-        assert!(engine2.check_network_request(&Request::new("https://googlesyndication.com/script.js", "https://example.com", "script").unwrap()).matched);
-        assert!(!engine.check_network_request(&Request::new("https://googleayndication.com/script.js", "https://example.com", "script").unwrap()).matched);
-        assert!(!engine2.check_network_request(&Request::new("https://googleayndication.com/script.js", "https://example.com", "script").unwrap()).matched);
+        assert!(
+            engine
+                .check_network_request(
+                    &Request::new(
+                        "https://googlesyndication.com/script.js",
+                        "https://example.com",
+                        "script"
+                    )
+                    .unwrap()
+                )
+                .matched
+        );
+        assert!(
+            engine2
+                .check_network_request(
+                    &Request::new(
+                        "https://googlesyndication.com/script.js",
+                        "https://example.com",
+                        "script"
+                    )
+                    .unwrap()
+                )
+                .matched
+        );
+        assert!(
+            !engine
+                .check_network_request(
+                    &Request::new(
+                        "https://googleayndication.com/script.js",
+                        "https://example.com",
+                        "script"
+                    )
+                    .unwrap()
+                )
+                .matched
+        );
+        assert!(
+            !engine2
+                .check_network_request(
+                    &Request::new(
+                        "https://googleayndication.com/script.js",
+                        "https://example.com",
+                        "script"
+                    )
+                    .unwrap()
+                )
+                .matched
+        );
 
-        assert!(!engine.check_network_request(&Request::new("https://googlesyndication.ca/script.js", "https://example.com", "script").unwrap()).matched);
-        assert!(!engine2.check_network_request(&Request::new("https://googlesyndication.ca/script.js", "https://example.com", "script").unwrap()).matched);
+        assert!(
+            !engine
+                .check_network_request(
+                    &Request::new(
+                        "https://googlesyndication.ca/script.js",
+                        "https://example.com",
+                        "script"
+                    )
+                    .unwrap()
+                )
+                .matched
+        );
+        assert!(
+            !engine2
+                .check_network_request(
+                    &Request::new(
+                        "https://googlesyndication.ca/script.js",
+                        "https://example.com",
+                        "script"
+                    )
+                    .unwrap()
+                )
+                .matched
+        );
     }
 
     #[test]
@@ -709,19 +994,34 @@ mod legacy_misc_tests {
         let request_type = "script";
 
         // Test finds a match
-        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", &current_page_frame, &request_type).unwrap();
+        let request = Request::new(
+            "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
+            &current_page_frame,
+            &request_type,
+        )
+        .unwrap();
         let checked = engine.check_network_request(&request);
         assert!(checked.filter.is_some(), "Expected a fitler to match");
-        assert!(checked.exception.is_none(), "Expected no exception to match");
+        assert!(
+            checked.exception.is_none(),
+            "Expected no exception to match"
+        );
         let matched_filter = checked.filter.unwrap();
-        assert_eq!(matched_filter, "||googlesyndication.com/safeframe/$third-party");
+        assert_eq!(
+            matched_filter,
+            "||googlesyndication.com/safeframe/$third-party"
+        );
 
         // Test when no filter is found, returns None
-        let request = Request::new("http://ssafsdf.com", &current_page_frame, &request_type).unwrap();
+        let request =
+            Request::new("http://ssafsdf.com", &current_page_frame, &request_type).unwrap();
         let checked = engine.check_network_request(&request);
         assert!(checked.matched == false, "Expected url to pass");
         assert!(checked.filter.is_none(), "Expected no fitler to match");
-        assert!(checked.exception.is_none(), "Expected no exception to match");
+        assert!(
+            checked.exception.is_none(),
+            "Expected no exception to match"
+        );
         assert!(checked.redirect.is_none(), "Expected no redirect to match");
     }
 
@@ -740,13 +1040,24 @@ mod legacy_misc_tests {
         let request_type = "script";
 
         // Parse that it finds exception filters correctly
-        let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html", &current_page_frame, &request_type).unwrap();
+        let request = Request::new(
+            "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
+            &current_page_frame,
+            &request_type,
+        )
+        .unwrap();
         let checked = engine.check_network_request(&request);
         assert!(checked.matched == false, "Expected url to pass");
         assert!(checked.filter.is_some(), "Expected a fitler to match");
-        assert!(checked.exception.is_some(), "Expected no exception to match");
+        assert!(
+            checked.exception.is_some(),
+            "Expected no exception to match"
+        );
         let matched_filter = checked.filter.unwrap();
-        assert_eq!(matched_filter, "||googlesyndication.com/safeframe/$third-party");
+        assert_eq!(
+            matched_filter,
+            "||googlesyndication.com/safeframe/$third-party"
+        );
         let matched_exception = checked.exception.unwrap();
         assert_eq!(matched_exception, "@@safeframe");
     }
@@ -755,20 +1066,21 @@ mod legacy_misc_tests {
     fn matches_with_filter_info_preserves_important() {
         // exceptions have not effect if important filter matches
         let engine = Engine::from_rules_debug(
-            [
-                "||brianbondy.com^$important",
-                "@@||brianbondy.com^",
-            ],
+            ["||brianbondy.com^$important", "@@||brianbondy.com^"],
             Default::default(),
         );
 
-        let request = Request::new("https://brianbondy.com/t", "https://test.com", "script").unwrap();
+        let request =
+            Request::new("https://brianbondy.com/t", "https://test.com", "script").unwrap();
         let checked = engine.check_network_request(&request);
 
         assert_eq!(checked.matched, true);
         assert!(checked.filter.is_some(), "Expected filter to match");
         let matched_filter = checked.filter.unwrap();
         assert_eq!(matched_filter, "||brianbondy.com^$important");
-        assert!(checked.exception.is_none(), "Expected no exception to match");
+        assert!(
+            checked.exception.is_none(),
+            "Expected no exception to match"
+        );
     }
 }

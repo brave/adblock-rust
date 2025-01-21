@@ -189,10 +189,11 @@ mod tests {
             assert!(parsed.is_ok());
         }
         {
-            let parsed = Request::new(&format!(
-                "https://{}",
-                std::str::from_utf8(&[9, 9, 64]).unwrap()
-            ), "https://example.com", "other");
+            let parsed = Request::new(
+                &format!("https://{}", std::str::from_utf8(&[9, 9, 64]).unwrap()),
+                "https://example.com",
+                "other",
+            );
             assert!(parsed.is_err());
         }
     }

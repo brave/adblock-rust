@@ -5,29 +5,65 @@ mod key_from_selector_tests {
     #[test]
     fn no_escapes() {
         assert_eq!(key_from_selector(r#"#selector"#).unwrap(), "#selector");
-        assert_eq!(key_from_selector(r#"#ad-box[href="https://popads.net"]"#).unwrap(), "#ad-box");
+        assert_eq!(
+            key_from_selector(r#"#ad-box[href="https://popads.net"]"#).unwrap(),
+            "#ad-box"
+        );
         assert_eq!(key_from_selector(r#".p"#).unwrap(), ".p");
         assert_eq!(key_from_selector(r#".ad #ad.adblockblock"#).unwrap(), ".ad");
-        assert_eq!(key_from_selector(r#"#container.contained"#).unwrap(), "#container");
+        assert_eq!(
+            key_from_selector(r#"#container.contained"#).unwrap(),
+            "#container"
+        );
     }
 
     #[test]
     fn escaped_characters() {
-        assert_eq!(key_from_selector(r"#Meebo\:AdElement\.Root").unwrap(), "#Meebo:AdElement.Root");
-        assert_eq!(key_from_selector(r"#\ Banner\ Ad\ -\ 590\ x\ 90").unwrap(), "# Banner Ad - 590 x 90");
+        assert_eq!(
+            key_from_selector(r"#Meebo\:AdElement\.Root").unwrap(),
+            "#Meebo:AdElement.Root"
+        );
+        assert_eq!(
+            key_from_selector(r"#\ Banner\ Ad\ -\ 590\ x\ 90").unwrap(),
+            "# Banner Ad - 590 x 90"
+        );
         assert_eq!(key_from_selector(r"#\ rek").unwrap(), "# rek");
-        assert_eq!(key_from_selector(r#"#\:rr .nH[role="main"] .mq:first-child"#).unwrap(), "#:rr");
-        assert_eq!(key_from_selector(r#"#adspot-300x600\,300x250-pos-1"#).unwrap(), "#adspot-300x600,300x250-pos-1");
-        assert_eq!(key_from_selector(r#"#adv_\'146\'"#).unwrap(), "#adv_\'146\'");
-        assert_eq!(key_from_selector(r#"#oas-mpu-left\<\/div\>"#).unwrap(), "#oas-mpu-left</div>");
-        assert_eq!(key_from_selector(r#".Trsp\(op\).Trsdu\(3s\)"#).unwrap(), ".Trsp(op)");
+        assert_eq!(
+            key_from_selector(r#"#\:rr .nH[role="main"] .mq:first-child"#).unwrap(),
+            "#:rr"
+        );
+        assert_eq!(
+            key_from_selector(r#"#adspot-300x600\,300x250-pos-1"#).unwrap(),
+            "#adspot-300x600,300x250-pos-1"
+        );
+        assert_eq!(
+            key_from_selector(r#"#adv_\'146\'"#).unwrap(),
+            "#adv_\'146\'"
+        );
+        assert_eq!(
+            key_from_selector(r#"#oas-mpu-left\<\/div\>"#).unwrap(),
+            "#oas-mpu-left</div>"
+        );
+        assert_eq!(
+            key_from_selector(r#".Trsp\(op\).Trsdu\(3s\)"#).unwrap(),
+            ".Trsp(op)"
+        );
     }
 
     #[test]
     fn escape_codes() {
-        assert_eq!(key_from_selector(r#"#\5f _mom_ad_12"#).unwrap(), "#__mom_ad_12");
-        assert_eq!(key_from_selector(r#"#\5f _nq__hh[style="display:block!important"]"#).unwrap(), "#__nq__hh");
-        assert_eq!(key_from_selector(r#"#\31 000-014-ros"#).unwrap(), "#1000-014-ros");
+        assert_eq!(
+            key_from_selector(r#"#\5f _mom_ad_12"#).unwrap(),
+            "#__mom_ad_12"
+        );
+        assert_eq!(
+            key_from_selector(r#"#\5f _nq__hh[style="display:block!important"]"#).unwrap(),
+            "#__nq__hh"
+        );
+        assert_eq!(
+            key_from_selector(r#"#\31 000-014-ros"#).unwrap(),
+            "#1000-014-ros"
+        );
         assert_eq!(key_from_selector(r#"#\33 00X250ad"#).unwrap(), "#300X250ad");
         assert_eq!(key_from_selector(r#"#\5f _fixme"#).unwrap(), "#__fixme");
         assert_eq!(key_from_selector(r#"#\37 28ad"#).unwrap(), "#728ad");
@@ -115,26 +151,42 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter::from_css(".element".to_string(), "background: #fff".to_string())).unwrap());
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter::from_css(
+                ".element".to_string(),
+                "background: #fff".to_string(),
+            ))
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.procedural_actions.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter::from_css(".element".to_string(), "background: #000".to_string())).unwrap());
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter::from_css(
+                ".element".to_string(),
+                "background: #000".to_string(),
+            ))
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.procedural_actions.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter::from_css(".element".to_string(), "background: #000".to_string())).unwrap());
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter::from_css(".element".to_string(), "background: #fff".to_string())).unwrap());
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter::from_css(
+                ".element".to_string(),
+                "background: #000".to_string(),
+            ))
+            .unwrap(),
+        );
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter::from_css(
+                ".element".to_string(),
+                "background: #fff".to_string(),
+            ))
+            .unwrap(),
+        );
         assert_eq!(out, expected);
     }
 
@@ -159,8 +211,16 @@ mod cosmetic_cache_tests {
                 dependencies: vec![],
                 permission: Default::default(),
             },
-            Resource::simple("nowebrtc.js", MimeType::ApplicationJavascript, "nowebrtc.js"),
-            Resource::simple("window.open-defuser.js", MimeType::ApplicationJavascript, "window.open-defuser.js"),
+            Resource::simple(
+                "nowebrtc.js",
+                MimeType::ApplicationJavascript,
+                "nowebrtc.js",
+            ),
+            Resource::simple(
+                "window.open-defuser.js",
+                MimeType::ApplicationJavascript,
+                "window.open-defuser.js",
+            ),
         ]);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "sub.example.com", false);
@@ -220,11 +280,13 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
-        expected.procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::Remove),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
@@ -233,11 +295,13 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.procedural_actions.clear();
-        expected.procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::Remove),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
     }
 
@@ -265,38 +329,42 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveAttr("style".to_string())),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.procedural_actions.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveAttr("src".to_string())),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.procedural_actions.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveAttr("src".to_string())),
-            }).unwrap());
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+            })
+            .unwrap(),
+        );
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveAttr("style".to_string())),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
     }
 
@@ -324,38 +392,42 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "test.example.com", false);
         expected.hide_selectors.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveClass("overlay".to_string())),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a2.sub.example.com", false);
         expected.procedural_actions.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveClass("banner".to_string())),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "a3.example.com", false);
         expected.procedural_actions.clear();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveClass("banner".to_string())),
-            }).unwrap());
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
+            })
+            .unwrap(),
+        );
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
                 selector: vec![CosmeticFilterOperator::CssSelector(".element".to_string())],
                 action: Some(CosmeticFilterAction::RemoveClass("overlay".to_string())),
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
     }
 
@@ -372,30 +444,47 @@ mod cosmetic_cache_tests {
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "example.com", false);
         let mut expected = UrlSpecificResources::empty();
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
-                selector: vec![CosmeticFilterOperator::CssSelector("div:has(video)".to_string())],
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
+                selector: vec![CosmeticFilterOperator::CssSelector(
+                    "div:has(video)".to_string(),
+                )],
                 action: Some(CosmeticFilterAction::Remove),
-            }).unwrap());
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
-                selector: vec![CosmeticFilterOperator::CssSelector("div".to_string()), CosmeticFilterOperator::HasText("Ad".to_string())],
+            })
+            .unwrap(),
+        );
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
+                selector: vec![
+                    CosmeticFilterOperator::CssSelector("div".to_string()),
+                    CosmeticFilterOperator::HasText("Ad".to_string()),
+                ],
                 action: Some(CosmeticFilterAction::Remove),
-            }).unwrap());
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
-                selector: vec![CosmeticFilterOperator::CssSelector("div".to_string()), CosmeticFilterOperator::HasText("Cookie".to_string()), CosmeticFilterOperator::CssSelector(" > p".to_string())],
+            })
+            .unwrap(),
+        );
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
+                selector: vec![
+                    CosmeticFilterOperator::CssSelector("div".to_string()),
+                    CosmeticFilterOperator::HasText("Cookie".to_string()),
+                    CosmeticFilterOperator::CssSelector(" > p".to_string()),
+                ],
                 action: Some(CosmeticFilterAction::RemoveClass("overlay".to_string())),
-            }).unwrap());
-        expected
-            .procedural_actions
-            .insert(serde_json::to_string(&ProceduralOrActionFilter {
-                selector: vec![CosmeticFilterOperator::CssSelector("div".to_string()), CosmeticFilterOperator::HasText("Sponsored".to_string()), CosmeticFilterOperator::CssSelector(" > p".to_string())],
+            })
+            .unwrap(),
+        );
+        expected.procedural_actions.insert(
+            serde_json::to_string(&ProceduralOrActionFilter {
+                selector: vec![
+                    CosmeticFilterOperator::CssSelector("div".to_string()),
+                    CosmeticFilterOperator::HasText("Sponsored".to_string()),
+                    CosmeticFilterOperator::CssSelector(" > p".to_string()),
+                ],
                 action: None,
-            }).unwrap());
+            })
+            .unwrap(),
+        );
         assert_eq!(out, expected);
     }
 
@@ -427,18 +516,14 @@ mod cosmetic_cache_tests {
         let out = cfcache.hidden_class_id_selectors(EMPTY, ["a-class"], &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
-        let out =
-            cfcache.hidden_class_id_selectors(["simple-id"], EMPTY, &HashSet::default());
+        let out = cfcache.hidden_class_id_selectors(["simple-id"], EMPTY, &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
 
         let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &HashSet::default());
         assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
-        let out = cfcache.hidden_class_id_selectors(
-            ["children", "a-class"],
-            EMPTY,
-            &HashSet::default(),
-        );
+        let out =
+            cfcache.hidden_class_id_selectors(["children", "a-class"], EMPTY, &HashSet::default());
         assert_eq!(
             out,
             [
@@ -448,8 +533,7 @@ mod cosmetic_cache_tests {
             ]
         );
 
-        let out =
-            cfcache.hidden_class_id_selectors(EMPTY, ["simple-id"], &HashSet::default());
+        let out = cfcache.hidden_class_id_selectors(EMPTY, ["simple-id"], &HashSet::default());
         assert_eq!(out, ["#simple-id"]);
 
         let out = cfcache.hidden_class_id_selectors(
@@ -493,11 +577,8 @@ mod cosmetic_cache_tests {
         let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &exceptions);
         assert_eq!(out, [".a-class .with .children"]);
 
-        let out = cfcache.hidden_class_id_selectors(
-            ["children", "a-class"],
-            ["simple-id"],
-            &exceptions,
-        );
+        let out =
+            cfcache.hidden_class_id_selectors(["children", "a-class"], ["simple-id"], &exceptions);
         assert_eq!(
             out,
             [
@@ -517,11 +598,8 @@ mod cosmetic_cache_tests {
         let out = cfcache.hidden_class_id_selectors(["a-class"], EMPTY, &exceptions);
         assert_eq!(out, [".a-class", ".a-class .with .children"]);
 
-        let out = cfcache.hidden_class_id_selectors(
-            ["children", "a-class"],
-            ["simple-id"],
-            &exceptions,
-        );
+        let out =
+            cfcache.hidden_class_id_selectors(["children", "a-class"], ["simple-id"], &exceptions);
         assert_eq!(
             out,
             [
@@ -586,16 +664,14 @@ mod cosmetic_cache_tests {
                 .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
                 .collect::<Vec<_>>(),
         );
-        let resources = ResourceStorage::from_resources([
-            Resource {
-                name: "abort-on-property-read.js".into(),
-                aliases: vec!["aopr".to_string()],
-                kind: ResourceType::Template,
-                content: base64::encode("abort-on-property-read.js, {{1}}"),
-                dependencies: vec![],
-                permission: Default::default(),
-            }
-        ]);
+        let resources = ResourceStorage::from_resources([Resource {
+            name: "abort-on-property-read.js".into(),
+            aliases: vec!["aopr".to_string()],
+            kind: ResourceType::Template,
+            content: base64::encode("abort-on-property-read.js, {{1}}"),
+            dependencies: vec![],
+            permission: Default::default(),
+        }]);
 
         let injected_script = cfcache
             .hostname_cosmetic_resources(&resources, "antonok.toolforge.org", false)

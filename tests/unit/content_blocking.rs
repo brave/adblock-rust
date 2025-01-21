@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod ab2cb_tests {
     use super::super::*;
@@ -725,15 +724,18 @@ mod filterset_tests {
     fn ignore_unsupported_rules() -> Result<(), ()> {
         let mut set = FilterSet::new(true);
         set.add_filters(FILTER_LIST, Default::default());
-        set.add_filters([
-            // unicode characters
-            "||rgmechanics.info/uploads/660х90_",
-            "||insaattrendy.com/Upload/bükerbanner*.jpg",
-            // from domain
-            "/siropu/am/core.min.js$script,important,from=~audi-sport.net|~hifiwigwam.com",
-            // leading zero-width space
-            r#"​##a[href^="https://www.g2fame.com/"] > img"#,
-        ], Default::default());
+        set.add_filters(
+            [
+                // unicode characters
+                "||rgmechanics.info/uploads/660х90_",
+                "||insaattrendy.com/Upload/bükerbanner*.jpg",
+                // from domain
+                "/siropu/am/core.min.js$script,important,from=~audi-sport.net|~hifiwigwam.com",
+                // leading zero-width space
+                r#"​##a[href^="https://www.g2fame.com/"] > img"#,
+            ],
+            Default::default(),
+        );
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
         assert_eq!(used_rules, FILTER_LIST);
@@ -757,7 +759,14 @@ mod filterset_tests {
 
         assert_eq!(cb_rules.len(), 1);
         assert!(cb_rules[0].trigger.if_domain.is_some());
-        assert_eq!(cb_rules[0].trigger.if_domain.as_ref().unwrap(), &["smskaraborg.se", "xn--rnskldsviksgymnasium-29be.se", "mojligheternashusab.se"]);
+        assert_eq!(
+            cb_rules[0].trigger.if_domain.as_ref().unwrap(),
+            &[
+                "smskaraborg.se",
+                "xn--rnskldsviksgymnasium-29be.se",
+                "mojligheternashusab.se"
+            ]
+        );
 
         Ok(())
     }

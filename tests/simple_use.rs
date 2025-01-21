@@ -1,5 +1,5 @@
-use adblock::Engine;
 use adblock::request::Request;
+use adblock::Engine;
 
 #[test]
 fn check_simple_use() {
@@ -16,7 +16,8 @@ fn check_simple_use() {
         "http://example.com/-advertisement-icon.",
         "http://example.com/helloworld",
         "image",
-    ).unwrap();
+    )
+    .unwrap();
     let blocker_result = engine.check_network_request(&request);
     assert!(blocker_result.matched);
 }

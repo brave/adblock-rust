@@ -9,7 +9,7 @@ mod optimization_tests_pattern_group {
         use crate::regex_manager::RegexManager;
         use crate::request::Request;
         use regex::bytes::RegexSetBuilder as BytesRegexSetBuilder;
-    
+
         fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
             let is_match = regex.is_match(pattern);
             assert!(
@@ -20,18 +20,22 @@ mod optimization_tests_pattern_group {
                 matches
             );
         }
-    
+
         fn check_match(
             regex_manager: &mut RegexManager,
             filter: &NetworkFilter,
             url_path: &str,
             matches: bool,
         ) {
-            let is_match = filter.matches(&Request::new(
-              ("https://example.com/".to_string() + url_path).as_str(),
-              "https://google.com",
-              ""
-            ).unwrap(), regex_manager);
+            let is_match = filter.matches(
+                &Request::new(
+                    ("https://example.com/".to_string() + url_path).as_str(),
+                    "https://google.com",
+                    "",
+                )
+                .unwrap(),
+                regex_manager,
+            );
             assert!(
                 is_match == matches,
                 "Expected {} match {} = {}",
@@ -40,7 +44,7 @@ mod optimization_tests_pattern_group {
                 matches
             );
         }
-    
+
         #[test]
         fn regex_set_works() {
             let regex_set = BytesRegexSetBuilder::new(&[
@@ -52,7 +56,7 @@ mod optimization_tests_pattern_group {
             ])
             .unicode(false)
             .build();
-    
+
             let fused_regex = CompiledRegex::CompiledSet(regex_set.unwrap());
             assert!(matches!(fused_regex, CompiledRegex::CompiledSet(_)));
             check_regex_match(&fused_regex, "/static/ad.", true);
@@ -71,7 +75,7 @@ mod optimization_tests_pattern_group {
             check_regex_match(&fused_regex, "/static/adv/foobar", true);
             check_regex_match(&fused_regex, "/static/adv/foobar/asd?q=1", true);
         }
-    
+
         #[test]
         fn combines_simple_regex_patterns() {
             let rules = [
@@ -81,17 +85,17 @@ mod optimization_tests_pattern_group {
                 "/static/ads/*",
                 "/static/adv/*",
             ];
-    
+
             let (filters, _) = lists::parse_filters(&rules, true, Default::default());
-    
+
             let optimization = SimplePatternGroup {};
-    
+
             filters
                 .iter()
                 .for_each(|f| assert!(optimization.select(f), "Expected rule to be selected"));
-    
+
             let fused = optimization.fusion(&filters);
-    
+
             assert!(fused.is_regex() == false, "Expected rule to not be a regex");
             assert_eq!(
                 fused.to_string(),
@@ -130,7 +134,7 @@ mod optimization_tests_pattern_group {
                 true,
             );
         }
-    
+
         #[test]
         fn separates_pattern_by_grouping() {
             let rules = [
@@ -140,20 +144,20 @@ mod optimization_tests_pattern_group {
                 "/analytics/v1/*$domain=~my.leadpages.net",
                 "/v1/ads/*",
             ];
-    
+
             let (filters, _) = lists::parse_filters(&rules, true, Default::default());
-    
+
             let optimization = SimplePatternGroup {};
-    
+
             let (fused, skipped) = apply_optimisation(&optimization, filters);
-    
+
             assert_eq!(fused.len(), 1);
             let filter = fused.get(0).unwrap();
             assert_eq!(
                 filter.to_string(),
                 "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
             );
-    
+
             assert!(filter.matches_test(
                 &Request::new(
                     "https://example.com/v1/pixel?",
@@ -162,14 +166,14 @@ mod optimization_tests_pattern_group {
                 )
                 .unwrap()
             ));
-    
+
             assert_eq!(skipped.len(), 1);
             let filter = skipped.get(0).unwrap();
             assert_eq!(
                 filter.to_string(),
                 "/analytics/v1/*$domain=~my.leadpages.net"
             );
-    
+
             assert!(filter.matches_test(
                 &Request::new(
                     "https://example.com/analytics/v1/foobar",
@@ -180,7 +184,7 @@ mod optimization_tests_pattern_group {
             ))
         }
     }
-    
+
     /*
     #[cfg(test)]
     mod optimization_tests_union_domain {
@@ -189,25 +193,25 @@ mod optimization_tests_pattern_group {
         use crate::lists;
         use crate::request::Request;
         use crate::utils;
-    
+
         #[test]
         fn merges_domains() {
             let rules = [
                 "/analytics-v1$domain=google.com",
                 "/analytics-v1$domain=example.com",
             ];
-    
+
             let (filters, _) = lists::parse_filters(&rules, true, Default::default());
             let optimization = UnionDomainGroup {};
             let (fused, _) = apply_optimisation(&optimization, filters);
-    
+
             assert_eq!(fused.len(), 1);
             let filter = fused.get(0).unwrap();
             assert_eq!(
                 filter.to_string(),
                 "/analytics-v1$domain=google.com <+> /analytics-v1$domain=example.com"
             );
-    
+
             let expected_domains = vec![
                 utils::fast_hash("example.com"),
                 utils::fast_hash("google.com"),
@@ -217,7 +221,7 @@ mod optimization_tests_pattern_group {
             for dom in expected_domains {
                 assert!(filter_domains.contains(&dom));
             }
-    
+
             assert!(
                 filter.matches_test(
                     &Request::new(
@@ -239,7 +243,7 @@ mod optimization_tests_pattern_group {
                 ) == false
             );
         }
-    
+
         #[test]
         fn skips_rules_with_no_domain() {
             let rules = [
@@ -247,16 +251,16 @@ mod optimization_tests_pattern_group {
                 "/analytics-v1$domain=example.com",
                 "/analytics-v1",
             ];
-    
+
             let (filters, _) = lists::parse_filters(&rules, true, Default::default());
             let optimization = UnionDomainGroup {};
             let (_, skipped) = apply_optimisation(&optimization, filters);
-    
+
             assert_eq!(skipped.len(), 1);
             let filter = skipped.get(0).unwrap();
             assert_eq!(filter.to_string(), "/analytics-v1");
         }
-    
+
         #[test]
         fn optimises_domains() {
             let rules = [
@@ -265,24 +269,24 @@ mod optimization_tests_pattern_group {
                 "/analytics-v1$domain=exampleone.com|exampletwo.com",
                 "/analytics-v1",
             ];
-    
+
             let (filters, _) = lists::parse_filters(&rules, true, Default::default());
-    
+
             let optimization = UnionDomainGroup {};
-    
+
             let (fused, skipped) = apply_optimisation(&optimization, filters);
-    
+
             assert_eq!(fused.len(), 1);
             let filter = fused.get(0).unwrap();
             assert_eq!(
                 filter.to_string(),
                 "/analytics-v1$domain=google.com <+> /analytics-v1$domain=example.com <+> /analytics-v1$domain=exampleone.com|exampletwo.com"
             );
-    
+
             assert_eq!(skipped.len(), 1);
             let skipped_filter = skipped.get(0).unwrap();
             assert_eq!(skipped_filter.to_string(), "/analytics-v1");
-    
+
             assert!(
                 filter.matches_test(
                     &Request::new(
@@ -351,11 +355,15 @@ mod optimization_tests_pattern_group {
         url_path: &str,
         matches: bool,
     ) {
-        let is_match = filter.matches(&Request::new(
-          ("https://example.com/".to_string() + url_path).as_str(),
-          "https://google.com",
-          ""
-        ).unwrap(), regex_manager);
+        let is_match = filter.matches(
+            &Request::new(
+                ("https://example.com/".to_string() + url_path).as_str(),
+                "https://google.com",
+                "",
+            )
+            .unwrap(),
+            regex_manager,
+        );
         assert!(
             is_match == matches,
             "Expected {} match {} = {}",

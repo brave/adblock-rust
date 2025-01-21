@@ -1,7 +1,4 @@
-use adblock::{
-    Engine,
-    request::Request,
-};
+use adblock::{request::Request, Engine};
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -23,7 +20,8 @@ fn main() {
         "https://platform.twitter.com/widgets.js",
         "https://fmarier.github.io/brave-testing/social-widgets.html",
         "script",
-    ).unwrap();
+    )
+    .unwrap();
     let checked = engine.check_network_request(&request);
     assert!(checked.filter.is_some());
     assert!(checked.exception.is_some());

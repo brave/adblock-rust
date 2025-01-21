@@ -170,11 +170,7 @@ impl Request {
     }
 
     /// Construct a new [`Request`].
-    pub fn new(
-        url: &str,
-        source_url: &str,
-        request_type: &str,
-    ) -> Result<Request, RequestError> {
+    pub fn new(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
         if let Some(parsed_url) = url_parser::parse_url(url) {
             if let Some(parsed_source) = url_parser::parse_url(source_url) {
                 let source_domain = parsed_source.domain();

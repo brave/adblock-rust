@@ -91,9 +91,7 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
                 line
             }
         })
-        .map(|line| {
-            TRAILING_BLOCK_COMMENT_RE.replace_all(line, "")
-        })
+        .map(|line| TRAILING_BLOCK_COMMENT_RE.replace_all(line, ""))
         // Remove all newlines from the entire string.
         .fold(String::new(), |s, line| s + &line);
 

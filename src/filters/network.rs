@@ -287,18 +287,21 @@ enum NetworkFilterOption {
 
 impl NetworkFilterOption {
     pub fn is_content_type(&self) -> bool {
-        matches!(self, Self::Document
-            | Self::Image(..)
-            | Self::Media(..)
-            | Self::Object(..)
-            | Self::Other(..)
-            | Self::Ping(..)
-            | Self::Script(..)
-            | Self::Stylesheet(..)
-            | Self::Subdocument(..)
-            | Self::XmlHttpRequest(..)
-            | Self::Websocket(..)
-            | Self::Font(..))
+        matches!(
+            self,
+            Self::Document
+                | Self::Image(..)
+                | Self::Media(..)
+                | Self::Object(..)
+                | Self::Other(..)
+                | Self::Ping(..)
+                | Self::Script(..)
+                | Self::Stylesheet(..)
+                | Self::Subdocument(..)
+                | Self::XmlHttpRequest(..)
+                | Self::Websocket(..)
+                | Self::Font(..)
+        )
     }
 
     pub fn is_redirection(&self) -> bool {
@@ -348,7 +351,10 @@ impl AbstractNetworkFilter {
             None
         };
 
-        let right_anchor = if filter_index_end > 0 && filter_index_end > filter_index_start && line[..filter_index_end].ends_with('|') {
+        let right_anchor = if filter_index_end > 0
+            && filter_index_end > filter_index_start
+            && line[..filter_index_end].ends_with('|')
+        {
             filter_index_end -= 1;
             Some(NetworkFilterRightAnchor::SinglePipe)
         } else {
@@ -386,13 +392,15 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
 
         result.push(match (option, negation) {
             ("domain", _) | ("from", _) => {
-                let domains: Vec<(bool, String)> = value.split('|').map(|domain| {
-                    if let Some(negated_domain) = domain.strip_prefix('~') {
-                        (false, negated_domain.to_string())
-                    } else {
-                        (true, domain.to_string())
-                    }
-                })
+                let domains: Vec<(bool, String)> = value
+                    .split('|')
+                    .map(|domain| {
+                        if let Some(negated_domain) = domain.strip_prefix('~') {
+                            (false, negated_domain.to_string())
+                        } else {
+                            (true, domain.to_string())
+                        }
+                    })
                     .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
                     .collect();
                 if domains.is_empty() {
@@ -442,19 +450,27 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                 }
                 NetworkFilterOption::Removeparam(String::from(value))
             }
-            ("generichide", true) | ("ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
+            ("generichide", true) | ("ghide", true) => {
+                return Err(NetworkFilterError::NegatedGenericHide)
+            }
             ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
             ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
             ("document", false) | ("doc", false) => NetworkFilterOption::Document,
             ("image", negated) => NetworkFilterOption::Image(!negated),
             ("media", negated) => NetworkFilterOption::Media(!negated),
-            ("object", negated) | ("object-subrequest", negated) => NetworkFilterOption::Object(!negated),
+            ("object", negated) | ("object-subrequest", negated) => {
+                NetworkFilterOption::Object(!negated)
+            }
             ("other", negated) => NetworkFilterOption::Other(!negated),
             ("ping", negated) | ("beacon", negated) => NetworkFilterOption::Ping(!negated),
             ("script", negated) => NetworkFilterOption::Script(!negated),
             ("stylesheet", negated) | ("css", negated) => NetworkFilterOption::Stylesheet(!negated),
-            ("subdocument", negated) | ("frame", negated) => NetworkFilterOption::Subdocument(!negated),
-            ("xmlhttprequest", negated) | ("xhr", negated) => NetworkFilterOption::XmlHttpRequest(!negated),
+            ("subdocument", negated) | ("frame", negated) => {
+                NetworkFilterOption::Subdocument(!negated)
+            }
+            ("xmlhttprequest", negated) | ("xhr", negated) => {
+                NetworkFilterOption::XmlHttpRequest(!negated)
+            }
             ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
             ("font", negated) => NetworkFilterOption::Font(!negated),
             (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
@@ -462,7 +478,6 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
     }
     Ok(result)
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkFilter {
@@ -513,7 +528,8 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
             modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
-        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..)) {
+        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..))
+        {
             modifier_options += 1;
         }
     }
@@ -590,20 +606,30 @@ impl NetworkFilter {
 
                         if !opt_domains_array.is_empty() {
                             opt_domains_array.sort_unstable();
-                            opt_domains_union = Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
+                            opt_domains_union =
+                                Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort_unstable();
-                            opt_not_domains_union = Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
+                            opt_not_domains_union =
+                                Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
                     NetworkFilterOption::Badfilter => mask.set(NetworkFilterMask::BAD_FILTER, true),
-                    NetworkFilterOption::Important => mask.set(NetworkFilterMask::IS_IMPORTANT, true),
+                    NetworkFilterOption::Important => {
+                        mask.set(NetworkFilterMask::IS_IMPORTANT, true)
+                    }
                     NetworkFilterOption::MatchCase => mask.set(NetworkFilterMask::MATCH_CASE, true),
-                    NetworkFilterOption::ThirdParty(false) | NetworkFilterOption::FirstParty(true) => mask.set(NetworkFilterMask::THIRD_PARTY, false),
-                    NetworkFilterOption::ThirdParty(true) | NetworkFilterOption::FirstParty(false) => mask.set(NetworkFilterMask::FIRST_PARTY, false),
+                    NetworkFilterOption::ThirdParty(false)
+                    | NetworkFilterOption::FirstParty(true) => {
+                        mask.set(NetworkFilterMask::THIRD_PARTY, false)
+                    }
+                    NetworkFilterOption::ThirdParty(true)
+                    | NetworkFilterOption::FirstParty(false) => {
+                        mask.set(NetworkFilterMask::FIRST_PARTY, false)
+                    }
                     NetworkFilterOption::Tag(value) => tag = Some(value),
                     NetworkFilterOption::Redirect(value) => {
                         mask.set(NetworkFilterMask::IS_REDIRECT, true);
@@ -626,18 +652,34 @@ impl NetworkFilter {
                         mask.set(NetworkFilterMask::FROM_DOCUMENT, true);
                         modifier_option = value;
                     }
-                    NetworkFilterOption::Generichide => mask.set(NetworkFilterMask::GENERIC_HIDE, true),
-                    NetworkFilterOption::Document => cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true),
+                    NetworkFilterOption::Generichide => {
+                        mask.set(NetworkFilterMask::GENERIC_HIDE, true)
+                    }
+                    NetworkFilterOption::Document => {
+                        cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true)
+                    }
                     NetworkFilterOption::Image(enabled) => apply_content_type!(FROM_IMAGE, enabled),
                     NetworkFilterOption::Media(enabled) => apply_content_type!(FROM_MEDIA, enabled),
-                    NetworkFilterOption::Object(enabled) => apply_content_type!(FROM_OBJECT, enabled),
+                    NetworkFilterOption::Object(enabled) => {
+                        apply_content_type!(FROM_OBJECT, enabled)
+                    }
                     NetworkFilterOption::Other(enabled) => apply_content_type!(FROM_OTHER, enabled),
                     NetworkFilterOption::Ping(enabled) => apply_content_type!(FROM_PING, enabled),
-                    NetworkFilterOption::Script(enabled) => apply_content_type!(FROM_SCRIPT, enabled),
-                    NetworkFilterOption::Stylesheet(enabled) => apply_content_type!(FROM_STYLESHEET, enabled),
-                    NetworkFilterOption::Subdocument(enabled) => apply_content_type!(FROM_SUBDOCUMENT, enabled),
-                    NetworkFilterOption::XmlHttpRequest(enabled) => apply_content_type!(FROM_XMLHTTPREQUEST, enabled),
-                    NetworkFilterOption::Websocket(enabled) => apply_content_type!(FROM_WEBSOCKET, enabled),
+                    NetworkFilterOption::Script(enabled) => {
+                        apply_content_type!(FROM_SCRIPT, enabled)
+                    }
+                    NetworkFilterOption::Stylesheet(enabled) => {
+                        apply_content_type!(FROM_STYLESHEET, enabled)
+                    }
+                    NetworkFilterOption::Subdocument(enabled) => {
+                        apply_content_type!(FROM_SUBDOCUMENT, enabled)
+                    }
+                    NetworkFilterOption::XmlHttpRequest(enabled) => {
+                        apply_content_type!(FROM_XMLHTTPREQUEST, enabled)
+                    }
+                    NetworkFilterOption::Websocket(enabled) => {
+                        apply_content_type!(FROM_WEBSOCKET, enabled)
+                    }
                     NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
                 }
             });
@@ -650,7 +692,9 @@ impl NetworkFilter {
         //
         // This doesn't apply to removeparam filters.
         if !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
-            && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES) != NetworkFilterMask::NONE {
+            && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES)
+                != NetworkFilterMask::NONE
+        {
             mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
         // If no positive types were set, then the filter should apply to all network types.
@@ -666,8 +710,12 @@ impl NetworkFilter {
         }
 
         match parsed.pattern.left_anchor {
-            Some(NetworkFilterLeftAnchor::DoublePipe) => mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true),
-            Some(NetworkFilterLeftAnchor::SinglePipe) => mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true),
+            Some(NetworkFilterLeftAnchor::DoublePipe) => {
+                mask.set(NetworkFilterMask::IS_HOSTNAME_ANCHOR, true)
+            }
+            Some(NetworkFilterLeftAnchor::SinglePipe) => {
+                mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true)
+            }
             None => (),
         }
 
@@ -715,7 +763,9 @@ impl NetworkFilter {
                     // somewhere.
 
                     // If the first separator is a wildcard, included in in hostname
-                    if first_separator_start < pattern.len() && pattern[first_separator_start..=first_separator_start].starts_with('*') {
+                    if first_separator_start < pattern.len()
+                        && pattern[first_separator_start..=first_separator_start].starts_with('*')
+                    {
                         mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
                     }
 
@@ -744,9 +794,7 @@ impl NetworkFilter {
                 let slash_index = find_char(b'/', pattern.as_bytes());
                 slash_index
                     .map(|i| {
-                        hostname = Some(String::from(
-                            &pattern[..i],
-                        ));
+                        hostname = Some(String::from(&pattern[..i]));
                         filter_index_start += i;
                         mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
                     })
@@ -759,14 +807,12 @@ impl NetworkFilter {
         }
 
         // Remove trailing '*'
-        if filter_index_end > filter_index_start && pattern.ends_with('*')
-        {
+        if filter_index_end > filter_index_start && pattern.ends_with('*') {
             filter_index_end -= 1;
         }
 
         // Remove leading '*' if the filter is not hostname anchored.
-        if filter_index_end > filter_index_start && pattern[filter_index_start..].starts_with('*')
-        {
+        if filter_index_end > filter_index_start && pattern[filter_index_start..].starts_with('*') {
             mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, false);
             filter_index_start += 1;
         }
@@ -807,10 +853,7 @@ impl NetworkFilter {
 
         let filter: Option<String> = if filter_index_end > filter_index_start {
             let filter_str = &pattern[filter_index_start..filter_index_end];
-            mask.set(
-                NetworkFilterMask::IS_REGEX,
-                check_is_regex(filter_str),
-            );
+            mask.set(NetworkFilterMask::IS_REGEX, check_is_regex(filter_str));
             if mask.contains(NetworkFilterMask::MATCH_CASE) {
                 Some(String::from(filter_str))
             } else {
@@ -822,21 +865,24 @@ impl NetworkFilter {
 
         // TODO: ignore hostname anchor is not hostname provided
 
-        let hostname_decoded = hostname.map(|host| {
-            let hostname_normalised = if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
-                host.trim_start_matches("www.")
-            } else {
-                &host
-            };
+        let hostname_decoded = hostname
+            .map(|host| {
+                let hostname_normalised = if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
+                    host.trim_start_matches("www.")
+                } else {
+                    &host
+                };
 
-            let lowercase = hostname_normalised.to_lowercase();
-            let hostname = if lowercase.is_ascii() {
-                lowercase
-            } else {
-                idna::domain_to_ascii(&lowercase).map_err(|_| NetworkFilterError::PunycodeError)?
-            };
-            Ok(hostname)
-        }).transpose();
+                let lowercase = hostname_normalised.to_lowercase();
+                let hostname = if lowercase.is_ascii() {
+                    lowercase
+                } else {
+                    idna::domain_to_ascii(&lowercase)
+                        .map_err(|_| NetworkFilterError::PunycodeError)?
+                };
+                Ok(hostname)
+            })
+            .transpose();
 
         if mask.contains(NetworkFilterMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
@@ -856,12 +902,13 @@ impl NetworkFilter {
         // filter, which isn't saved in Brave unless running with filter lists compiled in "debug"
         // mode. Instead, we apply the implicit document matching more strictly, only for hostname
         // filters of the form `||example.com^`.
-        if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() &&
-                (cpt_mask_negative & NetworkFilterMask::FROM_ALL_TYPES).is_empty() &&
-                mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) &&
-                mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) &&
-                !end_url_anchor &&
-                !mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+        if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty()
+            && (cpt_mask_negative & NetworkFilterMask::FROM_ALL_TYPES).is_empty()
+            && mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
+            && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
+            && !end_url_anchor
+            && !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+        {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
         // Finally, apply any explicitly negated request types
@@ -894,13 +941,17 @@ impl NetworkFilter {
     /// emulate the behavior of hosts-style blocking.
     pub fn parse_hosts_style(hostname: &str, debug: bool) -> Result<Self, NetworkFilterError> {
         // Make sure the hostname doesn't contain any invalid characters
-        static INVALID_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap());
+        static INVALID_CHARS: Lazy<Regex> =
+            Lazy::new(|| Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap());
         if INVALID_CHARS.is_match(hostname) {
             return Err(NetworkFilterError::FilterParseError);
         }
 
         // This shouldn't be used to block an entire TLD, and the hostname shouldn't end with a dot
-        if find_char(b'.', hostname.as_bytes()).is_none() || (hostname.starts_with('.') && find_char(b'.', hostname[1..].as_bytes()).is_none()) || hostname.ends_with('.') {
+        if find_char(b'.', hostname.as_bytes()).is_none()
+            || (hostname.starts_with('.') && find_char(b'.', hostname[1..].as_bytes()).is_none())
+            || hostname.ends_with('.')
+        {
             return Err(NetworkFilterError::FilterParseError);
         }
 
@@ -912,7 +963,10 @@ impl NetworkFilter {
         if normalized_host.is_ascii() {
             hostname.push_str(normalized_host);
         } else {
-            hostname.push_str(&idna::domain_to_ascii(normalized_host).map_err(|_| NetworkFilterError::PunycodeError)?);
+            hostname.push_str(
+                &idna::domain_to_ascii(normalized_host)
+                    .map_err(|_| NetworkFilterError::PunycodeError)?,
+            );
         }
         hostname.push('^');
 
@@ -979,7 +1033,7 @@ impl NetworkFilter {
 
         // Append tokens from hostname, if any
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
-            if let Some(hostname) = self.hostname.as_ref()  {
+            if let Some(hostname) = self.hostname.as_ref() {
                 let mut hostname_tokens = utils::tokenize(hostname);
                 tokens.append(&mut hostname_tokens);
             }
@@ -1096,7 +1150,9 @@ impl NetworkFilter {
             // TODO this is not ideal, but required to allow regexed exception rules without an
             // explicit `$document` option to apply uBO-style.
             // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
-            NetworkFilterMask::FROM_DOCUMENT => self.mask.contains(NetworkFilterMask::FROM_DOCUMENT) || self.is_exception(),
+            NetworkFilterMask::FROM_DOCUMENT => {
+                self.mask.contains(NetworkFilterMask::FROM_DOCUMENT) || self.is_exception()
+            }
             mask => self.mask.contains(mask),
         }
     }
@@ -1190,7 +1246,8 @@ pub(crate) fn compile_regex(
     is_complete_regex: bool,
 ) -> CompiledRegex {
     // Escape special regex characters: |.$+?{}()[]\
-    static SPECIAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap());
+    static SPECIAL_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap());
     // * can match anything
     static WILDCARD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*").unwrap());
     // ^ can match any separator or the end of the pattern
@@ -1246,7 +1303,10 @@ pub(crate) fn compile_regex(
             }
         }
     } else {
-        match BytesRegexSetBuilder::new(escaped_patterns).unicode(false).build() {
+        match BytesRegexSetBuilder::new(escaped_patterns)
+            .unicode(false)
+            .build()
+        {
             Ok(compiled) => CompiledRegex::CompiledSet(compiled),
             Err(e) => CompiledRegex::RegexParsingError(e),
         }
@@ -1268,7 +1328,11 @@ fn check_is_regex(filter: &str) -> bool {
 /// request's hostname, check if there is a match. This is tricky because
 /// filters authors rely and different assumption. We can have prefix of suffix
 /// matches of anchor.
-fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filter_hostname: bool) -> bool {
+fn is_anchored_by_hostname(
+    filter_hostname: &str,
+    hostname: &str,
+    wildcard_filter_hostname: bool,
+) -> bool {
     let filter_hostname_len = filter_hostname.len();
     // Corner-case, if `filterHostname` is empty, then it's a match
     if filter_hostname_len == 0 {
@@ -1282,14 +1346,17 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
     } else if filter_hostname_len == hostname_len {
         // If they have the same len(), they should be equal
         filter_hostname == hostname
-    } else if let Some(match_index) = memmem::find(hostname.as_bytes(), filter_hostname.as_bytes()) {
+    } else if let Some(match_index) = memmem::find(hostname.as_bytes(), filter_hostname.as_bytes())
+    {
         if match_index == 0 {
             // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
             //
             // Examples (filter_hostname, hostname):
             //   * (foo, foo.com)
             //   * (sub.foo, sub.foo.com)
-            wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.')
+            wildcard_filter_hostname
+                || filter_hostname.ends_with('.')
+                || hostname[filter_hostname_len..].starts_with('.')
         } else if match_index == hostname_len - filter_hostname_len {
             // `filter_hostname` is a suffix of `hostname`.
             //
@@ -1299,11 +1366,13 @@ fn is_anchored_by_hostname(filter_hostname: &str, hostname: &str, wildcard_filte
             filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
         } else {
             // `filter_hostname` is infix of `hostname` and needs match full labels
-            (wildcard_filter_hostname || filter_hostname.ends_with('.') || hostname[filter_hostname_len..].starts_with('.'))
-                && (filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.'))
+            (wildcard_filter_hostname
+                || filter_hostname.ends_with('.')
+                || hostname[filter_hostname_len..].starts_with('.'))
+                && (filter_hostname.starts_with('.')
+                    || hostname[match_index - 1..].starts_with('.'))
         }
-    }
-    else {
+    } else {
         // No match
         false
     }
@@ -1420,7 +1489,11 @@ fn check_pattern_hostname_anchor_regex_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(
+                hostname,
+                &request.hostname,
+                filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
+            ) {
                 check_pattern_regex_filter_at(
                     filter,
                     request,
@@ -1444,7 +1517,11 @@ fn check_pattern_hostname_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(
+                hostname,
+                &request.hostname,
+                filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
+            ) {
                 match &filter.filter {
                     // In this specific case it means that the specified hostname should match
                     // at the end of the hostname of the request. This allows to prevent false
@@ -1476,7 +1553,11 @@ fn check_pattern_hostname_left_right_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(
+                hostname,
+                &request.hostname,
+                filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
+            ) {
                 let request_url = request.get_url(filter.match_case());
                 match &filter.filter {
                     // if no filter, we have a match
@@ -1512,7 +1593,11 @@ fn check_pattern_hostname_left_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(
+                hostname,
+                &request.hostname,
+                filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
+            ) {
                 let request_url = request.get_url(filter.match_case());
                 match &filter.filter {
                     // if no filter, we have a match
@@ -1520,7 +1605,9 @@ fn check_pattern_hostname_left_anchor_filter(
                     // Since this is not a regex, the filter pattern must follow the hostname
                     // with nothing in between. So we extract the part of the URL following
                     // after hostname and will perform the matching on it.
-                    FilterPart::Simple(f) => get_url_after_hostname(&request_url, hostname).starts_with(f),
+                    FilterPart::Simple(f) => {
+                        get_url_after_hostname(&request_url, hostname).starts_with(f)
+                    }
                     FilterPart::AnyOf(filters) => {
                         let url_after_hostname = get_url_after_hostname(&request_url, hostname);
                         for f in filters {
@@ -1547,14 +1634,19 @@ fn check_pattern_hostname_anchor_filter(
         .hostname
         .as_ref()
         .map(|hostname| {
-            if is_anchored_by_hostname(hostname, &request.hostname, filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX)) {
+            if is_anchored_by_hostname(
+                hostname,
+                &request.hostname,
+                filter.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX),
+            ) {
                 let request_url = request.get_url(filter.match_case());
                 match &filter.filter {
                     // if no filter, we have a match
                     FilterPart::Empty => true,
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
-                    FilterPart::Simple(f) => get_url_after_hostname(&request_url, hostname)
-                        .contains(f),
+                    FilterPart::Simple(f) => {
+                        get_url_after_hostname(&request_url, hostname).contains(f)
+                    }
                     FilterPart::AnyOf(filters) => {
                         let url_after_hostname = get_url_after_hostname(&request_url, hostname);
                         for f in filters {
@@ -1626,12 +1718,18 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
             // If the union of included domains is recorded
             if let Some(included_domains_union) = filter.opt_domains_union {
                 // If there isn't any source hash that matches the union, there's no match at all
-                if source_hashes.iter().all(|h| h & included_domains_union != *h) {
-                    return false
+                if source_hashes
+                    .iter()
+                    .all(|h| h & included_domains_union != *h)
+                {
+                    return false;
                 }
             }
-            if source_hashes.iter().all(|h| !utils::bin_lookup(included_domains, *h)) {
-                return false
+            if source_hashes
+                .iter()
+                .all(|h| !utils::bin_lookup(included_domains, *h))
+            {
+                return false;
             }
         }
     }
@@ -1641,11 +1739,16 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
             // If the union of excluded domains is recorded
             if let Some(excluded_domains_union) = filter.opt_not_domains_union {
                 // If there's any source hash that matches the union, check the actual values
-                if source_hashes.iter().any(|h| (h & excluded_domains_union == *h) && utils::bin_lookup(excluded_domains, *h)) {
-                    return false
+                if source_hashes.iter().any(|h| {
+                    (h & excluded_domains_union == *h) && utils::bin_lookup(excluded_domains, *h)
+                }) {
+                    return false;
                 }
-            } else if source_hashes.iter().any(|h| utils::bin_lookup(excluded_domains, *h)) {
-                return false
+            } else if source_hashes
+                .iter()
+                .any(|h| utils::bin_lookup(excluded_domains, *h))
+            {
+                return false;
             }
         }
     }
@@ -1654,5 +1757,5 @@ fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
 }
 
 #[cfg(test)]
-#[path ="../../tests/unit/filters/network.rs"]
+#[path = "../../tests/unit/filters/network.rs"]
 mod unit_tests;

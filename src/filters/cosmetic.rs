@@ -47,7 +47,7 @@ pub enum CosmeticFilterError {
 /// Refer to <https://github.com/uBlockOrigin/uBlock-issues/wiki/Static-filter-syntax#action-operators>
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "arg")]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum CosmeticFilterAction {
     /// Rules with a remove action, e.g. `example.com##.ad:remove()`.
     ///
@@ -131,7 +131,7 @@ pub struct CosmeticFilter {
 /// have one or more procedural operators.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "arg")]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum CosmeticFilterOperator {
     CssSelector(String),
     HasText(String),
@@ -297,7 +297,10 @@ impl CosmeticFilter {
 
         const REMOVE_TOKEN: &str = ":remove()";
 
-        const PAIRS: &[(&[u8], fn(&str) -> Result<CosmeticFilterAction, CosmeticFilterError>)] = &[
+        const PAIRS: &[(
+            &[u8],
+            fn(&str) -> Result<CosmeticFilterAction, CosmeticFilterError>,
+        )] = &[
             (STYLE_TOKEN, CosmeticFilterAction::new_style),
             (REMOVE_ATTR_TOKEN, CosmeticFilterAction::new_remove_attr),
             (REMOVE_CLASS_TOKEN, CosmeticFilterAction::new_remove_class),
@@ -343,14 +346,18 @@ impl CosmeticFilter {
         }
         match &self.selector[0] {
             CosmeticFilterOperator::CssSelector(s) => Some(s),
-            _ => None
+            _ => None,
         }
     }
 
     /// Parse the rule in `line` into a `CosmeticFilter`. If `debug` is true, the original rule
     /// will be reported in the resulting `CosmeticFilter` struct as well. Use `permission` to
     /// manage the filter's access to scriptlet resources for `+js(...)` injections.
-    pub fn parse(line: &str, debug: bool, permission: PermissionMask) -> Result<CosmeticFilter, CosmeticFilterError> {
+    pub fn parse(
+        line: &str,
+        debug: bool,
+        permission: PermissionMask,
+    ) -> Result<CosmeticFilter, CosmeticFilterError> {
         let mut mask = CosmeticFilterMask::NONE;
         if let Some(sharp_index) = find_char(b'#', line.as_bytes()) {
             let after_sharp_index = sharp_index + 1;
@@ -425,7 +432,9 @@ impl CosmeticFilter {
                 mask |= CosmeticFilterMask::SCRIPT_INJECT;
                 (
                     // TODO: overloading `CssSelector` here is not ideal.
-                    vec![CosmeticFilterOperator::CssSelector(String::from(&line[suffix_start_index + 4..line.len() - 1]))],
+                    vec![CosmeticFilterOperator::CssSelector(String::from(
+                        &line[suffix_start_index + 4..line.len() - 1],
+                    ))],
                     None,
                 )
             } else {
@@ -574,8 +583,13 @@ pub(crate) fn get_hostname_hashes_from_labels(hostname: &str, domain: &str) -> V
 mod css_validation {
     use super::{CosmeticFilterError, CosmeticFilterOperator};
 
-    pub fn validate_css_selector(selector: &str, _accept_abp_selectors: bool) -> Result<Vec<CosmeticFilterOperator>, CosmeticFilterError> {
-        Ok(vec![CosmeticFilterOperator::CssSelector(selector.to_string())])
+    pub fn validate_css_selector(
+        selector: &str,
+        _accept_abp_selectors: bool,
+    ) -> Result<Vec<CosmeticFilterOperator>, CosmeticFilterError> {
+        Ok(vec![CosmeticFilterOperator::CssSelector(
+            selector.to_string(),
+        )])
     }
 
     pub fn is_valid_css_style(_style: &str) -> bool {
@@ -586,10 +600,10 @@ mod css_validation {
 #[cfg(feature = "css-validation")]
 mod css_validation {
     //! Methods for validating CSS selectors and style rules extracted from cosmetic filter rules.
+    use super::{CosmeticFilterError, CosmeticFilterOperator};
     use core::fmt::{Result as FmtResult, Write};
     use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation, ToCss, Token};
     use selectors::parser::SelectorParseErrorKind;
-    use super::{CosmeticFilterError, CosmeticFilterOperator};
 
     /// Returns a validated canonical CSS selector for the given input, or nothing if one can't be
     /// determined.
@@ -599,14 +613,19 @@ mod css_validation {
     ///
     /// In addition to normalizing formatting, this function will remove unsupported procedural
     /// selectors and convert others to canonical representations (i.e. `:-abp-has` -> `:has`).
-    pub fn validate_css_selector(selector: &str, accept_abp_selectors: bool) -> Result<Vec<CosmeticFilterOperator>, CosmeticFilterError> {
+    pub fn validate_css_selector(
+        selector: &str,
+        accept_abp_selectors: bool,
+    ) -> Result<Vec<CosmeticFilterOperator>, CosmeticFilterError> {
         use once_cell::sync::Lazy;
         use regex::Regex;
         static RE_SIMPLE_SELECTOR: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^[#.]?[A-Za-z_][\w-]*$").unwrap());
 
         if RE_SIMPLE_SELECTOR.is_match(selector) {
-            return Ok(vec![CosmeticFilterOperator::CssSelector(selector.to_string())]);
+            return Ok(vec![CosmeticFilterOperator::CssSelector(
+                selector.to_string(),
+            )]);
         }
 
         // Use `mock-stylesheet-marker` where uBO uses `color: red` since we have control over the
@@ -621,9 +640,7 @@ mod css_validation {
             },
         );
 
-        let prelude = rule_list_parser
-            .next()
-            .and_then(|r| r.ok());
+        let prelude = rule_list_parser.next().and_then(|r| r.ok());
 
         // There should only be one rule
         if rule_list_parser.next().is_some() {
@@ -665,7 +682,9 @@ mod css_validation {
             if !prelude.0.iter().any(|s| has_procedural_operator(s)) {
                 // There are no procedural filters, so all selectors use standard CSS.
                 // It's ok to return that as a "single" selector.
-                return Ok(vec![CosmeticFilterOperator::CssSelector(prelude.to_css_string())]);
+                return Ok(vec![CosmeticFilterOperator::CssSelector(
+                    prelude.to_css_string(),
+                )]);
             }
 
             if prelude.0.len() != 1 {
@@ -719,19 +738,26 @@ mod css_validation {
                     SelectorsPart::Component(Component::NonTSPseudoClass(c)) => {
                         if let Some(procedural_operator) = c.to_procedural_operator() {
                             if !pending_css_selector.is_empty() {
-                                output.push(CosmeticFilterOperator::CssSelector(pending_css_selector));
+                                output.push(CosmeticFilterOperator::CssSelector(
+                                    pending_css_selector,
+                                ));
                                 pending_css_selector = String::new();
                             }
                             output.push(procedural_operator);
                         } else {
-                            c.to_css(&mut pending_css_selector).map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                            c.to_css(&mut pending_css_selector)
+                                .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
                         }
                     }
                     SelectorsPart::Component(other) => {
-                        other.to_css(&mut pending_css_selector).map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                        other
+                            .to_css(&mut pending_css_selector)
+                            .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
                     }
                     SelectorsPart::Combinator(combinator) => {
-                        combinator.to_css(&mut pending_css_selector).map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                        combinator
+                            .to_css(&mut pending_css_selector)
+                            .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
                     }
                 }
             }
@@ -1096,12 +1122,24 @@ mod css_validation {
         fn to_procedural_operator(&self) -> Option<CosmeticFilterOperator> {
             match self {
                 NonTSPseudoClass::HasText(a) => Some(CosmeticFilterOperator::HasText(a.to_owned())),
-                NonTSPseudoClass::MatchesAttr(a) => Some(CosmeticFilterOperator::MatchesAttr(a.to_owned())),
-                NonTSPseudoClass::MatchesCss(a) => Some(CosmeticFilterOperator::MatchesCss(a.to_owned())),
-                NonTSPseudoClass::MatchesCssBefore(a) => Some(CosmeticFilterOperator::MatchesCssBefore(a.to_owned())),
-                NonTSPseudoClass::MatchesCssAfter(a) => Some(CosmeticFilterOperator::MatchesCssAfter(a.to_owned())),
-                NonTSPseudoClass::MatchesPath(a) => Some(CosmeticFilterOperator::MatchesPath(a.to_owned())),
-                NonTSPseudoClass::MinTextLength(a) => Some(CosmeticFilterOperator::MinTextLength(a.to_owned())),
+                NonTSPseudoClass::MatchesAttr(a) => {
+                    Some(CosmeticFilterOperator::MatchesAttr(a.to_owned()))
+                }
+                NonTSPseudoClass::MatchesCss(a) => {
+                    Some(CosmeticFilterOperator::MatchesCss(a.to_owned()))
+                }
+                NonTSPseudoClass::MatchesCssBefore(a) => {
+                    Some(CosmeticFilterOperator::MatchesCssBefore(a.to_owned()))
+                }
+                NonTSPseudoClass::MatchesCssAfter(a) => {
+                    Some(CosmeticFilterOperator::MatchesCssAfter(a.to_owned()))
+                }
+                NonTSPseudoClass::MatchesPath(a) => {
+                    Some(CosmeticFilterOperator::MatchesPath(a.to_owned()))
+                }
+                NonTSPseudoClass::MinTextLength(a) => {
+                    Some(CosmeticFilterOperator::MinTextLength(a.to_owned()))
+                }
                 NonTSPseudoClass::Upward(a) => Some(CosmeticFilterOperator::Upward(a.to_owned())),
                 NonTSPseudoClass::Xpath(a) => Some(CosmeticFilterOperator::Xpath(a.to_owned())),
                 _ => None,
@@ -1134,5 +1172,5 @@ mod css_validation {
 }
 
 #[cfg(test)]
-#[path ="../../tests/unit/filters/cosmetic.rs"]
+#[path = "../../tests/unit/filters/cosmetic.rs"]
 mod unit_tests;
