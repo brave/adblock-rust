@@ -77,6 +77,12 @@ impl<T, const N: usize> StackVec<T, N> {
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.data[..self.len].iter()
     }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub fn as_slice(&self) -> &[T] {
+        &self.data[..self.len]
+    }
 }
 
 impl<'a, T, const N: usize> IntoIterator for &'a StackVec<T, N> {
