@@ -2,22 +2,19 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
-use crate::filters::network::{NetworkFilter, NetworkFilterMask};
-use crate::regex_manager::RegexManager;
-use crate::request::{self};
+use crate::filters::network::NetworkFilter;
 use crate::utils::Hash;
 
-extern crate flatbuffers;
 #[allow(dead_code, unused_imports, unsafe_code)]
 #[path = "../flat/fb_network_filter_generated.rs"]
 pub mod flat;
 use flat::fb;
 
-use super::network::NetworkMatchable;
-
 pub struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
+
+    unique_domains: Vec<Hash>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -25,43 +22,60 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         Self {
             builder: flatbuffers::FlatBufferBuilder::new(),
             filters: vec![],
+            unique_domains: vec![],
         }
     }
 
-    pub fn add(&mut self, network_filter: NetworkFilter) -> u32 {
-        let opt_domains = network_filter
-            .opt_domains
-            .map(|mut opt_domains| {
-                opt_domains.insert(0, network_filter.opt_domains_union.unwrap());
-                opt_domains
-            })
-            .map(|v| self.builder.create_vector(&v));
+    fn get_or_insert(arr: &mut Vec<Hash>, h: Hash) -> u16 {
+        if let Some(index) = arr.iter().position(|&x| x == h) {
+            u16::try_from(index).expect("< u16 max")
+        } else {
+            arr.push(h);
+            u16::try_from(arr.len() - 1).expect("< u16 max")
+        }
+    }
 
-        let opt_not_domains = network_filter
-            .opt_not_domains
-            .map(|mut opt_not_domains| {
-                opt_not_domains.insert(0, network_filter.opt_not_domains_union.unwrap());
-                opt_not_domains
-            })
-            .map(|v| self.builder.create_vector(&v));
+    pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
+        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
+            let mut o: Vec<u16> = v
+                .into_iter()
+                .map(|x| Self::get_or_insert(&mut self.unique_domains, *x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            self.builder.create_vector(&o)
+        });
+
+        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
+            let mut o: Vec<u16> = v
+                .into_iter()
+                .map(|x| Self::get_or_insert(&mut self.unique_domains, *x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            self.builder.create_vector(&o)
+        });
 
         let modifier_option = network_filter
             .modifier_option
+            .as_ref()
             .map(|s| self.builder.create_shared_string(&s));
 
         let hostname = network_filter
             .hostname
-            .map(|s| self.builder.create_string(&s));
+            .as_ref()
+            .map(|s| self.builder.create_shared_string(&s));
 
         let tag = network_filter
             .tag
+            .as_ref()
             .map(|s| self.builder.create_shared_string(&s));
 
         let patterns = if network_filter.filter.iter().len() > 0 {
             let offsets: Vec<WIPOffset<&str>> = network_filter
                 .filter
                 .iter()
-                .map(|s| self.builder.create_string(s))
+                .map(|s| self.builder.create_shared_string(s))
                 .collect();
             Some(self.builder.create_vector(&offsets))
         } else {
@@ -88,27 +102,38 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
     pub fn finish(&mut self) -> Vec<u8> {
         let filters = self.builder.create_vector(&self.filters);
 
+        let unique_domains = self.builder.create_vector(&self.unique_domains);
+
         let storage = fb::NetworkFilterList::create(
             &mut self.builder,
             &&fb::NetworkFilterListArgs {
-                global_list: Some(filters),
+                network_filters: Some(filters),
+                unique_domains_hashes: Some(unique_domains),
             },
         );
         self.builder.finish(storage, None);
 
-        Vec::from(self.builder.finished_data())
+        let binary = Vec::from(self.builder.finished_data());
+        binary
     }
 }
 pub struct FlatPatterns<'a> {
-    data: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+    patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
 }
 
 impl<'a> FlatPatterns<'a> {
     #[inline(always)]
+    pub fn new(
+        patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+    ) -> Self {
+        Self { patterns }
+    }
+
+    #[inline(always)]
     pub fn iter(&self) -> FlatPatternsIterator {
         FlatPatternsIterator {
             patterns: self,
-            len: self.data.map_or(0, |d| d.len()),
+            len: self.patterns.map_or(0, |d| d.len()),
             index: 0,
         }
     }
@@ -125,7 +150,7 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.patterns.data.map_or(None, |fi| {
+        self.patterns.patterns.map_or(None, |fi| {
             if self.index < self.len {
                 self.index += 1;
                 Some(fi.get(self.index - 1))
@@ -141,74 +166,5 @@ impl<'a> ExactSizeIterator for FlatPatternsIterator<'a> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.len
-    }
-}
-
-pub struct FlatNetworkFilterView<'a> {
-    pub key: u64,
-    pub mask: NetworkFilterMask,
-    pub patterns: FlatPatterns<'a>,
-    pub modifier_option: Option<&'a str>,
-    pub hostname: Option<&'a str>,
-    pub opt_domains: Option<&'a [Hash]>,
-    pub opt_not_domains: Option<&'a [Hash]>,
-    pub tag: Option<&'a str>,
-}
-
-impl<'a> From<&'a fb::NetworkFilter<'a>> for FlatNetworkFilterView<'a> {
-    #[inline(always)]
-    fn from(filter: &'a fb::NetworkFilter<'a>) -> Self {
-        let opt_domains = filter.opt_domains().map(|domains| unsafe {
-            let bytes = domains.bytes();
-            std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u64,
-                bytes.len() / std::mem::size_of::<u64>(),
-            )
-        });
-        let opt_not_domains = filter.opt_not_domains().map(|domains| unsafe {
-            let bytes = domains.bytes();
-            std::slice::from_raw_parts(
-                bytes.as_ptr() as *const u64,
-                bytes.len() / std::mem::size_of::<u64>(),
-            )
-        });
-        Self {
-            key: (filter._tab.buf().as_ptr() as *const u64) as u64,
-            mask: unsafe { NetworkFilterMask::from_bits_unchecked(filter.mask()) },
-            patterns: FlatPatterns {
-                data: filter.patterns(),
-            },
-            modifier_option: filter.modifier_option(),
-            hostname: filter.hostname(),
-            opt_domains: opt_domains,
-            opt_not_domains: opt_not_domains,
-            tag: filter.tag(),
-        }
-    }
-}
-
-impl<'a> NetworkMatchable for FlatNetworkFilterView<'a> {
-    fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
-        use crate::filters::network_matchers::{check_options, check_pattern};
-        check_options(
-            self.mask,
-            self.opt_domains.map(|d| d[1..].as_ref()),
-            self.opt_domains.map(|d| d[0]),
-            self.opt_not_domains.map(|d| d[1..].as_ref()),
-            self.opt_not_domains.map(|d| d[0]),
-            request,
-        ) && check_pattern(
-            self.mask,
-            self.patterns.iter(),
-            self.hostname,
-            self.key,
-            request,
-            regex_manager,
-        )
-    }
-
-    #[cfg(test)]
-    fn matches_test(&self, request: &request::Request) -> bool {
-        self.matches(request, &mut RegexManager::default())
     }
 }
