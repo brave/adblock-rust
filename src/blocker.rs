@@ -88,7 +88,10 @@ pub enum BlockerError {
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
 /// Stores network filters for efficient querying.
-pub struct Blocker<NetworkFilterListType: NetworkFilterListTrait = NetworkFilterList> {
+pub struct Blocker<NetworkFilterListType = NetworkFilterList>
+where
+    NetworkFilterListType: NetworkFilterListTrait,
+{
     pub(crate) csp: NetworkFilterListType,
     pub(crate) exceptions: NetworkFilterListType,
     pub(crate) importants: NetworkFilterListType,
@@ -112,7 +115,10 @@ pub struct Blocker<NetworkFilterListType: NetworkFilterListTrait = NetworkFilter
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 }
 
-impl Blocker {
+impl<NetworkFilterListType> Blocker<NetworkFilterListType>
+where
+    NetworkFilterListType: NetworkFilterListTrait,
+{
     /// Decide if a network request (usually from WebRequest API) should be
     /// blocked, redirected or allowed.
     pub fn check(&self, request: &Request, resources: &ResourceStorage) -> BlockerResult {
@@ -272,7 +278,7 @@ impl Blocker {
     }
 
     fn apply_removeparam(
-        removeparam_filters: &NetworkFilterList,
+        removeparam_filters: &NetworkFilterListType,
         request: &Request,
         regex_manager: &mut RegexManager,
     ) -> Option<String> {
@@ -379,13 +385,13 @@ impl Blocker {
             return None;
         }
 
-        let mut disabled_directives: HashSet<&str> = HashSet::new();
-        let mut enabled_directives: HashSet<&str> = HashSet::new();
+        let mut disabled_directives: HashSet<String> = HashSet::new();
+        let mut enabled_directives: HashSet<String> = HashSet::new();
 
         for filter in filters {
             if filter.is_exception() {
                 if filter.is_csp() {
-                    if let Some(csp_directive) = &filter.modifier_option {
+                    if let Some(csp_directive) = filter.modifier_option {
                         disabled_directives.insert(csp_directive);
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
@@ -394,7 +400,7 @@ impl Blocker {
                     }
                 }
             } else if filter.is_csp() {
-                if let Some(csp_directive) = &filter.modifier_option {
+                if let Some(csp_directive) = filter.modifier_option {
                     enabled_directives.insert(csp_directive);
                 }
             }
@@ -403,7 +409,7 @@ impl Blocker {
         let mut remaining_directives = enabled_directives.difference(&disabled_directives);
 
         let mut merged = if let Some(directive) = remaining_directives.next() {
-            String::from(*directive)
+            directive.to_string()
         } else {
             return None;
         };
@@ -416,7 +422,7 @@ impl Blocker {
         Some(merged)
     }
 
-    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Blocker {
+    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Self {
         // Capacity of filter subsets estimated based on counts in EasyList and EasyPrivacy - if necessary
         // the Vectors will grow beyond the pre-set capacity, but it is more efficient to allocate all at once
         // $csp=
@@ -488,17 +494,17 @@ impl Blocker {
 
         tagged_filters_all.shrink_to_fit();
 
-        Blocker {
-            csp: NetworkFilterList::new(csp, options.enable_optimizations),
-            exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
-            importants: NetworkFilterList::new(importants, options.enable_optimizations),
-            redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
+        Self {
+            csp: NetworkFilterListType::new(csp, options.enable_optimizations),
+            exceptions: NetworkFilterListType::new(exceptions, options.enable_optimizations),
+            importants: NetworkFilterListType::new(importants, options.enable_optimizations),
+            redirects: NetworkFilterListType::new(redirects, options.enable_optimizations),
             // Don't optimize removeparam, since it can fuse filters without respecting distinct
             // queryparam values
-            removeparam: NetworkFilterList::new(removeparam, false),
-            filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
-            filters: NetworkFilterList::new(filters, options.enable_optimizations),
-            generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
+            removeparam: NetworkFilterListType::new(removeparam, false),
+            filters_tagged: NetworkFilterListType::new(Vec::new(), options.enable_optimizations),
+            filters: NetworkFilterListType::new(filters, options.enable_optimizations),
+            generic_hide: NetworkFilterListType::new(generic_hide, options.enable_optimizations),
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
@@ -621,7 +627,7 @@ impl Blocker {
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
             .cloned()
             .collect();
-        self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
+        self.filters_tagged = NetworkFilterListType::new(filters, self.enable_optimizations);
     }
 
     pub fn tags_enabled(&self) -> Vec<String> {
