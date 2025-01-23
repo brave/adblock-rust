@@ -21,6 +21,7 @@ pub struct FlatNetworkFiltersListBuilder<'a> {
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
     unique_domains: Vec<Hash>,
+    unique_domains_map: HashMap<Hash, u16>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -29,34 +30,31 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
             builder: flatbuffers::FlatBufferBuilder::new(),
             filters: vec![],
             unique_domains: vec![],
+            unique_domains_map: HashMap::new(),
         }
     }
 
-    fn get_or_insert(arr: &mut Vec<Hash>, h: Hash) -> u16 {
-        if let Some(index) = arr.iter().position(|&x| x == h) {
-            u16::try_from(index).expect("< u16 max")
-        } else {
-            arr.push(h);
-            u16::try_from(arr.len() - 1).expect("< u16 max")
+    fn get_or_insert(&mut self, h: &Hash) -> u16 {
+        if let Some(&index) = self.unique_domains_map.get(h) {
+            return index;
         }
+        let index = self.unique_domains.len() as u16;
+        self.unique_domains.push(*h);
+        self.unique_domains_map.insert(*h, index);
+        return index;
     }
 
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
-                .into_iter()
-                .map(|x| Self::get_or_insert(&mut self.unique_domains, *x))
-                .collect();
+            let mut o: Vec<u16> = v.iter().map(|x| self.get_or_insert(x)).collect();
+
             o.sort_unstable();
             o.dedup();
             self.builder.create_vector(&o)
         });
 
         let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
-                .into_iter()
-                .map(|x| Self::get_or_insert(&mut self.unique_domains, *x))
-                .collect();
+            let mut o: Vec<u16> = v.iter().map(|x| self.get_or_insert(x)).collect();
             o.sort_unstable();
             o.dedup();
             self.builder.create_vector(&o)
@@ -65,23 +63,23 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         let modifier_option = network_filter
             .modifier_option
             .as_ref()
-            .map(|s| self.builder.create_shared_string(&s));
+            .map(|s| self.builder.create_string(&s));
 
         let hostname = network_filter
             .hostname
             .as_ref()
-            .map(|s| self.builder.create_shared_string(&s));
+            .map(|s| self.builder.create_string(&s));
 
         let tag = network_filter
             .tag
             .as_ref()
-            .map(|s| self.builder.create_shared_string(&s));
+            .map(|s| self.builder.create_string(&s));
 
         let patterns = if network_filter.filter.iter().len() > 0 {
             let offsets: Vec<WIPOffset<&str>> = network_filter
                 .filter
                 .iter()
-                .map(|s| self.builder.create_shared_string(s))
+                .map(|s| self.builder.create_string(s))
                 .collect();
             Some(self.builder.create_vector(&offsets))
         } else {

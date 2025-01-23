@@ -267,15 +267,59 @@ pub struct FlatNetworkFilterList {
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
     fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
-        let mut temp_list = NetworkFilterList::new(filters, optimize);
+        // Compute tokens for all filters
+        let filter_tokens: Vec<_> = filters
+            .into_iter()
+            .map(|filter| {
+                let tokens = filter.get_tokens();
+                (filter, tokens)
+            })
+            .collect();
+        // compute the tokens' frequency histogram
+        let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         let mut flat_builder = FlatNetworkFiltersListBuilder::new();
         let mut filter_map = HashMap::<Hash, Vec<u32>>::new();
+        let mut optimizable = HashMap::<Hash, Vec<NetworkFilter>>::new();
+        {
+            for (network_filter, multi_tokens) in filter_tokens {
+                let index = if !optimizer::is_filter_optimizable_by_patterns(&network_filter) {
+                    Some(flat_builder.add(&network_filter))
+                } else {
+                    None
+                };
 
-        for (key, vec) in temp_list.filter_map.drain() {
-            for filter in vec.into_iter() {
-                let index = flat_builder.add(&(*filter));
-                insert_dup(&mut filter_map, key, index);
+                for tokens in multi_tokens {
+                    let mut best_token: Hash = 0;
+                    let mut min_count = total_number_of_tokens + 1;
+                    for token in tokens {
+                        match tokens_histogram.get(&token) {
+                            None => {
+                                min_count = 0;
+                                best_token = token
+                            }
+                            Some(&count) if count < min_count => {
+                                min_count = count;
+                                best_token = token
+                            }
+                            _ => {}
+                        }
+                    }
+                    if let Some(index) = index {
+                        insert_dup(&mut filter_map, best_token, index);
+                    } else {
+                        insert_dup(&mut optimizable, best_token, network_filter.clone());
+                    }
+                } // tokens
+            }
+        }
+
+        for (token, v) in optimizable {
+            let optimized = optimizer::optimize_by_groupping_patterns(v);
+
+            for filter in optimized {
+                let index = flat_builder.add(&filter);
+                insert_dup(&mut filter_map, token, index);
             }
         }
 
