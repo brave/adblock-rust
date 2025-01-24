@@ -16,17 +16,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  ci:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        rust: [stable]
-        include:
-          - os: ubuntu-latest
-            target: Linux
-
   benchmark:
     name: Performance benchmarking
     runs-on: ubuntu-latest
