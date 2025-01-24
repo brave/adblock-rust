@@ -87,8 +87,14 @@ pub enum BlockerError {
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
+#[cfg(feature = "flatbuffers")]
+pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;
+
+#[cfg(not(feature = "flatbuffers"))]
+pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;
+
 /// Stores network filters for efficient querying.
-pub struct Blocker<NetworkFilterListType = NetworkFilterList>
+pub struct GenericBlocker<NetworkFilterListType>
 where
     NetworkFilterListType: NetworkFilterListTrait,
 {
@@ -115,7 +121,7 @@ where
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 }
 
-impl<NetworkFilterListType> Blocker<NetworkFilterListType>
+impl<NetworkFilterListType> GenericBlocker<NetworkFilterListType>
 where
     NetworkFilterListType: NetworkFilterListTrait,
 {

@@ -9,8 +9,10 @@ mod v0;
 
 pub(crate) mod utils;
 
-use crate::blocker::Blocker;
+use crate::blocker::GenericBlocker;
 use crate::cosmetic_filter_cache::CosmeticFilterCache;
+
+type Blocker = GenericBlocker<crate::blocker::NetworkFilterList>;
 
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.

@@ -2,6 +2,7 @@
 mod tests {
     use super::super::*;
 
+    use crate::filters::network::NetworkFilter;
     use crate::filters::network::NetworkMatchable;
     use crate::request;
 

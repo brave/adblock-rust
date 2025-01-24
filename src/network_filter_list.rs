@@ -13,11 +13,16 @@ use crate::utils::{fast_hash, Hash};
 pub struct CheckResult {
     pub filter_mask: NetworkFilterMask,
     pub modifier_option: Option<String>,
+    pub raw_line: Option<String>,
 }
 
 impl fmt::Display for CheckResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}", self.filter_mask)
+        if let Some(ref raw_line) = self.raw_line {
+            write!(f, "{}", raw_line)
+        } else {
+            write!(f, "{}", self.filter_mask)
+        }
     }
 }
 
@@ -208,6 +213,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
                         return Some(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option.clone(),
+                            raw_line: filter.raw_line.clone().map(|line| *line),
                         });
                     }
                 }
@@ -247,6 +253,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
                         filters.push(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option.clone(),
+                            raw_line: filter.raw_line.clone().map(|line| *line),
                         });
                     }
                 }
@@ -266,7 +273,7 @@ pub struct FlatNetworkFilterList {
 }
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
-    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
+    fn new(filters: Vec<NetworkFilter>, _optimize: bool) -> Self {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -382,6 +389,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                         return Some(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
+                            raw_line: None,
                         });
                     }
                 }
@@ -424,6 +432,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                         filters.push(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
+                            raw_line: None,
                         });
                     }
                 }
