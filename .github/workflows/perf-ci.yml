@@ -44,6 +44,7 @@ jobs:
           tool: 'cargo'
           output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
           alert-threshold: '130%' # fails on +30% regression
           comment-on-alert: true
           fail-on-alert: true
