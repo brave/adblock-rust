@@ -1,0 +1,65 @@
+# CI for performance benchmarking
+# Domains of interest:
+# * startup speed (== to parse and load all rules)
+# * network filter matching (== the avg time to check a request)
+# * first request matching delay (== time to check the first request)
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+permissions:
+  contents: write
+  pages: write
+  pull-requests: write
+
+jobs:
+  ci:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable]
+        include:
+          - os: ubuntu-latest
+            target: Linux
+
+  benchmark:
+    name: Performance benchmarking
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: setup python
+        uses: actions/setup-python@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Bench network filter matching
+        run: cargo bench --bench bench_matching rule-match-browserlike/brave-list -- --output-format bencher | tee -a output.txt
+
+      - name: Bench first request matching delay
+        run: cargo bench --bench bench_matching rule-match-first-request -- --output-format bencher | tee -a output.txt
+
+      - name: Bench startup speed
+        run: cargo bench --bench bench_rules blocker_new/brave-list -- --output-format bencher | tee -a output.txt
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Rust Benchmark
+          tool: 'cargo'
+          output-file-path: output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: '130%' # fails on +30% regression
+          comment-on-alert: true
+          fail-on-alert: true
+          comment-always: true
