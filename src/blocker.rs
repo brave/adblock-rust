@@ -2189,7 +2189,7 @@ mod legacy_rule_parsing_tests {
     // This engine also handles 3 rules that old one does not
     const EASY_LIST: ListCounts = ListCounts {
         filters: 35597, // 36259 - 662 exceptions
-        cosmetic_filters: 23080,
+        cosmetic_filters: if cfg!(feature = "css-validation") { 23072 } else { 23080 },
         exceptions: 662,
         duplicates: 0
     };

@@ -3,7 +3,7 @@
 # * startup speed (== to parse and load all rules)
 # * network filter matching (== the avg time to check a request)
 # * first request matching delay (== time to check the first request)
-name: CI
+name: Performance CI
 
 on:
   push:
