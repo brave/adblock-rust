@@ -25,9 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - name: setup python
-        uses: actions/setup-python@v4
-
       - name: Bench network filter matching
         run: cargo bench --bench bench_matching rule-match-browserlike/brave-list -- --output-format bencher | tee -a output.txt
 
