@@ -3418,7 +3418,7 @@ mod hash_collision_tests {
         let rules = test_utils::rules_from_lists([
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
-        ]).filter(|f| *f != "||www.bred4tula.com^"); // remove known collision
+        ]).filter(|f| f != "||www.bred4tula.com^"); // remove known collision
         let (network_filters, _) = parse_filters(rules, true, Default::default());
 
         let mut filter_ids: HashMap<Hash, String> = HashMap::new();
