@@ -2238,12 +2238,12 @@ mod legacy_rule_parsing_tests {
 
     #[test]
     fn parse_easylist() {
-        check_list_counts(["./data/test/easylist.txt"], FilterFormat::Standard, EASY_LIST);
+        check_list_counts(["./data/easylist.to/easylist/easylist.txt"], FilterFormat::Standard, EASY_LIST);
     }
 
     #[test]
     fn parse_easyprivacy() {
-        check_list_counts(["./data/test/easyprivacy.txt"], FilterFormat::Standard, EASY_PRIVACY);
+        check_list_counts(["./data/easylist.to/easylist/easyprivacy.txt"], FilterFormat::Standard, EASY_PRIVACY);
     }
 
     #[test]
@@ -2286,8 +2286,8 @@ mod legacy_rule_parsing_tests {
         let expectation = EASY_LIST + EASY_PRIVACY + UBLOCK_UNBREAK + BRAVE_UNBREAK;
         check_list_counts(
             [
-                "./data/test/easylist.txt",
-                "./data/test/easyprivacy.txt",
+                "./data/easylist.to/easylist/easylist.txt",
+                "./data/easylist.to/easylist/easyprivacy.txt",
                 "./data/test/ublock-unbreak.txt",
                 "./data/test/brave-unbreak.txt",
             ],
