@@ -3,6 +3,7 @@
 # * startup speed (== to parse and load all rules)
 # * network filter matching (== the avg time to check a request)
 # * first request matching delay (== time to check the first request)
+# * memory usage after loading rules and after a few requests
 name: Performance CI
 
 on:
@@ -36,8 +37,11 @@ jobs:
       - name: Bench startup speed
         run: cargo bench --bench bench_rules blocker_new/brave-list -- --output-format bencher | tee -a output.txt
 
+      - name: Bench memory usage
+        run: cargo bench --bench bench_memory -- --output-format bencher | tee -a output.txt
+
       - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@6bae118c112083251560ad8b3a1ff2e43aa23351 # v1
+        uses: benchmark-action/github-action-benchmark@v1.20.4
         with:
           name: Rust Benchmark
           tool: 'cargo'
