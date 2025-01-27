@@ -38,7 +38,7 @@ jobs:
         run: cargo bench --bench bench_memory -- --output-format bencher | tee -a output.txt
 
       - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1.20.4
+        uses: benchmark-action/github-action-benchmark@d48d326b4ca9ba73ca0cd0d59f108f9e02a381c7 # v1.20.4
         with:
           name: Rust Benchmark
           tool: 'cargo'
