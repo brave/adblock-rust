@@ -369,8 +369,8 @@ impl Blocker {
         impl<'a> std::fmt::Display for QParam<'a> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
-                    Self::KeyOnly(k) => write!(f, "{}", k),
-                    Self::KeyValue(k, v) => write!(f, "{}={}", k, v),
+                    Self::KeyOnly(k) => write!(f, "{k}"),
+                    Self::KeyValue(k, v) => write!(f, "{k}={v}"),
                 }
             }
         }
@@ -418,7 +418,7 @@ impl Blocker {
                 let new_param_str = if p.is_empty() {
                     String::from("")
                 } else {
-                    format!("?{}", p)
+                    format!("?{p}")
                 };
                 Some(format!("{}{}{}", &url[0..i], new_param_str, &url[hash_index..]))
             } else {
@@ -1778,7 +1778,7 @@ mod blocker_tests {
             "bsft_uid", "bsft_clkid",
             "vgo_ee",
             "igshid",
-        ].iter().map(|s| format!("*$removeparam={}", s)).collect::<Vec<_>>();
+        ].iter().map(|s| format!("*$removeparam={s}")).collect::<Vec<_>>();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
 
@@ -1796,7 +1796,7 @@ mod blocker_tests {
             } else {
                 Some(expected.to_string())
             };
-            assert_eq!(expected, result.rewritten_url, "Filtering parameters on {} failed", original);
+            assert_eq!(expected, result.rewritten_url, "Filtering parameters on {original} failed");
         }
     }
 

@@ -33,7 +33,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
             let record: RequestRuleMatch = result.unwrap();
             reqs.push(record);
         } else {
-            println!("Could not parse {:?}", result);
+            println!("Could not parse {result:?}");
         }
     }
 
@@ -247,18 +247,15 @@ fn check_matching_equivalent() {
     assert!(ratio < 0.01);
     assert!(
         false_positive_rules.len() < 3,
-        "False positive rules higher than expected: {:?}",
-        false_positive_rules
+        "False positive rules higher than expected: {false_positive_rules:?}"
     );
     assert!(
         false_negative_rules.len() < 3,
-        "False negative rules higher than expected: {:?}",
-        false_negative_rules
+        "False negative rules higher than expected: {false_negative_rules:?}"
     );
     assert!(
         false_negative_exceptions.len() < 3,
-        "False negative exceptions higher than expected: {:?}",
-        false_negative_exceptions
+        "False negative exceptions higher than expected: {false_negative_exceptions:?}"
     );
 }
 
