@@ -1,11 +1,14 @@
 const { execSync } = require("child_process");
 const fs = require("fs");
+const path = require("path");
 
 // Remove readline and use command line arguments
 const args = process.argv.slice(2);
 
 if (args.length < 2) {
-  console.error("Usage: node update-lists.js <Brave Services Key> <target version for brave list (i.e. 1.0.10268)>");
+  console.error(
+    "Usage: node update-lists.js <Brave Services Key> <target version for brave list (i.e. 1.0.10268)>"
+  );
   process.exit(1);
 }
 
@@ -30,15 +33,15 @@ execSync(
     `https://brave-core-ext.s3.brave.com/release/${extensionId}/extension_${versionNumber}.crx`
 );
 
+const tempDir = fs.mkdtempSync("temp-brave-list");
+const listPath = path.join(tempDir, "list.txt");
 try {
-  execSync("unzip extension.zip list.txt");
+  execSync("unzip extension.zip -d " + tempDir);
 } catch (e) {
-  if (!fs.existsSync("list.txt")) {
+  if (!fs.existsSync(listPath)) {
     console.error("Failed to find list.txt in extension.zip");
     process.exit(1);
   }
 }
 
-execSync("mv -f list.txt data/brave/brave-main-list.txt");
-
-fs.unlinkSync("extension.zip");
+execSync(`mv -f ${listPath} data/brave/brave-main-list.txt`);
