@@ -140,6 +140,7 @@ impl RegexManager {
             }
             Entry::Vacant(e) => {
                 self.compiled_regex_count += 1;
+                std::thread::sleep(std::time::Duration::from_millis(1));
                 let new_entry = RegexEntry {
                     regex: Some(make_regexp(filter)),
                     last_used: self.now,
