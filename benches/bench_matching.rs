@@ -376,15 +376,19 @@ fn rule_match_first_request(c: &mut Criterion) {
     )];
 
     group.bench_function("brave-list", |b| {
-        b.iter_with_setup(
-            || {
-                // Setup: Create a fresh engine for each iteration
-                let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-                Engine::from_rules_parametrised(rules, Default::default(), false, true)
-            },
-            |engine| {
-                // Measured: Single request check with fresh engine
-                bench_rule_matching_browserlike(&engine, &requests)
+        b.iter_custom(
+            |iters| {
+                let mut total_time = std::time::Duration::ZERO;
+                for _ in 0..iters {
+                  let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+                  let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+
+                  // Measure only the matching time, skip setup and destruction
+                  let start_time = std::time::Instant::now();
+                  bench_rule_matching_browserlike(&engine, &requests);
+                  total_time += start_time.elapsed();
+                }
+                total_time
             }
         )
     });
