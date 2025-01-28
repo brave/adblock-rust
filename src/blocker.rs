@@ -800,12 +800,12 @@ impl NetworkFilterList {
             };
 
             optimized.append(&mut unoptimizable);
-            optimized.shrink_to_fit();
+            // optimized.shrink_to_fit();
             optimized_map.insert(key, optimized);
         }
 
         // won't mutate anymore, shrink to fit items
-        optimized_map.shrink_to_fit();
+        // optimized_map.shrink_to_fit();
 
         self.filter_map = optimized_map;
     }

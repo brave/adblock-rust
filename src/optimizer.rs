@@ -58,7 +58,7 @@ fn apply_optimisation<T: Optimization>(
         }
     }
 
-    fused.shrink_to_fit();
+    // fused.shrink_to_fit();
 
     (fused, negative)
 }
