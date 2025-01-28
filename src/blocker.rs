@@ -873,6 +873,8 @@ impl NetworkFilterList {
             return None;
         }
 
+        let mut res: Option<&NetworkFilter> = None;
+
         if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
             for token in source_hostname_hashes {
                 if let Some(filter_bucket) = self.filter_map.get(token) {
@@ -885,7 +887,7 @@ impl NetworkFilterList {
                                 .map(|t| active_tags.contains(t))
                                 .unwrap_or(true)
                         {
-                            return Some(filter);
+                            res = Some(filter);
                         }
                     }
                 }
@@ -897,13 +899,13 @@ impl NetworkFilterList {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager) && filter.tag.as_ref().map(|t| active_tags.contains(t)).unwrap_or(true) {
-                        return Some(filter);
+                        res = Some(filter);
                     }
                 }
             }
         }
 
-        None
+        res
     }
 
     /// Returns _all_ filters that match the given request. This should be used for any category of
