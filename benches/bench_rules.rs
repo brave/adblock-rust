@@ -84,8 +84,6 @@ fn list_parse(c: &mut Criterion) {
 fn get_blocker(rules: impl IntoIterator<Item=impl AsRef<str>>) -> Blocker {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
-    println!("Got {} network filters", network_filters.len());
-
     let blocker_options = BlockerOptions {
         enable_optimizations: true,
     };
@@ -99,12 +97,16 @@ fn blocker_new(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
     group.sample_size(10);
 
-    let rules: Vec<_> = rules_from_lists(&[
+    let easylist_rules: Vec<_> = rules_from_lists(&[
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
     ]).collect();
+    let brave_list_rules: Vec<_> = rules_from_lists(&[
+        "data/brave/brave-main-list.txt",
+    ]).collect();
 
-    group.bench_function("el+ep", move |b| b.iter(|| get_blocker(&rules)));
+    group.bench_function("el+ep", move |b| b.iter(|| get_blocker(&easylist_rules)));
+    group.bench_function("brave-list", move |b| b.iter(|| get_blocker(&brave_list_rules)));
 
     group.finish();
 }

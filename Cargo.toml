@@ -75,6 +75,11 @@ harness = false
 name = "bench_redirect_performance"
 harness = false
 
+
+[[bench]]
+name = "bench_memory"
+harness = false
+
 # Currently disabled, as cosmetic filter internals
 # are no longer part of the crate's public API
 #[[bench]]
