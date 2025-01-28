@@ -48,3 +48,5 @@ jobs:
           comment-on-alert: true
           fail-on-alert: true
           comment-always: true
+          # Upload results only for master
+          auto-push: ${{ github.ref == 'refs/heads/master' }}
