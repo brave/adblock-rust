@@ -5,12 +5,7 @@ use adblock::{
 };
 
 fn main() {
-    let rules = vec![
-        String::from("-advertisement-icon."),
-        String::from("-advertisement-management/"),
-        String::from("-advertisement."),
-        String::from("-advertisement/script."),
-    ];
+    let rules = vec![String::from("||yandex.*/clck/$~ping")];
 
     let debug_info = true;
     let mut filter_set = FilterSet::new(debug_info);
@@ -19,9 +14,9 @@ fn main() {
     let engine = Engine::from_filter_set(filter_set, true);
 
     let request = Request::new(
-        "http://example.com/-advertisement-icon.",
-        "http://example.com/helloworld",
-        "image",
+        "https://yandex.ru/clck/counter",
+        "https://www.yandex.ru/",
+        "other",
     )
     .unwrap();
     let blocker_result = engine.check_network_request(&request);

@@ -8,7 +8,11 @@ use std::ops::DerefMut;
 use thiserror::Error;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
-pub(crate) use crate::network_filter_list::{NetworkFilterList, NetworkFilterListTrait};
+pub(crate) use crate::network_filter_list::NetworkFilterListTrait;
+
+#[allow(unused_imports)]
+pub(crate) use crate::network_filter_list::NetworkFilterList;
+
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
@@ -88,7 +92,7 @@ pub enum BlockerError {
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
 #[cfg(feature = "flatbuffers")]
-pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;
+pub type Blocker = GenericBlocker<crate::network_filter_list::FlatNetworkFilterList>;
 
 #[cfg(not(feature = "flatbuffers"))]
 pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;

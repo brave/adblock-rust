@@ -56,7 +56,11 @@ pub trait NetworkFilterListTrait {
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct NetworkFilterList {
+    #[cfg(not(feature = "flatbuffers"))]
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
+    pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
+
+    #[cfg(feature = "flatbuffers")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 

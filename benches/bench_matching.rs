@@ -6,7 +6,7 @@ use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
 use adblock::resources::ResourceStorage;
 use adblock::url_parser::parse_url;
-use adblock::Engine;
+use adblock::{Engine, Serialize as _};
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;

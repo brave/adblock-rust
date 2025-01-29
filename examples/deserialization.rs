@@ -1,4 +1,4 @@
-use adblock::{request::Request, Engine};
+use adblock::{request::Request, Engine, Serialize};
 
 use serde::Deserialize;
 

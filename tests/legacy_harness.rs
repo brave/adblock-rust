@@ -316,7 +316,7 @@ mod legacy_test_filters {
 
 mod legacy_check_match {
     use adblock::request::Request;
-    use adblock::Engine;
+    use adblock::{Engine, Serialize};
 
     fn check_match<'a>(
         rules: &[&'a str],
@@ -854,7 +854,7 @@ mod legacy_check_options {
 mod legacy_misc_tests {
     use adblock::filters::network::NetworkFilter;
     use adblock::request::Request;
-    use adblock::Engine;
+    use adblock::{Engine, Serialize};
 
     #[test]
     fn demo_app() {
