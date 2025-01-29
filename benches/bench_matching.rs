@@ -82,10 +82,7 @@ fn bench_matching_only(
 
 type ParsedRequest = (String, String, String, String, bool);
 
-fn bench_rule_matching_browserlike(
-    blocker: &Engine,
-    requests: &Vec<ParsedRequest>,
-) -> (u32, u32) {
+fn bench_rule_matching_browserlike(blocker: &Engine, requests: &Vec<ParsedRequest>) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(
@@ -350,10 +347,10 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("brave-list", |b| {
-      let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-      let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
-      b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
-  });
+        let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
+    });
 
     group.finish();
 }
@@ -372,21 +369,20 @@ fn rule_match_first_request(c: &mut Criterion) {
     )];
 
     group.bench_function("brave-list", |b| {
-        b.iter_custom(
-            |iters| {
-                let mut total_time = std::time::Duration::ZERO;
-                for _ in 0..iters {
-                  let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-                  let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        b.iter_custom(|iters| {
+            let mut total_time = std::time::Duration::ZERO;
+            for _ in 0..iters {
+                let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+                let engine =
+                    Engine::from_rules_parametrised(rules, Default::default(), false, true);
 
-                  // Measure only the matching time, skip setup and destruction
-                  let start_time = std::time::Instant::now();
-                  bench_rule_matching_browserlike(&engine, &requests);
-                  total_time += start_time.elapsed();
-                }
-                total_time
+                // Measure only the matching time, skip setup and destruction
+                let start_time = std::time::Instant::now();
+                bench_rule_matching_browserlike(&engine, &requests);
+                total_time += start_time.elapsed();
             }
-        )
+            total_time
+        })
     });
 
     group.finish();
