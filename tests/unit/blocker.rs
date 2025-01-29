@@ -1509,13 +1509,22 @@ mod legacy_rule_parsing_tests {
     // This engine also handles 3 rules that old one does not
     const EASY_LIST: ListCounts = ListCounts {
         filters: 35597, // 36259 - 662 exceptions
-        cosmetic_filters: if cfg!(feature = "css-validation") { 23072 } else { 23080 },
+        cosmetic_filters: if cfg!(feature = "css-validation") {
+            23072
+        } else {
+            23080
+        },
         exceptions: 662,
-        duplicates: 0
+        duplicates: 0,
     };
     // easyPrivacy = { 11817, 0, 0, 1020 };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
-    const EASY_PRIVACY: ListCounts = ListCounts { filters: 11889, cosmetic_filters: 0, exceptions: 1021, duplicates: 2 };
+    const EASY_PRIVACY: ListCounts = ListCounts {
+        filters: 52278, // 52998 - 720 exceptions
+        cosmetic_filters: 21,
+        exceptions: 720,
+        duplicates: 2,
+    };
     // ublockUnbreak = { 4, 8, 0, 94 };
     // differences in counts explained by client.hostAnchoredExceptionHashSet->GetSize() underreporting when compared to client.numHostAnchoredExceptionFilters
     const UBLOCK_UNBREAK: ListCounts = ListCounts {
@@ -1617,7 +1626,7 @@ mod legacy_rule_parsing_tests {
     #[test]
     fn parse_easylist() {
         check_list_counts(
-            ["./data/test/easylist.txt"],
+            ["./data/easylist.to/easylist/easylist.txt"],
             FilterFormat::Standard,
             EASY_LIST,
         );
@@ -1626,7 +1635,7 @@ mod legacy_rule_parsing_tests {
     #[test]
     fn parse_easyprivacy() {
         check_list_counts(
-            ["./data/test/easyprivacy.txt"],
+            ["./data/easylist.to/easylist/easyprivacy.txt"],
             FilterFormat::Standard,
             EASY_PRIVACY,
         );
@@ -1700,8 +1709,8 @@ mod legacy_rule_parsing_tests {
         let expectation = EASY_LIST + EASY_PRIVACY + UBLOCK_UNBREAK + BRAVE_UNBREAK;
         check_list_counts(
             [
-                "./data/test/easylist.txt",
-                "./data/test/easyprivacy.txt",
+                "./data/easylist.to/easylist/easylist.txt",
+                "./data/easylist.to/easylist/easyprivacy.txt",
                 "./data/test/ublock-unbreak.txt",
                 "./data/test/brave-unbreak.txt",
             ],
