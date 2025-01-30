@@ -1463,10 +1463,7 @@ mod placeholder_string_tests {
             &crate::request::Request::new("https://example.com", "https://example.com", "document")
                 .unwrap(),
         );
-        assert_eq!(
-            block.filter,
-            Some("100000001100110001111111111111".to_string())
-        );
+        assert_eq!(block.filter, Some("NetworkFilter".to_string()));
     }
 }
 

@@ -30,6 +30,9 @@ jobs:
       - name: Cargo build 'adblock' package
         run: cargo build --all-features --all-targets
 
+      - name: Cargo build 'adblock' package (default features)
+        run: cargo build --all-targets
+
       - name: Cargo build 'adblock' package (no default features)
         run: cargo build --no-default-features --all-targets
 
@@ -60,6 +63,9 @@ jobs:
 
       - name: Cargo test 'adblock' package
         run: cargo test --all-features --tests --no-fail-fast
+
+      - name: Cargo test 'adblock' package (default features)
+        run: cargo test --tests --no-fail-fast
 
       - name: Cargo test 'adblock' package (no default features)
         run: cargo test --no-default-features --features embedded-domain-resolver,full-regex-handling --tests --no-fail-fast

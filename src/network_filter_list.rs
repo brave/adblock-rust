@@ -21,7 +21,7 @@ impl fmt::Display for CheckResult {
         if let Some(ref raw_line) = self.raw_line {
             write!(f, "{}", raw_line)
         } else {
-            write!(f, "{}", self.filter_mask)
+            write!(f, "NetworkFilter")
         }
     }
 }
