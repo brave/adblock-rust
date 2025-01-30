@@ -20,7 +20,7 @@ pub mod blocker;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
 pub mod cosmetic_filter_cache;
-#[cfg(not(feature = "flatbuffers"))]
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 mod data_format;
 mod engine;
 mod engine_serializer;

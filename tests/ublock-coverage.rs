@@ -1,5 +1,5 @@
 use adblock::request::Request;
-use adblock::{Engine, Serialize};
+use adblock::Engine;
 
 use serde::Deserialize;
 
@@ -169,8 +169,11 @@ fn check_specifics_default() {
     }
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 #[test]
 fn check_basic_works_after_deserialization() {
+    use adblock::Serialize;
+
     let engine = get_blocker_engine();
     let serialized = engine.serialize_raw().unwrap();
     let mut deserialized_engine = Engine::default();

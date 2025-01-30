@@ -314,6 +314,7 @@ mod legacy_test_filters {
     }
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 mod legacy_check_match {
     use adblock::request::Request;
     use adblock::{Engine, Serialize};
@@ -854,7 +855,7 @@ mod legacy_check_options {
 mod legacy_misc_tests {
     use adblock::filters::network::NetworkFilter;
     use adblock::request::Request;
-    use adblock::{Engine, Serialize};
+    use adblock::Engine;
 
     #[test]
     fn demo_app() {
@@ -888,8 +889,11 @@ mod legacy_misc_tests {
         assert_eq!(filter.hostname, Some(String::from("test.com")));
     }
 
+    #[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
     #[test]
     fn serialization_tests() {
+        use adblock::Serialize;
+
         let engine = Engine::from_rules_parametrised(
             [
                 "||googlesyndication.com$third-party",

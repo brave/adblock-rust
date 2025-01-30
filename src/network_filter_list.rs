@@ -277,7 +277,7 @@ pub struct FlatNetworkFilterList {
 }
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
-    fn new(filters: Vec<NetworkFilter>, _optimize: bool) -> Self {
+    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -294,7 +294,9 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         let mut optimizable = HashMap::<Hash, Vec<NetworkFilter>>::new();
         {
             for (network_filter, multi_tokens) in filter_tokens {
-                let index = if !optimizer::is_filter_optimizable_by_patterns(&network_filter) {
+                let index = if !optimize
+                    || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
+                {
                     Some(flat_builder.add(&network_filter))
                 } else {
                     None
@@ -325,13 +327,20 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
             }
         }
 
-        for (token, v) in optimizable {
-            let optimized = optimizer::optimize_by_groupping_patterns(v);
+        if optimize {
+            for (token, v) in optimizable {
+                let optimized = optimizer::optimize_by_groupping_patterns(v);
 
-            for filter in optimized {
-                let index = flat_builder.add(&filter);
-                insert_dup(&mut filter_map, token, index);
+                for filter in optimized {
+                    let index = flat_builder.add(&filter);
+                    insert_dup(&mut filter_map, token, index);
+                }
             }
+        } else {
+            debug_assert!(
+                optimizable.is_empty(),
+                "Should be empty if optimization is off"
+            );
         }
 
         let flatbuffer_memory = flat_builder.finish();
@@ -393,7 +402,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                         return Some(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
-                            raw_line: None,
+                            raw_line: filter.raw_line(),
                         });
                     }
                 }
@@ -436,7 +445,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
                         filters.push(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
-                            raw_line: None,
+                            raw_line: filter.raw_line(),
                         });
                     }
                 }

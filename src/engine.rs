@@ -7,6 +7,7 @@ use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage};
 
+#[allow(unused_imports)]
 pub use crate::engine_serializer::Serialize;
 
 use std::collections::HashSet;

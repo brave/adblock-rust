@@ -354,6 +354,7 @@ fn check_live_redirects() {
     }
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 #[test]
 /// Ensure that two different engines loaded from the same textual filter set serialize to
 /// identical buffers.
@@ -367,6 +368,7 @@ fn stable_serialization() {
     assert_eq!(ser1, ser2);
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 #[test]
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.

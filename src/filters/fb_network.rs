@@ -86,6 +86,11 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
             None
         };
 
+        let raw_line = network_filter
+            .raw_line
+            .as_ref()
+            .map(|v| self.builder.create_string(v.as_str()));
+
         let filter = fb::NetworkFilter::create(
             &mut self.builder,
             &fb::NetworkFilterArgs {
@@ -96,6 +101,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
                 opt_not_domains: opt_not_domains,
                 hostname: hostname,
                 tag: tag,
+                raw_line: raw_line,
             },
         );
 
@@ -246,6 +252,11 @@ impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
     pub fn patterns(&self) -> FlatPatterns {
         FlatPatterns::new(self.fb_filter.patterns())
+    }
+
+    #[inline(always)]
+    pub fn raw_line(&self) -> Option<String> {
+        self.fb_filter.raw_line().map(|v| v.to_string())
     }
 }
 
