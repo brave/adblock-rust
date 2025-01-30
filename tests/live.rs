@@ -1,5 +1,5 @@
 use adblock::request::Request;
-use adblock::{Engine, Serialize};
+use adblock::Engine;
 
 use serde::Deserialize;
 use tokio::runtime::Runtime;
@@ -148,7 +148,9 @@ fn get_blocker_engine() -> Engine {
     engine
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 fn get_blocker_engine_deserialized() -> Engine {
+    use adblock::Serialize;
     use futures::FutureExt;
     let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
@@ -231,6 +233,7 @@ fn check_live_specific_urls() {
     }
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 #[test]
 #[ignore = "opt-in: requires BRAVE_SERVICE_KEY environment variable"]
 fn check_live_brave_deserialized_specific_urls() {
@@ -286,6 +289,7 @@ fn check_live_from_filterlists() {
     }
 }
 
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
 #[test]
 #[ignore = "opt-in: requires BRAVE_SERVICE_KEY environment variable"]
 fn check_live_brave_deserialized_file() {
@@ -359,6 +363,7 @@ fn check_live_redirects() {
 /// Ensure that two different engines loaded from the same textual filter set serialize to
 /// identical buffers.
 fn stable_serialization() {
+    use adblock::Serialize;
     let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
     let ser1 = engine1.serialize_raw().unwrap();
 
@@ -373,6 +378,7 @@ fn stable_serialization() {
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
 fn stable_serialization_through_load() {
+    use adblock::Serialize;
     let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
     let ser1 = engine1.serialize_raw().unwrap();
 
