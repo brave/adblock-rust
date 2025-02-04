@@ -99,13 +99,12 @@ fn blocker_new(c: &mut Criterion) {
         "data/easylist.to/easylist/easyprivacy.txt",
     ])
     .collect();
-    let brave_list_rules: Vec<_> = rules_from_lists(&[
-        "data/brave/brave-main-list.txt",
-    ])
-    .collect();
+    let brave_list_rules: Vec<_> = rules_from_lists(&["data/brave/brave-main-list.txt"]).collect();
 
     group.bench_function("el+ep", move |b| b.iter(|| get_blocker(&easylist_rules)));
-    group.bench_function("brave-list", move |b| b.iter(|| get_blocker(&brave_list_rules)));
+    group.bench_function("brave-list", move |b| {
+        b.iter(|| get_blocker(&brave_list_rules))
+    });
 
     group.finish();
 }
