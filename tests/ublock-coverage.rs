@@ -1,5 +1,5 @@
-use adblock::Engine;
 use adblock::request::Request;
+use adblock::Engine;
 
 use serde::Deserialize;
 
@@ -49,7 +49,7 @@ fn get_blocker_engine() -> Engine {
     Engine::from_rules_parametrised(rules, Default::default(), true, false)
 }
 
-fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item=impl AsRef<str>>) -> Engine {
+fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
     let rules = rules_from_lists([
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
@@ -69,14 +69,11 @@ fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item=impl AsRef<str
 fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
-        let engine = Engine::from_rules_debug(
-            ["||www.facebook.com/*/plugin"],
-            Default::default(),
-        );
+        let engine = Engine::from_rules_debug(["||www.facebook.com/*/plugin"], Default::default());
 
-        let request = Request::new("https://www.facebook.com/v3.2/plugins/comments.ph", "", "").unwrap();
-        let checked =
-            engine.check_network_request(&request);
+        let request =
+            Request::new("https://www.facebook.com/v3.2/plugins/comments.ph", "", "").unwrap();
+        let checked = engine.check_network_request(&request);
 
         assert_eq!(checked.matched, true);
     }
@@ -102,7 +99,8 @@ fn check_specific_rules() {
             "http://cdn.taboola.com/libtrc/test/loader.js",
             "http://cnet.com",
             "script",
-        ).unwrap();
+        )
+        .unwrap();
         let checked = engine.check_network_request(&request);
         assert_eq!(checked.matched, true);
         assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
@@ -162,7 +160,8 @@ fn check_specifics_default() {
             "https://platform.twitter.com/widgets.js",
             "https://fmarier.github.io/brave-testing/social-widgets.html",
             "script",
-        ).unwrap();
+        )
+        .unwrap();
         let checked = engine.check_network_request(&request);
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");
@@ -279,7 +278,13 @@ fn check_matching_hostnames() {
         let third_party = source_domain != domain;
 
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
-        let preparsed_request = Request::preparsed(&req.url, url_host.hostname(), source_host.hostname(), &req.r#type, third_party);
+        let preparsed_request = Request::preparsed(
+            &req.url,
+            url_host.hostname(),
+            source_host.hostname(),
+            &req.r#type,
+            third_party,
+        );
 
         let checked = engine.check_network_request(&request);
         let checked_hostnames = engine.check_network_request(&preparsed_request);

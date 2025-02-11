@@ -4,8 +4,8 @@
 //! can be injected into pages to inhibit malicious behavior.
 //!
 //! If the `resource-assembler` feature is enabled, the
-#![cfg_attr(not(feature = "resource-assembler"), doc="`resource_assembler`")]
-#![cfg_attr(feature = "resource-assembler", doc="[`resource_assembler`]")]
+#![cfg_attr(not(feature = "resource-assembler"), doc = "`resource_assembler`")]
+#![cfg_attr(feature = "resource-assembler", doc = "[`resource_assembler`]")]
 //! module will assist with the construction of [`Resource`]s directly from the uBlock Origin
 //! project.
 
@@ -13,9 +13,9 @@
 pub mod resource_assembler;
 
 mod resource_storage;
+pub(crate) use resource_storage::parse_scriptlet_args;
 #[doc(inline)]
 pub use resource_storage::{AddResourceError, ResourceStorage, ScriptletResourceError};
-pub(crate) use resource_storage::parse_scriptlet_args;
 
 use memchr::memrchr as find_char_reverse;
 use serde::{Deserialize, Serialize};
@@ -138,9 +138,6 @@ pub struct Resource {
     ///
     /// Aliases should never be added to this list. It should only contain primary/canonical
     /// resource names.
-    ///
-    /// Currently ignored, but will be respected in a future release. Bundle any required
-    /// dependencies inside the resource for now.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<String>,
     /// Optionally defines permission levels required to use this resource for a scriptlet
@@ -185,12 +182,18 @@ pub enum ResourceType {
 impl ResourceType {
     /// Can resources of this type be used as network redirects?
     pub fn supports_redirect(&self) -> bool {
-        !matches!(self, ResourceType::Template | ResourceType::Mime(MimeType::FnJavascript))
+        !matches!(
+            self,
+            ResourceType::Template | ResourceType::Mime(MimeType::FnJavascript)
+        )
     }
 
     /// Can resources of this type be used for scriptlet injections?
     pub fn supports_scriptlet_injection(&self) -> bool {
-        matches!(self, ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript))
+        matches!(
+            self,
+            ResourceType::Template | ResourceType::Mime(MimeType::ApplicationJavascript)
+        )
     }
 }
 
