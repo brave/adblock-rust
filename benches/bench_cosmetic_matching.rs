@@ -57,13 +57,7 @@ fn by_classes_ids(c: &mut Criterion) {
         let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
         let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
         let exceptions = Default::default();
-        b.iter(|| {
-            cfcache.hidden_class_id_selectors(
-                &["ad"],
-                &["ad"],
-                &exceptions,
-            )
-        })
+        b.iter(|| cfcache.hidden_class_id_selectors(&["ad"], &["ad"], &exceptions))
     });
     group.bench_function("many lists", move |b| {
         let rules = rules_from_lists(&[
@@ -75,13 +69,7 @@ fn by_classes_ids(c: &mut Criterion) {
         let (_, cosmetic_filters) = parse_filters(&rules, false, FilterFormat::Standard);
         let cfcache = CosmeticFilterCache::from_rules(cosmetic_filters);
         let exceptions = Default::default();
-        b.iter(|| {
-            cfcache.hidden_class_id_selectors(
-                &["ad"],
-                &["ad"],
-                &exceptions,
-            )
-        })
+        b.iter(|| cfcache.hidden_class_id_selectors(&["ad"], &["ad"], &exceptions))
     });
     group.bench_function("many matching classes and ids", move |b| {
         let rules = rules_from_lists(&[

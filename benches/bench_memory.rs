@@ -4,12 +4,12 @@
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use criterion::*;
+use serde::{Deserialize, Serialize};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use serde::{Deserialize, Serialize};
 
-use adblock::Engine;
 use adblock::request::Request;
+use adblock::Engine;
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
@@ -110,15 +110,15 @@ fn bench_memory_usage(c: &mut Criterion) {
         let mut result = 0;
         b.iter_custom(|iters| {
             for _ in 0..iters {
-              ALLOCATOR.reset();
-              let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-              let engine = Engine::from_rules(rules, Default::default());
+                ALLOCATOR.reset();
+                let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+                let engine = Engine::from_rules(rules, Default::default());
 
-              noise += 1; // add some noise to make criterion happy
-              result += ALLOCATOR.current_usage() + noise;
+                noise += 1; // add some noise to make criterion happy
+                result += ALLOCATOR.current_usage() + noise;
 
-              // Prevent engine from being optimized
-              criterion::black_box(&engine);
+                // Prevent engine from being optimized
+                criterion::black_box(&engine);
             }
 
             // Return the memory usage as a Duration
@@ -134,15 +134,15 @@ fn bench_memory_usage(c: &mut Criterion) {
                 let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
                 let engine = Engine::from_rules(rules, Default::default());
 
-              for request in first_1000_requests.clone() {
-                  criterion::black_box(engine.check_network_request(&request.into()));
-              }
+                for request in first_1000_requests.clone() {
+                    criterion::black_box(engine.check_network_request(&request.into()));
+                }
 
-              noise += 1; // add some noise to make criterion happy
-              result += ALLOCATOR.current_usage() + noise;
+                noise += 1; // add some noise to make criterion happy
+                result += ALLOCATOR.current_usage() + noise;
 
-              // Prevent engine from being optimized
-              criterion::black_box(&engine);
+                // Prevent engine from being optimized
+                criterion::black_box(&engine);
             }
 
             // Return the memory usage as a Duration

@@ -66,9 +66,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
         .into_iter()
         .filter(NetworkFilter::is_redirect)
         .filter(NetworkFilter::also_block_redirect)
-        .filter(|rule| {
-            rule.modifier_option.as_ref().unwrap() != "none"
-        })
+        .filter(|rule| rule.modifier_option.as_ref().unwrap() != "none")
         .enumerate()
         .map(|(index, mut rule)| {
             rule.mask.insert(NetworkFilterMask::IS_LEFT_ANCHOR);
@@ -102,8 +100,8 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
 
     #[cfg(feature = "resource-assembler")]
     {
-        use std::path::Path;
         use adblock::resources::resource_assembler::assemble_web_accessible_resources;
+        use std::path::Path;
 
         let mut resource_data = assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
@@ -116,16 +114,14 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
             )),
         );
 
-        resource_data
-            .into_iter()
-            .for_each(|resource| {
-                let _res = resources.add_resource(resource);
-            });
+        resource_data.into_iter().for_each(|resource| {
+            let _res = resources.add_resource(resource);
+        });
     }
 
     #[cfg(not(feature = "resource-assembler"))]
     {
-        use adblock::resources::{Resource, ResourceType, MimeType};
+        use adblock::resources::{MimeType, Resource, ResourceType};
 
         filters
             .iter()
@@ -213,11 +209,7 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
 
             let source_url = format!("https://{}", source_hostname);
 
-            Request::new(
-                &url,
-                &source_url,
-                raw_type,
-            ).unwrap()
+            Request::new(&url, &source_url, raw_type).unwrap()
         })
         .collect::<Vec<_>>()
 }
@@ -225,7 +217,12 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
 fn bench_fn(blocker: &Blocker, resources: &ResourceStorage, requests: &[Request]) {
     requests.iter().for_each(|request| {
         let block_result = blocker.check(&request, &resources);
-        assert!(block_result.redirect.is_some(), "{:?}, {:?}", request, block_result);
+        assert!(
+            block_result.redirect.is_some(),
+            "{:?}, {:?}",
+            request,
+            block_result
+        );
     });
 }
 

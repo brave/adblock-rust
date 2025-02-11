@@ -1,9 +1,9 @@
-use adblock::Engine;
 use adblock::filters::network::NetworkFilter;
 use adblock::filters::network::NetworkMatchable;
 use adblock::regex_manager::RegexManager;
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
+use adblock::Engine;
 
 use serde::{Deserialize, Serialize};
 

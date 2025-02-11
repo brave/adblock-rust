@@ -61,8 +61,12 @@ impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
         for (hash, bin) in v.uninject_script.0.iter() {
             for f in bin {
                 db.entry(*hash)
-                    .and_modify(|v| v.push(LegacySpecificFilterType::UnhideScriptInject(f.to_owned())))
-                    .or_insert_with(|| vec![LegacySpecificFilterType::UnhideScriptInject(f.to_owned())]);
+                    .and_modify(|v| {
+                        v.push(LegacySpecificFilterType::UnhideScriptInject(f.to_owned()))
+                    })
+                    .or_insert_with(|| {
+                        vec![LegacySpecificFilterType::UnhideScriptInject(f.to_owned())]
+                    });
             }
         }
         for (hash, bin) in v.procedural_action.0.iter() {
@@ -71,8 +75,15 @@ impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
                     Ok(f) => {
                         if let Some((selector, style)) = f.as_css() {
                             db.entry(*hash)
-                                .and_modify(|v| v.push(LegacySpecificFilterType::Style(selector.clone(), style.clone())))
-                                .or_insert_with(|| vec![LegacySpecificFilterType::Style(selector, style)]);
+                                .and_modify(|v| {
+                                    v.push(LegacySpecificFilterType::Style(
+                                        selector.clone(),
+                                        style.clone(),
+                                    ))
+                                })
+                                .or_insert_with(|| {
+                                    vec![LegacySpecificFilterType::Style(selector, style)]
+                                });
                         }
                     }
                     _ => (),
@@ -85,17 +96,25 @@ impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
                     Ok(f) => {
                         if let Some((selector, style)) = f.as_css() {
                             db.entry(*hash)
-                                .and_modify(|v| v.push(LegacySpecificFilterType::UnhideStyle(selector.to_owned(), style.to_owned())))
-                                .or_insert_with(|| vec![LegacySpecificFilterType::UnhideStyle(selector.to_owned(), style.to_owned())]);
+                                .and_modify(|v| {
+                                    v.push(LegacySpecificFilterType::UnhideStyle(
+                                        selector.to_owned(),
+                                        style.to_owned(),
+                                    ))
+                                })
+                                .or_insert_with(|| {
+                                    vec![LegacySpecificFilterType::UnhideStyle(
+                                        selector.to_owned(),
+                                        style.to_owned(),
+                                    )]
+                                });
                         }
                     }
                     _ => (),
                 }
             }
         }
-        LegacyHostnameRuleDb {
-            db,
-        }
+        LegacyHostnameRuleDb { db }
     }
 }
 
@@ -115,10 +134,22 @@ impl Into<HostnameRuleDb> for LegacyHostnameRuleDb {
                 match rule {
                     LegacySpecificFilterType::Hide(s) => hide.insert(&hash, s),
                     LegacySpecificFilterType::Unhide(s) => unhide.insert(&hash, s),
-                    LegacySpecificFilterType::Style(s, st) => procedural_action.insert_procedural_action_filter(&hash, &ProceduralOrActionFilter::from_css(s, st)),
-                    LegacySpecificFilterType::UnhideStyle(s, st) => procedural_action_exception.insert_procedural_action_filter(&hash, &ProceduralOrActionFilter::from_css(s, st)),
-                    LegacySpecificFilterType::ScriptInject(s) => inject_script.insert(&hash, (s, Default::default())),
-                    LegacySpecificFilterType::UnhideScriptInject(s) => uninject_script.insert(&hash, s),
+                    LegacySpecificFilterType::Style(s, st) => procedural_action
+                        .insert_procedural_action_filter(
+                            &hash,
+                            &ProceduralOrActionFilter::from_css(s, st),
+                        ),
+                    LegacySpecificFilterType::UnhideStyle(s, st) => procedural_action_exception
+                        .insert_procedural_action_filter(
+                            &hash,
+                            &ProceduralOrActionFilter::from_css(s, st),
+                        ),
+                    LegacySpecificFilterType::ScriptInject(s) => {
+                        inject_script.insert(&hash, (s, Default::default()))
+                    }
+                    LegacySpecificFilterType::UnhideScriptInject(s) => {
+                        uninject_script.insert(&hash, s)
+                    }
                 }
             }
         }
@@ -445,7 +476,8 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
 
         let mut specific_rules: HostnameRuleDb = v.specific_rules.into();
         specific_rules.procedural_action = HostnameFilterBin(v.procedural_action);
-        specific_rules.procedural_action_exception = HostnameFilterBin(v.procedural_action_exception);
+        specific_rules.procedural_action_exception =
+            HostnameFilterBin(v.procedural_action_exception);
 
         (
             Blocker {
