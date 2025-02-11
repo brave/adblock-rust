@@ -127,10 +127,15 @@ impl CosmeticFilterCache {
 
     /// Add a filter, assuming it has already been determined to be a generic rule
     fn add_generic_filter(&mut self, rule: CosmeticFilter) {
-        let selector = rule
-            .plain_css_selector()
-            .expect("Procedural cosmetic filters cannot be generic")
-            .to_string();
+        let selector = match rule.plain_css_selector() {
+            Some(s) => s.to_string(),
+            None => {
+                // Procedural cosmetic filters cannot be generic.
+                // Silently ignoring this filter.
+                return;
+            }
+        };
+
         if selector.starts_with('.') {
             if let Some(key) = key_from_selector(&selector) {
                 assert!(key.starts_with('.'));
