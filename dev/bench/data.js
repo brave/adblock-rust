@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739243628404,
+  "lastUpdate": 1739391066644,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -95,6 +95,60 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list",
             "value": 202730589,
             "range": "± 4420888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 41409969,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-after-1000-requests",
+            "value": 44005995,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shivankaulsahib@gmail.com",
+            "name": "Shivan Kaul Sahib",
+            "username": "ShivanKaul"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c9a5b2f1fb744bde80c1ebc70a8d6ba16eed1f67",
+          "message": "Merge pull request #429 from brave/no-panic-generic-procedural-filter\n\nSilently ignore generic procedural filter",
+          "timestamp": "2025-02-12T12:07:33-08:00",
+          "tree_id": "c01aeccee0168cf0162c66aac8ad1774ce86bc23",
+          "url": "https://github.com/brave/adblock-rust/commit/c9a5b2f1fb744bde80c1ebc70a8d6ba16eed1f67"
+        },
+        "date": 1739391065834,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1793446288,
+            "range": "± 21526190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 989830,
+            "range": "± 10171",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 205510823,
+            "range": "± 4795405",
             "unit": "ns/iter"
           },
           {
