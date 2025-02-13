@@ -2,7 +2,7 @@
 //! the [`crate::Engine`], infrequently used regexes can be discarded. The [`RegexManager`] is
 //! responsible for managing the storage of regexes used by filters.
 
-use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
+use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper};
 
 use regex::{
     bytes::Regex as BytesRegex, bytes::RegexBuilder as BytesRegexBuilder,
@@ -148,12 +148,15 @@ impl Default for RegexManager {
     }
 }
 
-fn make_regexp(filter: &NetworkFilter) -> CompiledRegex {
+fn make_regexp<'a, FiltersIter>(mask: NetworkFilterMask, filters: FiltersIter) -> CompiledRegex
+where
+    FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
+{
     compile_regex(
-        filter.filter.iter(),
-        filter.is_right_anchor(),
-        filter.is_left_anchor(),
-        filter.is_complete_regex(),
+        filters,
+        mask.is_right_anchor(),
+        mask.is_left_anchor(),
+        mask.is_complete_regex(),
     )
 }
 
@@ -236,11 +239,19 @@ where
 impl RegexManager {
     /// Check whether or not a regex network filter matches a certain URL pattern, using the
     /// [`RegexManager`]'s managed regex storage.
-    pub fn matches(&mut self, filter: &NetworkFilter, pattern: &str) -> bool {
-        if !filter.is_regex() && !filter.is_complete_regex() {
+    pub fn matches<'a, FiltersIter>(
+        &mut self,
+        mask: NetworkFilterMask,
+        filters: FiltersIter,
+        key: u64,
+        pattern: &str,
+    ) -> bool
+    where
+        FiltersIter: Iterator<Item = &'a str> + ExactSizeIterator,
+    {
+        if !mask.is_regex() && !mask.is_complete_regex() {
             return true;
         }
-        let key = (filter as *const NetworkFilter) as u64;
         use std::collections::hash_map::Entry;
         match self.map.entry(key) {
             Entry::Occupied(mut e) => {
@@ -249,7 +260,7 @@ impl RegexManager {
                 v.last_used = self.now;
                 if v.regex.is_none() {
                     // A discarded entry, recreate it:
-                    v.regex = Some(make_regexp(filter));
+                    v.regex = Some(make_regexp(mask, filters));
                     self.compiled_regex_count += 1;
                 }
                 return v.regex.as_ref().unwrap().is_match(pattern);
@@ -257,7 +268,7 @@ impl RegexManager {
             Entry::Vacant(e) => {
                 self.compiled_regex_count += 1;
                 let new_entry = RegexEntry {
-                    regex: Some(make_regexp(filter)),
+                    regex: Some(make_regexp(mask, filters)),
                     last_used: self.now,
                     usage_count: 1,
                 };
