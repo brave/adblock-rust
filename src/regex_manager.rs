@@ -2,7 +2,7 @@
 //! the [`crate::Engine`], infrequently used regexes can be discarded. The [`RegexManager`] is
 //! responsible for managing the storage of regexes used by filters.
 
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 
 use regex::{
     bytes::Regex as BytesRegex, bytes::RegexBuilder as BytesRegexBuilder,

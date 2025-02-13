@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::blocker::{Blocker, NetworkFilterList};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
