@@ -1,17 +1,17 @@
 //! Filters that take effect at the network request level, including blocking and response
 //! modification.
 
-use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
+use memchr::{memchr as find_char, memmem};
 use once_cell::sync::Lazy;
-use regex::{
-    bytes::Regex as BytesRegex, bytes::RegexBuilder as BytesRegexBuilder,
-    bytes::RegexSet as BytesRegexSet, bytes::RegexSetBuilder as BytesRegexSetBuilder, Regex,
-};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use std::fmt;
 
+use crate::filters::abstract_network::{
+    AbstractNetworkFilter, NetworkFilterLeftAnchor, NetworkFilterOption, NetworkFilterRightAnchor,
+};
 use crate::lists::ParseOptions;
 use crate::regex_manager::RegexManager;
 use crate::request;
@@ -181,45 +181,54 @@ impl From<&request::RequestType> for NetworkFilterMask {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum CompiledRegex {
-    Compiled(BytesRegex),
-    CompiledSet(BytesRegexSet),
-    MatchAll,
-    RegexParsingError(regex::Error),
-}
-
-impl CompiledRegex {
-    pub fn is_match(&self, pattern: &str) -> bool {
-        match &self {
-            CompiledRegex::MatchAll => true, // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => false, // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => r.is_match(pattern.as_bytes()),
-            CompiledRegex::CompiledSet(r) => {
-                // let matches: Vec<_> = r.matches(pattern).into_iter().collect();
-                // println!("Matching {} against RegexSet: {:?}", pattern, matches);
-                r.is_match(pattern.as_bytes())
-            }
-        }
-    }
-}
-
-impl fmt::Display for CompiledRegex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self {
-            CompiledRegex::MatchAll => write!(f, ".*"), // simple case for matching everything, e.g. for empty filter
-            CompiledRegex::RegexParsingError(_e) => write!(f, "ERROR"), // no match if regex didn't even compile
-            CompiledRegex::Compiled(r) => write!(f, "{}", r.as_str()),
-            CompiledRegex::CompiledSet(r) => write!(f, "{}", r.patterns().join(" | ")),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FilterPart {
     Empty,
     Simple(String),
     AnyOf(Vec<String>),
+}
+
+pub struct FilterPartIterator<'a> {
+    filter_part: &'a FilterPart,
+    index: usize,
+}
+
+impl<'a> Iterator for FilterPartIterator<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.filter_part {
+            FilterPart::Empty => None,
+            FilterPart::Simple(s) => {
+                if self.index == 0 {
+                    self.index += 1;
+                    Some(s.as_str())
+                } else {
+                    None
+                }
+            }
+            FilterPart::AnyOf(vec) => {
+                if self.index < vec.len() {
+                    let result = Some(vec[self.index].as_str());
+                    self.index += 1;
+                    result
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+// Implement ExactSizeIterator for FilterPartIterator
+impl<'a> ExactSizeIterator for FilterPartIterator<'a> {
+    fn len(&self) -> usize {
+        match self.filter_part {
+            FilterPart::Empty => 0,
+            FilterPart::Simple(_) => 1,
+            FilterPart::AnyOf(vec) => vec.len(),
+        }
+    }
 }
 
 impl FilterPart {
@@ -230,253 +239,13 @@ impl FilterPart {
             FilterPart::AnyOf(s) => Some(s.join("|")),
         }
     }
-}
 
-#[derive(Clone, Copy)]
-enum NetworkFilterLeftAnchor {
-    /// A `||` token, which represents a match to the start of a domain or subdomain segment.
-    DoublePipe,
-    /// A `|` token, which represents a match to the exact start of the URL.
-    SinglePipe,
-}
-
-#[derive(Clone, Copy)]
-enum NetworkFilterRightAnchor {
-    /// A `|` token, which represents a match to the exact end of the URL.
-    SinglePipe,
-}
-
-/// Pattern for a network filter, describing what URLs to match against.
-#[derive(Clone)]
-struct NetworkFilterPattern {
-    left_anchor: Option<NetworkFilterLeftAnchor>,
-    pattern: String,
-    right_anchor: Option<NetworkFilterRightAnchor>,
-}
-
-/// Any option that appears on the right side of a network filter as initiated by a `$` character.
-/// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
-/// negated using a prepended `~`.
-#[derive(Clone)]
-enum NetworkFilterOption {
-    Domain(Vec<(bool, String)>),
-    Badfilter,
-    Important,
-    MatchCase,
-    ThirdParty(bool),
-    FirstParty(bool),
-    Tag(String),
-    Redirect(String),
-    RedirectRule(String),
-    Csp(Option<String>),
-    Removeparam(String),
-    Generichide,
-    Document,
-    Image(bool),
-    Media(bool),
-    Object(bool),
-    Other(bool),
-    Ping(bool),
-    Script(bool),
-    Stylesheet(bool),
-    Subdocument(bool),
-    XmlHttpRequest(bool),
-    Websocket(bool),
-    Font(bool),
-}
-
-impl NetworkFilterOption {
-    pub fn is_content_type(&self) -> bool {
-        matches!(
-            self,
-            Self::Document
-                | Self::Image(..)
-                | Self::Media(..)
-                | Self::Object(..)
-                | Self::Other(..)
-                | Self::Ping(..)
-                | Self::Script(..)
-                | Self::Stylesheet(..)
-                | Self::Subdocument(..)
-                | Self::XmlHttpRequest(..)
-                | Self::Websocket(..)
-                | Self::Font(..)
-        )
-    }
-
-    pub fn is_redirection(&self) -> bool {
-        matches!(self, Self::Redirect(..) | Self::RedirectRule(..))
-    }
-}
-
-/// Abstract syntax representation of a network filter. This representation can fully specify the
-/// string representation of a filter as written, with the exception of aliased options like `1p`
-/// or `ghide`. This allows separation of concerns between parsing and interpretation.
-struct AbstractNetworkFilter {
-    exception: bool,
-    pattern: NetworkFilterPattern,
-    options: Option<Vec<NetworkFilterOption>>,
-}
-
-impl AbstractNetworkFilter {
-    fn parse(line: &str) -> Result<Self, NetworkFilterError> {
-        let mut filter_index_start: usize = 0;
-        let mut filter_index_end: usize = line.len();
-
-        let mut exception = false;
-        if line.starts_with("@@") {
-            filter_index_start += 2;
-            exception = true;
+    pub fn iter(&self) -> FilterPartIterator {
+        FilterPartIterator {
+            filter_part: self,
+            index: 0,
         }
-
-        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
-
-        let mut options = None;
-        if let Some(options_index) = maybe_options_index {
-            filter_index_end = options_index;
-
-            // slicing here is safe; the first byte after '$' will be a character boundary
-            let raw_options = &line[filter_index_end + 1..];
-
-            options = Some(parse_filter_options(raw_options)?);
-        }
-
-        let left_anchor = if line[filter_index_start..].starts_with("||") {
-            filter_index_start += 2;
-            Some(NetworkFilterLeftAnchor::DoublePipe)
-        } else if line[filter_index_start..].starts_with('|') {
-            filter_index_start += 1;
-            Some(NetworkFilterLeftAnchor::SinglePipe)
-        } else {
-            None
-        };
-
-        let right_anchor = if filter_index_end > 0
-            && filter_index_end > filter_index_start
-            && line[..filter_index_end].ends_with('|')
-        {
-            filter_index_end -= 1;
-            Some(NetworkFilterRightAnchor::SinglePipe)
-        } else {
-            None
-        };
-
-        let pattern = &line[filter_index_start..filter_index_end];
-
-        Ok(AbstractNetworkFilter {
-            exception,
-            pattern: NetworkFilterPattern {
-                left_anchor,
-                pattern: pattern.to_string(),
-                right_anchor,
-            },
-            options,
-        })
     }
-}
-
-fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
-    let mut result = vec![];
-
-    for raw_option in raw_options.split(',') {
-        // Check for negation: ~option
-        let negation = raw_option.starts_with('~');
-        let maybe_negated_option = raw_option.trim_start_matches('~');
-
-        // Check for options: option=value1|value2
-        let mut option_and_values = maybe_negated_option.splitn(2, '=');
-        let (option, value) = (
-            option_and_values.next().unwrap(),
-            option_and_values.next().unwrap_or_default(),
-        );
-
-        result.push(match (option, negation) {
-            ("domain", _) | ("from", _) => {
-                let domains: Vec<(bool, String)> = value
-                    .split('|')
-                    .map(|domain| {
-                        if let Some(negated_domain) = domain.strip_prefix('~') {
-                            (false, negated_domain.to_string())
-                        } else {
-                            (true, domain.to_string())
-                        }
-                    })
-                    .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
-                    .collect();
-                if domains.is_empty() {
-                    return Err(NetworkFilterError::NoSupportedDomains);
-                }
-                NetworkFilterOption::Domain(domains)
-            }
-            ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
-            ("badfilter", false) => NetworkFilterOption::Badfilter,
-            ("important", true) => return Err(NetworkFilterError::NegatedImportant),
-            ("important", false) => NetworkFilterOption::Important,
-            ("match-case", true) => return Err(NetworkFilterError::NegatedOptionMatchCase),
-            ("match-case", false) => NetworkFilterOption::MatchCase,
-            ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
-            ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
-            ("tag", true) => return Err(NetworkFilterError::NegatedTag),
-            ("tag", false) => NetworkFilterOption::Tag(String::from(value)),
-            ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
-            ("redirect", false) => {
-                // Ignore this filter if no redirection resource is specified
-                if value.is_empty() {
-                    return Err(NetworkFilterError::EmptyRedirection);
-                }
-
-                NetworkFilterOption::Redirect(String::from(value))
-            }
-            ("redirect-rule", true) => return Err(NetworkFilterError::NegatedRedirection),
-            ("redirect-rule", false) => {
-                if value.is_empty() {
-                    return Err(NetworkFilterError::EmptyRedirection);
-                }
-
-                NetworkFilterOption::RedirectRule(String::from(value))
-            }
-            ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
-                Some(String::from(value))
-            } else {
-                None
-            }),
-            ("removeparam", true) => return Err(NetworkFilterError::NegatedRemoveparam),
-            ("removeparam", false) => {
-                if value.is_empty() {
-                    return Err(NetworkFilterError::EmptyRemoveparam);
-                }
-                if !VALID_PARAM.is_match(value) {
-                    return Err(NetworkFilterError::RemoveparamRegexUnsupported);
-                }
-                NetworkFilterOption::Removeparam(String::from(value))
-            }
-            ("generichide", true) | ("ghide", true) => {
-                return Err(NetworkFilterError::NegatedGenericHide)
-            }
-            ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
-            ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
-            ("document", false) | ("doc", false) => NetworkFilterOption::Document,
-            ("image", negated) => NetworkFilterOption::Image(!negated),
-            ("media", negated) => NetworkFilterOption::Media(!negated),
-            ("object", negated) | ("object-subrequest", negated) => {
-                NetworkFilterOption::Object(!negated)
-            }
-            ("other", negated) => NetworkFilterOption::Other(!negated),
-            ("ping", negated) | ("beacon", negated) => NetworkFilterOption::Ping(!negated),
-            ("script", negated) => NetworkFilterOption::Script(!negated),
-            ("stylesheet", negated) | ("css", negated) => NetworkFilterOption::Stylesheet(!negated),
-            ("subdocument", negated) | ("frame", negated) => {
-                NetworkFilterOption::Subdocument(!negated)
-            }
-            ("xmlhttprequest", negated) | ("xhr", negated) => {
-                NetworkFilterOption::XmlHttpRequest(!negated)
-            }
-            ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
-            ("font", negated) => NetworkFilterOption::Font(!negated),
-            (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
-        });
-    }
-    Ok(result)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1233,84 +1002,6 @@ fn compute_filter_id(
     }
 
     hash
-}
-
-/// Compiles a filter pattern to a regex. This is only performed *lazily* for
-/// filters containing at least a * or ^ symbol. Because Regexes are expansive,
-/// we try to convert some patterns to plain filters.
-#[allow(clippy::trivial_regex)]
-pub(crate) fn compile_regex(
-    filter: &FilterPart,
-    is_right_anchor: bool,
-    is_left_anchor: bool,
-    is_complete_regex: bool,
-) -> CompiledRegex {
-    // Escape special regex characters: |.$+?{}()[]\
-    static SPECIAL_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"([\|\.\$\+\?\{\}\(\)\[\]])").unwrap());
-    // * can match anything
-    static WILDCARD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\*").unwrap());
-    // ^ can match any separator or the end of the pattern
-    static ANCHOR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\^(.)").unwrap());
-    // ^ can match any separator or the end of the pattern
-    static ANCHOR_RE_EOL: Lazy<Regex> = Lazy::new(|| Regex::new(r"\^$").unwrap());
-
-    let filters: Vec<String> = match filter {
-        FilterPart::Empty => vec![],
-        FilterPart::Simple(s) => vec![s.clone()],
-        FilterPart::AnyOf(f) => f.clone(),
-    };
-
-    let mut escaped_patterns = Vec::with_capacity(filters.len());
-    for filter_str in filters {
-        // If any filter is empty, the entire set matches anything
-        if filter_str.is_empty() {
-            return CompiledRegex::MatchAll;
-        }
-        if is_complete_regex {
-            // unescape unrecognised escaping sequences, otherwise a normal regex
-            let unescaped = filter_str[1..filter_str.len() - 1]
-                .replace("\\/", "/")
-                .replace("\\:", ":");
-
-            escaped_patterns.push(unescaped);
-        } else {
-            let repl = SPECIAL_RE.replace_all(&filter_str, "\\$1");
-            let repl = WILDCARD_RE.replace_all(&repl, ".*");
-            // in adblock rules, '^' is a separator.
-            // The separator character is anything but a letter, a digit, or one of the following: _ - . %
-            let repl = ANCHOR_RE.replace_all(&repl, "(?:[^\\w\\d\\._%-])$1");
-            let repl = ANCHOR_RE_EOL.replace_all(&repl, "(?:[^\\w\\d\\._%-]|$)");
-
-            // Should match start or end of url
-            let left_anchor = if is_left_anchor { "^" } else { "" };
-            let right_anchor = if is_right_anchor { "$" } else { "" };
-            let filter = format!("{}{}{}", left_anchor, repl, right_anchor);
-
-            escaped_patterns.push(filter);
-        }
-    }
-
-    if escaped_patterns.is_empty() {
-        CompiledRegex::MatchAll
-    } else if escaped_patterns.len() == 1 {
-        let pattern = &escaped_patterns[0];
-        match BytesRegexBuilder::new(pattern).unicode(false).build() {
-            Ok(compiled) => CompiledRegex::Compiled(compiled),
-            Err(e) => {
-                // println!("Regex parsing failed ({:?})", e);
-                CompiledRegex::RegexParsingError(e)
-            }
-        }
-    } else {
-        match BytesRegexSetBuilder::new(escaped_patterns)
-            .unicode(false)
-            .build()
-        {
-            Ok(compiled) => CompiledRegex::CompiledSet(compiled),
-            Err(e) => CompiledRegex::RegexParsingError(e),
-        }
-    }
 }
 
 /// Check if the sub-string contained between the indices start and end is a
