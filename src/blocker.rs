@@ -11,7 +11,7 @@ use thiserror::Error;
 #[cfg(feature = "object-pooling")]
 use lifeguard::Pool;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable};
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable};
 use crate::optimizer;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;

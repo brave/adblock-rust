@@ -2,7 +2,7 @@ use criterion::*;
 use tokio::runtime::Runtime;
 
 use adblock::blocker::{Blocker, BlockerOptions};
-use adblock::filters::network::{NetworkFilter, NetworkFilterMask};
+use adblock::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use adblock::request::Request;
 use adblock::resources::ResourceStorage;
 

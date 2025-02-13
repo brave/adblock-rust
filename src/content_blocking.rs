@@ -1,7 +1,7 @@
 //! Transforms filter rules into content blocking syntax used on iOS and MacOS.
 
 use crate::filters::cosmetic::CosmeticFilter;
-use crate::filters::network::{NetworkFilter, NetworkFilterMask};
+use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::lists::ParsedFilter;
 
 use memchr::{memchr as find_char, memmem};

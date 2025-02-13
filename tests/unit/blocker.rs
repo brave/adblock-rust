@@ -1813,6 +1813,7 @@ mod placeholder_string_tests {
 mod legacy_rule_parsing_tests {
     use crate::blocker::vec_hashmap_len;
     use crate::blocker::{Blocker, BlockerOptions};
+    use crate::filters::network::NetworkFilterMaskHelper;
     use crate::lists::{parse_filters, FilterFormat, ParseOptions};
     use crate::test_utils::rules_from_lists;
 

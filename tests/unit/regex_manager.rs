@@ -2,7 +2,7 @@
 mod tests {
     use super::super::*;
 
-    use crate::filters::network::NetworkMatchable;
+    use crate::filters::network::{NetworkFilter, NetworkMatchable};
     use crate::request;
 
     use mock_instant::global::MockClock;
