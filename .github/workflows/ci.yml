@@ -33,6 +33,9 @@ jobs:
       - name: Cargo build 'adblock' package
         run: cargo build --all-features --all-targets
 
+      - name: Cargo build 'adblock' package (default features)
+        run: cargo build --all-targets
+
       - name: Cargo build 'adblock' package (no default features)
         run: cargo build --no-default-features --all-targets
 
@@ -64,6 +67,9 @@ jobs:
       - name: Cargo test 'adblock' package
         run: cargo test --all-features --tests --no-fail-fast
 
+      - name: Cargo test 'adblock' package (default features)
+        run: cargo test --tests --no-fail-fast
+
       - name: Cargo test 'adblock' package (no default features)
         run: cargo test --no-default-features --features embedded-domain-resolver,full-regex-handling --tests --no-fail-fast
 
@@ -82,7 +88,7 @@ jobs:
           # This hackily checks that the filter is working.
           # If this check fails, something might have been renamed inadvertantly.
           echo "Ensure that '$TEST_NAME_FILTER' still matches exactly 2 tests."
-          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER" --list | grep "2 tests, 0 benchmarks"
+          cargo test --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER" --list | grep "2 tests, 0 benchmarks"
 
           # Now run the tests
-          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER"
+          cargo test --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER"

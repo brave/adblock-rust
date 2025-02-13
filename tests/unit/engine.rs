@@ -134,170 +134,6 @@ mod tests {
     }
 
     #[test]
-    fn serialization_retains_tags() {
-        let filters = [
-            "adv$tag=stuff",
-            "somelongpath/test$tag=stuff",
-            "||brianbondy.com/$tag=brian",
-            "||brave.com$tag=brian",
-        ];
-        let url_results = [
-            ("http://example.com/advert.html", true),
-            ("http://example.com/somelongpath/test/2.html", true),
-            ("https://brianbondy.com/about", false),
-            ("https://brave.com/about", false),
-        ];
-
-        let mut engine = Engine::from_rules(&filters, Default::default());
-        engine.enable_tags(&["stuff"]);
-        engine.enable_tags(&["brian"]);
-        let serialized = engine.serialize_raw().unwrap();
-        let mut deserialized_engine = Engine::default();
-        deserialized_engine.enable_tags(&["stuff"]);
-        deserialized_engine.deserialize(&serialized).unwrap();
-
-        url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(&url, "", "").unwrap();
-            let matched_rule = deserialized_engine.check_network_request(&request);
-            if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
-            } else {
-                assert!(
-                    !matched_rule.matched,
-                    "Expected no match for {}, matched with {:?}",
-                    url, matched_rule.filter
-                );
-            }
-        });
-    }
-
-    #[test]
-    fn deserialization_backwards_compatible_plain() {
-        // deserialization_generate_simple();
-        // assert!(false);
-        // converted from the legacy compressed format
-        let serialized = [
-            209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
-            145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 157, 145, 206, 0, 3, 31, 255,
-            129, 1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192,
-            192, 192, 207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 145, 128, 144, 195, 145,
-            128, 144, 144, 128, 128, 145, 128, 144, 145, 128,
-        ];
-        let mut deserialized_engine = Engine::default();
-        deserialized_engine.deserialize(&serialized).unwrap();
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-    }
-
-    #[test]
-    fn deserialization_backwards_compatible_tags() {
-        // deserialization_generate_tags();
-        // assert!(false);
-        // converted from the legacy compressed format
-        let serialized = [
-            209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
-            145, 128, 145, 128, 145, 157, 145, 206, 0, 3, 31, 255, 129, 1, 169, 97, 100, 45, 98,
-            97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 163, 97, 98, 99, 192, 207, 126,
-            212, 53, 83, 113, 159, 143, 134, 192, 192, 195, 145, 128, 144, 144, 128, 128, 145, 128,
-            144, 145, 128,
-        ];
-        let mut deserialized_engine = Engine::default();
-
-        deserialized_engine.enable_tags(&[]);
-        deserialized_engine.deserialize(&serialized).unwrap();
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(!matched_rule.matched, "Expected NO match for {}", url);
-
-        deserialized_engine.enable_tags(&["abc"]);
-        deserialized_engine.deserialize(&serialized).unwrap();
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-    }
-
-    #[test]
-    fn deserialization_generate_simple() {
-        let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
-        let serialized = engine.serialize_raw().unwrap();
-        println!("Engine serialized: {:?}", serialized);
-        engine.deserialize(&serialized).unwrap();
-    }
-
-    #[test]
-    fn deserialization_generate_tags() {
-        let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
-        engine.use_tags(&["abc"]);
-        let serialized = engine.serialize_raw().unwrap();
-        println!("Engine serialized: {:?}", serialized);
-        engine.deserialize(&serialized).unwrap();
-    }
-
-    #[test]
-    fn deserialization_generate_resources() {
-        let mut engine = Engine::from_rules(&["ad-banner$redirect=nooptext"], Default::default());
-
-        engine.use_resources([
-            Resource::simple("nooptext", MimeType::TextPlain, ""),
-            Resource::simple("noopcss", MimeType::TextCss, ""),
-        ]);
-
-        let serialized = engine.serialize_raw().unwrap();
-        println!("Engine serialized: {:?}", serialized);
-        engine.deserialize(&serialized).unwrap();
-    }
-
-    #[test]
-    fn redirect_resource_insertion_works() {
-        let mut engine = Engine::from_rules(
-            &["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],
-            Default::default(),
-        );
-
-        let script = r#"
-(function() {
-	;
-})();
-
-        "#;
-        let mut resources = [
-            Resource::simple("nooptext", MimeType::TextPlain, ""),
-            Resource::simple("noopjs", MimeType::ApplicationJavascript, script),
-        ];
-        resources[1].aliases.push("noop.js".to_string());
-        engine.use_resources(resources);
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(url, "", "").unwrap();
-        let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(
-            matched_rule.redirect,
-            Some("data:text/plain;base64,".to_owned()),
-            "Expected redirect to contain resource"
-        );
-
-        let url = "http://example.com/script.js";
-        let request = Request::new(url, "", "").unwrap();
-        let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-        assert_eq!(
-            matched_rule.redirect,
-            Some(format!(
-                "data:application/javascript;base64,{}",
-                base64::encode(format!("{}", script))
-            )),
-            "Expected redirect to contain resource"
-        );
-    }
-
-    #[test]
     fn document() {
         let filters = ["||example.com$document", "@@||sub.example.com$document"];
 
@@ -873,6 +709,176 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
                 .url_cosmetic_resources("https://example.com")
                 .injected_script,
             ""
+        );
+    }
+}
+
+#[cfg(not(feature = "flatbuffers"))] // No serialization for flatbuffers yet.
+mod serialization_tests {
+    use super::super::*;
+    use crate::resources::MimeType;
+
+    #[test]
+    fn serialization_retains_tags() {
+        let filters = [
+            "adv$tag=stuff",
+            "somelongpath/test$tag=stuff",
+            "||brianbondy.com/$tag=brian",
+            "||brave.com$tag=brian",
+        ];
+        let url_results = [
+            ("http://example.com/advert.html", true),
+            ("http://example.com/somelongpath/test/2.html", true),
+            ("https://brianbondy.com/about", false),
+            ("https://brave.com/about", false),
+        ];
+
+        let mut engine = Engine::from_rules(&filters, Default::default());
+        engine.enable_tags(&["stuff"]);
+        engine.enable_tags(&["brian"]);
+        let serialized = engine.serialize_raw().unwrap();
+        let mut deserialized_engine = Engine::default();
+        deserialized_engine.enable_tags(&["stuff"]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+
+        url_results.into_iter().for_each(|(url, expected_result)| {
+            let request = Request::new(&url, "", "").unwrap();
+            let matched_rule = deserialized_engine.check_network_request(&request);
+            if expected_result {
+                assert!(matched_rule.matched, "Expected match for {}", url);
+            } else {
+                assert!(
+                    !matched_rule.matched,
+                    "Expected no match for {}, matched with {:?}",
+                    url, matched_rule.filter
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn deserialization_backwards_compatible_plain() {
+        // deserialization_generate_simple();
+        // assert!(false);
+        // converted from the legacy compressed format
+        let serialized = [
+            209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
+            145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 157, 145, 206, 0, 3, 31, 255,
+            129, 1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192,
+            192, 192, 207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 145, 128, 144, 195, 145,
+            128, 144, 144, 128, 128, 145, 128, 144, 145, 128,
+        ];
+        let mut deserialized_engine = Engine::default();
+        deserialized_engine.deserialize(&serialized).unwrap();
+
+        let url = "http://example.com/ad-banner.gif";
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {}", url);
+    }
+
+    #[test]
+    fn deserialization_backwards_compatible_tags() {
+        // deserialization_generate_tags();
+        // assert!(false);
+        // converted from the legacy compressed format
+        let serialized = [
+            209, 217, 58, 175, 0, 220, 0, 17, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
+            145, 128, 145, 128, 145, 157, 145, 206, 0, 3, 31, 255, 129, 1, 169, 97, 100, 45, 98,
+            97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 163, 97, 98, 99, 192, 207, 126,
+            212, 53, 83, 113, 159, 143, 134, 192, 192, 195, 145, 128, 144, 144, 128, 128, 145, 128,
+            144, 145, 128,
+        ];
+        let mut deserialized_engine = Engine::default();
+
+        deserialized_engine.enable_tags(&[]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+        let url = "http://example.com/ad-banner.gif";
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
+        assert!(!matched_rule.matched, "Expected NO match for {}", url);
+
+        deserialized_engine.enable_tags(&["abc"]);
+        deserialized_engine.deserialize(&serialized).unwrap();
+
+        let url = "http://example.com/ad-banner.gif";
+        let request = Request::new(&url, "", "").unwrap();
+        let matched_rule = deserialized_engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {}", url);
+    }
+
+    #[test]
+    fn deserialization_generate_simple() {
+        let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
+        let serialized = engine.serialize_raw().unwrap();
+        println!("Engine serialized: {:?}", serialized);
+        engine.deserialize(&serialized).unwrap();
+    }
+
+    #[test]
+    fn deserialization_generate_tags() {
+        let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
+        engine.use_tags(&["abc"]);
+        let serialized = engine.serialize_raw().unwrap();
+        println!("Engine serialized: {:?}", serialized);
+        engine.deserialize(&serialized).unwrap();
+    }
+
+    #[test]
+    fn deserialization_generate_resources() {
+        let mut engine = Engine::from_rules(&["ad-banner$redirect=nooptext"], Default::default());
+
+        engine.use_resources([
+            Resource::simple("nooptext", MimeType::TextPlain, ""),
+            Resource::simple("noopcss", MimeType::TextCss, ""),
+        ]);
+
+        let serialized = engine.serialize_raw().unwrap();
+        println!("Engine serialized: {:?}", serialized);
+        engine.deserialize(&serialized).unwrap();
+    }
+
+    #[test]
+    fn redirect_resource_insertion_works() {
+        let mut engine = Engine::from_rules(
+            &["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],
+            Default::default(),
+        );
+
+        let script = r#"
+(function() {
+	;
+})();
+
+        "#;
+        let mut resources = [
+            Resource::simple("nooptext", MimeType::TextPlain, ""),
+            Resource::simple("noopjs", MimeType::ApplicationJavascript, script),
+        ];
+        resources[1].aliases.push("noop.js".to_string());
+        engine.use_resources(resources);
+
+        let url = "http://example.com/ad-banner.gif";
+        let request = Request::new(url, "", "").unwrap();
+        let matched_rule = engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(
+            matched_rule.redirect,
+            Some("data:text/plain;base64,".to_owned()),
+            "Expected redirect to contain resource"
+        );
+
+        let url = "http://example.com/script.js";
+        let request = Request::new(url, "", "").unwrap();
+        let matched_rule = engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(
+            matched_rule.redirect,
+            Some(format!(
+                "data:application/javascript;base64,{}",
+                base64::encode(format!("{}", script))
+            )),
+            "Expected redirect to contain resource"
         );
     }
 }

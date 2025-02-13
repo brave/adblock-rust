@@ -2,22 +2,21 @@
 
 use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use serde::Serialize;
+use std::collections::HashSet;
 use std::ops::DerefMut;
-use std::sync::Arc;
 use thiserror::Error;
 
-#[cfg(feature = "object-pooling")]
-use lifeguard::Pool;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
+pub(crate) use crate::network_filter_list::NetworkFilterListTrait;
 
-use crate::filters::network::{NetworkFilter, NetworkMatchable};
-use crate::optimizer;
+#[allow(unused_imports)]
+pub(crate) use crate::network_filter_list::NetworkFilterList;
+
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
-use crate::utils;
-use crate::utils::{fast_hash, Hash};
+use crate::utils::Hash;
 
 /// Options used when constructing a [`Blocker`].
 pub struct BlockerOptions {
@@ -88,39 +87,29 @@ pub enum BlockerError {
     FilterExists,
 }
 
-#[cfg(feature = "object-pooling")]
-pub(crate) struct TokenPool {
-    pub pool: Pool<Vec<utils::Hash>>,
-}
-
-#[cfg(feature = "object-pooling")]
-impl Default for TokenPool {
-    fn default() -> TokenPool {
-        TokenPool {
-            pool: lifeguard::pool()
-                .with(lifeguard::StartingSize(1))
-                .with(lifeguard::Supplier(|| {
-                    Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)
-                }))
-                .build(),
-        }
-    }
-}
-
 // only check for tags in tagged and exception rule buckets,
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
+#[cfg(feature = "flatbuffers")]
+pub type Blocker = GenericBlocker<crate::network_filter_list::FlatNetworkFilterList>;
+
+#[cfg(not(feature = "flatbuffers"))]
+pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;
+
 /// Stores network filters for efficient querying.
-pub struct Blocker {
-    pub(crate) csp: NetworkFilterList,
-    pub(crate) exceptions: NetworkFilterList,
-    pub(crate) importants: NetworkFilterList,
-    pub(crate) redirects: NetworkFilterList,
-    pub(crate) removeparam: NetworkFilterList,
-    pub(crate) filters_tagged: NetworkFilterList,
-    pub(crate) filters: NetworkFilterList,
-    pub(crate) generic_hide: NetworkFilterList,
+pub struct GenericBlocker<NetworkFilterListType>
+where
+    NetworkFilterListType: NetworkFilterListTrait,
+{
+    pub(crate) csp: NetworkFilterListType,
+    pub(crate) exceptions: NetworkFilterListType,
+    pub(crate) importants: NetworkFilterListType,
+    pub(crate) redirects: NetworkFilterListType,
+    pub(crate) removeparam: NetworkFilterListType,
+    pub(crate) filters_tagged: NetworkFilterListType,
+    pub(crate) filters: NetworkFilterListType,
+    pub(crate) generic_hide: NetworkFilterListType,
 
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
@@ -130,17 +119,16 @@ pub struct Blocker {
     pub(crate) enable_optimizations: bool,
 
     // Not serialized
-    #[cfg(feature = "object-pooling")]
-    pub(crate) pool: TokenPool,
-
-    // Not serialized
     #[cfg(feature = "unsync-regex-caching")]
     pub(crate) regex_manager: std::cell::RefCell<RegexManager>,
     #[cfg(not(feature = "unsync-regex-caching"))]
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 }
 
-impl Blocker {
+impl<NetworkFilterListType> GenericBlocker<NetworkFilterListType>
+where
+    NetworkFilterListType: NetworkFilterListTrait,
+{
     /// Decide if a network request (usually from WebRequest API) should be
     /// blocked, redirected or allowed.
     pub fn check(&self, request: &Request, resources: &ResourceStorage) -> BlockerResult {
@@ -167,24 +155,9 @@ impl Blocker {
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
-        let mut request_tokens;
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        hostname_request.get_tokens(&mut request_tokens);
 
         self.generic_hide
-            .check(
-                hostname_request,
-                &request_tokens,
-                &HashSet::new(),
-                &mut regex_manager,
-            )
+            .check(hostname_request, &HashSet::new(), &mut regex_manager)
             .is_some()
     }
 
@@ -200,17 +173,6 @@ impl Blocker {
             return BlockerResult::default();
         }
 
-        let mut request_tokens;
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        request.get_tokens(&mut request_tokens);
-
         // Check the filters in the following order:
         // 1. $important (not subject to exceptions)
         // 2. redirection ($redirect=resource)
@@ -218,52 +180,34 @@ impl Blocker {
         // 4. exceptions - if any non-important match of forced
 
         // Always check important filters
-        let important_filter =
-            self.importants
-                .check(request, &request_tokens, &NO_TAGS, &mut regex_manager);
+        let important_filter = self.importants.check(request, &NO_TAGS, &mut regex_manager);
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             self.filters_tagged
-                .check(
-                    request,
-                    &request_tokens,
-                    &self.tags_enabled,
-                    &mut regex_manager,
-                )
-                .or_else(|| {
-                    self.filters
-                        .check(request, &request_tokens, &NO_TAGS, &mut regex_manager)
-                })
+                .check(request, &self.tags_enabled, &mut regex_manager)
+                .or_else(|| self.filters.check(request, &NO_TAGS, &mut regex_manager))
         } else {
             important_filter
         };
 
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
-            None if matched_rule || force_check_exceptions => self.exceptions.check(
-                request,
-                &request_tokens,
-                &self.tags_enabled,
-                &mut regex_manager,
-            ),
+            None if matched_rule || force_check_exceptions => {
+                self.exceptions
+                    .check(request, &self.tags_enabled, &mut regex_manager)
+            }
             None => None,
             // If matched an important filter, exceptions don't atter
             Some(f) if f.is_important() => None,
-            Some(_) => self.exceptions.check(
-                request,
-                &request_tokens,
-                &self.tags_enabled,
-                &mut regex_manager,
-            ),
+            Some(_) => self
+                .exceptions
+                .check(request, &self.tags_enabled, &mut regex_manager),
         };
 
-        let redirect_filters = self.redirects.check_all(
-            request,
-            &request_tokens,
-            &NO_TAGS,
-            regex_manager.deref_mut(),
-        );
+        let redirect_filters =
+            self.redirects
+                .check_all(request, &NO_TAGS, regex_manager.deref_mut());
 
         // Extract the highest priority redirect directive.
         // 1. Exceptions - can bail immediately if found
@@ -328,12 +272,7 @@ impl Blocker {
         let rewritten_url = if important {
             None
         } else {
-            Self::apply_removeparam(
-                &self.removeparam,
-                request,
-                &request_tokens,
-                regex_manager.deref_mut(),
-            )
+            Self::apply_removeparam(&self.removeparam, request, regex_manager.deref_mut())
         };
 
         // If something has already matched before but we don't know what, still return a match
@@ -349,9 +288,8 @@ impl Blocker {
     }
 
     fn apply_removeparam(
-        removeparam_filters: &NetworkFilterList,
+        removeparam_filters: &NetworkFilterListType,
         request: &Request,
-        request_tokens: &[Hash],
         regex_manager: &mut RegexManager,
     ) -> Option<String> {
         /// Represents an `&`-separated argument from a URL query parameter string
@@ -395,8 +333,7 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters =
-                removeparam_filters.check_all(request, request_tokens, &NO_TAGS, regex_manager);
+            let filters = removeparam_filters.check_all(request, &NO_TAGS, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
@@ -448,37 +385,23 @@ impl Blocker {
             return None;
         }
 
-        let mut request_tokens;
         let mut regex_manager = self.borrow_regex_manager();
 
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        request.get_tokens(&mut request_tokens);
-
-        let filters = self.csp.check_all(
-            request,
-            &request_tokens,
-            &self.tags_enabled,
-            &mut regex_manager,
-        );
+        let filters = self
+            .csp
+            .check_all(request, &self.tags_enabled, &mut regex_manager);
 
         if filters.is_empty() {
             return None;
         }
 
-        let mut disabled_directives: HashSet<&str> = HashSet::new();
-        let mut enabled_directives: HashSet<&str> = HashSet::new();
+        let mut disabled_directives: HashSet<String> = HashSet::new();
+        let mut enabled_directives: HashSet<String> = HashSet::new();
 
         for filter in filters {
             if filter.is_exception() {
                 if filter.is_csp() {
-                    if let Some(csp_directive) = &filter.modifier_option {
+                    if let Some(csp_directive) = filter.modifier_option {
                         disabled_directives.insert(csp_directive);
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
@@ -487,7 +410,7 @@ impl Blocker {
                     }
                 }
             } else if filter.is_csp() {
-                if let Some(csp_directive) = &filter.modifier_option {
+                if let Some(csp_directive) = filter.modifier_option {
                     enabled_directives.insert(csp_directive);
                 }
             }
@@ -496,7 +419,7 @@ impl Blocker {
         let mut remaining_directives = enabled_directives.difference(&disabled_directives);
 
         let mut merged = if let Some(directive) = remaining_directives.next() {
-            String::from(*directive)
+            directive.to_string()
         } else {
             return None;
         };
@@ -509,7 +432,7 @@ impl Blocker {
         Some(merged)
     }
 
-    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Blocker {
+    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Self {
         // Capacity of filter subsets estimated based on counts in EasyList and EasyPrivacy - if necessary
         // the Vectors will grow beyond the pre-set capacity, but it is more efficient to allocate all at once
         // $csp=
@@ -581,25 +504,23 @@ impl Blocker {
 
         tagged_filters_all.shrink_to_fit();
 
-        Blocker {
-            csp: NetworkFilterList::new(csp, options.enable_optimizations),
-            exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
-            importants: NetworkFilterList::new(importants, options.enable_optimizations),
-            redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
+        Self {
+            csp: NetworkFilterListType::new(csp, options.enable_optimizations),
+            exceptions: NetworkFilterListType::new(exceptions, options.enable_optimizations),
+            importants: NetworkFilterListType::new(importants, options.enable_optimizations),
+            redirects: NetworkFilterListType::new(redirects, options.enable_optimizations),
             // Don't optimize removeparam, since it can fuse filters without respecting distinct
             // queryparam values
-            removeparam: NetworkFilterList::new(removeparam, false),
-            filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
-            filters: NetworkFilterList::new(filters, options.enable_optimizations),
-            generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
+            removeparam: NetworkFilterListType::new(removeparam, false),
+            filters_tagged: NetworkFilterListType::new(Vec::new(), options.enable_optimizations),
+            filters: NetworkFilterListType::new(filters, options.enable_optimizations),
+            generic_hide: NetworkFilterListType::new(generic_hide, options.enable_optimizations),
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
             // Options
             enable_optimizations: options.enable_optimizations,
 
-            #[cfg(feature = "object-pooling")]
-            pool: TokenPool::default(),
             regex_manager: Default::default(),
         }
     }
@@ -716,7 +637,7 @@ impl Blocker {
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
             .cloned()
             .collect();
-        self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
+        self.filters_tagged = NetworkFilterListType::new(filters, self.enable_optimizations);
     }
 
     pub fn tags_enabled(&self) -> Vec<String> {
@@ -739,302 +660,6 @@ impl Blocker {
         let regex_manager = self.borrow_regex_manager();
         regex_manager.get_debug_info()
     }
-}
-
-#[derive(Serialize, Deserialize, Default)]
-pub(crate) struct NetworkFilterList {
-    #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
-    pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
-}
-
-impl NetworkFilterList {
-    pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
-        // Compute tokens for all filters
-        let filter_tokens: Vec<_> = filters
-            .into_iter()
-            .map(|filter| {
-                let tokens = filter.get_tokens();
-                (Arc::new(filter), tokens)
-            })
-            .collect();
-        // compute the tokens' frequency histogram
-        let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
-
-        // Build a HashMap of tokens to Network Filters (held through Arc, Atomic Reference Counter)
-        let mut filter_map = HashMap::with_capacity(filter_tokens.len());
-        {
-            for (filter_pointer, multi_tokens) in filter_tokens {
-                for tokens in multi_tokens {
-                    let mut best_token: Hash = 0;
-                    let mut min_count = total_number_of_tokens + 1;
-                    for token in tokens {
-                        match tokens_histogram.get(&token) {
-                            None => {
-                                min_count = 0;
-                                best_token = token
-                            }
-                            Some(&count) if count < min_count => {
-                                min_count = count;
-                                best_token = token
-                            }
-                            _ => {}
-                        }
-                    }
-                    insert_dup(&mut filter_map, best_token, Arc::clone(&filter_pointer));
-                }
-            }
-        }
-
-        let mut self_ = NetworkFilterList { filter_map };
-
-        if optimize {
-            self_.optimize();
-        } else {
-            self_.filter_map.shrink_to_fit();
-        }
-
-        self_
-    }
-
-    pub fn optimize(&mut self) {
-        let mut optimized_map = HashMap::with_capacity(self.filter_map.len());
-        for (key, filters) in self.filter_map.drain() {
-            let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
-            let mut unoptimizable: Vec<Arc<NetworkFilter>> = Vec::with_capacity(filters.len());
-            for f in filters {
-                match Arc::try_unwrap(f) {
-                    Ok(f) => unoptimized.push(f),
-                    Err(af) => unoptimizable.push(af),
-                }
-            }
-
-            let mut optimized: Vec<_> = if unoptimized.len() > 1 {
-                optimizer::optimize(unoptimized)
-                    .into_iter()
-                    .map(Arc::new)
-                    .collect()
-            } else {
-                // nothing to optimize
-                unoptimized.into_iter().map(Arc::new).collect()
-            };
-
-            optimized.append(&mut unoptimizable);
-            optimized.shrink_to_fit();
-            optimized_map.insert(key, optimized);
-        }
-
-        // won't mutate anymore, shrink to fit items
-        optimized_map.shrink_to_fit();
-
-        self.filter_map = optimized_map;
-    }
-
-    pub fn add_filter(&mut self, filter: NetworkFilter) {
-        let filter_tokens = filter.get_tokens();
-        let total_rules = vec_hashmap_len(&self.filter_map);
-        let filter_pointer = Arc::new(filter);
-
-        for tokens in filter_tokens {
-            let mut best_token: Hash = 0;
-            let mut min_count = total_rules + 1;
-            for token in tokens {
-                match self.filter_map.get(&token) {
-                    None => {
-                        min_count = 0;
-                        best_token = token
-                    }
-                    Some(filters) if filters.len() < min_count => {
-                        min_count = filters.len();
-                        best_token = token
-                    }
-                    _ => {}
-                }
-            }
-
-            insert_dup(
-                &mut self.filter_map,
-                best_token,
-                Arc::clone(&filter_pointer),
-            );
-        }
-    }
-
-    /// This may not work if the list has been optimized.
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
-        let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
-
-        if tokens.is_empty() {
-            tokens.push(0)
-        }
-
-        for token in tokens {
-            if let Some(filters) = self.filter_map.get(&token) {
-                for saved_filter in filters {
-                    if saved_filter.id == filter.id {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
-    }
-
-    /// Returns the first found filter, if any, that matches the given request. The backing storage
-    /// has a non-deterministic order, so this should be used for any category of filters where a
-    /// match from each would be functionally equivalent. For example, if two different exception
-    /// filters match a certain request, it doesn't matter _which_ one is matched - the request
-    /// will be excepted either way.
-    pub fn check(
-        &self,
-        request: &Request,
-        request_tokens: &[Hash],
-        active_tags: &HashSet<String>,
-        regex_manager: &mut RegexManager,
-    ) -> Option<&NetworkFilter> {
-        if self.filter_map.is_empty() {
-            return None;
-        }
-
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            return Some(filter);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in request_tokens {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter in filter_bucket {
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter
-                            .tag
-                            .as_ref()
-                            .map(|t| active_tags.contains(t))
-                            .unwrap_or(true)
-                    {
-                        return Some(filter);
-                    }
-                }
-            }
-        }
-
-        None
-    }
-
-    /// Returns _all_ filters that match the given request. This should be used for any category of
-    /// filters where a match from each may carry unique information. For example, if two different
-    /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
-    /// each directive should be combined for the final result.
-    pub fn check_all(
-        &self,
-        request: &Request,
-        request_tokens: &[Hash],
-        active_tags: &HashSet<String>,
-        regex_manager: &mut RegexManager,
-    ) -> Vec<&NetworkFilter> {
-        let mut filters: Vec<&NetworkFilter> = vec![];
-
-        if self.filter_map.is_empty() {
-            return filters;
-        }
-
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            filters.push(filter);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in request_tokens {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter in filter_bucket {
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter
-                            .tag
-                            .as_ref()
-                            .map(|t| active_tags.contains(t))
-                            .unwrap_or(true)
-                    {
-                        filters.push(filter);
-                    }
-                }
-            }
-        }
-
-        filters
-    }
-}
-
-/// Inserts a value into the `Vec` under the specified key in the `HashMap`. The entry will be
-/// created if it does not exist. If it already exists, it will be inserted in the `Vec` in a
-/// sorted order.
-fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
-where
-    K: std::cmp::Ord + std::hash::Hash,
-    V: PartialOrd,
-{
-    let entry = map.entry(k).or_insert_with(Vec::new);
-
-    match entry.binary_search_by(|f| f.partial_cmp(&v).unwrap_or(std::cmp::Ordering::Equal)) {
-        Ok(_pos) => (), // Can occur if the exact same rule is inserted twice. No reason to add anything.
-        Err(slot) => entry.insert(slot, v),
-    }
-}
-
-fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(
-    map: &HashMap<K, Vec<V>, H>,
-) -> usize {
-    let mut size = 0usize;
-    for (_, val) in map.iter() {
-        size += val.len();
-    }
-    size
-}
-
-fn token_histogram<T>(filter_tokens: &[(T, Vec<Vec<Hash>>)]) -> (u32, HashMap<Hash, u32>) {
-    let mut tokens_histogram: HashMap<Hash, u32> = HashMap::new();
-    let mut number_of_tokens = 0;
-    for (_, tokens) in filter_tokens.iter() {
-        for tg in tokens {
-            for t in tg {
-                *tokens_histogram.entry(*t).or_insert(0) += 1;
-                number_of_tokens += 1;
-            }
-        }
-    }
-
-    for bad_token in ["http", "https", "www", "com"].iter() {
-        tokens_histogram.insert(fast_hash(bad_token), number_of_tokens);
-    }
-
-    (number_of_tokens, tokens_histogram)
 }
 
 #[cfg(test)]

@@ -1,0 +1,27 @@
+// flatc --rust --gen-object-api -o src/flat/ src/flat/network_filter.fbs
+
+namespace fb;
+
+table NetworkFilter {
+  mask: uint32;  // NetworkFilterMask (network.rs)
+
+  // These arrays contain sorted(asc) indecies in the |unique_domains_hashes|
+  // instead of hashes itself. It saves a lot of memory because there
+  // aren't many unique hashes.
+  opt_domains: [uint16];
+  opt_not_domains: [uint16];
+
+  patterns: [string];
+  modifier_option: string;
+  hostname: string;
+
+  tag: string;
+  raw_line: string;
+}
+
+table NetworkFilterList {
+  network_filters: [NetworkFilter] (required);
+  unique_domains_hashes: [uint64] (required);
+}
+
+root_type NetworkFilterList;

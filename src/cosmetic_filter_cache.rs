@@ -8,6 +8,8 @@
 //! cosmetic filters and allows them to be queried efficiently at runtime for any which may be
 //! relevant to a particular page.
 
+#![allow(dead_code)]
+
 use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
