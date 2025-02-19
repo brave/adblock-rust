@@ -1,6 +1,9 @@
-// ---------------------------------------------------------------------------
-// Filter matching
-// ---------------------------------------------------------------------------
+//! This file contains the implementation of network filter matching logic for a filtering system.
+//! It provides functions to check if a given network request matches specific filter patterns based
+//! on various criteria, including hostname anchoring, pattern matching, and regular expressions.
+//! The file also handles domain-specific options and ensures that requests are filtered according
+//! to their type, protocol, and party (first-party or third-party). The code is designed to
+//! efficiently determine if a request should be blocked or allowed based on the defined filters.
 
 use memchr::memmem;
 
