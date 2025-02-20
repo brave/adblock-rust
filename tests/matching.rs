@@ -1,5 +1,4 @@
-use adblock::filters::network::NetworkFilter;
-use adblock::filters::network::NetworkMatchable;
+use adblock::filters::network::{NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable};
 use adblock::regex_manager::RegexManager;
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
