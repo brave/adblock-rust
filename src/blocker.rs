@@ -8,15 +8,11 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 use thiserror::Error;
 
-#[cfg(feature = "object-pooling")]
-use lifeguard::Pool;
-
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable};
 use crate::optimizer;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
-use crate::utils;
 use crate::utils::{fast_hash, Hash};
 
 /// Options used when constructing a [`Blocker`].
@@ -88,25 +84,6 @@ pub enum BlockerError {
     FilterExists,
 }
 
-#[cfg(feature = "object-pooling")]
-pub(crate) struct TokenPool {
-    pub pool: Pool<Vec<utils::Hash>>,
-}
-
-#[cfg(feature = "object-pooling")]
-impl Default for TokenPool {
-    fn default() -> TokenPool {
-        TokenPool {
-            pool: lifeguard::pool()
-                .with(lifeguard::StartingSize(1))
-                .with(lifeguard::Supplier(|| {
-                    Vec::with_capacity(utils::TOKENS_BUFFER_SIZE)
-                }))
-                .build(),
-        }
-    }
-}
-
 // only check for tags in tagged and exception rule buckets,
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
@@ -128,10 +105,6 @@ pub struct Blocker {
     pub(crate) tagged_filters_all: Vec<NetworkFilter>,
 
     pub(crate) enable_optimizations: bool,
-
-    // Not serialized
-    #[cfg(feature = "object-pooling")]
-    pub(crate) pool: TokenPool,
 
     // Not serialized
     #[cfg(feature = "unsync-regex-caching")]
@@ -167,16 +140,7 @@ impl Blocker {
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
-        let mut request_tokens;
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        hostname_request.get_tokens(&mut request_tokens);
+        let request_tokens = hostname_request.get_tokens();
 
         self.generic_hide
             .check(
@@ -200,16 +164,7 @@ impl Blocker {
             return BlockerResult::default();
         }
 
-        let mut request_tokens;
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        request.get_tokens(&mut request_tokens);
+        let request_tokens = request.get_tokens();
 
         // Check the filters in the following order:
         // 1. $important (not subject to exceptions)
@@ -448,18 +403,8 @@ impl Blocker {
             return None;
         }
 
-        let mut request_tokens;
         let mut regex_manager = self.borrow_regex_manager();
-
-        #[cfg(feature = "object-pooling")]
-        {
-            request_tokens = self.pool.pool.new();
-        }
-        #[cfg(not(feature = "object-pooling"))]
-        {
-            request_tokens = Vec::with_capacity(utils::TOKENS_BUFFER_SIZE);
-        }
-        request.get_tokens(&mut request_tokens);
+        let request_tokens = request.get_tokens();
 
         let filters = self.csp.check_all(
             request,
@@ -597,9 +542,6 @@ impl Blocker {
             tagged_filters_all,
             // Options
             enable_optimizations: options.enable_optimizations,
-
-            #[cfg(feature = "object-pooling")]
-            pool: TokenPool::default(),
             regex_manager: Default::default(),
         }
     }

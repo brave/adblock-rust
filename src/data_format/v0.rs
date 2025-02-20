@@ -494,9 +494,6 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 tagged_filters_all: v.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
 
                 enable_optimizations: v.enable_optimizations,
-
-                #[cfg(feature = "object-pooling")]
-                pool: Default::default(),
                 regex_manager: Default::default(),
             },
             CosmeticFilterCache {

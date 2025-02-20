@@ -194,8 +194,7 @@ mod tests {
         let mut regex_manager = RegexManager::default();
 
         requests.into_iter().for_each(|(req, expected_result)| {
-            let mut tokens = Vec::new();
-            req.get_tokens(&mut tokens);
+            let tokens = req.get_tokens();
             let matched_rule =
                 filter_list.check(&req, &tokens, &HashSet::new(), &mut regex_manager);
             if *expected_result {
