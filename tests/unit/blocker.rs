@@ -194,9 +194,7 @@ mod tests {
         let mut regex_manager = RegexManager::default();
 
         requests.into_iter().for_each(|(req, expected_result)| {
-            let tokens = req.get_tokens();
-            let matched_rule =
-                filter_list.check(&req, &tokens, &HashSet::new(), &mut regex_manager);
+            let matched_rule = filter_list.check(&req, &HashSet::new(), &mut regex_manager);
             if *expected_result {
                 assert!(matched_rule.is_some(), "Expected match for {}", req.url);
             } else {

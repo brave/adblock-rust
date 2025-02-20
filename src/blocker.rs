@@ -140,15 +140,8 @@ impl Blocker {
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
-        let request_tokens = hostname_request.get_tokens();
-
         self.generic_hide
-            .check(
-                hostname_request,
-                &request_tokens,
-                &HashSet::new(),
-                &mut regex_manager,
-            )
+            .check(hostname_request, &HashSet::new(), &mut regex_manager)
             .is_some()
     }
 
@@ -164,8 +157,6 @@ impl Blocker {
             return BlockerResult::default();
         }
 
-        let request_tokens = request.get_tokens();
-
         // Check the filters in the following order:
         // 1. $important (not subject to exceptions)
         // 2. redirection ($redirect=resource)
@@ -173,52 +164,34 @@ impl Blocker {
         // 4. exceptions - if any non-important match of forced
 
         // Always check important filters
-        let important_filter =
-            self.importants
-                .check(request, &request_tokens, &NO_TAGS, &mut regex_manager);
+        let important_filter = self.importants.check(request, &NO_TAGS, &mut regex_manager);
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
             self.filters_tagged
-                .check(
-                    request,
-                    &request_tokens,
-                    &self.tags_enabled,
-                    &mut regex_manager,
-                )
-                .or_else(|| {
-                    self.filters
-                        .check(request, &request_tokens, &NO_TAGS, &mut regex_manager)
-                })
+                .check(request, &self.tags_enabled, &mut regex_manager)
+                .or_else(|| self.filters.check(request, &NO_TAGS, &mut regex_manager))
         } else {
             important_filter
         };
 
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
-            None if matched_rule || force_check_exceptions => self.exceptions.check(
-                request,
-                &request_tokens,
-                &self.tags_enabled,
-                &mut regex_manager,
-            ),
+            None if matched_rule || force_check_exceptions => {
+                self.exceptions
+                    .check(request, &self.tags_enabled, &mut regex_manager)
+            }
             None => None,
             // If matched an important filter, exceptions don't atter
             Some(f) if f.is_important() => None,
-            Some(_) => self.exceptions.check(
-                request,
-                &request_tokens,
-                &self.tags_enabled,
-                &mut regex_manager,
-            ),
+            Some(_) => self
+                .exceptions
+                .check(request, &self.tags_enabled, &mut regex_manager),
         };
 
-        let redirect_filters = self.redirects.check_all(
-            request,
-            &request_tokens,
-            &NO_TAGS,
-            regex_manager.deref_mut(),
-        );
+        let redirect_filters =
+            self.redirects
+                .check_all(request, &NO_TAGS, regex_manager.deref_mut());
 
         // Extract the highest priority redirect directive.
         // 1. Exceptions - can bail immediately if found
@@ -283,12 +256,7 @@ impl Blocker {
         let rewritten_url = if important {
             None
         } else {
-            Self::apply_removeparam(
-                &self.removeparam,
-                request,
-                &request_tokens,
-                regex_manager.deref_mut(),
-            )
+            Self::apply_removeparam(&self.removeparam, request, regex_manager.deref_mut())
         };
 
         // If something has already matched before but we don't know what, still return a match
@@ -306,7 +274,6 @@ impl Blocker {
     fn apply_removeparam(
         removeparam_filters: &NetworkFilterList,
         request: &Request,
-        request_tokens: &[Hash],
         regex_manager: &mut RegexManager,
     ) -> Option<String> {
         /// Represents an `&`-separated argument from a URL query parameter string
@@ -350,8 +317,7 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters =
-                removeparam_filters.check_all(request, request_tokens, &NO_TAGS, regex_manager);
+            let filters = removeparam_filters.check_all(request, &NO_TAGS, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
@@ -404,14 +370,9 @@ impl Blocker {
         }
 
         let mut regex_manager = self.borrow_regex_manager();
-        let request_tokens = request.get_tokens();
-
-        let filters = self.csp.check_all(
-            request,
-            &request_tokens,
-            &self.tags_enabled,
-            &mut regex_manager,
-        );
+        let filters = self
+            .csp
+            .check_all(request, &self.tags_enabled, &mut regex_manager);
 
         if filters.is_empty() {
             return None;
@@ -830,7 +791,6 @@ impl NetworkFilterList {
     pub fn check(
         &self,
         request: &Request,
-        request_tokens: &[Hash],
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<&NetworkFilter> {
@@ -838,26 +798,7 @@ impl NetworkFilterList {
             return None;
         }
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            return Some(filter);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in request_tokens {
+        for token in request.get_tokens_for_match() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -884,7 +825,6 @@ impl NetworkFilterList {
     pub fn check_all(
         &self,
         request: &Request,
-        request_tokens: &[Hash],
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Vec<&NetworkFilter> {
@@ -894,26 +834,7 @@ impl NetworkFilterList {
             return filters;
         }
 
-        if let Some(source_hostname_hashes) = request.source_hostname_hashes.as_ref() {
-            for token in source_hostname_hashes {
-                if let Some(filter_bucket) = self.filter_map.get(token) {
-                    for filter in filter_bucket {
-                        // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                        if filter.matches(request, regex_manager)
-                            && filter
-                                .tag
-                                .as_ref()
-                                .map(|t| active_tags.contains(t))
-                                .unwrap_or(true)
-                        {
-                            filters.push(filter);
-                        }
-                    }
-                }
-            }
-        }
-
-        for token in request_tokens {
+        for token in request.get_tokens_for_match() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter in filter_bucket {
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -929,7 +850,6 @@ impl NetworkFilterList {
                 }
             }
         }
-
         filters
     }
 }

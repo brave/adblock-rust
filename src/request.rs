@@ -104,6 +104,19 @@ impl Request {
         }
     }
 
+    pub fn get_tokens_for_match(
+        &self,
+    ) -> std::iter::Chain<
+        core::iter::Flatten<std::option::IntoIter<&Vec<utils::Hash>>>,
+        std::slice::Iter<'_, utils::Hash>,
+    > {
+        self.source_hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .chain(self.get_tokens().into_iter())
+    }
+
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {
         &self.request_tokens
     }
