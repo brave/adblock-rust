@@ -1,7 +1,5 @@
 //! Contains structures needed to describe network requests.
 
-use std::borrow::Cow;
-
 use thiserror::Error;
 
 use crate::url_parser;
@@ -87,29 +85,24 @@ pub struct Request {
     pub is_supported: bool,
     pub is_third_party: bool,
     pub url: String,
-    pub url_lower_cased: String,
     pub hostname: String,
-    pub request_tokens: Vec<utils::Hash>,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
+    pub(crate) url_lower_cased: String,
+    pub(crate) request_tokens: Vec<utils::Hash>,
     pub(crate) original_url: String,
 }
 
 impl Request {
-    pub(crate) fn get_url(&self, case_sensitive: bool) -> std::borrow::Cow<str> {
+    pub(crate) fn get_url(&self, case_sensitive: bool) -> &str {
         if case_sensitive {
-            Cow::Borrowed(&self.url)
+            &self.url
         } else {
-            Cow::Borrowed(&self.url_lower_cased)
+            &self.url_lower_cased
         }
     }
 
-    pub fn get_tokens_for_match(
-        &self,
-    ) -> std::iter::Chain<
-        core::iter::Flatten<std::option::IntoIter<&Vec<utils::Hash>>>,
-        std::slice::Iter<'_, utils::Hash>,
-    > {
+    pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
         self.source_hostname_hashes
             .as_ref()
             .into_iter()

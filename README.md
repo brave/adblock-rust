@@ -54,5 +54,5 @@ The `resource-assembler` feature allows `adblock-rust` to parse these resources 
 
 #### Thread safety (`unsync-regex-caching`)
 
-The `unsync-regex-caching` feature enable optimizations for rule matching speed and the amount of memory used by the engine.
-These features can be disabled to make the engine `Send + Sync`, although it is recommended to only access the engine on a single thread to maintain optimal performance.
+The `unsync-regex-caching` feature enables optimizations for rule matching speed and the amount of memory used by the engine.
+This feature can be disabled to make the engine `Send + Sync`, although it is recommended to only access the engine on a single thread to maintain optimal performance.
