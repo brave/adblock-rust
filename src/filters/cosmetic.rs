@@ -822,8 +822,7 @@ mod css_validation {
     /// Default implementations for `AtRuleParser` parsing methods return false. This is
     /// acceptable; at-rules should not be valid in cosmetic rules.
     impl cssparser::AtRuleParser<'_> for QualifiedRuleParserImpl {
-        type PreludeNoBlock = ();
-        type PreludeBlock = ();
+        type Prelude = ();
         /// unused; just to satisfy type checking
         type AtRule = selectors::SelectorList<SelectorImpl>;
         type Error = ();
