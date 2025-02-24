@@ -36,7 +36,6 @@ seahash = "3"   # seahash 4 introduces a breaking hash algorithm change
 memchr = "2.4"
 base64 = "0.13"
 rmp-serde = "0.15"
-lifeguard = { version = "^ 0.6.1", optional = true }
 cssparser = { version = "0.29", optional = true }
 selectors = { version = "0.24", optional = true }
 serde_json = "1.0"
@@ -89,9 +88,8 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "object-pooling", "unsync-regex-caching"]
+default = ["embedded-domain-resolver", "full-regex-handling", "unsync-regex-caching"]
 full-regex-handling = []
-object-pooling = ["lifeguard"] # disables `Send` and `Sync` on `Engine`.
 unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.
 regex-debug-info = []
 css-validation = ["cssparser", "selectors"]

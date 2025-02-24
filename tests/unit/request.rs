@@ -140,8 +140,7 @@ mod tests {
                 .as_slice(),
             tokenize(&["subdomain.example.com", "example.com", "com",], &[]).as_slice()
         );
-        let mut tokens = Vec::new();
-        simple_example.get_tokens(&mut tokens);
+        let tokens = simple_example.get_tokens();
         assert_eq!(
             tokens.as_slice(),
             tokenize(&["https", "subdomain", "example", "com", "ad"], &[0]).as_slice()

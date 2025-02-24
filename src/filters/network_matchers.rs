@@ -134,7 +134,7 @@ where
         return true;
     }
     let request_url = request.get_url(mask.match_case());
-    filters.any(|f| &request_url == f)
+    filters.any(|f| request_url == f)
 }
 
 // pattern*^

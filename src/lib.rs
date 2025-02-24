@@ -49,7 +49,7 @@ mod sync_tests {
     }
 
     #[test]
-    #[cfg(not(any(feature = "object-pooling", feature = "unsync-regex-caching")))]
+    #[cfg(not(feature = "unsync-regex-caching"))]
     fn assert_engine_sync() {
         static_assert_sync::<crate::engine::Engine>();
     }

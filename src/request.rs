@@ -1,7 +1,5 @@
 //! Contains structures needed to describe network requests.
 
-use std::borrow::Cow;
-
 use thiserror::Error;
 
 use crate::url_parser;
@@ -90,23 +88,32 @@ pub struct Request {
     pub hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
+    pub(crate) url_lower_cased: String,
+    pub(crate) request_tokens: Vec<utils::Hash>,
     pub(crate) original_url: String,
 }
 
 impl Request {
-    pub(crate) fn get_url(&self, case_sensitive: bool) -> std::borrow::Cow<str> {
+    pub(crate) fn get_url(&self, case_sensitive: bool) -> &str {
         if case_sensitive {
-            Cow::Borrowed(&self.url)
+            &self.url
         } else {
-            Cow::Owned(self.url.to_ascii_lowercase())
+            &self.url_lower_cased
         }
     }
 
-    pub fn get_tokens(&self, token_buffer: &mut Vec<utils::Hash>) {
-        token_buffer.clear();
-        utils::tokenize_pooled(&self.url.to_ascii_lowercase(), token_buffer);
-        // Add zero token as a fallback to wildcard rule bucket
-        token_buffer.push(0);
+    pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
+        // We start matching with source_hostname_hashes for optimization,
+        // as it contains far fewer elements.
+        self.source_hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .chain(self.get_tokens().into_iter())
+    }
+
+    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
+        &self.request_tokens
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -156,10 +163,14 @@ impl Request {
             None
         };
 
+        let url_lower_cased = url.to_ascii_lowercase();
+
         Request {
             request_type,
             url: url.to_owned(),
+            url_lower_cased: url_lower_cased.to_owned(),
             hostname: hostname.to_owned(),
+            request_tokens: calculate_tokens(&url_lower_cased),
             source_hostname_hashes,
             is_third_party: third_party,
             is_http,
@@ -225,6 +236,14 @@ impl Request {
             url.to_string(),
         )
     }
+}
+
+fn calculate_tokens(url_lower_cased: &str) -> Vec<utils::Hash> {
+    let mut tokens = vec![];
+    utils::tokenize_pooled(url_lower_cased, &mut tokens);
+    // Add zero token as a fallback to wildcard rule bucket
+    tokens.push(0);
+    tokens
 }
 
 #[cfg(test)]
