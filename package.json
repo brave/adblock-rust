@@ -1,6 +1,6 @@
 {
   "name": "adblock-rs",
-  "version": "0.9.5",
+  "version": "0.9.5-brave-core",
   "description": "Very fast, Rust-based, native implementation of ad-blocker engine for Node",
   "keywords": [
     "adblock",
