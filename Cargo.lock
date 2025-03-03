@@ -12,6 +12,7 @@ dependencies = [
  "criterion",
  "cssparser",
  "csv",
+ "flatbuffers",
  "futures",
  "idna",
  "itertools 0.13.0",
@@ -430,6 +431,16 @@ name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
+
+[[package]]
+name = "flatbuffers"
+version = "25.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1045398c1bfd89168b5fd3f1fc11f6e70b34f6f66300c87d44d3de849463abf1"
+dependencies = [
+ "bitflags 2.9.0",
+ "rustc_version",
+]
 
 [[package]]
 name = "fnv"
