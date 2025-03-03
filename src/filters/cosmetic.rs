@@ -103,7 +103,8 @@ impl CosmeticFilterAction {
 
 bitflags::bitflags! {
     /// Boolean flags for cosmetic filter rules.
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Clone, Debug)]
+    #[serde(transparent)]
     pub struct CosmeticFilterMask: u8 {
         const UNHIDE = 1 << 0;
         const SCRIPT_INJECT = 1 << 1;
