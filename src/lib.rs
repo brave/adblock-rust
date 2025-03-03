@@ -24,6 +24,7 @@ mod data_format;
 mod engine;
 pub mod filters;
 pub mod lists;
+pub mod network_filter_list;
 mod optimizer;
 pub mod regex_manager;
 pub mod request;
