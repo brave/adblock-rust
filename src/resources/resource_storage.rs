@@ -405,7 +405,7 @@ fn patch_template_scriptlet(
         .enumerate()
         .for_each(|(i, arg)| {
             template = TEMPLATE_ARGUMENT_RE[i]
-                .replace(&template, arg.as_ref().replace('$', "$$"))
+                .replace_all(&template, arg.as_ref().replace('$', "$$"))
                 .to_string();
         });
     template
