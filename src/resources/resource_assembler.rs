@@ -2,6 +2,7 @@
 //! files in the uBlock Origin repository.
 
 use crate::resources::{MimeType, Resource, ResourceType};
+use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use memchr::memmem;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -193,7 +194,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
                 .map(|aliases| aliases.iter().map(|alias| alias.to_string()).collect())
                 .unwrap_or_default(),
             kind,
-            content: base64::encode(&script),
+            content: BASE64_STANDARD.encode(&script),
             dependencies: vec![],
             permission: Default::default(),
         });
@@ -222,9 +223,9 @@ fn build_resource_from_file_contents(
     let content = match mimetype {
         MimeType::ApplicationJavascript | MimeType::TextHtml | MimeType::TextPlain => {
             let utf8string = std::str::from_utf8(resource_contents).unwrap();
-            base64::encode(&utf8string.replace('\r', ""))
+            BASE64_STANDARD.encode(&utf8string.replace('\r', ""))
         }
-        _ => base64::encode(&resource_contents),
+        _ => BASE64_STANDARD.encode(&resource_contents),
     };
 
     Resource {
@@ -397,7 +398,9 @@ mod tests {
         .replace('\r', "");
         assert_eq!(
             std::str::from_utf8(
-                &base64::decode(&reserialized[34].content).expect("decode base64 content")
+                &BASE64_STANDARD
+                    .decode(&reserialized[34].content)
+                    .expect("decode base64 content")
             )
             .expect("convert to utf8 string"),
             noopjs_contents,
@@ -489,7 +492,7 @@ mod tests {
         );
         assert_eq!(
             std::str::from_utf8(
-                &base64::decode(&reserialized[20].content).expect("decode base64 content")
+                &BASE64_STANDARD.decode(&reserialized[20].content).expect("decode base64 content")
             ).expect("convert to utf8 string"),
             "(function() {\nif ( window !== window.top ) {\nreturn;\n}\nvar tstart;\nvar ttl = 30000;\nvar delay = 0;\nvar delayStep = 50;\nvar buster = function() {\nvar docEl = document.documentElement,\nbodyEl = document.body,\nvw = Math.min(docEl.clientWidth, window.innerWidth),\nvh = Math.min(docEl.clientHeight, window.innerHeight),\ntol = Math.min(vw, vh) * 0.05,\nel = document.elementFromPoint(vw/2, vh/2),\nstyle, rect;\nfor (;;) {\nif ( el === null || el.parentNode === null || el === bodyEl ) {\nbreak;\n}\nstyle = window.getComputedStyle(el);\nif ( parseInt(style.zIndex, 10) >= 1000 || style.position === 'fixed' ) {\nrect = el.getBoundingClientRect();\nif ( rect.left <= tol && rect.top <= tol && (vw - rect.right) <= tol && (vh - rect.bottom) < tol ) {\nel.parentNode.removeChild(el);\ntstart = Date.now();\nel = document.elementFromPoint(vw/2, vh/2);\nbodyEl.style.setProperty('overflow', 'auto', 'important');\ndocEl.style.setProperty('overflow', 'auto', 'important');\ncontinue;\n}\n}\nel = el.parentNode;\n}\nif ( (Date.now() - tstart) < ttl ) {\ndelay = Math.min(delay + delayStep, 1000);\nsetTimeout(buster, delay);\n}\n};\nvar domReady = function(ev) {\nif ( ev ) {\ndocument.removeEventListener(ev.type, domReady);\n}\ntstart = Date.now();\nsetTimeout(buster, delay);\n};\nif ( document.readyState === 'loading' ) {\ndocument.addEventListener('DOMContentLoaded', domReady);\n} else {\ndomReady();\n}\n})();\n",
         );
@@ -499,7 +502,7 @@ mod tests {
         assert_eq!(reserialized[6].kind, ResourceType::Template);
         assert_eq!(
             std::str::from_utf8(
-                &base64::decode(&reserialized[6].content).expect("decode base64 content")
+                &BASE64_STANDARD.decode(&reserialized[6].content).expect("decode base64 content")
             ).expect("convert to utf8 string"),
             "(function() {\nconst rawPrunePaths = '{{1}}';\nconst rawNeedlePaths = '{{2}}';\nconst prunePaths = rawPrunePaths !== '{{1}}' && rawPrunePaths !== ''\n? rawPrunePaths.split(/ +/)\n: [];\nlet needlePaths;\nlet log, reLogNeedle;\nif ( prunePaths.length !== 0 ) {\nneedlePaths = prunePaths.length !== 0 &&\nrawNeedlePaths !== '{{2}}' && rawNeedlePaths !== ''\n? rawNeedlePaths.split(/ +/)\n: [];\n} else {\nlog = console.log.bind(console);\nlet needle;\nif ( rawNeedlePaths === '' || rawNeedlePaths === '{{2}}' ) {\nneedle = '.?';\n} else if ( rawNeedlePaths.charAt(0) === '/' && rawNeedlePaths.slice(-1) === '/' ) {\nneedle = rawNeedlePaths.slice(1, -1);\n} else {\nneedle = rawNeedlePaths.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\nreLogNeedle = new RegExp(needle);\n}\nconst findOwner = function(root, path, prune = false) {\nlet owner = root;\nlet chain = path;\nfor (;;) {\nif ( typeof owner !== 'object' || owner === null  ) {\nreturn false;\n}\nconst pos = chain.indexOf('.');\nif ( pos === -1 ) {\nif ( prune === false ) {\nreturn owner.hasOwnProperty(chain);\n}\nif ( chain === '*' ) {\nfor ( const key in owner ) {\nif ( owner.hasOwnProperty(key) === false ) { continue; }\ndelete owner[key];\n}\n} else if ( owner.hasOwnProperty(chain) ) {\ndelete owner[chain];\n}\nreturn true;\n}\nconst prop = chain.slice(0, pos);\nif (\nprop === '[]' && Array.isArray(owner) ||\nprop === '*' && owner instanceof Object\n) {\nconst next = chain.slice(pos + 1);\nlet found = false;\nfor ( const key of Object.keys(owner) ) {\nfound = findOwner(owner[key], next, prune) || found;\n}\nreturn found;\n}\nif ( owner.hasOwnProperty(prop) === false ) { return false; }\nowner = owner[prop];\nchain = chain.slice(pos + 1);\n}\n};\nconst mustProcess = function(root) {\nfor ( const needlePath of needlePaths ) {\nif ( findOwner(root, needlePath) === false ) {\nreturn false;\n}\n}\nreturn true;\n};\nconst pruner = function(o) {\nif ( log !== undefined ) {\nconst json = JSON.stringify(o, null, 2);\nif ( reLogNeedle.test(json) ) {\nlog('uBO:', location.hostname, json);\n}\nreturn o;\n}\nif ( mustProcess(o) === false ) { return o; }\nfor ( const path of prunePaths ) {\nfindOwner(o, path, true);\n}\nreturn o;\n};\nJSON.parse = new Proxy(JSON.parse, {\napply: function() {\nreturn pruner(Reflect.apply(...arguments));\n},\n});\nResponse.prototype.json = new Proxy(Response.prototype.json, {\napply: function() {\nreturn Reflect.apply(...arguments).then(o => pruner(o));\n},\n});\n})();\n",
         );
@@ -581,7 +584,7 @@ mod tests {
         );
         assert_eq!(
             std::str::from_utf8(
-                &base64::decode(&reserialized[18].content).expect("decode base64 content")
+                &BASE64_STANDARD.decode(&reserialized[18].content).expect("decode base64 content")
             ).expect("convert to utf8 string"),
             "(function() {\nif ( window !== window.top ) {\nreturn;\n}\nvar tstart;\nvar ttl = 30000;\nvar delay = 0;\nvar delayStep = 50;\nvar buster = function() {\nvar docEl = document.documentElement,\nbodyEl = document.body,\nvw = Math.min(docEl.clientWidth, window.innerWidth),\nvh = Math.min(docEl.clientHeight, window.innerHeight),\ntol = Math.min(vw, vh) * 0.05,\nel = document.elementFromPoint(vw/2, vh/2),\nstyle, rect;\nfor (;;) {\nif ( el === null || el.parentNode === null || el === bodyEl ) {\nbreak;\n}\nstyle = window.getComputedStyle(el);\nif ( parseInt(style.zIndex, 10) >= 1000 || style.position === 'fixed' ) {\nrect = el.getBoundingClientRect();\nif ( rect.left <= tol && rect.top <= tol && (vw - rect.right) <= tol && (vh - rect.bottom) < tol ) {\nel.parentNode.removeChild(el);\ntstart = Date.now();\nel = document.elementFromPoint(vw/2, vh/2);\nbodyEl.style.setProperty('overflow', 'auto', 'important');\ndocEl.style.setProperty('overflow', 'auto', 'important');\ncontinue;\n}\n}\nel = el.parentNode;\n}\nif ( (Date.now() - tstart) < ttl ) {\ndelay = Math.min(delay + delayStep, 1000);\nsetTimeout(buster, delay);\n}\n};\nvar domReady = function(ev) {\nif ( ev ) {\ndocument.removeEventListener(ev.type, domReady);\n}\ntstart = Date.now();\nsetTimeout(buster, delay);\n};\nif ( document.readyState === 'loading' ) {\ndocument.addEventListener('DOMContentLoaded', domReady);\n} else {\ndomReady();\n}\n})();\n",
         );
