@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740621611445,
+  "lastUpdate": 1741899932978,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -365,6 +365,60 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list",
             "value": 214478745,
             "range": "± 3428695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 41408849,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-after-1000-requests",
+            "value": 44004875,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22821309+antonok-edm@users.noreply.github.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "af0c65a76d3f16c0071e610f423e42cf39a11eef",
+          "message": "Merge pull request #442 from brave/bump-base64\n\nBump base64",
+          "timestamp": "2025-03-13T14:02:06-07:00",
+          "tree_id": "6d0865f4ae814cb980adcd8b2c826b9604616bce",
+          "url": "https://github.com/brave/adblock-rust/commit/af0c65a76d3f16c0071e610f423e42cf39a11eef"
+        },
+        "date": 1741899932044,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1657920369,
+            "range": "± 13523152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 970929,
+            "range": "± 12529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 227719857,
+            "range": "± 8671111",
             "unit": "ns/iter"
           },
           {
