@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "adblock"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "addr",
  "base64",
@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "adblock-rs"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "adblock",
  "neon",
@@ -63,9 +63,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "base64"
-version = "0.13.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bitflags"
