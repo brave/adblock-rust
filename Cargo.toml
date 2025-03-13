@@ -32,7 +32,7 @@ bitflags = { version = "2.9.0", features = ["serde"] }
 itertools = "0.13"
 idna = "1.0.3"
 serde =  { version = "1.0", features = ["derive", "rc"] }
-seahash = "3"   # seahash 4 introduces a breaking hash algorithm change
+seahash = "4.1.0"
 memchr = "2.4"
 base64 = "0.22"
 rmp-serde = "0.15"
