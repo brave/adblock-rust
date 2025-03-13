@@ -1334,6 +1334,7 @@ mod blocker_tests {
     use crate::lists::parse_filters;
     use crate::resources::Resource;
     use crate::request::Request;
+    use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
@@ -1841,7 +1842,7 @@ fn test_removeparam_same_tokens() {
         let mut resources = ResourceStorage::default();
         fn add_simple_resource(resources: &mut ResourceStorage, identifier: &str) -> Option<String> {
             resources.add_resource(Resource::simple(identifier, crate::resources::MimeType::TextPlain, identifier)).unwrap();
-            Some(format!("data:text/plain;base64,{}", base64::encode(identifier)))
+            Some(format!("data:text/plain;base64,{}", BASE64_STANDARD.encode(identifier)))
         }
         let a_redirect = add_simple_resource(&mut resources, "a");
         let b_redirect = add_simple_resource(&mut resources, "b");
