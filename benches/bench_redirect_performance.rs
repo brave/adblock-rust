@@ -126,6 +126,7 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
     #[cfg(not(feature = "resource-assembler"))]
     {
         use adblock::resources::{Resource, ResourceType, MimeType};
+        use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 
         filters
             .iter()
@@ -141,7 +142,7 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
                     name: redirect.to_owned(),
                     aliases: vec![],
                     kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                    content: base64::encode(redirect),
+                    content: BASE64_STANDARD.encode(redirect),
                     dependencies: vec![],
                     permission: Default::default(),
                 }

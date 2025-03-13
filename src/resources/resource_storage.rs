@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
@@ -137,7 +138,7 @@ impl ResourceStorage {
             }
 
             // Ensure the resource contents are valid base64 (and utf8 if applicable)
-            let decoded = base64::decode(&resource.content)?;
+            let decoded = BASE64_STANDARD.decode(&resource.content)?;
             if content_type.is_textual() {
                 let _ = String::from_utf8(decoded)?;
             }
@@ -174,7 +175,7 @@ impl ResourceStorage {
         let mut result = String::new();
 
         for dep in deps.iter() {
-            if let Ok(decoded) = base64::decode(&dep.content) {
+            if let Ok(decoded) = BASE64_STANDARD.decode(&dep.content) {
                 if let Ok(dep) = core::str::from_utf8(&decoded) {
                     result += dep;
                     result += "\n";
@@ -235,7 +236,7 @@ impl ResourceStorage {
             self.recursive_dependencies(dep, required_deps, filter_permission)?;
         };
 
-        let template = String::from_utf8(base64::decode(&resource.content)?)?;
+        let template = String::from_utf8(BASE64_STANDARD.decode(&resource.content)?)?;
 
         if let Some(function_name) = extract_function_name(&template) {
             // newer function-style resource: pass args using function call syntax
@@ -595,7 +596,7 @@ mod redirect_storage_tests {
 
         assert_eq!(
             storage.get_redirect_resource("name.js"),
-            Some(format!("data:application/javascript;base64,{}", base64::encode("resource data"))),
+            Some(format!("data:application/javascript;base64,{}", BASE64_STANDARD.encode("resource data"))),
         );
     }
 
@@ -610,7 +611,7 @@ mod redirect_storage_tests {
 
         assert_eq!(
             storage.get_redirect_resource("alias.js"),
-            Some(format!("data:application/javascript;base64,{}", base64::encode("resource data"))),
+            Some(format!("data:application/javascript;base64,{}", BASE64_STANDARD.encode("resource data"))),
         );
     }
 
@@ -730,7 +731,7 @@ mod scriptlet_storage_tests {
                 name: "greet.js".to_string(),
                 aliases: vec![],
                 kind: ResourceType::Template,
-                content: base64::encode("console.log('Hello {{1}}, my name is {{2}}')"),
+                content: BASE64_STANDARD.encode("console.log('Hello {{1}}, my name is {{2}}')"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -738,7 +739,7 @@ mod scriptlet_storage_tests {
                 name: "alert.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
-                content: base64::encode("alert('{{1}}')"),
+                content: BASE64_STANDARD.encode("alert('{{1}}')"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -746,7 +747,7 @@ mod scriptlet_storage_tests {
                 name: "blocktimer.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
-                content: base64::encode("setTimeout(blockAds, {{1}})"),
+                content: BASE64_STANDARD.encode("setTimeout(blockAds, {{1}})"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -754,7 +755,7 @@ mod scriptlet_storage_tests {
                 name: "null.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
-                content: base64::encode("(()=>{})()"),
+                content: BASE64_STANDARD.encode("(()=>{})()"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -762,7 +763,8 @@ mod scriptlet_storage_tests {
                 name: "set-local-storage-item.js".to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Template,
-                content: base64::encode(r#"{{1}} that dollar signs in {{2}} are untouched"#),
+                content: BASE64_STANDARD
+                    .encode(r#"{{1}} that dollar signs in {{2}} are untouched"#),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -823,7 +825,7 @@ mod scriptlet_storage_tests {
                 name: "abort-current-inline-script.js".into(),
                 aliases: vec!["acis.js".into()],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("(function() {alert(\"hi\");})();"),
+                content: BASE64_STANDARD.encode("(function() {alert(\"hi\");})();"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -831,7 +833,8 @@ mod scriptlet_storage_tests {
                 name: "abort-on-property-read.js".into(),
                 aliases: vec!["aopr.js".into()],
                 kind: ResourceType::Template,
-                content: base64::encode("(function() {confirm(\"Do you want to {{1}}?\");})();"),
+                content: BASE64_STANDARD
+                    .encode("(function() {confirm(\"Do you want to {{1}}?\");})();"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -839,7 +842,8 @@ mod scriptlet_storage_tests {
                 name: "googletagservices_gpt.js".into(),
                 aliases: vec!["googletagservices.com/gpt.js".into(), "googletagservices-gpt".into()],
                 kind: ResourceType::Template,
-                content: base64::encode("function gpt(a1 = '', a2 = '') {console.log(a1, a2)}"),
+                content: BASE64_STANDARD
+                    .encode("function gpt(a1 = '', a2 = '') {console.log(a1, a2)}"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -913,7 +917,9 @@ mod scriptlet_storage_tests {
                 name: "abort-current-script.js".into(),
                 aliases: vec!["acs.js".into()],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("{{1}} {{2}} {{3}} {{4}} {{5}} {{6}} {{7}} {{8}} {{9}} {{10}} {{11}} {{12}}"),
+                content: BASE64_STANDARD.encode(
+                    "{{1}} {{2}} {{3}} {{4}} {{5}} {{6}} {{7}} {{8}} {{9}} {{10}} {{11}} {{12}}",
+                ),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -939,7 +945,7 @@ mod scriptlet_storage_tests {
                 name: "perm0.js".into(),
                 aliases: vec!["0.js".to_string()],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("perm0"),
+                content: BASE64_STANDARD.encode("perm0"),
                 dependencies: vec![],
                 permission: PERM01,
             },
@@ -947,7 +953,7 @@ mod scriptlet_storage_tests {
                 name: "perm1.js".into(),
                 aliases: vec!["1.js".to_string()],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("perm1"),
+                content: BASE64_STANDARD.encode("perm1"),
                 dependencies: vec![],
                 permission: PERM10,
             },
@@ -955,7 +961,7 @@ mod scriptlet_storage_tests {
                 name: "perm10.js".into(),
                 aliases: vec!["10.js".to_string()],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("perm10"),
+                content: BASE64_STANDARD.encode("perm10"),
                 dependencies: vec![],
                 permission: PERM11,
             },
@@ -999,7 +1005,7 @@ mod scriptlet_storage_tests {
                 name: "permissioned.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("permissioned"),
+                content: BASE64_STANDARD.encode("permissioned"),
                 dependencies: vec!["a.fn".to_string(), "common.fn".to_string()],
                 permission: PERM01,
             },
@@ -1007,7 +1013,7 @@ mod scriptlet_storage_tests {
                 name: "a.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("a"),
+                content: BASE64_STANDARD.encode("a"),
                 dependencies: vec!["common.fn".to_string()],
                 permission: Default::default(),
             },
@@ -1015,7 +1021,7 @@ mod scriptlet_storage_tests {
                 name: "b.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("b"),
+                content: BASE64_STANDARD.encode("b"),
                 dependencies: vec!["common.fn".to_string()],
                 permission: Default::default(),
             },
@@ -1023,7 +1029,7 @@ mod scriptlet_storage_tests {
                 name: "common.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("common"),
+                content: BASE64_STANDARD.encode("common"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -1031,7 +1037,7 @@ mod scriptlet_storage_tests {
                 name: "test.js".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("function test() {}"),
+                content: BASE64_STANDARD.encode("function test() {}"),
                 dependencies: vec!["permissioned.fn".to_string(), "a.fn".to_string(), "b.fn".to_string(), "common.fn".to_string()],
                 permission: Default::default(),
             },
@@ -1039,7 +1045,7 @@ mod scriptlet_storage_tests {
                 name: "deploop1.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("deploop1"),
+                content: BASE64_STANDARD.encode("deploop1"),
                 dependencies: vec!["deploop1.fn".to_string()],
                 permission: Default::default(),
             },
@@ -1047,7 +1053,7 @@ mod scriptlet_storage_tests {
                 name: "deploop2a.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("deploop2a"),
+                content: BASE64_STANDARD.encode("deploop2a"),
                 dependencies: vec!["deploop2b.fn".to_string()],
                 permission: Default::default(),
             },
@@ -1055,7 +1061,7 @@ mod scriptlet_storage_tests {
                 name: "deploop2b.fn".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::FnJavascript),
-                content: base64::encode("deploop2b"),
+                content: BASE64_STANDARD.encode("deploop2b"),
                 dependencies: vec!["deploop2a.fn".to_string()],
                 permission: Default::default(),
             },
@@ -1063,7 +1069,7 @@ mod scriptlet_storage_tests {
                 name: "test-wrapper.js".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("function testWrapper() { test(arguments) }"),
+                content: BASE64_STANDARD.encode("function testWrapper() { test(arguments) }"),
                 dependencies: vec!["test.js".to_string()],
                 permission: Default::default(),
             },
@@ -1071,7 +1077,7 @@ mod scriptlet_storage_tests {
                 name: "shared.js".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("function shared() { }"),
+                content: BASE64_STANDARD.encode("function shared() { }"),
                 dependencies: vec!["a.fn".to_string(), "b.fn".to_string()],
                 permission: Default::default(),
             },
