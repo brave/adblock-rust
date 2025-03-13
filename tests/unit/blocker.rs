@@ -344,6 +344,7 @@ mod blocker_tests {
     use crate::lists::parse_filters;
     use crate::request::Request;
     use crate::resources::Resource;
+    use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
@@ -1340,7 +1341,7 @@ mod blocker_tests {
                 .unwrap();
             Some(format!(
                 "data:text/plain;base64,{}",
-                base64::encode(identifier)
+                BASE64_STANDARD.encode(identifier)
             ))
         }
         let a_redirect = add_simple_resource(&mut resources, "a");

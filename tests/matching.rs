@@ -4,6 +4,7 @@ use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
 use adblock::Engine;
 
+use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use serde::{Deserialize, Serialize};
 
 use adblock::lists::ParseOptions;
@@ -43,7 +44,7 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
                 name: redirect.to_owned(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                content: base64::encode(redirect),
+                content: BASE64_STANDARD.encode(redirect),
                 dependencies: vec![],
                 permission: Default::default(),
             }

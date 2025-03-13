@@ -2,6 +2,7 @@
 //! files in the uBlock Origin repository.
 
 use crate::resources::{MimeType, Resource, ResourceType};
+use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use memchr::memmem;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -191,7 +192,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
                 .map(|aliases| aliases.iter().map(|alias| alias.to_string()).collect())
                 .unwrap_or_default(),
             kind,
-            content: base64::encode(&script),
+            content: BASE64_STANDARD.encode(&script),
             dependencies: vec![],
             permission: Default::default(),
         });
@@ -220,9 +221,9 @@ fn build_resource_from_file_contents(
     let content = match mimetype {
         MimeType::ApplicationJavascript | MimeType::TextHtml | MimeType::TextPlain => {
             let utf8string = std::str::from_utf8(resource_contents).unwrap();
-            base64::encode(&utf8string.replace('\r', ""))
+            BASE64_STANDARD.encode(&utf8string.replace('\r', ""))
         }
-        _ => base64::encode(&resource_contents),
+        _ => BASE64_STANDARD.encode(&resource_contents),
     };
 
     Resource {
