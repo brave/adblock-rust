@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
@@ -134,7 +135,7 @@ impl ResourceStorage {
             }
 
             // Ensure the resource contents are valid base64 (and utf8 if applicable)
-            let decoded = base64::decode(&resource.content)?;
+            let decoded = BASE64_STANDARD.decode(&resource.content)?;
             if content_type.is_textual() {
                 let _ = String::from_utf8(decoded)?;
             }
@@ -174,7 +175,7 @@ impl ResourceStorage {
         let mut result = String::new();
 
         for dep in deps.iter() {
-            if let Ok(decoded) = base64::decode(&dep.content) {
+            if let Ok(decoded) = BASE64_STANDARD.decode(&dep.content) {
                 if let Ok(dep) = core::str::from_utf8(&decoded) {
                     result += dep;
                     result += "\n";
@@ -245,7 +246,7 @@ impl ResourceStorage {
             self.recursive_dependencies(dep, required_deps, filter_permission)?;
         }
 
-        let template = String::from_utf8(base64::decode(&resource.content)?)?;
+        let template = String::from_utf8(BASE64_STANDARD.decode(&resource.content)?)?;
 
         if let Some(function_name) = extract_function_name(&template) {
             // newer function-style resource: pass args using function call syntax

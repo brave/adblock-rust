@@ -80,6 +80,7 @@ mod key_from_selector_tests {
 mod cosmetic_cache_tests {
     use super::super::*;
     use crate::resources::Resource;
+    use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 
     fn cache_from_rules(rules: Vec<&str>) -> CosmeticFilterCache {
         let parsed_rules = rules
@@ -207,7 +208,7 @@ mod cosmetic_cache_tests {
                 name: "set-constant.js".into(),
                 aliases: vec![],
                 kind: ResourceType::Template,
-                content: base64::encode("set-constant.js, {{1}}, {{2}}"),
+                content: BASE64_STANDARD.encode("set-constant.js, {{1}}, {{2}}"),
                 dependencies: vec![],
                 permission: Default::default(),
             },
@@ -668,7 +669,7 @@ mod cosmetic_cache_tests {
             name: "abort-on-property-read.js".into(),
             aliases: vec!["aopr".to_string()],
             kind: ResourceType::Template,
-            content: base64::encode("abort-on-property-read.js, {{1}}"),
+            content: BASE64_STANDARD.encode("abort-on-property-read.js, {{1}}"),
             dependencies: vec![],
             permission: Default::default(),
         }]);

@@ -3,6 +3,7 @@ mod tests {
     use super::super::*;
     use crate::lists::FilterFormat;
     use crate::resources::MimeType;
+    use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 
     #[test]
     fn tags_enable_adds_tags() {
@@ -291,7 +292,7 @@ mod tests {
             matched_rule.redirect,
             Some(format!(
                 "data:application/javascript;base64,{}",
-                base64::encode(format!("{}", script))
+                BASE64_STANDARD.encode(format!("{}", script))
             )),
             "Expected redirect to contain resource"
         );
@@ -724,7 +725,7 @@ mod tests {
                 name: "trusted-set-cookie.js".to_string(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("trusted-set-cookie"),
+                content: BASE64_STANDARD.encode("trusted-set-cookie"),
                 dependencies: vec![],
                 permission: UBO_PERM,
             },
@@ -732,7 +733,7 @@ mod tests {
                 name: "brave-fix.js".to_string(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("brave-fix"),
+                content: BASE64_STANDARD.encode("brave-fix"),
                 dependencies: vec![],
                 permission: BRAVE_PERM,
             },
@@ -844,7 +845,7 @@ mod tests {
                 name: "trusted-set-local-storage-item.js".into(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::ApplicationJavascript),
-                content: base64::encode("function trustedSetLocalStorageItem(key = '', value = '') { setLocalStorageItemFn('local', true, key, value); }"),
+                content: BASE64_STANDARD.encode("function trustedSetLocalStorageItem(key = '', value = '') { setLocalStorageItemFn('local', true, key, value); }"),
                 dependencies: vec![],
                 permission: Default::default(),
             },

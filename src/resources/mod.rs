@@ -156,11 +156,12 @@ impl Resource {
     /// dependencies. Content will be automatically base64-encoded by the constructor.
     #[cfg(test)]
     pub fn simple(name: &str, kind: MimeType, content: &str) -> Self {
+        use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
         Self {
             name: name.to_string(),
             aliases: vec![],
             kind: ResourceType::Mime(kind),
-            content: base64::encode(content),
+            content: BASE64_STANDARD.encode(content),
             dependencies: vec![],
             permission: Default::default(),
         }
