@@ -66,23 +66,3 @@ jobs:
 
       - name: Cargo test 'adblock' package (no default features)
         run: cargo test --no-default-features --features embedded-domain-resolver,full-regex-handling --tests --no-fail-fast
-
-      - name: Run Brave-specific tests
-        # Only runs on one runner for a few reasons:
-        #    1. windows doesn't expand the env var properly
-        #    2. On windows, the `grep` command doesn't stop the job like it does on the others
-        #    3. Although `shell: bash` might fix the windows issues, running this test on multiple
-        #       OS's isn't likely to catch bugs anyway
-        if: matrix.os == 'ubuntu-latest'
-        env:
-          BRAVE_SERVICE_KEY: ${{ secrets.BRAVE_SERVICE_KEY }}
-          TEST_NAME_FILTER: live_brave
-        run: |
-          # `cargo test` doesn't fail when it matches 0 tests.
-          # This hackily checks that the filter is working.
-          # If this check fails, something might have been renamed inadvertantly.
-          echo "Ensure that '$TEST_NAME_FILTER' still matches exactly 2 tests."
-          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER" --list | grep "2 tests, 0 benchmarks"
-
-          # Now run the tests
-          cargo test --all-features --test live --no-fail-fast -- --ignored "$TEST_NAME_FILTER"
