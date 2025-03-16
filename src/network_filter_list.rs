@@ -9,14 +9,36 @@ use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 
+pub trait NetworkFilterListTrait {
+    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self
+    where
+        Self: Sized;
+    fn optimize(&mut self);
+    fn add_filter(&mut self, filter: NetworkFilter);
+    fn filter_exists(&self, filter: &NetworkFilter) -> bool;
+
+    fn check(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Option<&NetworkFilter>;
+    fn check_all(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Vec<&NetworkFilter>;
+}
+
 #[derive(Serialize, Deserialize, Default)]
-pub(crate) struct NetworkFilterList {
+pub struct NetworkFilterList {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
-impl NetworkFilterList {
-    pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
+impl NetworkFilterListTrait for NetworkFilterList {
+    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -64,7 +86,7 @@ impl NetworkFilterList {
         self_
     }
 
-    pub fn optimize(&mut self) {
+    fn optimize(&mut self) {
         let mut optimized_map = HashMap::with_capacity(self.filter_map.len());
         for (key, filters) in self.filter_map.drain() {
             let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
@@ -97,7 +119,7 @@ impl NetworkFilterList {
         self.filter_map = optimized_map;
     }
 
-    pub fn add_filter(&mut self, filter: NetworkFilter) {
+    fn add_filter(&mut self, filter: NetworkFilter) {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
@@ -128,7 +150,7 @@ impl NetworkFilterList {
     }
 
     /// This may not work if the list has been optimized.
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
+    fn filter_exists(&self, filter: &NetworkFilter) -> bool {
         let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
 
         if tokens.is_empty() {
@@ -153,7 +175,7 @@ impl NetworkFilterList {
     /// match from each would be functionally equivalent. For example, if two different exception
     /// filters match a certain request, it doesn't matter _which_ one is matched - the request
     /// will be excepted either way.
-    pub fn check(
+    fn check(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
@@ -187,7 +209,7 @@ impl NetworkFilterList {
     /// filters where a match from each may carry unique information. For example, if two different
     /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
     /// each directive should be combined for the final result.
-    pub fn check_all(
+    fn check_all(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
