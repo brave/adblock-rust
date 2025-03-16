@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741899932978,
+  "lastUpdate": 1742110999179,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -419,6 +419,60 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list",
             "value": 227719857,
             "range": "± 8671111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 41408849,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-after-1000-requests",
+            "value": 44004875,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73575789+boocmp@users.noreply.github.com",
+            "name": "Pavel Beloborodov",
+            "username": "boocmp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b904779fff4f48122c0fde5cc12f1133c4e6b69e",
+          "message": "Merge pull request #439 from brave/code_structure_5\n\nCode structure follow up #4\nThe implementation of NetworkFilterList has been moved to network_filter_list.rs.\nThe bitflags dependency version has been bumped to 2.9.0, seahash to 4.1.0.\nThe flatbuffers dependency has been added.\nFlatBuffers schema of the network filter list and the corresponding generated file have been added.",
+          "timestamp": "2025-03-16T14:39:52+07:00",
+          "tree_id": "dcd313484ef8e3ef42418aeccd3d2c87fbf6cd8e",
+          "url": "https://github.com/brave/adblock-rust/commit/b904779fff4f48122c0fde5cc12f1133c4e6b69e"
+        },
+        "date": 1742110998439,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1700116474,
+            "range": "± 16199179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1005898,
+            "range": "± 5221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 202512922,
+            "range": "± 1989835",
             "unit": "ns/iter"
           },
           {
