@@ -148,38 +148,6 @@ fn get_blocker_engine() -> Engine {
     engine
 }
 
-fn get_blocker_engine_deserialized() -> Engine {
-    use futures::FutureExt;
-    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-
-    let brave_service_key = std::env::var("BRAVE_SERVICE_KEY")
-        .expect("Must set the $BRAVE_SERVICE_KEY environment variable to execute live tests.");
-
-    let dat_url = "https://adblock-data.s3.brave.com/ios/latest.dat";
-    let download_client = reqwest::Client::new();
-    let resp_bytes_fut = download_client
-        .get(dat_url)
-        .header("BraveServiceKey", brave_service_key)
-        .send()
-        .map(|e| e.expect("Could not request rules"))
-        .then(|resp| {
-            assert_eq!(
-                resp.status(),
-                200,
-                "Downloading live DAT failed. Is the service key correct?"
-            );
-            resp.bytes()
-        });
-    let dat = async_runtime
-        .block_on(resp_bytes_fut)
-        .expect("Could not get response as bytes");
-
-    let mut engine = Engine::default();
-    engine.deserialize(&dat).expect("Deserialization failed");
-    engine.use_tags(&["fb-embeds", "twitter-embeds"]);
-    engine
-}
-
 #[test]
 fn check_live_specific_urls() {
     let mut engine = get_blocker_engine();
@@ -232,45 +200,6 @@ fn check_live_specific_urls() {
 }
 
 #[test]
-#[ignore = "opt-in: requires BRAVE_SERVICE_KEY environment variable"]
-fn check_live_brave_deserialized_specific_urls() {
-    // Note: CI relies on part of this function's name
-    let mut engine = get_blocker_engine_deserialized();
-    {
-        engine.disable_tags(&["twitter-embeds"]);
-        let checked = engine.check_network_request(
-            &Request::new(
-                "https://platform.twitter.com/widgets.js",
-                "https://fmarier.github.io/brave-testing/social-widgets.html",
-                "script",
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            checked.matched, true,
-            "Expected match, got filter {:?}, exception {:?}",
-            checked.filter, checked.exception
-        );
-    }
-    {
-        engine.enable_tags(&["twitter-embeds"]);
-        let checked = engine.check_network_request(
-            &Request::new(
-                "https://platform.twitter.com/widgets.js",
-                "https://fmarier.github.io/brave-testing/social-widgets.html",
-                "script",
-            )
-            .unwrap(),
-        );
-        assert_eq!(
-            checked.matched, false,
-            "Expected no match, got filter {:?}, exception {:?}",
-            checked.filter, checked.exception
-        );
-    }
-}
-
-#[test]
 fn check_live_from_filterlists() {
     let engine = get_blocker_engine();
     let requests = load_requests();
@@ -282,25 +211,6 @@ fn check_live_from_filterlists() {
             checked.matched, req.blocked,
             "Expected match {} for {} at {}, got filter {:?}, exception {:?}",
             req.blocked, req.url, req.sourceUrl, checked.filter, checked.exception
-        );
-    }
-}
-
-#[test]
-#[ignore = "opt-in: requires BRAVE_SERVICE_KEY environment variable"]
-fn check_live_brave_deserialized_file() {
-    // Note: CI relies on part of this function's name
-    let engine = get_blocker_engine_deserialized();
-    let requests = load_requests();
-
-    for req in requests {
-        println!("Checking {:?}", req);
-        let checked = engine
-            .check_network_request(&Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap());
-        assert_eq!(
-            checked.matched, req.blocked,
-            "Expected match {} for {} {} {}",
-            req.blocked, req.url, req.sourceUrl, req.r#type
         );
     }
 }

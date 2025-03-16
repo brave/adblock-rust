@@ -77,7 +77,8 @@ pub enum NetworkFilterError {
 }
 
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+    #[serde(transparent)]
     pub struct NetworkFilterMask: u32 {
         const FROM_IMAGE = 1; // 1 << 0;
         const FROM_MEDIA = 1 << 1;
@@ -122,29 +123,29 @@ bitflags::bitflags! {
         const UNMATCHED = 1 << 25;
 
         // Includes all request types that are implied by any negated types.
-        const FROM_NETWORK_TYPES = Self::FROM_FONT.bits |
-            Self::FROM_IMAGE.bits |
-            Self::FROM_MEDIA.bits |
-            Self::FROM_OBJECT.bits |
-            Self::FROM_OTHER.bits |
-            Self::FROM_PING.bits |
-            Self::FROM_SCRIPT.bits |
-            Self::FROM_STYLESHEET.bits |
-            Self::FROM_SUBDOCUMENT.bits |
-            Self::FROM_WEBSOCKET.bits |
-            Self::FROM_XMLHTTPREQUEST.bits;
+        const FROM_NETWORK_TYPES = Self::FROM_FONT.bits() |
+            Self::FROM_IMAGE.bits() |
+            Self::FROM_MEDIA.bits() |
+            Self::FROM_OBJECT.bits() |
+            Self::FROM_OTHER.bits() |
+            Self::FROM_PING.bits() |
+            Self::FROM_SCRIPT.bits() |
+            Self::FROM_STYLESHEET.bits() |
+            Self::FROM_SUBDOCUMENT.bits() |
+            Self::FROM_WEBSOCKET.bits() |
+            Self::FROM_XMLHTTPREQUEST.bits();
 
         // Includes all remaining types, not implied by any negated types.
         // TODO Could also include popup, inline-font, inline-script
-        const FROM_ALL_TYPES = Self::FROM_NETWORK_TYPES.bits |
-            Self::FROM_DOCUMENT.bits;
+        const FROM_ALL_TYPES = Self::FROM_NETWORK_TYPES.bits() |
+            Self::FROM_DOCUMENT.bits();
 
         // Unless filter specifies otherwise, all these options are set by default
-        const DEFAULT_OPTIONS = Self::FROM_NETWORK_TYPES.bits |
-            Self::FROM_HTTP.bits |
-            Self::FROM_HTTPS.bits |
-            Self::THIRD_PARTY.bits |
-            Self::FIRST_PARTY.bits;
+        const DEFAULT_OPTIONS = Self::FROM_NETWORK_TYPES.bits() |
+            Self::FROM_HTTP.bits() |
+            Self::FROM_HTTPS.bits() |
+            Self::THIRD_PARTY.bits() |
+            Self::FIRST_PARTY.bits();
 
         // Careful with checking for NONE - will always match
         const NONE = 0;
@@ -1018,7 +1019,7 @@ fn compute_filter_id(
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
-    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits);
+    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits());
 
     if let Some(s) = modifier_option {
         let chars = s.chars();
