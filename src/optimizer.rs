@@ -10,6 +10,29 @@ trait Optimization {
     fn select(&self, filter: &NetworkFilter) -> bool;
 }
 
+pub fn is_filter_optimizable_by_patterns(filter: &NetworkFilter) -> bool {
+    filter.opt_domains.is_none()
+        && filter.opt_not_domains.is_none()
+        && !filter.is_hostname_anchor()
+        && !filter.is_redirect()
+        && !filter.is_csp()
+}
+
+pub fn optimize_by_groupping_patterns(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
+    let mut optimized: Vec<NetworkFilter> = Vec::new();
+
+    let simple_pattern_group = SimplePatternGroup {};
+    let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
+    optimized.append(&mut fused);
+
+    // Append whatever is still left unfused
+    optimized.append(&mut unfused);
+
+    // Re-sort the list, now that the order has been perturbed
+    optimized.sort_by_key(|f| f.id);
+    optimized
+}
+
 /// Fuse `NetworkFilter`s together by applying optimizations sequentially.
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let mut optimized: Vec<NetworkFilter> = Vec::new();
@@ -129,11 +152,7 @@ impl Optimization for SimplePatternGroup {
         format!("{:b}:{:?}", filter.mask, filter.is_complete_regex())
     }
     fn select(&self, filter: &NetworkFilter) -> bool {
-        filter.opt_domains.is_none()
-            && filter.opt_not_domains.is_none()
-            && !filter.is_hostname_anchor()
-            && !filter.is_redirect()
-            && !filter.is_csp()
+        is_filter_optimizable_by_patterns(filter)
     }
 }
 

@@ -1,13 +1,47 @@
-use std::{collections::HashMap, collections::HashSet, sync::Arc};
+use std::{collections::HashMap, collections::HashSet, fmt, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::filters::network::NetworkFilter;
-use crate::filters::network::NetworkMatchable;
+use crate::filters::network::{
+    NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
+};
 use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
+
+pub struct CheckResult {
+    pub filter_mask: NetworkFilterMask,
+    pub modifier_option: Option<String>,
+    pub raw_line: Option<String>,
+}
+
+impl From<&NetworkFilter> for CheckResult {
+    fn from(filter: &NetworkFilter) -> Self {
+        Self {
+            filter_mask: filter.mask,
+            modifier_option: filter.modifier_option.clone(),
+            raw_line: filter.raw_line.clone().map(|v| *v),
+        }
+    }
+}
+
+impl fmt::Display for CheckResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        if let Some(ref raw_line) = self.raw_line {
+            write!(f, "{}", raw_line)
+        } else {
+            write!(f, "{}", self.filter_mask)
+        }
+    }
+}
+
+impl NetworkFilterMaskHelper for CheckResult {
+    #[inline]
+    fn has_flag(&self, v: NetworkFilterMask) -> bool {
+        self.filter_mask.contains(v)
+    }
+}
 
 pub trait NetworkFilterListTrait {
     fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self
@@ -22,13 +56,13 @@ pub trait NetworkFilterListTrait {
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Option<&NetworkFilter>;
+    ) -> Option<CheckResult>;
     fn check_all(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Vec<&NetworkFilter>;
+    ) -> Vec<CheckResult>;
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -180,7 +214,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Option<&NetworkFilter> {
+    ) -> Option<CheckResult> {
         if self.filter_map.is_empty() {
             return None;
         }
@@ -196,7 +230,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        return Some(filter);
+                        return Some(CheckResult::from(filter.as_ref()));
                     }
                 }
             }
@@ -214,8 +248,8 @@ impl NetworkFilterListTrait for NetworkFilterList {
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Vec<&NetworkFilter> {
-        let mut filters: Vec<&NetworkFilter> = vec![];
+    ) -> Vec<CheckResult> {
+        let mut filters: Vec<CheckResult> = vec![];
 
         if self.filter_map.is_empty() {
             return filters;
@@ -232,7 +266,7 @@ impl NetworkFilterListTrait for NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        filters.push(filter);
+                        filters.push(CheckResult::from(filter.as_ref()));
                     }
                 }
             }
@@ -244,8 +278,11 @@ impl NetworkFilterListTrait for NetworkFilterList {
 /// Inserts a value into the `Vec` under the specified key in the `HashMap`. The entry will be
 /// created if it does not exist. If it already exists, it will be inserted in the `Vec` in a
 /// sorted order.
-fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
-where
+pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
+    map: &mut HashMap<K, Vec<V>, H>,
+    k: K,
+    v: V,
+) where
     K: std::cmp::Ord + std::hash::Hash,
     V: PartialOrd,
 {
