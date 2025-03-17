@@ -9,7 +9,6 @@ use std::collections::{HashMap, HashSet};
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
-use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
@@ -17,6 +16,8 @@ use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
 use super::{DeserializationError, SerializationError};
+
+type Blocker = crate::blocker::GenericBlocker<crate::network_filter_list::NetworkFilterList>;
 
 /// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
