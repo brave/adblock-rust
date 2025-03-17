@@ -87,8 +87,14 @@ pub enum BlockerError {
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
+#[cfg(feature = "flatbuffers-storage")]
+pub type Blocker = GenericBlocker<crate::flat_network_filter_list::FlatNetworkFilterList>;
+
+#[cfg(not(feature = "flatbuffers-storage"))]
+pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;
+
 /// Stores network filters for efficient querying.
-pub struct Blocker<NetworkFilterListType = NetworkFilterList>
+pub struct GenericBlocker<NetworkFilterListType>
 where
     NetworkFilterList: NetworkFilterListTrait,
 {
@@ -115,7 +121,7 @@ where
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 }
 
-impl<NetworkFilterListType> Blocker<NetworkFilterListType>
+impl<NetworkFilterListType> GenericBlocker<NetworkFilterListType>
 where
     NetworkFilterListType: NetworkFilterListTrait,
 {
@@ -383,13 +389,13 @@ where
             return None;
         }
 
-        let mut disabled_directives: HashSet<&str> = HashSet::new();
-        let mut enabled_directives: HashSet<&str> = HashSet::new();
+        let mut disabled_directives: HashSet<String> = HashSet::new();
+        let mut enabled_directives: HashSet<String> = HashSet::new();
 
         for filter in filters {
             if filter.is_exception() {
                 if filter.is_csp() {
-                    if let Some(csp_directive) = &filter.modifier_option {
+                    if let Some(csp_directive) = filter.modifier_option {
                         disabled_directives.insert(csp_directive);
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
@@ -398,7 +404,7 @@ where
                     }
                 }
             } else if filter.is_csp() {
-                if let Some(csp_directive) = &filter.modifier_option {
+                if let Some(csp_directive) = filter.modifier_option {
                     enabled_directives.insert(csp_directive);
                 }
             }
@@ -407,7 +413,7 @@ where
         let mut remaining_directives = enabled_directives.difference(&disabled_directives);
 
         let mut merged = if let Some(directive) = remaining_directives.next() {
-            String::from(*directive)
+            directive.to_string()
         } else {
             return None;
         };
