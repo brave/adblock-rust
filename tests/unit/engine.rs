@@ -5,6 +5,9 @@ mod tests {
     use crate::resources::MimeType;
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 
+    #[cfg(not(feature = "flatbuffers-storage"))]
+    use crate::engine_serializer::EngineSerializer;
+
     #[test]
     fn tags_enable_adds_tags() {
         let filters = [
@@ -135,6 +138,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn serialization_retains_tags() {
         let filters = [
             "adv$tag=stuff",
@@ -173,6 +177,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_backwards_compatible_plain() {
         // deserialization_generate_simple();
         // assert!(false);
@@ -194,6 +199,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_backwards_compatible_tags() {
         // deserialization_generate_tags();
         // assert!(false);
@@ -226,6 +232,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
         let serialized = engine.serialize_raw().unwrap();
@@ -234,6 +241,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
@@ -243,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_generate_resources() {
         let mut engine = Engine::from_rules(&["ad-banner$redirect=nooptext"], Default::default());
 
