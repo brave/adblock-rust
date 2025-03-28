@@ -1,5 +1,5 @@
 use adblock::request::Request;
-use adblock::Engine;
+use adblock::{Engine, EngineSerializer};
 
 use serde::Deserialize;
 
