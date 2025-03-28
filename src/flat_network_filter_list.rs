@@ -72,7 +72,7 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
 
         if optimize {
             for (token, v) in optimizable {
-                let optimized = optimizer::optimize_by_groupping_patterns(v);
+                let optimized = optimizer::optimize(v);
 
                 for filter in optimized {
                     let index = flat_builder.add(&filter);

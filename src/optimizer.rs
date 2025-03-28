@@ -18,21 +18,6 @@ pub fn is_filter_optimizable_by_patterns(filter: &NetworkFilter) -> bool {
         && !filter.is_csp()
 }
 
-pub fn optimize_by_groupping_patterns(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
-    let mut optimized: Vec<NetworkFilter> = Vec::new();
-
-    let simple_pattern_group = SimplePatternGroup {};
-    let (mut fused, mut unfused) = apply_optimisation(&simple_pattern_group, filters);
-    optimized.append(&mut fused);
-
-    // Append whatever is still left unfused
-    optimized.append(&mut unfused);
-
-    // Re-sort the list, now that the order has been perturbed
-    optimized.sort_by_key(|f| f.id);
-    optimized
-}
-
 /// Fuse `NetworkFilter`s together by applying optimizations sequentially.
 pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     let mut optimized: Vec<NetworkFilter> = Vec::new();

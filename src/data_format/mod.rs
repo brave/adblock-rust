@@ -5,6 +5,8 @@
 //! serialization/deserialization implementations and can automatically dispatch to the appropriate
 //! one.
 
+#![allow(dead_code)]
+
 mod v0;
 
 pub(crate) mod utils;

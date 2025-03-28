@@ -22,6 +22,7 @@ pub mod content_blocking;
 pub mod cosmetic_filter_cache;
 mod data_format;
 mod engine;
+mod engine_serializer;
 pub mod filters;
 pub mod lists;
 mod network_filter_list;
@@ -39,6 +40,7 @@ pub mod utils;
 
 #[doc(inline)]
 pub use engine::Engine;
+pub use engine_serializer::EngineSerializer;
 #[doc(inline)]
 pub use lists::FilterSet;
 
