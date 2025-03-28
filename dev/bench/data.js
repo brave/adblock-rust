@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743171165240,
+  "lastUpdate": 1743171913854,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -527,6 +527,60 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list",
             "value": 213162601,
             "range": "± 6261218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 41408849,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-after-1000-requests",
+            "value": 44004875,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mplesa@brave.com",
+            "name": "Mihai PLESA",
+            "username": "mihaiplesa"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f89fcf1ac2b066b6991caa5c276e04a15b7773ce",
+          "message": "Merge pull request #430 from brave/renovate/pin-dependencies\n\nchore(deps): pin dependencies",
+          "timestamp": "2025-03-28T10:21:37-04:00",
+          "tree_id": "35bcb32eed251361e9d805c4e5745954ebc4a3cb",
+          "url": "https://github.com/brave/adblock-rust/commit/f89fcf1ac2b066b6991caa5c276e04a15b7773ce"
+        },
+        "date": 1743171912536,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1748060055,
+            "range": "± 16444516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1003697,
+            "range": "± 19747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 220574560,
+            "range": "± 4365524",
             "unit": "ns/iter"
           },
           {
