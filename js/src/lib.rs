@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::sync::Mutex;
 use std::path::Path;
 use adblock::Engine as EngineInternal;
+use adblock::EngineSerializer as EngineSerializerInternal;
 use adblock::lists::{RuleTypes, FilterFormat, FilterListMetadata, FilterSet as FilterSetInternal, ParseOptions};
 use adblock::resources::Resource;
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;

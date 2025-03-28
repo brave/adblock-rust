@@ -80,6 +80,10 @@ harness = false
 name = "bench_memory"
 harness = false
 
+[[bench]]
+name = "bench_serialization"
+harness = false
+
 # Currently disabled, as cosmetic filter internals
 # are no longer part of the crate's public API
 #[[bench]]

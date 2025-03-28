@@ -1411,12 +1411,14 @@ mod blocker_tests {
             enable_optimizations: true,
         };
 
-        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-        let resources = Default::default();
-
-        blocker
-            .add_filter(NetworkFilter::parse("@@*ad_banner.png", true, Default::default()).unwrap())
+        let mut filter_set = crate::lists::FilterSet::new(true);
+        filter_set
+            .add_filter("@@*ad_banner.png", Default::default())
             .unwrap();
+
+        let blocker = Blocker::new(filter_set.network_filters, &blocker_options);
+
+        let resources = Default::default();
 
         let request = Request::new(
             "http://example.com/ad_banner.png",
@@ -1436,14 +1438,12 @@ mod blocker_tests {
             enable_optimizations: true,
         };
 
-        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-
-        blocker
-            .add_filter(
-                NetworkFilter::parse("@@||example.com$generichide", true, Default::default())
-                    .unwrap(),
-            )
+        let mut filter_set = crate::lists::FilterSet::new(true);
+        filter_set
+            .add_filter("@@||example.com$generichide", Default::default())
             .unwrap();
+
+        let blocker = Blocker::new(filter_set.network_filters, &blocker_options);
 
         assert!(blocker.check_generic_hide(
             &Request::new("https://example.com", "https://example.com", "other").unwrap()

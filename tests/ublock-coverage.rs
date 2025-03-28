@@ -169,8 +169,10 @@ fn check_specifics_default() {
     }
 }
 
+#[cfg(not(feature = "flatbuffers-storage"))]
 #[test]
 fn check_basic_works_after_deserialization() {
+    use adblock::EngineSerializer;
     let engine = get_blocker_engine();
     let serialized = engine.serialize_raw().unwrap();
     let mut deserialized_engine = Engine::default();

@@ -314,9 +314,10 @@ mod legacy_test_filters {
     }
 }
 
+#[cfg(not(feature = "flatbuffers-storage"))]
 mod legacy_check_match {
     use adblock::request::Request;
-    use adblock::Engine;
+    use adblock::{Engine, EngineSerializer};
 
     fn check_match<'a>(
         rules: &[&'a str],
@@ -856,6 +857,9 @@ mod legacy_misc_tests {
     use adblock::request::Request;
     use adblock::Engine;
 
+    #[cfg(not(feature = "flatbuffers-storage"))]
+    use adblock::EngineSerializer;
+
     #[test]
     fn demo_app() {
         // Demo app test
@@ -889,6 +893,7 @@ mod legacy_misc_tests {
     }
 
     #[test]
+    #[cfg(not(feature = "flatbuffers-storage"))]
     fn serialization_tests() {
         let engine = Engine::from_rules_parametrised(
             [
