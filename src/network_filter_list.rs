@@ -1,22 +1,78 @@
-use std::{collections::HashMap, collections::HashSet, sync::Arc};
+use std::{collections::HashMap, collections::HashSet, fmt, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::filters::network::NetworkFilter;
-use crate::filters::network::NetworkMatchable;
+use crate::filters::network::{
+    NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
+};
 use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
 
+pub struct CheckResult {
+    pub filter_mask: NetworkFilterMask,
+    pub modifier_option: Option<String>,
+    pub raw_line: Option<String>,
+}
+
+impl From<&NetworkFilter> for CheckResult {
+    fn from(filter: &NetworkFilter) -> Self {
+        Self {
+            filter_mask: filter.mask,
+            modifier_option: filter.modifier_option.clone(),
+            raw_line: filter.raw_line.clone().map(|v| *v),
+        }
+    }
+}
+
+impl fmt::Display for CheckResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        if let Some(ref raw_line) = self.raw_line {
+            write!(f, "{}", raw_line)
+        } else {
+            write!(f, "{}", self.filter_mask)
+        }
+    }
+}
+
+impl NetworkFilterMaskHelper for CheckResult {
+    #[inline]
+    fn has_flag(&self, v: NetworkFilterMask) -> bool {
+        self.filter_mask.contains(v)
+    }
+}
+
+pub trait NetworkFilterListTrait {
+    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self
+    where
+        Self: Sized;
+    fn optimize(&mut self);
+    fn add_filter(&mut self, filter: NetworkFilter);
+    fn filter_exists(&self, filter: &NetworkFilter) -> bool;
+
+    fn check(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Option<CheckResult>;
+    fn check_all(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Vec<CheckResult>;
+}
+
 #[derive(Serialize, Deserialize, Default)]
-pub(crate) struct NetworkFilterList {
+pub struct NetworkFilterList {
     #[serde(serialize_with = "crate::data_format::utils::stabilize_hashmap_serialization")]
     pub(crate) filter_map: HashMap<Hash, Vec<Arc<NetworkFilter>>>,
 }
 
-impl NetworkFilterList {
-    pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
+impl NetworkFilterListTrait for NetworkFilterList {
+    fn new(filters: Vec<NetworkFilter>, optimize: bool) -> NetworkFilterList {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
             .into_iter()
@@ -64,7 +120,7 @@ impl NetworkFilterList {
         self_
     }
 
-    pub fn optimize(&mut self) {
+    fn optimize(&mut self) {
         let mut optimized_map = HashMap::with_capacity(self.filter_map.len());
         for (key, filters) in self.filter_map.drain() {
             let mut unoptimized: Vec<NetworkFilter> = Vec::with_capacity(filters.len());
@@ -97,7 +153,7 @@ impl NetworkFilterList {
         self.filter_map = optimized_map;
     }
 
-    pub fn add_filter(&mut self, filter: NetworkFilter) {
+    fn add_filter(&mut self, filter: NetworkFilter) {
         let filter_tokens = filter.get_tokens();
         let total_rules = vec_hashmap_len(&self.filter_map);
         let filter_pointer = Arc::new(filter);
@@ -128,7 +184,7 @@ impl NetworkFilterList {
     }
 
     /// This may not work if the list has been optimized.
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
+    fn filter_exists(&self, filter: &NetworkFilter) -> bool {
         let mut tokens: Vec<_> = filter.get_tokens().into_iter().flatten().collect();
 
         if tokens.is_empty() {
@@ -153,12 +209,12 @@ impl NetworkFilterList {
     /// match from each would be functionally equivalent. For example, if two different exception
     /// filters match a certain request, it doesn't matter _which_ one is matched - the request
     /// will be excepted either way.
-    pub fn check(
+    fn check(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Option<&NetworkFilter> {
+    ) -> Option<CheckResult> {
         if self.filter_map.is_empty() {
             return None;
         }
@@ -174,7 +230,7 @@ impl NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        return Some(filter);
+                        return Some(CheckResult::from(filter.as_ref()));
                     }
                 }
             }
@@ -187,13 +243,13 @@ impl NetworkFilterList {
     /// filters where a match from each may carry unique information. For example, if two different
     /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
     /// each directive should be combined for the final result.
-    pub fn check_all(
+    fn check_all(
         &self,
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Vec<&NetworkFilter> {
-        let mut filters: Vec<&NetworkFilter> = vec![];
+    ) -> Vec<CheckResult> {
+        let mut filters: Vec<CheckResult> = vec![];
 
         if self.filter_map.is_empty() {
             return filters;
@@ -210,7 +266,7 @@ impl NetworkFilterList {
                             .map(|t| active_tags.contains(t))
                             .unwrap_or(true)
                     {
-                        filters.push(filter);
+                        filters.push(CheckResult::from(filter.as_ref()));
                     }
                 }
             }
@@ -222,8 +278,11 @@ impl NetworkFilterList {
 /// Inserts a value into the `Vec` under the specified key in the `HashMap`. The entry will be
 /// created if it does not exist. If it already exists, it will be inserted in the `Vec` in a
 /// sorted order.
-fn insert_dup<K, V, H: std::hash::BuildHasher>(map: &mut HashMap<K, Vec<V>, H>, k: K, v: V)
-where
+pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
+    map: &mut HashMap<K, Vec<V>, H>,
+    k: K,
+    v: V,
+) where
     K: std::cmp::Ord + std::hash::Hash,
     V: PartialOrd,
 {
