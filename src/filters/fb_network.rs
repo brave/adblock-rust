@@ -215,29 +215,13 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn include_domains(&self) -> Option<&[u16]> {
-        self.fb_filter.opt_domains().map(|data| {
-            let bytes = data.bytes();
-            unsafe {
-                std::slice::from_raw_parts(
-                    bytes.as_ptr() as *const u16,
-                    bytes.len() / std::mem::size_of::<u16>(),
-                )
-            }
-        })
+    pub fn include_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        self.fb_filter.opt_domains()
     }
 
     #[inline(always)]
-    pub fn exclude_domains(&self) -> Option<&[u16]> {
-        self.fb_filter.opt_not_domains().map(|data| {
-            let bytes = data.bytes();
-            unsafe {
-                std::slice::from_raw_parts(
-                    bytes.as_ptr() as *const u16,
-                    bytes.len() / std::mem::size_of::<u16>(),
-                )
-            }
-        })
+    pub fn exclude_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        self.fb_filter.opt_not_domains()
     }
 
     #[inline(always)]
