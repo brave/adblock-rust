@@ -37,6 +37,18 @@ jobs:
       - name: Bench memory usage
         run: cargo bench --bench bench_memory -- --output-format bencher | tee -a output.txt
 
+      - name: Bench network filter matching (flat)
+        run: cargo bench --bench bench_matching rule-match-browserlike/brave-list --features flatbuffers-storage -- --output-format bencher | tee -a output.txt
+
+      - name: Bench first request matching delay (flat)
+        run: cargo bench --bench bench_matching rule-match-first-request  --features flatbuffers-storage -- --output-format bencher | tee -a output.txt
+
+      - name: Bench startup speed (flat)
+        run: cargo bench --bench bench_rules blocker_new/brave-list  --features flatbuffers-storage -- --output-format bencher | tee -a output.txt
+
+      - name: Bench memory usage (flat)
+        run: cargo bench --bench bench_memory  --features flatbuffers-storage -- --output-format bencher | tee -a output.txt
+
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@d48d326b4ca9ba73ca0cd0d59f108f9e02a381c7 # v1.20.4
         with:
