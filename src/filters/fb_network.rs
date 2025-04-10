@@ -21,8 +21,8 @@ pub struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
-    unique_domains: Vec<Hash>,
-    unique_domains_map: HashMap<Hash, u16>,
+    unique_domains_hashes: Vec<Hash>,
+    unique_domains_hashes_map: HashMap<Hash, u16>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -30,31 +30,37 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         Self {
             builder: flatbuffers::FlatBufferBuilder::new(),
             filters: vec![],
-            unique_domains: vec![],
-            unique_domains_map: HashMap::new(),
+            unique_domains_hashes: vec![],
+            unique_domains_hashes_map: HashMap::new(),
         }
     }
 
-    fn get_or_insert(&mut self, h: &Hash) -> u16 {
-        if let Some(&index) = self.unique_domains_map.get(h) {
+    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u16 {
+        if let Some(&index) = self.unique_domains_hashes_map.get(h) {
             return index;
         }
-        let index = self.unique_domains.len() as u16;
-        self.unique_domains.push(*h);
-        self.unique_domains_map.insert(*h, index);
+        let index = self.unique_domains_hashes.len() as u16;
+        self.unique_domains_hashes.push(*h);
+        self.unique_domains_hashes_map.insert(*h, index);
         return index;
     }
 
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v.iter().map(|x| self.get_or_insert(x)).collect();
+            let mut o: Vec<u16> = v
+                .iter()
+                .map(|x| self.get_or_insert_unique_domain_hash(x))
+                .collect();
             o.sort_unstable();
             o.dedup();
             self.builder.create_vector(&o)
         });
 
         let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v.iter().map(|x| self.get_or_insert(x)).collect();
+            let mut o: Vec<u16> = v
+                .iter()
+                .map(|x| self.get_or_insert_unique_domain_hash(x))
+                .collect();
             o.sort_unstable();
             o.dedup();
             self.builder.create_vector(&o)
@@ -112,13 +118,13 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
     pub fn finish(&mut self) -> Vec<u8> {
         let filters = self.builder.create_vector(&self.filters);
 
-        let unique_domains = self.builder.create_vector(&self.unique_domains);
+        let unique_domains_hashes = self.builder.create_vector(&self.unique_domains_hashes);
 
         let storage = fb::NetworkFilterList::create(
             &mut self.builder,
             &&fb::NetworkFilterListArgs {
                 network_filters: Some(filters),
-                unique_domains_hashes: Some(unique_domains),
+                unique_domains_hashes: Some(unique_domains_hashes),
             },
         );
         self.builder.finish(storage, None);
@@ -279,14 +285,14 @@ impl<'a> NetworkMatchable for FlatNetworkFilter<'a> {
         if !check_included_domains_mapped(
             self.include_domains(),
             request,
-            &self.owner.domain_hashes_mapping,
+            &self.owner.unique_domains_hashes_map,
         ) {
             return false;
         }
         if !check_excluded_domains_mapped(
             self.exclude_domains(),
             request,
-            &self.owner.domain_hashes_mapping,
+            &self.owner.unique_domains_hashes_map,
         ) {
             return false;
         }

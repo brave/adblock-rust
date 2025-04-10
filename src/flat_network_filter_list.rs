@@ -15,7 +15,7 @@ use crate::utils::Hash;
 pub struct FlatNetworkFilterList {
     flatbuffer_memory: Vec<u8>,
     pub(crate) filter_map: HashMap<Hash, Vec<u32>>,
-    pub(crate) domain_hashes_mapping: HashMap<Hash, u16>,
+    pub(crate) unique_domains_hashes_map: HashMap<Hash, u16>,
 }
 
 impl NetworkFilterListTrait for FlatNetworkFilterList {
@@ -90,18 +90,18 @@ impl NetworkFilterListTrait for FlatNetworkFilterList {
         let root = fb::root_as_network_filter_list(&flatbuffer_memory)
             .expect("Ok because it is created in the previous line");
 
-        let mut domain_hashes_mapping: HashMap<Hash, u16> = HashMap::new();
+        let mut unique_domains_hashes_map: HashMap<Hash, u16> = HashMap::new();
         for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            domain_hashes_mapping.insert(hash, u16::try_from(index).expect("< u16 max"));
+            unique_domains_hashes_map.insert(hash, u16::try_from(index).expect("< u16 max"));
         }
 
         filter_map.shrink_to_fit();
-        domain_hashes_mapping.shrink_to_fit();
+        unique_domains_hashes_map.shrink_to_fit();
 
         Self {
             flatbuffer_memory,
             filter_map,
-            domain_hashes_mapping,
+            unique_domains_hashes_map,
         }
     }
 
