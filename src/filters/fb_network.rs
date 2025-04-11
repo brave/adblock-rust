@@ -190,7 +190,7 @@ pub struct FlatNetworkFilter<'a> {
     owner: &'a FlatNetworkFilterList,
     fb_filter: &'a fb::NetworkFilter<'a>,
 
-    pub mask: NetworkFilterMask,
+    pub(crate) mask: NetworkFilterMask,
 }
 
 impl<'a> FlatNetworkFilter<'a> {
