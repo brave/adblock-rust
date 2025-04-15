@@ -47,7 +47,7 @@ criterion = "=0.5.1"
 csv = "=1.3.0"
 mock_instant = { version = "=0.5.1" }
 # By default, reqwest builds openssl from source, which fails on missing/incompatible system dependencies
-reqwest = { version = "=0.11.22", features = ["rustls-tls"], default-features = false }
+reqwest = { version = "=0.12.15", features = ["rustls-tls"], default-features = false }
 futures = "=0.3.31"
 tokio = { version = "=1.24.2", features = ["rt-multi-thread"] }
 sha2 = "=0.9.9"
