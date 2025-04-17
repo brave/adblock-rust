@@ -1,6 +1,9 @@
 use adblock::request::Request;
 use adblock::Engine;
 
+#[cfg(not(feature = "flatbuffers-storage"))]
+use adblock::EngineSerializer;
+
 use serde::Deserialize;
 use tokio::runtime::Runtime;
 
@@ -264,6 +267,7 @@ fn check_live_redirects() {
     }
 }
 
+#[cfg(not(feature = "flatbuffers-storage"))]
 #[test]
 /// Ensure that two different engines loaded from the same textual filter set serialize to
 /// identical buffers.
@@ -277,6 +281,7 @@ fn stable_serialization() {
     assert_eq!(ser1, ser2);
 }
 
+#[cfg(not(feature = "flatbuffers-storage"))]
 #[test]
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
