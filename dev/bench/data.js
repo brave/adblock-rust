@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743171913854,
+  "lastUpdate": 1744932254040,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -581,6 +581,60 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list",
             "value": 220574560,
             "range": "± 4365524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 41408849,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-after-1000-requests",
+            "value": 44004875,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "distinct": true,
+          "id": "d56be21332b4ac28ce8e26b1273ac5cc979eb417",
+          "message": "change npm lifecycle script from install to postinstall",
+          "timestamp": "2025-04-17T16:03:15-07:00",
+          "tree_id": "93fa944b84816d05b8f7f9e5f81f7a1f062744d4",
+          "url": "https://github.com/brave/adblock-rust/commit/d56be21332b4ac28ce8e26b1273ac5cc979eb417"
+        },
+        "date": 1744932252683,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1727033355,
+            "range": "± 11920489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1005963,
+            "range": "± 12764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 220140757,
+            "range": "± 5159081",
             "unit": "ns/iter"
           },
           {
