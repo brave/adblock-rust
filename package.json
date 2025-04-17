@@ -35,7 +35,7 @@
     "build-debug": "npm run build --",
     "build-release": "npm run build -- --release",
     "update-lists": "node data/update-lists.js",
-    "install": "npm run build-release",
+    "postinstall": "npm run build-release",
     "test": "cargo test"
   }
 }
