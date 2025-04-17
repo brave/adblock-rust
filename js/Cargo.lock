@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "adblock"
-version = "0.9.6"
+version = "0.9.7"
 dependencies = [
  "addr",
  "base64",
@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "adblock-rs"
-version = "0.9.6"
+version = "0.9.7"
 dependencies = [
  "adblock",
  "neon",
