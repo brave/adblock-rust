@@ -1,12 +1,10 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use crate::engine_serializer::EngineSerializer;
     use crate::lists::FilterFormat;
     use crate::resources::MimeType;
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
-
-    #[cfg(not(feature = "flatbuffers-storage"))]
-    use crate::engine_serializer::EngineSerializer;
 
     #[test]
     fn tags_enable_adds_tags() {
@@ -138,7 +136,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "flatbuffers-storage"))]
     fn serialization_retains_tags() {
         let filters = [
             "adv$tag=stuff",
@@ -156,7 +153,7 @@ mod tests {
         let mut engine = Engine::from_rules(&filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
         let mut deserialized_engine = Engine::default();
         deserialized_engine.enable_tags(&["stuff"]);
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -177,17 +174,27 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_backwards_compatible_plain() {
         // deserialization_generate_simple();
         // assert!(false);
         // converted from the legacy compressed format
         let serialized = [
-            209, 217, 58, 175, 0, 220, 0, 19, 145, 128, 145, 128, 145, 128, 145, 128, 145, 128,
-            145, 129, 207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 157, 206, 0, 3, 31, 255, 129,
-            1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 192,
-            192, 207, 186, 136, 69, 13, 115, 187, 170, 226, 192, 192, 145, 128, 144, 195, 145, 128,
-            144, 144, 128, 128, 145, 128, 144, 145, 128, 128, 128,
+            209, 217, 58, 175, 0, 220, 0, 19, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12,
+            0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            128, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0,
+            0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 128, 147, 220, 0,
+            40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0,
+            0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 128, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0,
+            8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128,
+            128, 147, 220, 0, 88, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 12,
+            0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 16, 0, 0, 0, 12, 0, 12, 0, 4, 0, 0, 0, 0,
+            0, 8, 0, 12, 0, 0, 0, 204, 255, 31, 3, 0, 4, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 9, 0, 0,
+            0, 97, 100, 45, 98, 97, 110, 110, 101, 114, 0, 0, 0, 129, 207, 202, 167, 36, 217, 43,
+            56, 97, 176, 145, 0, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0,
+            8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128,
+            128, 144, 195, 145, 128, 144, 144, 128, 128, 145, 128, 144, 145, 128, 128, 128,
         ];
         let mut deserialized_engine = Engine::default();
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -199,19 +206,30 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_backwards_compatible_tags() {
         // deserialization_generate_tags();
         // assert!(false);
         // converted from the legacy compressed format
         let serialized = [
-            209, 217, 58, 175, 0, 220, 0, 19, 145, 128, 145, 128, 145, 128, 145, 128, 145, 129,
-            207, 202, 167, 36, 217, 43, 56, 97, 176, 145, 157, 206, 0, 3, 31, 255, 129, 1, 169, 97,
-            100, 45, 98, 97, 110, 110, 101, 114, 192, 192, 192, 192, 192, 192, 163, 97, 98, 99,
-            192, 207, 126, 212, 53, 83, 113, 159, 143, 134, 192, 192, 145, 128, 145, 128, 145, 157,
-            206, 0, 3, 31, 255, 129, 1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192, 192,
-            192, 192, 192, 192, 163, 97, 98, 99, 192, 207, 126, 212, 53, 83, 113, 159, 143, 134,
-            192, 192, 195, 145, 128, 144, 144, 128, 128, 145, 128, 144, 145, 128, 128, 128,
+            209, 217, 58, 175, 0, 220, 0, 19, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12,
+            0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            128, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0,
+            0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 128, 147, 220, 0,
+            40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0,
+            0, 8, 0, 12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 128, 128, 147, 220, 0, 112, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0,
+            8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 24, 0,
+            0, 0, 0, 0, 18, 0, 16, 0, 4, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 12, 0, 18, 0, 0, 0, 204,
+            255, 31, 3, 0, 8, 0, 0, 0, 28, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 9, 0, 0, 0, 97, 100,
+            45, 98, 97, 110, 110, 101, 114, 0, 0, 0, 3, 0, 0, 0, 97, 98, 99, 0, 129, 207, 202, 167,
+            36, 217, 43, 56, 97, 176, 145, 0, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0,
+            12, 0, 4, 0, 8, 0, 8, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 128, 128, 147, 220, 0, 40, 16, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0, 8,
+            0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 128, 145,
+            157, 206, 0, 3, 31, 255, 129, 1, 169, 97, 100, 45, 98, 97, 110, 110, 101, 114, 192,
+            192, 192, 192, 192, 192, 163, 97, 98, 99, 192, 207, 126, 212, 53, 83, 113, 159, 143,
+            134, 192, 192, 195, 145, 128, 144, 144, 128, 128, 145, 128, 144, 145, 128, 128, 128,
         ];
         let mut deserialized_engine = Engine::default();
 
@@ -232,26 +250,23 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
     }
 
     #[test]
-    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
     }
 
     #[test]
-    #[cfg(not(feature = "flatbuffers-storage"))]
     fn deserialization_generate_resources() {
         let mut engine = Engine::from_rules(&["ad-banner$redirect=nooptext"], Default::default());
 
@@ -260,7 +275,7 @@ mod tests {
             Resource::simple("noopcss", MimeType::TextCss, ""),
         ]);
 
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
     }

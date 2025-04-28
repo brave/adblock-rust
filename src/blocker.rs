@@ -8,7 +8,7 @@ use std::ops::DerefMut;
 use thiserror::Error;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
-use crate::network_filter_list::{NetworkFilterList, NetworkFilterListTrait};
+use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
@@ -87,25 +87,16 @@ pub enum BlockerError {
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
-#[cfg(feature = "flatbuffers-storage")]
-pub type Blocker = GenericBlocker<crate::flat_network_filter_list::FlatNetworkFilterList>;
-
-#[cfg(not(feature = "flatbuffers-storage"))]
-pub type Blocker = GenericBlocker<crate::network_filter_list::NetworkFilterList>;
-
 /// Stores network filters for efficient querying.
-pub struct GenericBlocker<NetworkFilterListType>
-where
-    NetworkFilterList: NetworkFilterListTrait,
-{
-    pub(crate) csp: NetworkFilterListType,
-    pub(crate) exceptions: NetworkFilterListType,
-    pub(crate) importants: NetworkFilterListType,
-    pub(crate) redirects: NetworkFilterListType,
-    pub(crate) removeparam: NetworkFilterListType,
-    pub(crate) filters_tagged: NetworkFilterListType,
-    pub(crate) filters: NetworkFilterListType,
-    pub(crate) generic_hide: NetworkFilterListType,
+pub struct Blocker {
+    pub(crate) csp: NetworkFilterList,
+    pub(crate) exceptions: NetworkFilterList,
+    pub(crate) importants: NetworkFilterList,
+    pub(crate) redirects: NetworkFilterList,
+    pub(crate) removeparam: NetworkFilterList,
+    pub(crate) filters_tagged: NetworkFilterList,
+    pub(crate) filters: NetworkFilterList,
+    pub(crate) generic_hide: NetworkFilterList,
 
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
@@ -121,10 +112,7 @@ where
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 }
 
-impl<NetworkFilterListType> GenericBlocker<NetworkFilterListType>
-where
-    NetworkFilterListType: NetworkFilterListTrait,
-{
+impl Blocker {
     /// Decide if a network request (usually from WebRequest API) should be
     /// blocked, redirected or allowed.
     pub fn check(&self, request: &Request, resources: &ResourceStorage) -> BlockerResult {
@@ -283,7 +271,7 @@ where
     }
 
     fn apply_removeparam(
-        removeparam_filters: &NetworkFilterListType,
+        removeparam_filters: &NetworkFilterList,
         request: &Request,
         regex_manager: &mut RegexManager,
     ) -> Option<String> {
@@ -499,101 +487,22 @@ where
         tagged_filters_all.shrink_to_fit();
 
         Self {
-            csp: NetworkFilterListType::new(csp, options.enable_optimizations),
-            exceptions: NetworkFilterListType::new(exceptions, options.enable_optimizations),
-            importants: NetworkFilterListType::new(importants, options.enable_optimizations),
-            redirects: NetworkFilterListType::new(redirects, options.enable_optimizations),
+            csp: NetworkFilterList::new(csp, options.enable_optimizations),
+            exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
+            importants: NetworkFilterList::new(importants, options.enable_optimizations),
+            redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
             // Don't optimize removeparam, since it can fuse filters without respecting distinct
             // queryparam values
-            removeparam: NetworkFilterListType::new(removeparam, false),
-            filters_tagged: NetworkFilterListType::new(Vec::new(), options.enable_optimizations),
-            filters: NetworkFilterListType::new(filters, options.enable_optimizations),
-            generic_hide: NetworkFilterListType::new(generic_hide, options.enable_optimizations),
+            removeparam: NetworkFilterList::new(removeparam, false),
+            filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
+            filters: NetworkFilterList::new(filters, options.enable_optimizations),
+            generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
             tagged_filters_all,
             // Options
             enable_optimizations: options.enable_optimizations,
             regex_manager: Default::default(),
-        }
-    }
-
-    /// If optimizations are enabled, the `Blocker` will be configured to automatically optimize
-    /// its filters after batch updates. However, even if they are disabled, it is possible to
-    /// manually call `optimize()`. It may be useful to have finer-grained control over
-    /// optimization scheduling when frequently updating filters.
-    pub fn optimize(&mut self) {
-        self.csp.optimize();
-        self.exceptions.optimize();
-        self.importants.optimize();
-        self.redirects.optimize();
-        // note - don't optimize removeparam
-        self.filters_tagged.optimize();
-        self.filters.optimize();
-        self.generic_hide.optimize();
-    }
-
-    /// Has this exact filter already been added? Note that this is a best-effort method and may
-    /// miss some filters, especially if optimizations are enabled.
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
-        if filter.is_csp() {
-            self.csp.filter_exists(filter)
-        } else if filter.is_generic_hide() {
-            self.generic_hide.filter_exists(filter)
-        } else if filter.is_exception() {
-            self.exceptions.filter_exists(filter)
-        } else if filter.is_important() {
-            self.importants.filter_exists(filter)
-        } else if filter.is_redirect() {
-            self.redirects.filter_exists(filter)
-        } else if filter.is_removeparam() {
-            self.removeparam.filter_exists(filter)
-        } else if filter.tag.is_some() {
-            self.tagged_filters_all.iter().any(|f| f.id == filter.id)
-        } else {
-            self.filters.filter_exists(filter)
-        }
-    }
-
-    /// Add a single filter to this [`Blocker`].
-    ///
-    /// Filter optimization is skipped when using this method.
-    pub fn add_filter(&mut self, filter: NetworkFilter) -> Result<(), BlockerError> {
-        // Redirects are independent of blocking behavior.
-        if filter.is_redirect() {
-            self.redirects.add_filter(filter.clone());
-        }
-
-        if filter.is_badfilter() {
-            Err(BlockerError::BadFilterAddUnsupported)
-        } else if self.filter_exists(&filter) {
-            Err(BlockerError::FilterExists)
-        } else if filter.is_csp() {
-            self.csp.add_filter(filter);
-            Ok(())
-        } else if filter.is_generic_hide() {
-            self.generic_hide.add_filter(filter);
-            Ok(())
-        } else if filter.is_exception() {
-            self.exceptions.add_filter(filter);
-            Ok(())
-        } else if filter.is_important() {
-            self.importants.add_filter(filter);
-            Ok(())
-        } else if filter.is_removeparam() {
-            self.removeparam.add_filter(filter);
-            Ok(())
-        } else if filter.tag.is_some() && !filter.is_redirect() {
-            // `tag` + `redirect` is unsupported
-            self.tagged_filters_all.push(filter);
-            let tags_enabled = self.tags_enabled().into_iter().collect::<HashSet<_>>();
-            self.tags_with_set(tags_enabled);
-            Ok(())
-        } else if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
-            self.filters.add_filter(filter);
-            Ok(())
-        } else {
-            Ok(())
         }
     }
 
@@ -630,7 +539,7 @@ where
             .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
             .cloned()
             .collect();
-        self.filters_tagged = NetworkFilterListType::new(filters, self.enable_optimizations);
+        self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
     }
 
     pub fn tags_enabled(&self) -> Vec<String> {

@@ -11,8 +11,6 @@ use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::regex_manager::RegexManager;
 use crate::request;
 use crate::utils::{self, Hash};
-
-#[cfg(feature = "flatbuffers-storage")]
 use std::collections::HashMap;
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
@@ -433,7 +431,6 @@ pub fn check_included_domains(opt_domains: Option<&[Hash]>, request: &request::R
 }
 
 #[inline]
-#[cfg(feature = "flatbuffers-storage")]
 pub fn check_included_domains_mapped(
     opt_domains: Option<&[u16]>,
     request: &request::Request,
@@ -474,7 +471,6 @@ pub fn check_excluded_domains(
 }
 
 #[inline]
-#[cfg(feature = "flatbuffers-storage")]
 pub fn check_excluded_domains_mapped(
     opt_not_domains: Option<&[u16]>,
     request: &request::Request,

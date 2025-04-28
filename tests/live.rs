@@ -1,8 +1,5 @@
 use adblock::request::Request;
-use adblock::Engine;
-
-#[cfg(not(feature = "flatbuffers-storage"))]
-use adblock::EngineSerializer;
+use adblock::{Engine, EngineSerializer};
 
 use serde::Deserialize;
 use tokio::runtime::Runtime;
@@ -267,31 +264,16 @@ fn check_live_redirects() {
     }
 }
 
-#[cfg(not(feature = "flatbuffers-storage"))]
-#[test]
-/// Ensure that two different engines loaded from the same textual filter set serialize to
-/// identical buffers.
-fn stable_serialization() {
-    let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
-    let ser1 = engine1.serialize_raw().unwrap();
-
-    let engine2 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
-    let ser2 = engine2.serialize_raw().unwrap();
-
-    assert_eq!(ser1, ser2);
-}
-
-#[cfg(not(feature = "flatbuffers-storage"))]
 #[test]
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
 fn stable_serialization_through_load() {
     let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
-    let ser1 = engine1.serialize_raw().unwrap();
+    let ser1 = engine1.serialize().unwrap();
 
     let mut engine2 = Engine::new(true);
     engine2.deserialize(&ser1).unwrap();
-    let ser2 = engine2.serialize_raw().unwrap();
+    let ser2 = engine2.serialize().unwrap();
 
     assert_eq!(ser1, ser2);
 }

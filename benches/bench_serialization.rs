@@ -18,19 +18,19 @@ fn serialization(c: &mut Criterion) {
         ]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
+        b.iter(|| assert!(engine.serialize().unwrap().len() > 0))
     });
     group.bench_function("el", move |b| {
         let full_rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
+        b.iter(|| assert!(engine.serialize().unwrap().len() > 0))
     });
     group.bench_function("slimlist", move |b| {
         let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        b.iter(|| assert!(engine.serialize_raw().unwrap().len() > 0))
+        b.iter(|| assert!(engine.serialize().unwrap().len() > 0))
     });
 
     group.finish();
@@ -48,7 +48,7 @@ fn deserialization(c: &mut Criterion) {
         ]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
 
         b.iter(|| {
             let mut deserialized = Engine::default();
@@ -59,7 +59,7 @@ fn deserialization(c: &mut Criterion) {
         let full_rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
 
         b.iter(|| {
             let mut deserialized = Engine::default();
@@ -70,7 +70,7 @@ fn deserialization(c: &mut Criterion) {
         let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
 
         b.iter(|| {
             let mut deserialized = Engine::default();

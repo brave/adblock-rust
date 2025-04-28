@@ -7,7 +7,7 @@ use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
 
-use crate::flat_network_filter_list::FlatNetworkFilterList;
+use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::Hash;
@@ -187,7 +187,7 @@ impl<'a> ExactSizeIterator for FlatPatternsIterator<'a> {
 
 pub struct FlatNetworkFilter<'a> {
     key: u64,
-    owner: &'a FlatNetworkFilterList,
+    owner: &'a NetworkFilterList,
     fb_filter: &'a fb::NetworkFilter<'a>,
 
     pub(crate) mask: NetworkFilterMask,
@@ -198,9 +198,9 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn new(
         filter: &'a fb::NetworkFilter<'a>,
         index: u32,
-        owner: &'a FlatNetworkFilterList,
+        owner: &'a NetworkFilterList,
     ) -> Self {
-        let list_address: *const FlatNetworkFilterList = owner as *const FlatNetworkFilterList;
+        let list_address: *const NetworkFilterList = owner as *const NetworkFilterList;
 
         Self {
             fb_filter: filter,
