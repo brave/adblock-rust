@@ -32,9 +32,6 @@ pub mod request;
 pub mod resources;
 pub mod url_parser;
 
-#[cfg(feature = "flatbuffers-storage")]
-mod flat_network_filter_list;
-
 #[doc(hidden)]
 pub mod utils;
 
