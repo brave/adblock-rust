@@ -177,7 +177,6 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
     }
 }
 
-// Implement ExactSizeIterator for FilterPartIterator
 impl<'a> ExactSizeIterator for FlatPatternsIterator<'a> {
     #[inline(always)]
     fn len(&self) -> usize {
