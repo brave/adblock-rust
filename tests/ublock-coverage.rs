@@ -171,8 +171,9 @@ fn check_specifics_default() {
 
 #[test]
 fn check_basic_works_after_deserialization() {
+    use adblock::EngineSerializer;
     let engine = get_blocker_engine();
-    let serialized = engine.serialize_raw().unwrap();
+    let serialized = engine.serialize().unwrap();
     let mut deserialized_engine = Engine::default();
     deserialized_engine.deserialize(&serialized).unwrap();
 

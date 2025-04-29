@@ -9,14 +9,16 @@ use std::collections::{HashMap, HashSet};
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
-use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
+use crate::filters::fb_network::flat::fb;
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
 use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
 use super::{DeserializationError, SerializationError};
+
+use crate::blocker::Blocker;
 
 /// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -247,17 +249,20 @@ where
     S: serde::Serializer,
 {
     #[derive(Serialize, Default)]
-    struct NetworkFilterListV0SerializeFmt<'a> {
+    struct NetworkFilterListV0SerializeFmt {
+        flatbuffer_memory: Vec<u8>,
+
         #[serde(serialize_with = "stabilize_hashmap_serialization")]
-        filter_map: HashMap<crate::utils::Hash, Vec<NetworkFilterV0SerializeFmt<'a>>>,
+        filter_map: HashMap<Hash, Vec<u32>>,
+
+        #[serde(serialize_with = "stabilize_hashmap_serialization")]
+        unique_domains_hashes_map: HashMap<Hash, u16>,
     }
 
     let v0_list = NetworkFilterListV0SerializeFmt {
-        filter_map: list
-            .filter_map
-            .iter()
-            .map(|(k, v)| (*k, v.iter().map(|f| f.into()).collect()))
-            .collect(),
+        flatbuffer_memory: list.flatbuffer_memory.clone(),
+        filter_map: list.filter_map.clone(),
+        unique_domains_hashes_map: list.unique_domains_hashes_map.clone(),
     };
 
     v0_list.serialize(s)
@@ -369,24 +374,19 @@ impl From<NetworkFilterV0DeserializeFmt> for NetworkFilter {
 
 #[derive(Debug, Deserialize, Default)]
 pub(crate) struct NetworkFilterListV0DeserializeFmt {
-    pub filter_map: HashMap<crate::utils::Hash, Vec<NetworkFilterV0DeserializeFmt>>,
+    pub flatbuffer_memory: Vec<u8>,
+    pub filter_map: HashMap<crate::utils::Hash, Vec<u32>>,
+    pub unique_domains_hashes_map: HashMap<crate::utils::Hash, u16>,
 }
 
 impl From<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
     fn from(v: NetworkFilterListV0DeserializeFmt) -> Self {
+        let _ = fb::root_as_network_filter_list(&v.flatbuffer_memory)
+            .expect("Flatbuffer is not corrupted");
         Self {
-            filter_map: v
-                .filter_map
-                .into_iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        v.into_iter()
-                            .map(|f| std::sync::Arc::new(f.into()))
-                            .collect(),
-                    )
-                })
-                .collect(),
+            flatbuffer_memory: v.flatbuffer_memory,
+            filter_map: v.filter_map,
+            unique_domains_hashes_map: v.unique_domains_hashes_map,
         }
     }
 }
