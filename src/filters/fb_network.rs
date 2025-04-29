@@ -223,6 +223,7 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn include_domains(&self) -> Option<&[u16]> {
         self.fb_filter.opt_domains().map(|data| {
             let bytes = data.bytes();
+            assert!(bytes.len() % std::mem::size_of::<u16>() == 0);
             unsafe {
                 std::slice::from_raw_parts(
                     bytes.as_ptr() as *const u16,
@@ -236,6 +237,7 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn exclude_domains(&self) -> Option<&[u16]> {
         self.fb_filter.opt_not_domains().map(|data| {
             let bytes = data.bytes();
+            assert!(bytes.len() % std::mem::size_of::<u16>() == 0);
             unsafe {
                 std::slice::from_raw_parts(
                     bytes.as_ptr() as *const u16,

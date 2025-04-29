@@ -10,6 +10,7 @@ use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
+use crate::filters::fb_network::flat::fb;
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
 use crate::utils::Hash;
@@ -380,6 +381,8 @@ pub(crate) struct NetworkFilterListV0DeserializeFmt {
 
 impl From<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
     fn from(v: NetworkFilterListV0DeserializeFmt) -> Self {
+        let _ = fb::root_as_network_filter_list(&v.flatbuffer_memory)
+            .expect("Flatbuffer is not corrupted");
         Self {
             flatbuffer_memory: v.flatbuffer_memory,
             filter_map: v.filter_map,
