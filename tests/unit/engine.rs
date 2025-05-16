@@ -445,6 +445,34 @@ mod tests {
     }
 
     #[test]
+    fn explicit_all() {
+        let engine = Engine::from_rules_debug(
+            ["*$all,domain=rarvinzp.click|ytrqcxat.click"],
+            Default::default(),
+        );
+        for content_type in [
+            "script",
+            "document",
+            "subdocument",
+            "font",
+            "xmlhttprequest",
+        ] {
+            assert!(
+                engine
+                    .check_network_request(
+                        &Request::new(
+                            "https://example.com",
+                            "https://rarvinzp.click",
+                            content_type
+                        )
+                        .unwrap()
+                    )
+                    .matched
+            );
+        }
+    }
+
+    #[test]
     fn generichide() {
         let filters = [
             "##.donotblock",

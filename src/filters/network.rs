@@ -42,6 +42,8 @@ pub enum NetworkFilterError {
     NegatedGenericHide,
     #[error("negated document")]
     NegatedDocument,
+    #[error("negated all")]
+    NegatedAll,
     #[error("generichide without exception")]
     GenericHideWithoutException,
     #[error("empty redirection")]
@@ -570,6 +572,7 @@ impl NetworkFilter {
                         apply_content_type!(FROM_WEBSOCKET, enabled)
                     }
                     NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
+                    NetworkFilterOption::All => apply_content_type!(FROM_ALL_TYPES, true),
                 }
             });
         }
