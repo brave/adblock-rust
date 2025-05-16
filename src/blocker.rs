@@ -5,7 +5,6 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
-use thiserror::Error;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
@@ -72,15 +71,6 @@ impl Default for BlockerResult {
             filter: None,
         }
     }
-}
-
-/// Possible errors when adding a filter to a [`Blocker`].
-#[derive(Debug, Error, PartialEq)]
-pub enum BlockerError {
-    #[error("$badfilter cannot be added (unsupported)")]
-    BadFilterAddUnsupported,
-    #[error("filter already exists")]
-    FilterExists,
 }
 
 // only check for tags in tagged and exception rule buckets,
