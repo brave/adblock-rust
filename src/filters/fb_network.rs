@@ -101,13 +101,13 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
             &mut self.builder,
             &fb::NetworkFilterArgs {
                 mask: network_filter.mask.bits(),
-                patterns: patterns,
-                modifier_option: modifier_option,
-                opt_domains: opt_domains,
-                opt_not_domains: opt_not_domains,
-                hostname: hostname,
-                tag: tag,
-                raw_line: raw_line,
+                patterns,
+                modifier_option,
+                opt_domains,
+                opt_not_domains,
+                hostname,
+                tag,
+                raw_line,
             },
         );
 
