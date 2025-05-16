@@ -46,7 +46,7 @@ impl NetworkFilterMaskHelper for CheckResult {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NetworkFilterList {
+pub(crate) struct NetworkFilterList {
     pub(crate) flatbuffer_memory: Vec<u8>,
     pub(crate) filter_map: HashMap<Hash, Vec<u32>>,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u16>,
