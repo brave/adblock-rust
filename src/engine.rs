@@ -264,7 +264,7 @@ impl Engine {
         use crate::data_format::DeserializeFormat;
         let current_tags = self.blocker.tags_enabled();
         let deserialize_format = DeserializeFormat::deserialize(serialized)?;
-        let (blocker, cosmetic_cache) = deserialize_format.build();
+        let (blocker, cosmetic_cache) = deserialize_format.build()?;
         self.blocker = blocker;
         self.blocker
             .use_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());

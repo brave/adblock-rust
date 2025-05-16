@@ -379,16 +379,17 @@ pub(crate) struct NetworkFilterListV0DeserializeFmt {
     pub unique_domains_hashes_map: HashMap<crate::utils::Hash, u16>,
 }
 
-impl From<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
-    fn from(v: NetworkFilterListV0DeserializeFmt) -> Self {
-        let _ = fb::root_as_network_filter_list(&v.flatbuffer_memory)
-            .expect("Flatbuffer is not corrupted");
-        Self {
+impl TryFrom<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
+    fn try_from(v: NetworkFilterListV0DeserializeFmt) -> Result<Self, Self::Error> {
+        let _ = fb::root_as_network_filter_list(&v.flatbuffer_memory)?;
+        Ok(Self {
             flatbuffer_memory: v.flatbuffer_memory,
             filter_map: v.filter_map,
             unique_domains_hashes_map: v.unique_domains_hashes_map,
-        }
+        })
     }
+
+    type Error = DeserializationError;
 }
 
 /// Structural representation of adblock engine data that can be built up from deserialization and
@@ -471,8 +472,8 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
     }
 }
 
-impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
-    fn from(v: DeserializeFormat) -> Self {
+impl TryFrom<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+    fn try_from(v: DeserializeFormat) -> Result<Self, Self::Error> {
         use crate::cosmetic_filter_cache::HostnameFilterBin;
 
         let mut specific_rules: HostnameRuleDb = v.specific_rules.into();
@@ -480,16 +481,16 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
         specific_rules.procedural_action_exception =
             HostnameFilterBin(v.procedural_action_exception);
 
-        (
+        Ok((
             Blocker {
-                csp: v.csp.into(),
-                exceptions: v.exceptions.into(),
-                importants: v.importants.into(),
-                redirects: v.redirects.into(),
+                csp: v.csp.try_into()?,
+                exceptions: v.exceptions.try_into()?,
+                importants: v.importants.try_into()?,
+                redirects: v.redirects.try_into()?,
                 removeparam: NetworkFilterList::default(),
-                filters_tagged: v.filters_tagged.into(),
-                filters: v.filters.into(),
-                generic_hide: v.generic_hide.into(),
+                filters_tagged: v.filters_tagged.try_into()?,
+                filters: v.filters.try_into()?,
+                generic_hide: v.generic_hide.try_into()?,
 
                 tags_enabled: Default::default(),
                 tagged_filters_all: v.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
@@ -507,6 +508,8 @@ impl From<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
 
                 misc_generic_selectors: v.misc_generic_selectors,
             },
-        )
+        ))
     }
+
+    type Error = DeserializationError;
 }

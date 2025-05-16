@@ -1,4 +1,4 @@
-use adblock::{request::Request, Engine, EngineSerializer};
+use adblock::{request::Request, Engine};
 
 use std::fs::File;
 use std::io::prelude::*;

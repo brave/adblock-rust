@@ -1,6 +1,6 @@
 use criterion::*;
 
-use adblock::{Engine, EngineSerializer};
+use adblock::Engine;
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
