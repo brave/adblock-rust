@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::engine_serializer::EngineSerializer;
     use crate::lists::FilterFormat;
     use crate::resources::MimeType;
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};

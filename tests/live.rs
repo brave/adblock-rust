@@ -1,5 +1,5 @@
 use adblock::request::Request;
-use adblock::{Engine, EngineSerializer};
+use adblock::Engine;
 
 use serde::Deserialize;
 use tokio::runtime::Runtime;

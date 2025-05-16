@@ -17,7 +17,7 @@ use crate::utils::Hash;
 pub mod flat;
 use flat::fb;
 
-pub struct FlatNetworkFiltersListBuilder<'a> {
+pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
@@ -133,7 +133,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         binary
     }
 }
-pub struct FlatPatterns<'a> {
+pub(crate) struct FlatPatterns<'a> {
     patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
 }
 
@@ -155,7 +155,7 @@ impl<'a> FlatPatterns<'a> {
     }
 }
 
-pub struct FlatPatternsIterator<'a> {
+pub(crate) struct FlatPatternsIterator<'a> {
     patterns: &'a FlatPatterns<'a>,
     len: usize,
     index: usize,
@@ -184,7 +184,7 @@ impl<'a> ExactSizeIterator for FlatPatternsIterator<'a> {
     }
 }
 
-pub struct FlatNetworkFilter<'a> {
+pub(crate) struct FlatNetworkFilter<'a> {
     key: u64,
     owner: &'a NetworkFilterList,
     fb_filter: &'a fb::NetworkFilter<'a>,
