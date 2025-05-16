@@ -42,6 +42,8 @@ pub enum NetworkFilterError {
     NegatedGenericHide,
     #[error("negated document")]
     NegatedDocument,
+    #[error("negated all")]
+    NegatedAll,
     #[error("generichide without exception")]
     GenericHideWithoutException,
     #[error("empty redirection")]
@@ -283,6 +285,7 @@ enum NetworkFilterOption {
     XmlHttpRequest(bool),
     Websocket(bool),
     Font(bool),
+    All,
 }
 
 impl NetworkFilterOption {
@@ -298,7 +301,8 @@ impl NetworkFilterOption {
             | Self::Subdocument(..)
             | Self::XmlHttpRequest(..)
             | Self::Websocket(..)
-            | Self::Font(..))
+            | Self::Font(..)
+            | Self::All)
     }
 
     pub fn is_redirection(&self) -> bool {
@@ -457,6 +461,8 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             ("xmlhttprequest", negated) | ("xhr", negated) => NetworkFilterOption::XmlHttpRequest(!negated),
             ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
             ("font", negated) => NetworkFilterOption::Font(!negated),
+            ("all", true) => return Err(NetworkFilterError::NegatedAll),
+            ("all", false) => NetworkFilterOption::All,
             (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
         });
     }
@@ -639,6 +645,7 @@ impl NetworkFilter {
                     NetworkFilterOption::XmlHttpRequest(enabled) => apply_content_type!(FROM_XMLHTTPREQUEST, enabled),
                     NetworkFilterOption::Websocket(enabled) => apply_content_type!(FROM_WEBSOCKET, enabled),
                     NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
+                    NetworkFilterOption::All => apply_content_type!(FROM_ALL_TYPES, true),
                 }
             });
         }
