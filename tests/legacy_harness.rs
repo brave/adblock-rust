@@ -330,7 +330,7 @@ mod legacy_check_match {
         let mut engine_deserialized = Engine::default(); // second empty
         engine_deserialized.use_tags(tags);
         {
-            let engine_serialized = engine.serialize_raw().unwrap();
+            let engine_serialized = engine.serialize().unwrap();
             engine_deserialized.deserialize(&engine_serialized).unwrap(); // override from serialized copy
         }
 
@@ -404,7 +404,7 @@ mod legacy_check_match {
             );
             let mut engine_deserialized = Engine::default(); // second empty
             {
-                let engine_serialized = engine.serialize_raw().unwrap();
+                let engine_serialized = engine.serialize().unwrap();
                 engine_deserialized.deserialize(&engine_serialized).unwrap(); // override from serialized copy
             }
 
@@ -901,7 +901,7 @@ mod legacy_misc_tests {
             false,
         ); // enable debugging and disable optimizations
 
-        let serialized = engine.serialize_raw().unwrap();
+        let serialized = engine.serialize().unwrap();
         let mut engine2 = Engine::new(false);
         engine2.deserialize(&serialized).unwrap();
 

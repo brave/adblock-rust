@@ -30,6 +30,7 @@ pub mod regex_manager;
 pub mod request;
 pub mod resources;
 pub mod url_parser;
+
 #[doc(hidden)]
 pub mod utils;
 

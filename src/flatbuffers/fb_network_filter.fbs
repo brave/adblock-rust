@@ -16,6 +16,8 @@ table NetworkFilter {
   hostname: string;
 
   tag: string;
+
+  raw_line: string;
 }
 
 table NetworkFilterList {

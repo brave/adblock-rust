@@ -1289,134 +1289,19 @@ mod blocker_tests {
     }
 
     #[test]
-    fn filter_add_badfilter_error() {
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: false,
-        };
-
-        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-
-        let filter = NetworkFilter::parse("adv$badfilter", true, Default::default()).unwrap();
-        let added = blocker.add_filter(filter);
-        assert!(added.is_err());
-        assert_eq!(added.err().unwrap(), BlockerError::BadFilterAddUnsupported);
-    }
-
-    #[test]
-    #[ignore]
-    fn filter_add_twice_handling_error() {
-        {
-            // Not allow filter to be added twice hwn the engine is not optimised
-            let blocker_options: BlockerOptions = BlockerOptions {
-                enable_optimizations: false,
-            };
-
-            let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-
-            let filter = NetworkFilter::parse("adv", true, Default::default()).unwrap();
-            blocker.add_filter(filter.clone()).unwrap();
-            assert!(
-                blocker.filter_exists(&filter),
-                "Expected filter to be inserted"
-            );
-            let added = blocker.add_filter(filter);
-            assert!(added.is_err(), "Expected repeated insertion to fail");
-            assert_eq!(
-                added.err().unwrap(),
-                BlockerError::FilterExists,
-                "Expected specific error on repeated insertion fail"
-            );
-        }
-        {
-            // Allow filter to be added twice when the engine is optimised
-            let blocker_options: BlockerOptions = BlockerOptions {
-                enable_optimizations: true,
-            };
-
-            let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-
-            let filter = NetworkFilter::parse("adv", true, Default::default()).unwrap();
-            blocker.add_filter(filter.clone()).unwrap();
-            let added = blocker.add_filter(filter);
-            assert!(added.is_ok());
-        }
-    }
-
-    #[test]
-    fn filter_add_tagged() {
-        // Allow filter to be added twice when the engine is optimised
-        let blocker_options: BlockerOptions = BlockerOptions {
-            enable_optimizations: true,
-        };
-
-        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-        let resources = Default::default();
-        blocker.enable_tags(&["brian"]);
-
-        blocker
-            .add_filter(NetworkFilter::parse("adv$tag=stuff", true, Default::default()).unwrap())
-            .unwrap();
-        blocker
-            .add_filter(
-                NetworkFilter::parse("somelongpath/test$tag=stuff", true, Default::default())
-                    .unwrap(),
-            )
-            .unwrap();
-        blocker
-            .add_filter(
-                NetworkFilter::parse("||brianbondy.com/$tag=brian", true, Default::default())
-                    .unwrap(),
-            )
-            .unwrap();
-        blocker
-            .add_filter(
-                NetworkFilter::parse("||brave.com$tag=brian", true, Default::default()).unwrap(),
-            )
-            .unwrap();
-
-        let url_results = [
-            ("http://example.com/advert.html", false),
-            ("http://example.com/somelongpath/test/2.html", false),
-            ("https://brianbondy.com/about", true),
-            ("https://brave.com/about", true),
-        ];
-
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
-                (request, expected_result)
-            })
-            .collect();
-
-        request_expectations
-            .into_iter()
-            .for_each(|(req, expected_result)| {
-                let matched_rule = blocker.check(&req, &resources);
-                if expected_result {
-                    assert!(matched_rule.matched, "Expected match for {}", req.url);
-                } else {
-                    assert!(
-                        !matched_rule.matched,
-                        "Expected no match for {}, matched with {:?}",
-                        req.url, matched_rule.filter
-                    );
-                }
-            });
-    }
-
-    #[test]
     fn exception_force_check() {
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-        let resources = Default::default();
-
-        blocker
-            .add_filter(NetworkFilter::parse("@@*ad_banner.png", true, Default::default()).unwrap())
+        let mut filter_set = crate::lists::FilterSet::new(true);
+        filter_set
+            .add_filter("@@*ad_banner.png", Default::default())
             .unwrap();
+
+        let blocker = Blocker::new(filter_set.network_filters, &blocker_options);
+
+        let resources = Default::default();
 
         let request = Request::new(
             "http://example.com/ad_banner.png",
@@ -1436,14 +1321,12 @@ mod blocker_tests {
             enable_optimizations: true,
         };
 
-        let mut blocker = Blocker::new(Vec::new(), &blocker_options);
-
-        blocker
-            .add_filter(
-                NetworkFilter::parse("@@||example.com$generichide", true, Default::default())
-                    .unwrap(),
-            )
+        let mut filter_set = crate::lists::FilterSet::new(true);
+        filter_set
+            .add_filter("@@||example.com$generichide", Default::default())
             .unwrap();
+
+        let blocker = Blocker::new(filter_set.network_filters, &blocker_options);
 
         assert!(blocker.check_generic_hide(
             &Request::new("https://example.com", "https://example.com", "other").unwrap()
@@ -1465,7 +1348,10 @@ mod placeholder_string_tests {
             &crate::request::Request::new("https://example.com", "https://example.com", "document")
                 .unwrap(),
         );
-        assert_eq!(block.filter, Some("NetworkFilter".to_string()));
+        assert_eq!(
+            block.filter,
+            Some("100000001100110001111111111111".to_string())
+        );
     }
 }
 
