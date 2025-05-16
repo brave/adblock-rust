@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744932254040,
+  "lastUpdate": 1747357660216,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -646,6 +646,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-after-1000-requests",
             "value": 44004875,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "distinct": true,
+          "id": "67b7b70df169a7b669e028cb946d4159c39b5c25",
+          "message": "support `$all`\n\nthis won't include `popup`, `inline-script`, or `inline-font` for now\ndue to lack of support for the individual options, but we may as well\nconvert `$all` into all supported types.",
+          "timestamp": "2025-05-15T17:54:00-07:00",
+          "tree_id": "775ef5fbd24fa569031b26b41fc853f241043642",
+          "url": "https://github.com/brave/adblock-rust/commit/67b7b70df169a7b669e028cb946d4159c39b5c25"
+        },
+        "date": 1747357658794,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1803081237,
+            "range": "± 16195247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 980016,
+            "range": "± 5452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 203961371,
+            "range": "± 2004867",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 41762172,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-after-1000-requests",
+            "value": 44355700,
             "range": "± 3",
             "unit": "ns/iter"
           }
