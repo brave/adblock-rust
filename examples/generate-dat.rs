@@ -21,7 +21,7 @@ fn main() {
     )
     .unwrap();
     assert!(engine.check_network_request(&request).exception.is_some());
-    let serialized = engine.serialize_raw().expect("Could not serialize!");
+    let serialized = engine.serialize().expect("Could not serialize!");
 
     // Write to file
     let mut file = File::create("engine.dat").expect("Could not create serialization file");

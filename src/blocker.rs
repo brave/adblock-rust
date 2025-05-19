@@ -5,7 +5,6 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
-use thiserror::Error;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
@@ -72,15 +71,6 @@ impl Default for BlockerResult {
             filter: None,
         }
     }
-}
-
-/// Possible errors when adding a filter to a [`Blocker`].
-#[derive(Debug, Error, PartialEq)]
-pub enum BlockerError {
-    #[error("$badfilter cannot be added (unsupported)")]
-    BadFilterAddUnsupported,
-    #[error("filter already exists")]
-    FilterExists,
 }
 
 // only check for tags in tagged and exception rule buckets,
@@ -380,7 +370,7 @@ impl Blocker {
         let mut disabled_directives: HashSet<&str> = HashSet::new();
         let mut enabled_directives: HashSet<&str> = HashSet::new();
 
-        for filter in filters {
+        for filter in filters.iter() {
             if filter.is_exception() {
                 if filter.is_csp() {
                     if let Some(csp_directive) = &filter.modifier_option {
@@ -414,7 +404,7 @@ impl Blocker {
         Some(merged)
     }
 
-    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Blocker {
+    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Self {
         // Capacity of filter subsets estimated based on counts in EasyList and EasyPrivacy - if necessary
         // the Vectors will grow beyond the pre-set capacity, but it is more efficient to allocate all at once
         // $csp=
@@ -486,7 +476,7 @@ impl Blocker {
 
         tagged_filters_all.shrink_to_fit();
 
-        Blocker {
+        Self {
             csp: NetworkFilterList::new(csp, options.enable_optimizations),
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
             importants: NetworkFilterList::new(importants, options.enable_optimizations),
@@ -503,85 +493,6 @@ impl Blocker {
             // Options
             enable_optimizations: options.enable_optimizations,
             regex_manager: Default::default(),
-        }
-    }
-
-    /// If optimizations are enabled, the `Blocker` will be configured to automatically optimize
-    /// its filters after batch updates. However, even if they are disabled, it is possible to
-    /// manually call `optimize()`. It may be useful to have finer-grained control over
-    /// optimization scheduling when frequently updating filters.
-    pub fn optimize(&mut self) {
-        self.csp.optimize();
-        self.exceptions.optimize();
-        self.importants.optimize();
-        self.redirects.optimize();
-        // note - don't optimize removeparam
-        self.filters_tagged.optimize();
-        self.filters.optimize();
-        self.generic_hide.optimize();
-    }
-
-    /// Has this exact filter already been added? Note that this is a best-effort method and may
-    /// miss some filters, especially if optimizations are enabled.
-    pub fn filter_exists(&self, filter: &NetworkFilter) -> bool {
-        if filter.is_csp() {
-            self.csp.filter_exists(filter)
-        } else if filter.is_generic_hide() {
-            self.generic_hide.filter_exists(filter)
-        } else if filter.is_exception() {
-            self.exceptions.filter_exists(filter)
-        } else if filter.is_important() {
-            self.importants.filter_exists(filter)
-        } else if filter.is_redirect() {
-            self.redirects.filter_exists(filter)
-        } else if filter.is_removeparam() {
-            self.removeparam.filter_exists(filter)
-        } else if filter.tag.is_some() {
-            self.tagged_filters_all.iter().any(|f| f.id == filter.id)
-        } else {
-            self.filters.filter_exists(filter)
-        }
-    }
-
-    /// Add a single filter to this [`Blocker`].
-    ///
-    /// Filter optimization is skipped when using this method.
-    pub fn add_filter(&mut self, filter: NetworkFilter) -> Result<(), BlockerError> {
-        // Redirects are independent of blocking behavior.
-        if filter.is_redirect() {
-            self.redirects.add_filter(filter.clone());
-        }
-
-        if filter.is_badfilter() {
-            Err(BlockerError::BadFilterAddUnsupported)
-        } else if self.filter_exists(&filter) {
-            Err(BlockerError::FilterExists)
-        } else if filter.is_csp() {
-            self.csp.add_filter(filter);
-            Ok(())
-        } else if filter.is_generic_hide() {
-            self.generic_hide.add_filter(filter);
-            Ok(())
-        } else if filter.is_exception() {
-            self.exceptions.add_filter(filter);
-            Ok(())
-        } else if filter.is_important() {
-            self.importants.add_filter(filter);
-            Ok(())
-        } else if filter.is_removeparam() {
-            self.removeparam.add_filter(filter);
-            Ok(())
-        } else if filter.tag.is_some() && !filter.is_redirect() {
-            // `tag` + `redirect` is unsupported
-            self.tagged_filters_all.push(filter);
-            let tags_enabled = self.tags_enabled().into_iter().collect::<HashSet<_>>();
-            self.tags_with_set(tags_enabled);
-            Ok(())
-        } else if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
-            self.filters.add_filter(filter);
-            Ok(())
-        } else {
-            Ok(())
         }
     }
 
