@@ -43,8 +43,8 @@ use std::collections::HashSet;
 /// [`Engine::hidden_class_id_selectors`] on an ongoing basis to determine additional elements that
 /// should be hidden dynamically.
 pub struct Engine {
-    pub(crate) blocker: Blocker,
-    pub(crate) cosmetic_cache: CosmeticFilterCache,
+    blocker: Blocker,
+    cosmetic_cache: CosmeticFilterCache,
     resources: ResourceStorage,
 }
 
