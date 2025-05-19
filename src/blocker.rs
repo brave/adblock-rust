@@ -367,13 +367,13 @@ impl Blocker {
             return None;
         }
 
-        let mut disabled_directives: HashSet<String> = HashSet::new();
-        let mut enabled_directives: HashSet<String> = HashSet::new();
+        let mut disabled_directives: HashSet<&str> = HashSet::new();
+        let mut enabled_directives: HashSet<&str> = HashSet::new();
 
-        for filter in filters {
+        for filter in filters.iter() {
             if filter.is_exception() {
                 if filter.is_csp() {
-                    if let Some(csp_directive) = filter.modifier_option {
+                    if let Some(csp_directive) = &filter.modifier_option {
                         disabled_directives.insert(csp_directive);
                     } else {
                         // Exception filters with empty `csp` options will disable all CSP
@@ -382,7 +382,7 @@ impl Blocker {
                     }
                 }
             } else if filter.is_csp() {
-                if let Some(csp_directive) = filter.modifier_option {
+                if let Some(csp_directive) = &filter.modifier_option {
                     enabled_directives.insert(csp_directive);
                 }
             }
@@ -391,7 +391,7 @@ impl Blocker {
         let mut remaining_directives = enabled_directives.difference(&disabled_directives);
 
         let mut merged = if let Some(directive) = remaining_directives.next() {
-            directive.to_string()
+            String::from(*directive)
         } else {
             return None;
         };
