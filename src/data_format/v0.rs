@@ -253,15 +253,11 @@ where
 
         #[serde(serialize_with = "stabilize_hashmap_serialization")]
         filter_map: HashMap<Hash, Vec<u32>>,
-
-        #[serde(serialize_with = "stabilize_hashmap_serialization")]
-        unique_domains_hashes_map: HashMap<Hash, u16>,
     }
 
     let v0_list = NetworkFilterListV0SerializeFmt {
         flatbuffer_memory: list.flatbuffer_memory.clone(),
         filter_map: list.filter_map.clone(),
-        unique_domains_hashes_map: list.unique_domains_hashes_map.clone(),
     };
 
     v0_list.serialize(s)
@@ -375,16 +371,25 @@ impl From<NetworkFilterV0DeserializeFmt> for NetworkFilter {
 pub(crate) struct NetworkFilterListV0DeserializeFmt {
     pub flatbuffer_memory: Vec<u8>,
     pub filter_map: HashMap<crate::utils::Hash, Vec<u32>>,
-    pub unique_domains_hashes_map: HashMap<crate::utils::Hash, u16>,
 }
 
 impl TryFrom<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
     fn try_from(v: NetworkFilterListV0DeserializeFmt) -> Result<Self, Self::Error> {
-        let _ = fb::root_as_network_filter_list(&v.flatbuffer_memory)?;
+        let root = fb::root_as_network_filter_list(&v.flatbuffer_memory)?;
+        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
+        let len = root.unique_domains_hashes().len();
+        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
+            HashMap::with_capacity(len);
+        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
+            unique_domains_hashes_map.insert(
+                hash,
+                u16::try_from(index).map_err(|_| DeserializationError::FlatbufferSemanticError)?,
+            );
+        }
         Ok(Self {
             flatbuffer_memory: v.flatbuffer_memory,
             filter_map: v.filter_map,
-            unique_domains_hashes_map: v.unique_domains_hashes_map,
+            unique_domains_hashes_map: unique_domains_hashes_map,
         })
     }
 

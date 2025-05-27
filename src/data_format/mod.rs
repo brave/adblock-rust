@@ -67,6 +67,7 @@ pub enum DeserializationError {
     /// deserializing and then reserializing it into the newer V0 format.
     LegacyFormatNoLongerSupported,
     InvalidFlatBuffer(flatbuffers::InvalidFlatbuffer),
+    FlatbufferSemanticError,
 }
 
 impl From<std::convert::Infallible> for DeserializationError {
