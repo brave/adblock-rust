@@ -389,7 +389,7 @@ impl TryFrom<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
         Ok(Self {
             flatbuffer_memory: v.flatbuffer_memory,
             filter_map: v.filter_map,
-            unique_domains_hashes_map: unique_domains_hashes_map,
+            unique_domains_hashes_map,
         })
     }
 
