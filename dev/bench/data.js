@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748419607060,
+  "lastUpdate": 1748689579647,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -808,6 +808,78 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial/max",
             "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523455,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604571,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68096,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e81b34031e8de1c5f623178e425a2ada4b0c819",
+          "message": "Merge pull request #462 from brave/remove-unique_domains_hashes_map-from-v0\n\nRemove unique_domains_hashes_map from v0 format",
+          "timestamp": "2025-05-31T15:02:10+04:00",
+          "tree_id": "2192e348451ec52ca56c5ff5ccdd2644fc78df0f",
+          "url": "https://github.com/brave/adblock-rust/commit/8e81b34031e8de1c5f623178e425a2ada4b0c819"
+        },
+        "date": 1748689578887,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2160831586,
+            "range": "± 10433529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1007477,
+            "range": "± 6984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 156467077,
+            "range": "± 1270977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 21536659,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875324,
             "range": "± 3",
             "unit": "ns/iter"
           },
