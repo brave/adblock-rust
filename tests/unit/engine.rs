@@ -185,9 +185,9 @@ mod tests {
                 std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
 
                 let mut msg = String::new();
-                msg.push_str("Looks the current format is not compatible with the previous.");
-                msg.push_str("Consider updating ADBLOCK_RUST_DAT_VERSION.");
-                msg.push_str("The expected content is written to: ");
+                msg.push_str("\nLooks the current format is not compatible with the previous.");
+                msg.push_str("\nConsider updating ADBLOCK_RUST_DAT_VERSION.");
+                msg.push_str("\nThe expected content is written to: ");
                 msg.push_str(&failed_file);
                 assert!(false, "Deserialization error: {:?}. {}", e, msg);
             }
@@ -215,12 +215,11 @@ mod tests {
                 std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
 
                 let mut msg = String::new();
-                msg.push_str("Looks the current format is not compatible with the previous.");
-                msg.push_str("Consider updating ADBLOCK_RUST_DAT_VERSION.");
-                msg.push_str("The expected content is written to: ");
+                msg.push_str("\nLooks the current format is not compatible with the previous.");
+                msg.push_str("\nConsider updating ADBLOCK_RUST_DAT_VERSION.");
+                msg.push_str("\nThe expected content is written to: ");
                 msg.push_str(&failed_file);
                 assert!(false, "Deserialization error: {:?}. {}", e, msg);
-
             }
             Ok(_) => {}
         }

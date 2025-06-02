@@ -17,15 +17,6 @@ use crate::cosmetic_filter_cache::CosmeticFilterCache;
 const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
 const ADBLOCK_RUST_DAT_VERSION: u8 = 1;
 
-/// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
-/// serialization.
-///
-/// Note that this does not implement `Serialize` directly, as it is composed of parts which must
-/// be serialized independently. Instead, use the `serialize` method.
-pub(crate) enum SerializeFormat<'a> {
-    V0(v0::SerializeFormat<'a>),
-}
-
 #[derive(Debug)]
 pub enum SerializationError {
     RmpSerdeError(rmp_serde::encode::Error),
@@ -35,27 +26,6 @@ impl From<rmp_serde::encode::Error> for SerializationError {
     fn from(e: rmp_serde::encode::Error) -> Self {
         Self::RmpSerdeError(e)
     }
-}
-
-impl<'a> SerializeFormat<'a> {
-    pub(crate) fn build(blocker: &'a Blocker, cfc: &'a CosmeticFilterCache) -> Self {
-        Self::V0(v0::SerializeFormat::from((blocker, cfc)))
-    }
-
-    pub(crate) fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
-        match self {
-            Self::V0(v) => v.serialize(),
-        }
-    }
-}
-
-/// Structural representation of adblock engine data that can be built up from deserialization and
-/// used directly to construct new `Engine` components without unnecessary allocation.
-///
-/// Note that this does not implement `Deserialize` directly, as it is composed of parts which must
-/// be deserialized independently. Instead, use the `deserialize` method.
-pub(crate) enum DeserializeFormat {
-    V0(v0::DeserializeFormat),
 }
 
 #[derive(Debug)]
@@ -85,16 +55,19 @@ impl From<flatbuffers::InvalidFlatbuffer> for DeserializationError {
     }
 }
 
-impl DeserializeFormat {
-    pub(crate) fn build(self) -> Result<(Blocker, CosmeticFilterCache), DeserializationError> {
-        match self {
-            Self::V0(v) => v.try_into(),
-        }
-    }
+pub(crate) fn serialize_engine(
+    blocker: &Blocker,
+    cfc: &CosmeticFilterCache,
+) -> Result<Vec<u8>, SerializationError> {
+    let serialize_format = v0::SerializeFormat::from((blocker, cfc));
+    serialize_format.serialize()
+}
 
-    pub(crate) fn deserialize(serialized: &[u8]) -> Result<Self, DeserializationError> {
-        Ok(Self::V0(v0::DeserializeFormat::deserialize(serialized)?))
-    }
+pub(crate) fn deserialize_engine(
+    serialized: &[u8],
+) -> Result<(Blocker, CosmeticFilterCache), DeserializationError> {
+    let deserialize_format = v0::DeserializeFormat::deserialize(serialized)?;
+    deserialize_format.try_into()
 }
 
 // Verify the header (MAGIC + VERSION) and return the data after the header.
