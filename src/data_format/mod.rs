@@ -5,7 +5,7 @@
 //! serialization/deserialization implementations and can automatically dispatch to the appropriate
 //! one.
 
-mod v0;
+mod storage;
 
 pub(crate) mod utils;
 
@@ -59,14 +59,14 @@ pub(crate) fn serialize_engine(
     blocker: &Blocker,
     cfc: &CosmeticFilterCache,
 ) -> Result<Vec<u8>, SerializationError> {
-    let serialize_format = v0::SerializeFormat::from((blocker, cfc));
+    let serialize_format = storage::SerializeFormat::from((blocker, cfc));
     serialize_format.serialize()
 }
 
 pub(crate) fn deserialize_engine(
     serialized: &[u8],
 ) -> Result<(Blocker, CosmeticFilterCache), DeserializationError> {
-    let deserialize_format = v0::DeserializeFormat::deserialize(serialized)?;
+    let deserialize_format = storage::DeserializeFormat::deserialize(serialized)?;
     deserialize_format.try_into()
 }
 
