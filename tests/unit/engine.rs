@@ -184,10 +184,12 @@ mod tests {
                 let failed_file = format!("{}.expected", FILE);
                 std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
 
-                println!("Looks the current format is not compatible with the previous");
-                println!("Consider updating ADBLOCK_RUST_DAT_VERSION");
-                println!("The expected content is written to: {}", failed_file);
-                assert!(false, "Deserialization error: {:?}", e);
+                let mut msg = String::new();
+                msg.push_str("Looks the current format is not compatible with the previous.");
+                msg.push_str("Consider updating ADBLOCK_RUST_DAT_VERSION.");
+                msg.push_str("The expected content is written to: ");
+                msg.push_str(&failed_file);
+                assert!(false, "Deserialization error: {:?}. {}", e, msg);
             }
             Ok(_) => {}
         }
@@ -212,10 +214,13 @@ mod tests {
                 let failed_file = format!("{}.expected", FILE);
                 std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
 
-                println!("Looks the current format is not compatible with the previous");
-                println!("Consider updating ADBLOCK_RUST_DAT_VERSION");
-                println!("The expected content is written to: {}", failed_file);
-                assert!(false, "Deserialization error: {:?}", e);
+                let mut msg = String::new();
+                msg.push_str("Looks the current format is not compatible with the previous.");
+                msg.push_str("Consider updating ADBLOCK_RUST_DAT_VERSION.");
+                msg.push_str("The expected content is written to: ");
+                msg.push_str(&failed_file);
+                assert!(false, "Deserialization error: {:?}. {}", e, msg);
+
             }
             Ok(_) => {}
         }
