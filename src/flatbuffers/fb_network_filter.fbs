@@ -1,3 +1,7 @@
+// IMPORTANT NOTE: In case of breaking changes increase ADBLOCK_RUST_DAT_VERSION
+// This helps to speed up browser startup process after the update.
+//
+// To build *_generated.rs run:
 // flatc --rust --gen-object-api -o src/flatbuffers/ src/flatbuffers/fb_network_filter.fbs
 
 namespace fb;

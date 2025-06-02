@@ -325,7 +325,7 @@ pub(crate) struct SerializeFormat<'a> {
 impl<'a> SerializeFormat<'a> {
     pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
         let mut output = super::ADBLOCK_RUST_DAT_MAGIC.to_vec();
-        output.push(0);
+        output.push(super::ADBLOCK_RUST_DAT_VERSION);
         rmps::encode::write(&mut output, &self)?;
         Ok(output)
     }
@@ -433,10 +433,8 @@ pub(crate) struct DeserializeFormat {
 
 impl DeserializeFormat {
     pub fn deserialize(serialized: &[u8]) -> Result<Self, DeserializationError> {
-        assert!(serialized.starts_with(&super::ADBLOCK_RUST_DAT_MAGIC));
-        assert!(serialized[super::ADBLOCK_RUST_DAT_MAGIC.len()] == 0);
-        let format: Self =
-            rmps::decode::from_read(&serialized[super::ADBLOCK_RUST_DAT_MAGIC.len() + 1..])?;
+        let data = super::parse_dat_header(serialized)?;
+        let format: Self = rmps::decode::from_read(data)?;
         Ok(format)
     }
 }

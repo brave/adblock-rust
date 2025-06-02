@@ -174,13 +174,23 @@ mod tests {
 
     #[test]
     fn deserialization_backwards_compatible_plain() {
-        // deserialization_generate_simple();
-        // assert!(false);
-        // converted from the legacy compressed format
-        let serialized = std::fs::read("tests/unit/data/backwards_compatible_plain.dat")
-            .expect("Failed to read backwards_compatible_plain.dat");
+        const FILE: &str = "tests/unit/data/backwards_compatible_plain.dat";
+        let serialized =
+            std::fs::read(FILE).expect("Failed to read test backwards_compatible_plain.dat");
         let mut deserialized_engine = Engine::default();
-        deserialized_engine.deserialize(&serialized).unwrap();
+        match deserialized_engine.deserialize(&serialized) {
+            Err(e) => {
+                let engine = Engine::from_rules(&["ad-banner"], Default::default());
+                let failed_file = format!("{}.expected", FILE);
+                std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
+
+                println!("Looks the current format is not compatible with the previous");
+                println!("Consider updating ADBLOCK_RUST_DAT_VERSION");
+                println!("The expected content is written to: {}", failed_file);
+                assert!(false, "Deserialization error: {:?}", e);
+            }
+            Ok(_) => {}
+        }
 
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(&url, "", "").unwrap();
@@ -190,15 +200,25 @@ mod tests {
 
     #[test]
     fn deserialization_backwards_compatible_tags() {
-        // deserialization_generate_tags();
-        // assert!(false);
-        // converted from the legacy compressed format
-        let serialized = std::fs::read("tests/unit/data/backwards_compatible_tags.dat")
-            .expect("Failed to read backwards_compatible_tags.dat");
+        const FILE: &str = "tests/unit/data/backwards_compatible_tags.dat";
+        let serialized =
+            std::fs::read(FILE).expect("Failed to read test backwards_compatible_tags.dat");
         let mut deserialized_engine = Engine::default();
 
         deserialized_engine.enable_tags(&[]);
-        deserialized_engine.deserialize(&serialized).unwrap();
+        match deserialized_engine.deserialize(&serialized) {
+            Err(e) => {
+                let engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
+                let failed_file = format!("{}.expected", FILE);
+                std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
+
+                println!("Looks the current format is not compatible with the previous");
+                println!("Consider updating ADBLOCK_RUST_DAT_VERSION");
+                println!("The expected content is written to: {}", failed_file);
+                assert!(false, "Deserialization error: {:?}", e);
+            }
+            Ok(_) => {}
+        }
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(&url, "", "").unwrap();
         let matched_rule = deserialized_engine.check_network_request(&request);
