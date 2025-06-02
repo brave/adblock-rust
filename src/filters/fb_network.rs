@@ -10,12 +10,33 @@ use crate::filters::network::{
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
-use crate::utils::Hash;
+use crate::utils::{self, Hash};
 
 #[allow(dead_code, unused_imports, unsafe_code)]
 #[path = "../flatbuffers/fb_network_filter_generated.rs"]
 pub mod flat;
 use flat::fb;
+
+#[derive(Default)]
+struct FlatStringBuffer<'a> {
+    map: HashMap<Hash, WIPOffset<&'a str>>,
+}
+
+impl<'a> FlatStringBuffer<'a> {
+    pub fn add(
+        &mut self,
+        s: &str,
+        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> WIPOffset<&'a str> {
+        let hash = utils::fast_hash(s);
+        if let Some(&offset) = self.map.get(&hash) {
+            return offset;
+        }
+        let offset = builder.create_string(s);
+        self.map.insert(hash, offset);
+        offset
+    }
+}
 
 pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
@@ -23,6 +44,7 @@ pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
 
     unique_domains_hashes: Vec<Hash>,
     unique_domains_hashes_map: HashMap<Hash, u16>,
+    string_buffer: FlatStringBuffer<'a>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -32,6 +54,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
             filters: vec![],
             unique_domains_hashes: vec![],
             unique_domains_hashes_map: HashMap::new(),
+            string_buffer: Default::default(),
         }
     }
 
@@ -69,23 +92,23 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         let modifier_option = network_filter
             .modifier_option
             .as_ref()
-            .map(|s| self.builder.create_string(&s));
+            .map(|s| self.string_buffer.add(s, &mut self.builder));
 
         let hostname = network_filter
             .hostname
             .as_ref()
-            .map(|s| self.builder.create_string(&s));
+            .map(|s| self.string_buffer.add(s, &mut self.builder));
 
         let tag = network_filter
             .tag
             .as_ref()
-            .map(|s| self.builder.create_string(&s));
+            .map(|s| self.string_buffer.add(s, &mut self.builder));
 
         let patterns = if network_filter.filter.iter().len() > 0 {
             let offsets: Vec<WIPOffset<&str>> = network_filter
                 .filter
                 .iter()
-                .map(|s| self.builder.create_string(s))
+                .map(|s| self.string_buffer.add(s, &mut self.builder))
                 .collect();
             Some(self.builder.create_vector(&offsets))
         } else {
@@ -95,7 +118,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         let raw_line = network_filter
             .raw_line
             .as_ref()
-            .map(|v| self.builder.create_string(v.as_str()));
+            .map(|v| self.string_buffer.add(v.as_str(), &mut self.builder));
 
         let filter = fb::NetworkFilter::create(
             &mut self.builder,
