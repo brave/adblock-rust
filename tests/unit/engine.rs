@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::lists::FilterFormat;
     use crate::resources::MimeType;
+    use crate::{lists::FilterFormat, test_utils::rules_from_lists};
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 
     #[test]
@@ -172,76 +172,24 @@ mod tests {
         });
     }
 
-    #[test]
-    fn deserialization_backwards_compatible_plain() {
-        const FILE: &str = "tests/unit/data/backwards_compatible_plain.dat";
-        let serialized =
-            std::fs::read(FILE).expect("Failed to read test backwards_compatible_plain.dat");
-        let mut deserialized_engine = Engine::default();
-        match deserialized_engine.deserialize(&serialized) {
-            Err(e) => {
-                let engine = Engine::from_rules(&["ad-banner"], Default::default());
-                let failed_file = format!("{}.expected", FILE);
-                std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
+    fn check_serialized_hash(serialized: &[u8], expected_hash: u64) {
+        let hash = seahash::hash(serialized);
+        let msg = [
+            "Changed in the serialized format detected!",
+            "1. Update ADBLOCK_RUST_DAT_VERSION before updating the expectations",
+            "2. DON'T rely on an approach: it's backwards compatible with the old one",
+            "   Backwards compatibility isn't covered by the tests",
+        ]
+        .join("\n");
 
-                let mut msg = String::new();
-                msg.push_str("\nLooks the current format is not compatible with the previous.");
-                msg.push_str("\nConsider updating ADBLOCK_RUST_DAT_VERSION.");
-                msg.push_str("\nThe expected content is written to: ");
-                msg.push_str(&failed_file);
-                assert!(false, "Deserialization error: {:?}. {}", e, msg);
-            }
-            Ok(_) => {}
-        }
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
-    }
-
-    #[test]
-    fn deserialization_backwards_compatible_tags() {
-        const FILE: &str = "tests/unit/data/backwards_compatible_tags.dat";
-        let serialized =
-            std::fs::read(FILE).expect("Failed to read test backwards_compatible_tags.dat");
-        let mut deserialized_engine = Engine::default();
-
-        deserialized_engine.enable_tags(&[]);
-        match deserialized_engine.deserialize(&serialized) {
-            Err(e) => {
-                let engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
-                let failed_file = format!("{}.expected", FILE);
-                std::fs::write(&failed_file, engine.serialize().unwrap()).unwrap();
-
-                let mut msg = String::new();
-                msg.push_str("\nLooks the current format is not compatible with the previous.");
-                msg.push_str("\nConsider updating ADBLOCK_RUST_DAT_VERSION.");
-                msg.push_str("\nThe expected content is written to: ");
-                msg.push_str(&failed_file);
-                assert!(false, "Deserialization error: {:?}. {}", e, msg);
-            }
-            Ok(_) => {}
-        }
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(!matched_rule.matched, "Expected NO match for {}", url);
-
-        deserialized_engine.enable_tags(&["abc"]);
-        deserialized_engine.deserialize(&serialized).unwrap();
-
-        let url = "http://example.com/ad-banner.gif";
-        let request = Request::new(&url, "", "").unwrap();
-        let matched_rule = deserialized_engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert_eq!(hash, expected_hash, "{}", msg);
     }
 
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
         let serialized = engine.serialize().unwrap();
-        println!("Engine serialized: {:?}", serialized);
+        check_serialized_hash(&serialized, 5182994214873330725);
         engine.deserialize(&serialized).unwrap();
     }
 
@@ -250,7 +198,7 @@ mod tests {
         let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let serialized = engine.serialize().unwrap();
-        println!("Engine serialized: {:?}", serialized);
+        check_serialized_hash(&serialized, 1966077156240685168);
         engine.deserialize(&serialized).unwrap();
     }
 
@@ -265,6 +213,18 @@ mod tests {
 
         let serialized = engine.serialize().unwrap();
         println!("Engine serialized: {:?}", serialized);
+        engine.deserialize(&serialized).unwrap();
+    }
+
+    #[test]
+    fn deserialization_brave_list() {
+        let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+        let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        let serialized = engine.serialize().unwrap();
+
+        // TODO: investigate why the hash is different each time and reenable
+        // check_serialized_hash(&serialized, ???);
+
         engine.deserialize(&serialized).unwrap();
     }
 
