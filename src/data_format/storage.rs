@@ -191,7 +191,7 @@ pub(crate) struct LegacyScriptletResourceStorage {
 
 /// `_bug` is no longer used, and is removed from future format versions.
 #[derive(Debug, Clone, Serialize)]
-struct NetworkFilterV0SerializeFmt<'a> {
+struct NetworkFilterSerializeFmt<'a> {
     mask: &'a crate::filters::network::NetworkFilterMask,
     filter: &'a crate::filters::network::FilterPart,
     opt_domains: &'a Option<Vec<crate::utils::Hash>>,
@@ -209,13 +209,13 @@ struct NetworkFilterV0SerializeFmt<'a> {
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
 /// while `NetworkFilterList` requires `&'a Arc<NetworkFilter>`.
-impl<'a, T> From<&'a T> for NetworkFilterV0SerializeFmt<'a>
+impl<'a, T> From<&'a T> for NetworkFilterSerializeFmt<'a>
 where
     T: std::borrow::Borrow<NetworkFilter>,
 {
-    fn from(v: &'a T) -> NetworkFilterV0SerializeFmt<'a> {
+    fn from(v: &'a T) -> NetworkFilterSerializeFmt<'a> {
         let v = v.borrow();
-        NetworkFilterV0SerializeFmt {
+        NetworkFilterSerializeFmt {
             mask: &v.mask,
             filter: &v.filter,
             opt_domains: &v.opt_domains,
@@ -241,59 +241,59 @@ where
     }
 }
 
-/// Forces a `NetworkFilterList` to be serialized with the v0 filter format by converting to an
-/// intermediate representation that is constructed with `NetworkFilterV0Fmt` instead.
-fn serialize_v0_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error>
+/// Forces a `NetworkFilterList` to be serialized by converting to an
+/// intermediate representation that is constructed with `NetworkFilterFmt` instead.
+fn serialize_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
     #[derive(Serialize, Default)]
-    struct NetworkFilterListV0SerializeFmt {
+    struct NetworkFilterListSerializeFmt {
         flatbuffer_memory: Vec<u8>,
 
         #[serde(serialize_with = "stabilize_hashmap_serialization")]
         filter_map: HashMap<Hash, Vec<u32>>,
     }
 
-    let v0_list = NetworkFilterListV0SerializeFmt {
+    let storage_list = NetworkFilterListSerializeFmt {
         flatbuffer_memory: list.flatbuffer_memory.clone(),
         filter_map: list.filter_map.clone(),
     };
 
-    v0_list.serialize(s)
+    storage_list.serialize(s)
 }
 
-/// Forces a `NetworkFilter` slice to be serialized with the v0 filter format by converting to
-/// an intermediate representation that is constructed with `NetworkFilterV0Fmt` instead.
-fn serialize_v0_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error>
+/// Forces a `NetworkFilter` slice to be serialized by converting to
+/// an intermediate representation that is constructed with `NetworkFilterFmt` instead.
+fn serialize_storage_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    let v0_vec: Vec<_> = vec.iter().map(NetworkFilterV0SerializeFmt::from).collect();
+    let storage_vec: Vec<_> = vec.iter().map(NetworkFilterSerializeFmt::from).collect();
 
-    v0_vec.serialize(s)
+    storage_vec.serialize(s)
 }
 
 /// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
 /// serialization.
 #[derive(Serialize)]
 pub(crate) struct SerializeFormat<'a> {
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     csp: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     exceptions: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     importants: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     redirects: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     filters_tagged: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     filters: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_v0_network_filter_list")]
+    #[serde(serialize_with = "serialize_network_filter_list")]
     generic_hide: &'a NetworkFilterList,
 
-    #[serde(serialize_with = "serialize_v0_network_filter_vec")]
+    #[serde(serialize_with = "serialize_storage_network_filter_vec")]
     tagged_filters_all: &'a Vec<NetworkFilter>,
 
     enable_optimizations: bool,
@@ -325,7 +325,7 @@ pub(crate) struct SerializeFormat<'a> {
 impl<'a> SerializeFormat<'a> {
     pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
         let mut output = super::ADBLOCK_RUST_DAT_MAGIC.to_vec();
-        output.push(0);
+        output.push(super::ADBLOCK_RUST_DAT_VERSION);
         rmps::encode::write(&mut output, &self)?;
         Ok(output)
     }
@@ -333,7 +333,7 @@ impl<'a> SerializeFormat<'a> {
 
 /// `_bug` is no longer used, and is cleaned up from future format versions.
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct NetworkFilterV0DeserializeFmt {
+pub(crate) struct NetworkFilterDeserializeFmt {
     pub mask: crate::filters::network::NetworkFilterMask,
     pub filter: crate::filters::network::FilterPart,
     pub opt_domains: Option<Vec<crate::utils::Hash>>,
@@ -349,8 +349,8 @@ pub(crate) struct NetworkFilterV0DeserializeFmt {
     pub opt_not_domains_union: Option<crate::utils::Hash>,
 }
 
-impl From<NetworkFilterV0DeserializeFmt> for NetworkFilter {
-    fn from(v: NetworkFilterV0DeserializeFmt) -> Self {
+impl From<NetworkFilterDeserializeFmt> for NetworkFilter {
+    fn from(v: NetworkFilterDeserializeFmt) -> Self {
         Self {
             mask: v.mask,
             filter: v.filter,
@@ -368,13 +368,13 @@ impl From<NetworkFilterV0DeserializeFmt> for NetworkFilter {
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub(crate) struct NetworkFilterListV0DeserializeFmt {
+pub(crate) struct NetworkFilterListDeserializeFmt {
     pub flatbuffer_memory: Vec<u8>,
     pub filter_map: HashMap<crate::utils::Hash, Vec<u32>>,
 }
 
-impl TryFrom<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
-    fn try_from(v: NetworkFilterListV0DeserializeFmt) -> Result<Self, Self::Error> {
+impl TryFrom<NetworkFilterListDeserializeFmt> for NetworkFilterList {
+    fn try_from(v: NetworkFilterListDeserializeFmt) -> Result<Self, Self::Error> {
         let root = fb::root_as_network_filter_list(&v.flatbuffer_memory)?;
         // Reconstruct the unique_domains_hashes_map from the flatbuffer data
         let len = root.unique_domains_hashes().len();
@@ -400,15 +400,15 @@ impl TryFrom<NetworkFilterListV0DeserializeFmt> for NetworkFilterList {
 /// used directly to construct new `Engine` components without unnecessary allocation.
 #[derive(Deserialize)]
 pub(crate) struct DeserializeFormat {
-    csp: NetworkFilterListV0DeserializeFmt,
-    exceptions: NetworkFilterListV0DeserializeFmt,
-    importants: NetworkFilterListV0DeserializeFmt,
-    redirects: NetworkFilterListV0DeserializeFmt,
-    filters_tagged: NetworkFilterListV0DeserializeFmt,
-    filters: NetworkFilterListV0DeserializeFmt,
-    generic_hide: NetworkFilterListV0DeserializeFmt,
+    csp: NetworkFilterListDeserializeFmt,
+    exceptions: NetworkFilterListDeserializeFmt,
+    importants: NetworkFilterListDeserializeFmt,
+    redirects: NetworkFilterListDeserializeFmt,
+    filters_tagged: NetworkFilterListDeserializeFmt,
+    filters: NetworkFilterListDeserializeFmt,
+    generic_hide: NetworkFilterListDeserializeFmt,
 
-    tagged_filters_all: Vec<NetworkFilterV0DeserializeFmt>,
+    tagged_filters_all: Vec<NetworkFilterDeserializeFmt>,
 
     enable_optimizations: bool,
 
@@ -433,10 +433,8 @@ pub(crate) struct DeserializeFormat {
 
 impl DeserializeFormat {
     pub fn deserialize(serialized: &[u8]) -> Result<Self, DeserializationError> {
-        assert!(serialized.starts_with(&super::ADBLOCK_RUST_DAT_MAGIC));
-        assert!(serialized[super::ADBLOCK_RUST_DAT_MAGIC.len()] == 0);
-        let format: Self =
-            rmps::decode::from_read(&serialized[super::ADBLOCK_RUST_DAT_MAGIC.len() + 1..])?;
+        let data = super::parse_dat_header(serialized)?;
+        let format: Self = rmps::decode::from_read(data)?;
         Ok(format)
     }
 }
