@@ -34,6 +34,7 @@ pub enum DeserializationError {
     RmpSerdeError(rmp_serde::decode::Error),
     UnsupportedFormatVersion(u8),
     NoHeaderFound,
+    LegacyFormatNoLongerSupported, // not used, for backward compatibility
     FlatBufferParsingError(crate::network_filter_list::FlatBufferParsingError),
 }
 
