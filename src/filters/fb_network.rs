@@ -6,6 +6,7 @@ use flatbuffers::WIPOffset;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
+use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatFilterListMemory};
 
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::RegexManager;
@@ -115,22 +116,44 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         u32::try_from(self.filters.len() - 1).expect("< u32::MAX")
     }
 
-    pub fn finish(&mut self) -> Vec<u8> {
-        let filters = self.builder.create_vector(&self.filters);
-
+    pub fn finish(
+        &mut self,
+        mut filter_map: HashMap<Hash, Vec<u32>>,
+    ) -> VerifiedFlatFilterListMemory {
         let unique_domains_hashes = self.builder.create_vector(&self.unique_domains_hashes);
+
+        let len = filter_map.len();
+
+        // Convert filter_map keys to a sorted vector of (hash, filter_indices).
+        let mut sorted_entries: Vec<(Hash, Vec<u32>)> =
+            filter_map.drain().map(|(k, v)| (k, v)).collect();
+        sorted_entries.sort_unstable_by_key(|(k, _)| *k);
+
+        // Convert sorted_entries to two flatbuffers vectors.
+        let mut flat_index: Vec<Hash> = Vec::with_capacity(len);
+        let mut flat_values: Vec<_> = Vec::with_capacity(len);
+        for (key, filter_indices) in sorted_entries {
+            for &filter_index in &filter_indices {
+                flat_index.push(key);
+                flat_values.push(self.filters[filter_index as usize]);
+            }
+        }
+
+        let filter_map_index = self.builder.create_vector(&flat_index);
+        let filter_map_values = self.builder.create_vector(&flat_values);
 
         let storage = fb::NetworkFilterList::create(
             &mut self.builder,
-            &&fb::NetworkFilterListArgs {
-                network_filters: Some(filters),
+            &fb::NetworkFilterListArgs {
+                filter_map_index: Some(filter_map_index),
+                filter_map_values: Some(filter_map_values),
                 unique_domains_hashes: Some(unique_domains_hashes),
             },
         );
         self.builder.finish(storage, None);
 
-        let binary = Vec::from(self.builder.finished_data());
-        binary
+        // TODO: consider using builder.collapse() to avoid reallocating memory.
+        VerifiedFlatFilterListMemory::from_builder(&self.builder)
     }
 }
 pub(crate) struct FlatPatterns<'a> {
@@ -221,30 +244,16 @@ impl<'a> FlatNetworkFilter<'a> {
 
     #[inline(always)]
     pub fn include_domains(&self) -> Option<&[u16]> {
-        self.fb_filter.opt_domains().map(|data| {
-            let bytes = data.bytes();
-            assert!(bytes.len() % std::mem::size_of::<u16>() == 0);
-            unsafe {
-                std::slice::from_raw_parts(
-                    bytes.as_ptr() as *const u16,
-                    bytes.len() / std::mem::size_of::<u16>(),
-                )
-            }
-        })
+        self.fb_filter
+            .opt_domains()
+            .map(|data| fb_vector_to_slice(data))
     }
 
     #[inline(always)]
     pub fn exclude_domains(&self) -> Option<&[u16]> {
-        self.fb_filter.opt_not_domains().map(|data| {
-            let bytes = data.bytes();
-            assert!(bytes.len() % std::mem::size_of::<u16>() == 0);
-            unsafe {
-                std::slice::from_raw_parts(
-                    bytes.as_ptr() as *const u16,
-                    bytes.len() / std::mem::size_of::<u16>(),
-                )
-            }
-        })
+        self.fb_filter
+            .opt_not_domains()
+            .map(|data| fb_vector_to_slice(data))
     }
 
     #[inline(always)]

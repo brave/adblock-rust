@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
-use crate::filters::fb_network::flat::fb;
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
 use crate::utils::Hash;
@@ -250,14 +249,10 @@ where
     #[derive(Serialize, Default)]
     struct NetworkFilterListSerializeFmt {
         flatbuffer_memory: Vec<u8>,
-
-        #[serde(serialize_with = "stabilize_hashmap_serialization")]
-        filter_map: HashMap<Hash, Vec<u32>>,
     }
 
     let storage_list = NetworkFilterListSerializeFmt {
-        flatbuffer_memory: list.flatbuffer_memory.clone(),
-        filter_map: list.filter_map.clone(),
+        flatbuffer_memory: list.memory.data().to_vec(),
     };
 
     storage_list.serialize(s)
@@ -370,27 +365,13 @@ impl From<NetworkFilterDeserializeFmt> for NetworkFilter {
 #[derive(Debug, Deserialize, Default)]
 pub(crate) struct NetworkFilterListDeserializeFmt {
     pub flatbuffer_memory: Vec<u8>,
-    pub filter_map: HashMap<crate::utils::Hash, Vec<u32>>,
 }
 
 impl TryFrom<NetworkFilterListDeserializeFmt> for NetworkFilterList {
     fn try_from(v: NetworkFilterListDeserializeFmt) -> Result<Self, Self::Error> {
-        let root = fb::root_as_network_filter_list(&v.flatbuffer_memory)?;
-        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
-        let len = root.unique_domains_hashes().len();
-        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
-            HashMap::with_capacity(len);
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(
-                hash,
-                u16::try_from(index).map_err(|_| DeserializationError::FlatbufferSemanticError)?,
-            );
-        }
-        Ok(Self {
-            flatbuffer_memory: v.flatbuffer_memory,
-            filter_map: v.filter_map,
-            unique_domains_hashes_map,
-        })
+        Ok(NetworkFilterList::try_from_unverified_memory(
+            v.flatbuffer_memory,
+        )?)
     }
 
     type Error = DeserializationError;

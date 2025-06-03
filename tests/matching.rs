@@ -148,3 +148,59 @@ fn check_engine_matching() {
         }
     }
 }
+
+#[test]
+#[cfg(not(debug_assertions))] // This test is too slow to run in debug mode
+fn check_rule_matching_browserlike() {
+    #[path = "../tests/test_utils.rs"]
+    mod test_utils;
+    use test_utils::rules_from_lists;
+
+    use adblock::request::Request;
+    use adblock::Engine;
+    use serde::Deserialize;
+
+    #[allow(non_snake_case)]
+    #[derive(Deserialize)]
+    struct TestRequest {
+        frameUrl: String,
+        url: String,
+        cpt: String,
+    }
+
+    impl From<&TestRequest> for Request {
+        fn from(v: &TestRequest) -> Self {
+            Request::new(&v.url, &v.frameUrl, &v.cpt).unwrap()
+        }
+    }
+
+    fn load_requests() -> Vec<TestRequest> {
+        let requests_str = rules_from_lists(&["data/requests.json"]);
+        requests_str
+            .into_iter()
+            .filter_map(|r| serde_json::from_str(&r).ok())
+            .collect()
+    }
+
+    fn bench_rule_matching_browserlike(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) {
+        let mut matches = 0;
+        let mut passes = 0;
+        for r in requests {
+            let req: Request = r.into();
+            if engine.check_network_request(&req).matched {
+                matches += 1;
+            } else {
+                passes += 1;
+            }
+        }
+        (matches, passes)
+    }
+
+    let requests = load_requests();
+    let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+    let engine = Engine::from_rules(rules, Default::default());
+    let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
+    let msg = "The number of blocked/passed requests has changed. ".to_string()
+        + "If this is expected, update the expected values in the test.";
+    assert_eq!((blocked, passes), (103973, 138972), "{}", msg);
+}

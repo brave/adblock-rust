@@ -444,8 +444,9 @@ pub mod fb {
     }
 
     impl<'a> NetworkFilterList<'a> {
-        pub const VT_NETWORK_FILTERS: flatbuffers::VOffsetT = 4;
-        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
+        pub const VT_FILTER_MAP_INDEX: flatbuffers::VOffsetT = 4;
+        pub const VT_FILTER_MAP_VALUES: flatbuffers::VOffsetT = 6;
+        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -465,15 +466,22 @@ pub mod fb {
             if let Some(x) = args.unique_domains_hashes {
                 builder.add_unique_domains_hashes(x);
             }
-            if let Some(x) = args.network_filters {
-                builder.add_network_filters(x);
+            if let Some(x) = args.filter_map_values {
+                builder.add_filter_map_values(x);
+            }
+            if let Some(x) = args.filter_map_index {
+                builder.add_filter_map_index(x);
             }
             builder.finish()
         }
 
         pub fn unpack(&self) -> NetworkFilterListT {
-            let network_filters = {
-                let x = self.network_filters();
+            let filter_map_index = {
+                let x = self.filter_map_index();
+                x.into_iter().collect()
+            };
+            let filter_map_values = {
+                let x = self.filter_map_values();
                 x.iter().map(|t| t.unpack()).collect()
             };
             let unique_domains_hashes = {
@@ -481,13 +489,28 @@ pub mod fb {
                 x.into_iter().collect()
             };
             NetworkFilterListT {
-                network_filters,
+                filter_map_index,
+                filter_map_values,
                 unique_domains_hashes,
             }
         }
 
         #[inline]
-        pub fn network_filters(
+        pub fn filter_map_index(&self) -> flatbuffers::Vector<'a, u64> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
+                        NetworkFilterList::VT_FILTER_MAP_INDEX,
+                        None,
+                    )
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn filter_map_values(
             &self,
         ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
             // Safety:
@@ -497,7 +520,7 @@ pub mod fb {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<
                         flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter>>,
-                    >>(NetworkFilterList::VT_NETWORK_FILTERS, None)
+                    >>(NetworkFilterList::VT_FILTER_MAP_VALUES, None)
                     .unwrap()
             }
         }
@@ -525,9 +548,14 @@ pub mod fb {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
+                    "filter_map_index",
+                    Self::VT_FILTER_MAP_INDEX,
+                    true,
+                )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>,
-                >>("network_filters", Self::VT_NETWORK_FILTERS, true)?
+                >>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
                     "unique_domains_hashes",
                     Self::VT_UNIQUE_DOMAINS_HASHES,
@@ -538,7 +566,8 @@ pub mod fb {
         }
     }
     pub struct NetworkFilterListArgs<'a> {
-        pub network_filters: Option<
+        pub filter_map_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+        pub filter_map_values: Option<
             flatbuffers::WIPOffset<
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
             >,
@@ -549,7 +578,8 @@ pub mod fb {
         #[inline]
         fn default() -> Self {
             NetworkFilterListArgs {
-                network_filters: None,       // required field
+                filter_map_index: None,      // required field
+                filter_map_values: None,     // required field
                 unique_domains_hashes: None, // required field
             }
         }
@@ -561,15 +591,25 @@ pub mod fb {
     }
     impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterListBuilder<'a, 'b, A> {
         #[inline]
-        pub fn add_network_filters(
+        pub fn add_filter_map_index(
             &mut self,
-            network_filters: flatbuffers::WIPOffset<
+            filter_map_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_FILTER_MAP_INDEX,
+                filter_map_index,
+            );
+        }
+        #[inline]
+        pub fn add_filter_map_values(
+            &mut self,
+            filter_map_values: flatbuffers::WIPOffset<
                 flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<NetworkFilter<'b>>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilterList::VT_NETWORK_FILTERS,
-                network_filters,
+                NetworkFilterList::VT_FILTER_MAP_VALUES,
+                filter_map_values,
             );
         }
         #[inline]
@@ -595,8 +635,16 @@ pub mod fb {
         #[inline]
         pub fn finish(self) -> flatbuffers::WIPOffset<NetworkFilterList<'a>> {
             let o = self.fbb_.end_table(self.start_);
-            self.fbb_
-                .required(o, NetworkFilterList::VT_NETWORK_FILTERS, "network_filters");
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_FILTER_MAP_INDEX,
+                "filter_map_index",
+            );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_FILTER_MAP_VALUES,
+                "filter_map_values",
+            );
             self.fbb_.required(
                 o,
                 NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
@@ -609,7 +657,8 @@ pub mod fb {
     impl core::fmt::Debug for NetworkFilterList<'_> {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut ds = f.debug_struct("NetworkFilterList");
-            ds.field("network_filters", &self.network_filters());
+            ds.field("filter_map_index", &self.filter_map_index());
+            ds.field("filter_map_values", &self.filter_map_values());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.finish()
         }
@@ -617,13 +666,15 @@ pub mod fb {
     #[non_exhaustive]
     #[derive(Debug, Clone, PartialEq)]
     pub struct NetworkFilterListT {
-        pub network_filters: Vec<NetworkFilterT>,
+        pub filter_map_index: Vec<u64>,
+        pub filter_map_values: Vec<NetworkFilterT>,
         pub unique_domains_hashes: Vec<u64>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
             Self {
-                network_filters: Default::default(),
+                filter_map_index: Default::default(),
+                filter_map_values: Default::default(),
                 unique_domains_hashes: Default::default(),
             }
         }
@@ -633,8 +684,12 @@ pub mod fb {
             &self,
             _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
         ) -> flatbuffers::WIPOffset<NetworkFilterList<'b>> {
-            let network_filters = Some({
-                let x = &self.network_filters;
+            let filter_map_index = Some({
+                let x = &self.filter_map_index;
+                _fbb.create_vector(x)
+            });
+            let filter_map_values = Some({
+                let x = &self.filter_map_values;
                 let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
@@ -645,7 +700,8 @@ pub mod fb {
             NetworkFilterList::create(
                 _fbb,
                 &NetworkFilterListArgs {
-                    network_filters,
+                    filter_map_index,
+                    filter_map_values,
                     unique_domains_hashes,
                 },
             )

@@ -1,12 +1,12 @@
 use std::{collections::HashMap, collections::HashSet, fmt};
 
-use serde::{Deserialize, Serialize};
-
 use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
+use crate::filters::flat_filter_map::FlatFilterMap;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
+use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatFilterListMemory};
 use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
@@ -45,24 +45,70 @@ impl NetworkFilterMaskHelper for CheckResult {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+pub enum FlatBufferParsingError {
+    InvalidFlatbuffer(flatbuffers::InvalidFlatbuffer),
+    UniqueDomainsOutOfBounds(usize),
+}
+
 pub(crate) struct NetworkFilterList {
-    pub(crate) flatbuffer_memory: Vec<u8>,
-    pub(crate) filter_map: HashMap<Hash, Vec<u32>>,
+    pub(crate) memory: VerifiedFlatFilterListMemory,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u16>,
 }
 
 impl Default for NetworkFilterList {
     fn default() -> Self {
+        let mut builder = FlatNetworkFiltersListBuilder::new();
+        let memory = builder.finish(HashMap::new());
         Self {
-            flatbuffer_memory: Default::default(),
-            filter_map: Default::default(),
-            unique_domains_hashes_map: Default::default(),
+            memory,
+            unique_domains_hashes_map: HashMap::new(),
         }
     }
 }
 
 impl NetworkFilterList {
+    /// Create a new NetworkFilterList from raw memory (includes verification).
+    pub(crate) fn try_from_unverified_memory(
+        flatbuffer_memory: Vec<u8>,
+    ) -> Result<NetworkFilterList, FlatBufferParsingError> {
+        let memory = VerifiedFlatFilterListMemory::from_raw(flatbuffer_memory)
+            .map_err(FlatBufferParsingError::InvalidFlatbuffer)?;
+
+        Self::try_from_verified_memory(memory)
+    }
+
+    pub(crate) fn try_from_verified_memory(
+        memory: VerifiedFlatFilterListMemory,
+    ) -> Result<NetworkFilterList, FlatBufferParsingError> {
+        let root = memory.filter_list();
+
+        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
+        let len = root.unique_domains_hashes().len();
+        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
+            HashMap::with_capacity(len);
+        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
+            unique_domains_hashes_map.insert(
+                hash,
+                u16::try_from(index)
+                    .map_err(|_| FlatBufferParsingError::UniqueDomainsOutOfBounds(index))?,
+            );
+        }
+
+        Ok(Self {
+            memory,
+            unique_domains_hashes_map,
+        })
+    }
+
+    pub fn get_filter_map(&self) -> FlatFilterMap<Hash, fb::NetworkFilter> {
+        let filters_list = self.memory.filter_list();
+        FlatFilterMap::new(
+            fb_vector_to_slice(filters_list.filter_map_index()),
+            filters_list.filter_map_values(),
+        )
+    }
+
     pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
         // Compute tokens for all filters
         let filter_tokens: Vec<_> = filters
@@ -130,23 +176,9 @@ impl NetworkFilterList {
             );
         }
 
-        let flatbuffer_memory = flat_builder.finish();
-        let root = fb::root_as_network_filter_list(&flatbuffer_memory)
-            .expect("Ok because it is created in the previous line");
+        let memory = flat_builder.finish(filter_map);
 
-        let mut unique_domains_hashes_map: HashMap<Hash, u16> = HashMap::new();
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(hash, u16::try_from(index).expect("< u16 max"));
-        }
-
-        filter_map.shrink_to_fit();
-        unique_domains_hashes_map.shrink_to_fit();
-
-        Self {
-            flatbuffer_memory,
-            filter_map,
-            unique_domains_hashes_map,
-        }
+        Self::try_from_verified_memory(memory).unwrap_or_default()
     }
     /// Returns the first found filter, if any, that matches the given request. The backing storage
     /// has a non-deterministic order, so this should be used for any category of filters where a
@@ -159,30 +191,27 @@ impl NetworkFilterList {
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<CheckResult> {
-        if self.filter_map.is_empty() {
+        let filters_list = self.memory.filter_list();
+
+        if filters_list.filter_map_index().len() == 0 {
             return None;
         }
 
-        let filters_list =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
+            for (index, fb_filter) in filter_map.get(token) {
+                let filter = FlatNetworkFilter::new(&fb_filter, index as u32, self);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
-                    {
-                        return Some(CheckResult {
-                            filter_mask: filter.mask,
-                            modifier_option: filter.modifier_option(),
-                            raw_line: filter.raw_line(),
-                        });
-                    }
+                // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                if filter.matches(request, regex_manager)
+                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                {
+                    return Some(CheckResult {
+                        filter_mask: filter.mask,
+                        modifier_option: filter.modifier_option(),
+                        raw_line: filter.raw_line(),
+                    });
                 }
             }
         }
@@ -202,30 +231,27 @@ impl NetworkFilterList {
     ) -> Vec<CheckResult> {
         let mut filters: Vec<CheckResult> = vec![];
 
-        if self.filter_map.is_empty() {
+        let filters_list = self.memory.filter_list();
+
+        if filters_list.filter_map_index().len() == 0 {
             return filters;
         }
 
-        let filters_list =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            if let Some(filter_bucket) = self.filter_map.get(token) {
-                for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
+            for (index, fb_filter) in filter_map.get(token) {
+                let filter = FlatNetworkFilter::new(&fb_filter, index as u32, self);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
-                    {
-                        filters.push(CheckResult {
-                            filter_mask: filter.mask,
-                            modifier_option: filter.modifier_option(),
-                            raw_line: filter.raw_line(),
-                        });
-                    }
+                // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                if filter.matches(request, regex_manager)
+                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                {
+                    filters.push(CheckResult {
+                        filter_mask: filter.mask,
+                        modifier_option: filter.modifier_option(),
+                        raw_line: filter.raw_line(),
+                    });
                 }
             }
         }
@@ -250,17 +276,6 @@ pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
         Ok(_pos) => (), // Can occur if the exact same rule is inserted twice. No reason to add anything.
         Err(slot) => entry.insert(slot, v),
     }
-}
-
-#[cfg(test)]
-pub(crate) fn vec_hashmap_len<K: std::cmp::Eq + std::hash::Hash, V, H: std::hash::BuildHasher>(
-    map: &HashMap<K, Vec<V>, H>,
-) -> usize {
-    let mut size = 0usize;
-    for (_, val) in map.iter() {
-        size += val.len();
-    }
-    size
 }
 
 pub(crate) fn token_histogram<T>(
