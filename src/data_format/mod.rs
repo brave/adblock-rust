@@ -35,7 +35,7 @@ pub enum DeserializationError {
     UnsupportedFormatVersion(u8),
     NoHeaderFound,
     LegacyFormatNoLongerSupported, // not used, for backward compatibility
-    FlatBufferParsingError(crate::network_filter_list::FlatBufferParsingError),
+    FlatBufferParsingError(FlatBufferParsingError),
 }
 
 impl From<std::convert::Infallible> for DeserializationError {
