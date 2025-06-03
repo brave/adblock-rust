@@ -222,7 +222,13 @@ mod tests {
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         let serialized = engine.serialize().unwrap();
 
-        check_serialized_hash(&serialized, 5945093815025515408);
+        let expected_hash = if cfg!(feature = "css-validation") {
+            2101784880107635488
+        } else {
+            5945093815025515408
+        };
+
+        check_serialized_hash(&serialized, expected_hash);
 
         engine.deserialize(&serialized).unwrap();
     }
