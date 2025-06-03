@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748939817407,
+  "lastUpdate": 1748940913788,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1024,6 +1024,78 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial/max",
             "value": 72875308,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523439,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604555,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68080,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "787e3f7756af742d65e5ea227477bdad337f1f75",
+          "message": "Merge pull request #469 from brave/dependabot/cargo/ring-0.17.14\n\nBump ring from 0.17.5 to 0.17.14",
+          "timestamp": "2025-06-03T12:51:11+04:00",
+          "tree_id": "e63f8a4e7573d9e46536457ceca2975dad2ed2a8",
+          "url": "https://github.com/brave/adblock-rust/commit/787e3f7756af742d65e5ea227477bdad337f1f75"
+        },
+        "date": 1748940913020,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2131079421,
+            "range": "± 20373713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1027719,
+            "range": "± 15144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 159196050,
+            "range": "± 1948387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 21536659,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875324,
             "range": "± 3",
             "unit": "ns/iter"
           },
