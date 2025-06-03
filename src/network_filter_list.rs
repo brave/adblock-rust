@@ -2,8 +2,8 @@ use std::{collections::HashMap, collections::HashSet, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use crate::filters::fb_network::flat::fb;
-use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
+use crate::capnp_network::{CapnpNetworkFilter, CapnpNetworkFiltersListBuilder};
+use crate::capnp_network::network_filter_capnp::{network_filter_list};
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
@@ -11,6 +11,10 @@ use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
+
+use capnp::serialize;
+use capnp::message::ReaderOptions;
+use capnp::serialize_packed;
 
 pub struct CheckResult {
     pub filter_mask: NetworkFilterMask,
@@ -75,7 +79,7 @@ impl NetworkFilterList {
         // compute the tokens' frequency histogram
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
-        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
+        let mut flat_builder = CapnpNetworkFiltersListBuilder::new();
         let mut filter_map = HashMap::<Hash, Vec<u32>>::new();
 
         let mut optimizable = HashMap::<Hash, Vec<NetworkFilter>>::new();
@@ -131,12 +135,17 @@ impl NetworkFilterList {
         }
 
         let flatbuffer_memory = flat_builder.finish();
-        let root = fb::root_as_network_filter_list(&flatbuffer_memory)
+
+        let reader = serialize_packed::read_message(&mut flatbuffer_memory.as_slice(), ReaderOptions::new())
+            .expect("Ok because it is created in the previous line");
+        let root = reader.get_root::<network_filter_list::Reader>()
             .expect("Ok because it is created in the previous line");
 
         let mut unique_domains_hashes_map: HashMap<Hash, u16> = HashMap::new();
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(hash, u16::try_from(index).expect("< u16 max"));
+        if let Ok(unique_domains_hashes) = root.get_unique_domains_hashes() {
+            for (index, hash) in unique_domains_hashes.iter().enumerate() {
+                unique_domains_hashes_map.insert(hash, u16::try_from(index).expect("< u16 max"));
+            }
         }
 
         filter_map.shrink_to_fit();
@@ -163,19 +172,20 @@ impl NetworkFilterList {
             return None;
         }
 
-        let filters_list =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let reader = serialize_packed::read_message(&mut self.flatbuffer_memory.as_slice(), ReaderOptions::new())
+            .ok()?;
+        let filters_list = reader.get_root::<network_filter_list::Reader>().ok()?;
+        let network_filters = filters_list.get_network_filters().ok()?;
 
         for token in request.get_tokens_for_match() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
+                    let fb_filter = network_filters.get(*filter_index);
+                    let filter = CapnpNetworkFilter::new(fb_filter, *filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
+                        && filter.tag().map_or(true, |tag| active_tags.contains(tag))
                     {
                         return Some(CheckResult {
                             filter_mask: filter.mask,
@@ -206,19 +216,28 @@ impl NetworkFilterList {
             return filters;
         }
 
-        let filters_list =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let reader = match serialize_packed::read_message(&mut self.flatbuffer_memory.as_slice(), ReaderOptions::new()) {
+            Ok(reader) => reader,
+            Err(_) => return filters,
+        };
+        let filters_list = match reader.get_root::<network_filter_list::Reader>() {
+            Ok(list) => list,
+            Err(_) => return filters,
+        };
+        let network_filters = match filters_list.get_network_filters() {
+            Ok(filters) => filters,
+            Err(_) => return filters,
+        };
 
         for token in request.get_tokens_for_match() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
+                    let fb_filter = network_filters.get(*filter_index);
+                    let filter = CapnpNetworkFilter::new(fb_filter, *filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
-                        && filter.tag().map_or(true, |t| active_tags.contains(t))
+                        && filter.tag().map_or(true, |tag| active_tags.contains(tag))
                     {
                         filters.push(CheckResult {
                             filter_mask: filter.mask,

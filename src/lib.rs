@@ -17,6 +17,7 @@
 
 // Own modules, currently everything is exposed, will need to limit
 pub mod blocker;
+mod capnp_network;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
 pub mod cosmetic_filter_cache;
@@ -33,6 +34,9 @@ pub mod url_parser;
 
 #[doc(hidden)]
 pub mod utils;
+
+// Re-export the Cap'n Proto generated code at the crate level
+pub use capnp_network::network_filter_capnp;
 
 #[doc(inline)]
 pub use engine::Engine;

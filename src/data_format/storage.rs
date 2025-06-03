@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
-use crate::filters::fb_network::flat::fb;
+use crate::capnp_network::network_filter_capnp::{network_filter_list};
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::network_filter_list::NetworkFilterList;
 use crate::utils::Hash;
@@ -247,20 +247,20 @@ fn serialize_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S:
 where
     S: serde::Serializer,
 {
-    #[derive(Serialize, Default)]
+    #[derive(Serialize)]
     struct NetworkFilterListSerializeFmt {
-        flatbuffer_memory: Vec<u8>,
+        capnp_memory: Vec<u8>,
 
         #[serde(serialize_with = "stabilize_hashmap_serialization")]
         filter_map: HashMap<Hash, Vec<u32>>,
     }
 
-    let storage_list = NetworkFilterListSerializeFmt {
-        flatbuffer_memory: list.flatbuffer_memory.clone(),
+    let fmt = NetworkFilterListSerializeFmt {
+        capnp_memory: list.flatbuffer_memory.clone(),
         filter_map: list.filter_map.clone(),
     };
 
-    storage_list.serialize(s)
+    fmt.serialize(s)
 }
 
 /// Forces a `NetworkFilter` slice to be serialized by converting to
@@ -369,25 +369,31 @@ impl From<NetworkFilterDeserializeFmt> for NetworkFilter {
 
 #[derive(Debug, Deserialize, Default)]
 pub(crate) struct NetworkFilterListDeserializeFmt {
-    pub flatbuffer_memory: Vec<u8>,
+    pub capnp_memory: Vec<u8>,
     pub filter_map: HashMap<crate::utils::Hash, Vec<u32>>,
 }
 
 impl TryFrom<NetworkFilterListDeserializeFmt> for NetworkFilterList {
     fn try_from(v: NetworkFilterListDeserializeFmt) -> Result<Self, Self::Error> {
-        let root = fb::root_as_network_filter_list(&v.flatbuffer_memory)?;
-        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
-        let len = root.unique_domains_hashes().len();
+        use capnp::serialize_packed;
+        use capnp::message::ReaderOptions;
+
+        let reader = serialize_packed::read_message(&mut v.capnp_memory.as_slice(), ReaderOptions::new())?;
+        let root = reader.get_root::<network_filter_list::Reader>()?;
+
+        // Reconstruct the unique_domains_hashes_map from the capnp data
+        let unique_domains_hashes = root.get_unique_domains_hashes()?;
+        let len = unique_domains_hashes.len();
         let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
-            HashMap::with_capacity(len);
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
+            HashMap::with_capacity(len as usize);
+        for (index, hash) in unique_domains_hashes.iter().enumerate() {
             unique_domains_hashes_map.insert(
                 hash,
-                u16::try_from(index).map_err(|_| DeserializationError::FlatbufferSemanticError)?,
+                u16::try_from(index).map_err(|_| DeserializationError::CapnpSemanticError)?,
             );
         }
         Ok(Self {
-            flatbuffer_memory: v.flatbuffer_memory,
+            flatbuffer_memory: v.capnp_memory,
             filter_map: v.filter_map,
             unique_domains_hashes_map,
         })
