@@ -15,28 +15,26 @@
 //!
 //! Check the [`Engine`] documentation to get started with adblocking.
 
-// Own modules, currently everything is exposed, will need to limit
-pub mod blocker;
-mod capnp_network;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
+
+// Own modules, currently everything is exposed, will need to limit
+pub mod blocker;
 pub mod cosmetic_filter_cache;
-mod data_format;
-mod engine;
+pub mod data_format;
+pub mod engine;
 pub mod filters;
 pub mod lists;
-mod network_filter_list;
-mod optimizer;
+pub mod network_filter_list;
+pub mod optimizer;
 pub mod regex_manager;
 pub mod request;
 pub mod resources;
 pub mod url_parser;
-
-#[doc(hidden)]
 pub mod utils;
 
-// Re-export the Cap'n Proto generated code at the crate level
-pub use capnp_network::network_filter_capnp;
+// Export the capnp schema for FFI consumers
+pub use network_filter_list::network_filter_capnp;
 
 #[doc(inline)]
 pub use engine::Engine;

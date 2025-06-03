@@ -11,13 +11,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
-use crate::capnp_network::network_filter_capnp::{network_filter_list};
-use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
+use crate::network_filter_list::network_filter_capnp::{network_filter_list};
 use crate::network_filter_list::NetworkFilterList;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
 use super::{DeserializationError, SerializationError};
+
+use capnp::{serialize, message::ReaderOptions};
 
 /// Each variant describes a single rule that is specific to a particular hostname.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -375,10 +377,8 @@ pub(crate) struct NetworkFilterListDeserializeFmt {
 
 impl TryFrom<NetworkFilterListDeserializeFmt> for NetworkFilterList {
     fn try_from(v: NetworkFilterListDeserializeFmt) -> Result<Self, Self::Error> {
-        use capnp::serialize_packed;
-        use capnp::message::ReaderOptions;
-
-        let reader = serialize_packed::read_message(&mut v.capnp_memory.as_slice(), ReaderOptions::new())?;
+        let mut slice = v.capnp_memory.as_slice();
+        let reader = serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new())?;
         let root = reader.get_root::<network_filter_list::Reader>()?;
 
         // Reconstruct the unique_domains_hashes_map from the capnp data

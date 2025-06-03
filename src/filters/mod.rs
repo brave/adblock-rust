@@ -4,4 +4,5 @@ mod abstract_network;
 pub mod network_matchers;
 
 pub mod cosmetic;
+pub mod fb_network;
 pub mod network;
