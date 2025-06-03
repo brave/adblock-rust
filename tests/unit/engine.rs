@@ -222,8 +222,7 @@ mod tests {
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         let serialized = engine.serialize().unwrap();
 
-        // TODO: investigate why the hash is different each time and reenable
-        // check_serialized_hash(&serialized, ???);
+        check_serialized_hash(&serialized, 5945093815025515408);
 
         engine.deserialize(&serialized).unwrap();
     }

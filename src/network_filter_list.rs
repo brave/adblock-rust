@@ -161,7 +161,11 @@ impl NetworkFilterList {
         }
 
         if optimize {
-            for (token, v) in optimizable {
+            // Sort the entries to ensure deterministic iteration order
+            let mut optimizable_entries: Vec<_> = optimizable.drain().collect();
+            optimizable_entries.sort_unstable_by_key(|(token, _)| *token);
+
+            for (token, v) in optimizable_entries {
                 let optimized = optimizer::optimize(v);
 
                 for filter in optimized {
