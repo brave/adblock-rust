@@ -4,6 +4,7 @@ mod tests {
     use crate::resources::MimeType;
     use crate::{lists::FilterFormat, test_utils::rules_from_lists};
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
+    use seahash::hash;
 
     #[test]
     fn tags_enable_adds_tags() {
@@ -172,34 +173,27 @@ mod tests {
         });
     }
 
-    fn check_serialized_hash(serialized: &[u8], expected_hash: u64) {
-        let hash = seahash::hash(serialized);
-        let msg = [
-            "Changed in the serialized format detected!",
-            "1. Update ADBLOCK_RUST_DAT_VERSION before updating the expectations",
-            "2. DON'T rely on an approach: it's backwards compatible with the old one",
-            "   Backwards compatibility isn't covered by the tests",
-        ]
-        .join("\n");
-
-        assert_eq!(hash, expected_hash, "{}", msg);
-    }
+    const HASH_MISSMATCH_MSG: &str = r#"
+      Changed in the serialized format detected!
+      1. Update ADBLOCK_RUST_DAT_VERSION before updating the expectations
+      2. DON'T rely on an approach: it's backwards compatible with the old one
+      Backwards compatibility isn't covered by the tests"#;
 
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
-        let serialized = engine.serialize().unwrap();
-        check_serialized_hash(&serialized, 5182994214873330725);
-        engine.deserialize(&serialized).unwrap();
+        let data = engine.serialize().unwrap();
+        assert_eq!(hash(&data), 867372640370260034, "{}", HASH_MISSMATCH_MSG);
+        engine.deserialize(&data).unwrap();
     }
 
     #[test]
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
-        let serialized = engine.serialize().unwrap();
-        check_serialized_hash(&serialized, 1966077156240685168);
-        engine.deserialize(&serialized).unwrap();
+        let data = engine.serialize().unwrap();
+        assert_eq!(hash(&data), 13055424859571526788, "{}", HASH_MISSMATCH_MSG);
+        engine.deserialize(&data).unwrap();
     }
 
     #[test]
@@ -220,17 +214,17 @@ mod tests {
     fn deserialization_brave_list() {
         let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
-        let serialized = engine.serialize().unwrap();
+        let data = engine.serialize().unwrap();
 
         let expected_hash = if cfg!(feature = "css-validation") {
-            2101784880107635488
+            10737279629240860742
         } else {
-            5945093815025515408
+            9163356703747210137
         };
 
-        check_serialized_hash(&serialized, expected_hash);
+        assert_eq!(hash(&data), expected_hash, "{}", HASH_MISSMATCH_MSG);
 
-        engine.deserialize(&serialized).unwrap();
+        engine.deserialize(&data).unwrap();
     }
 
     #[test]
