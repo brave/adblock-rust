@@ -73,16 +73,21 @@ impl CapnpNetworkFiltersListBuilder {
             Vec::new()
         };
 
-        let opt_not_domain_indices: Vec<u16> = if let Some(ref domains) = network_filter.opt_not_domains {
-            domains
-                .iter()
-                .map(|h| self.get_or_insert_unique_domain_hash(h))
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let opt_not_domain_indices: Vec<u16> =
+            if let Some(ref domains) = network_filter.opt_not_domains {
+                domains
+                    .iter()
+                    .map(|h| self.get_or_insert_unique_domain_hash(h))
+                    .collect()
+            } else {
+                Vec::new()
+            };
 
-        let patterns: Vec<String> = network_filter.filter.iter().map(|s| s.to_string()).collect();
+        let patterns: Vec<String> = network_filter
+            .filter
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
 
         self.filters.push(CompactFilter {
             mask: network_filter.mask,
@@ -92,7 +97,10 @@ impl CapnpNetworkFiltersListBuilder {
             modifier_option: network_filter.modifier_option.clone(),
             hostname: network_filter.hostname.clone(),
             tag: network_filter.tag.clone(),
-            raw_line: network_filter.raw_line.as_ref().map(|s| s.as_str().to_string()),
+            raw_line: network_filter
+                .raw_line
+                .as_ref()
+                .map(|s| s.as_str().to_string()),
         });
 
         (self.filters.len() - 1) as u32
@@ -102,13 +110,17 @@ impl CapnpNetworkFiltersListBuilder {
         let mut root = self.message.init_root::<network_filter_list::Builder>();
 
         // Set unique domains hashes
-        let mut unique_domains_hashes = root.reborrow().init_unique_domains_hashes(self.unique_domains_hashes.len() as u32);
+        let mut unique_domains_hashes = root
+            .reborrow()
+            .init_unique_domains_hashes(self.unique_domains_hashes.len() as u32);
         for (index, hash) in self.unique_domains_hashes.iter().enumerate() {
             unique_domains_hashes.set(index as u32, *hash);
         }
 
         // Set network filters
-        let mut network_filters = root.reborrow().init_network_filters(self.filters.len() as u32);
+        let mut network_filters = root
+            .reborrow()
+            .init_network_filters(self.filters.len() as u32);
         for (i, filter_data) in self.filters.iter().enumerate() {
             let mut filter_builder = network_filters.reborrow().get(i as u32);
 
@@ -117,7 +129,9 @@ impl CapnpNetworkFiltersListBuilder {
 
             // Set opt domains
             if !filter_data.opt_domain_indices.is_empty() {
-                let mut opt_domains = filter_builder.reborrow().init_opt_domains(filter_data.opt_domain_indices.len() as u32);
+                let mut opt_domains = filter_builder
+                    .reborrow()
+                    .init_opt_domains(filter_data.opt_domain_indices.len() as u32);
                 for (j, &domain_index) in filter_data.opt_domain_indices.iter().enumerate() {
                     opt_domains.set(j as u32, domain_index);
                 }
@@ -125,7 +139,9 @@ impl CapnpNetworkFiltersListBuilder {
 
             // Set opt not domains
             if !filter_data.opt_not_domain_indices.is_empty() {
-                let mut opt_not_domains = filter_builder.reborrow().init_opt_not_domains(filter_data.opt_not_domain_indices.len() as u32);
+                let mut opt_not_domains = filter_builder
+                    .reborrow()
+                    .init_opt_not_domains(filter_data.opt_not_domain_indices.len() as u32);
                 for (j, &domain_index) in filter_data.opt_not_domain_indices.iter().enumerate() {
                     opt_not_domains.set(j as u32, domain_index);
                 }
@@ -133,7 +149,9 @@ impl CapnpNetworkFiltersListBuilder {
 
             // Set patterns
             if !filter_data.patterns.is_empty() {
-                let mut patterns_builder = filter_builder.reborrow().init_patterns(filter_data.patterns.len() as u32);
+                let mut patterns_builder = filter_builder
+                    .reborrow()
+                    .init_patterns(filter_data.patterns.len() as u32);
                 for (j, pattern) in filter_data.patterns.iter().enumerate() {
                     patterns_builder.set(j as u32, pattern);
                 }
@@ -286,7 +304,8 @@ impl NetworkFilterList {
         let mut slice = flatbuffer_memory.as_slice();
         let reader = serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new())
             .expect("Ok because it is created in the previous line");
-        let root = reader.get_root::<network_filter_list::Reader>()
+        let root = reader
+            .get_root::<network_filter_list::Reader>()
             .expect("Ok because it is created in the previous line");
 
         let mut unique_domains_hashes_map: HashMap<Hash, u16> = HashMap::new();
@@ -321,7 +340,8 @@ impl NetworkFilterList {
         }
 
         let mut slice = self.flatbuffer_memory.as_slice();
-        let reader = serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new()).ok()?;
+        let reader =
+            serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new()).ok()?;
         let filters_list = reader.get_root::<network_filter_list::Reader>().ok()?;
         let network_filters = filters_list.get_network_filters().ok()?;
 
@@ -365,7 +385,8 @@ impl NetworkFilterList {
         }
 
         let mut slice = self.flatbuffer_memory.as_slice();
-        let reader = match serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new()) {
+        let reader = match serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new())
+        {
             Ok(reader) => reader,
             Err(_) => return filters,
         };

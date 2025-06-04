@@ -1,4 +1,4 @@
-use adblock::{Engine, request::Request};
+use adblock::{request::Request, Engine};
 use std::fs;
 
 #[test]
@@ -14,17 +14,16 @@ fn measure_serialized_size() {
 
     println!("Loading {} rules from brave-main-list.txt", rules.len());
 
-    let engine = Engine::from_rules_parametrised(
-        rules,
-        Default::default(),
-        false,
-        false,
-    );
+    let engine = Engine::from_rules_parametrised(rules, Default::default(), false, false);
 
     let serialized = engine.serialize().unwrap();
     let size_mb = serialized.len() as f64 / (1024.0 * 1024.0);
 
-    println!("Serialized data size: {:.2} MB ({} bytes)", size_mb, serialized.len());
+    println!(
+        "Serialized data size: {:.2} MB ({} bytes)",
+        size_mb,
+        serialized.len()
+    );
 
     // Verify deserialization works
     let mut engine2 = Engine::new(false);
@@ -34,8 +33,9 @@ fn measure_serialized_size() {
     let request = Request::new(
         "https://googlesyndication.com/script.js",
         "https://example.com",
-        "script"
-    ).unwrap();
+        "script",
+    )
+    .unwrap();
 
     let result1 = engine.check_network_request(&request);
     let result2 = engine2.check_network_request(&request);

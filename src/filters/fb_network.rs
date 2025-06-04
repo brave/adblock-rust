@@ -1,6 +1,4 @@
-use crate::filters::network::{
-    NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
-};
+use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable};
 
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::RegexManager;
@@ -43,7 +41,9 @@ impl<'a> Iterator for CapnpPatternsIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.patterns.and_then(|patterns| {
             if self.index < self.len {
-                let result = patterns.get(self.index).ok()
+                let result = patterns
+                    .get(self.index)
+                    .ok()
                     .and_then(|reader| reader.to_str().ok());
                 self.index += 1;
                 result
@@ -90,14 +90,18 @@ impl<'a> CapnpNetworkFilter<'a> {
 
     #[inline(always)]
     pub fn tag(&self) -> Option<&'a str> {
-        self.capnp_filter.get_tag().ok()
+        self.capnp_filter
+            .get_tag()
+            .ok()
             .and_then(|reader| reader.to_str().ok())
             .and_then(|s| if s.is_empty() { None } else { Some(s) })
     }
 
     #[inline(always)]
     pub fn modifier_option(&self) -> Option<String> {
-        self.capnp_filter.get_modifier_option().ok()
+        self.capnp_filter
+            .get_modifier_option()
+            .ok()
             .and_then(|reader| reader.to_str().ok())
             .map(|s| s.to_string())
             .and_then(|s| if s.is_empty() { None } else { Some(s) })
@@ -120,7 +124,9 @@ impl<'a> CapnpNetworkFilter<'a> {
     #[inline(always)]
     pub fn hostname(&self) -> Option<&'a str> {
         if self.mask.is_hostname_anchor() {
-            self.capnp_filter.get_hostname().ok()
+            self.capnp_filter
+                .get_hostname()
+                .ok()
                 .and_then(|reader| reader.to_str().ok())
                 .and_then(|s| if s.is_empty() { None } else { Some(s) })
         } else {
@@ -135,7 +141,9 @@ impl<'a> CapnpNetworkFilter<'a> {
 
     #[inline(always)]
     pub fn raw_line(&self) -> Option<String> {
-        self.capnp_filter.get_raw_line().ok()
+        self.capnp_filter
+            .get_raw_line()
+            .ok()
             .and_then(|reader| reader.to_str().ok())
             .map(|s| s.to_string())
             .and_then(|s| if s.is_empty() { None } else { Some(s) })
