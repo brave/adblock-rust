@@ -10,7 +10,7 @@ use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatFilterListMem
 use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
-use crate::utils::{fast_hash, Hash};
+use crate::utils::{fast_hash, to_short_hash, Hash, ShortHash};
 
 pub struct CheckResult {
     pub filter_mask: NetworkFilterMask,
@@ -101,7 +101,7 @@ impl NetworkFilterList {
         })
     }
 
-    pub fn get_filter_map(&self) -> FlatFilterMap<Hash, fb::NetworkFilter> {
+    pub fn get_filter_map(&self) -> FlatFilterMap<ShortHash, fb::NetworkFilter> {
         let filters_list = self.memory.filter_list();
         FlatFilterMap::new(
             fb_vector_to_slice(filters_list.filter_map_index()),
@@ -122,9 +122,9 @@ impl NetworkFilterList {
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         let mut flat_builder = FlatNetworkFiltersListBuilder::new();
-        let mut filter_map = HashMap::<Hash, Vec<u32>>::new();
+        let mut filter_map = HashMap::<ShortHash, Vec<u32>>::new();
 
-        let mut optimizable = HashMap::<Hash, Vec<NetworkFilter>>::new();
+        let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
         {
             for (network_filter, multi_tokens) in filter_tokens {
                 let index = if !optimize
@@ -136,9 +136,10 @@ impl NetworkFilterList {
                 };
 
                 for tokens in multi_tokens {
-                    let mut best_token: Hash = 0;
+                    let mut best_token: ShortHash = 0;
                     let mut min_count = total_number_of_tokens + 1;
                     for token in tokens {
+                        let token = to_short_hash(token);
                         match tokens_histogram.get(&token) {
                             None => {
                                 min_count = 0;
@@ -204,8 +205,8 @@ impl NetworkFilterList {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(token) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index as u32, self);
+            for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
+                let filter = FlatNetworkFilter::new(&fb_filter, index, self);
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
                 if filter.matches(request, regex_manager)
@@ -244,8 +245,8 @@ impl NetworkFilterList {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(token) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index as u32, self);
+            for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
+                let filter = FlatNetworkFilter::new(&fb_filter, index, self);
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
                 if filter.matches(request, regex_manager)
@@ -284,20 +285,20 @@ pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
 
 pub(crate) fn token_histogram<T>(
     filter_tokens: &[(T, Vec<Vec<Hash>>)],
-) -> (u32, HashMap<Hash, u32>) {
-    let mut tokens_histogram: HashMap<Hash, u32> = HashMap::new();
+) -> (u32, HashMap<ShortHash, u32>) {
+    let mut tokens_histogram: HashMap<ShortHash, u32> = HashMap::new();
     let mut number_of_tokens = 0;
     for (_, tokens) in filter_tokens.iter() {
         for tg in tokens {
             for t in tg {
-                *tokens_histogram.entry(*t).or_insert(0) += 1;
+                *tokens_histogram.entry(to_short_hash(*t)).or_insert(0) += 1;
                 number_of_tokens += 1;
             }
         }
     }
 
     for bad_token in ["http", "https", "www", "com"].iter() {
-        tokens_histogram.insert(fast_hash(bad_token), number_of_tokens);
+        tokens_histogram.insert(to_short_hash(fast_hash(bad_token)), number_of_tokens);
     }
 
     (number_of_tokens, tokens_histogram)

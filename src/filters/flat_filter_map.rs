@@ -45,11 +45,11 @@ impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
     }
 
     /// Get an iterator over NetworkFilter objects with the given hash key.
-    pub fn get(&self, key: &I) -> FlatFilterMapIterator<'a, I, V> {
-        let start = self.index.partition_point(|x| *x < *key);
+    pub fn get(&self, key: I) -> FlatFilterMapIterator<'a, I, V> {
+        let start = self.index.partition_point(|x| *x < key);
         FlatFilterMapIterator {
             current_index: start,
-            key: *key,
+            key,
             indexes: self.index,
             values: self.values,
         }

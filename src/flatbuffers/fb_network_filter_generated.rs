@@ -496,13 +496,13 @@ pub mod fb {
         }
 
         #[inline]
-        pub fn filter_map_index(&self) -> flatbuffers::Vector<'a, u64> {
+        pub fn filter_map_index(&self) -> flatbuffers::Vector<'a, u32> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
                         NetworkFilterList::VT_FILTER_MAP_INDEX,
                         None,
                     )
@@ -548,7 +548,7 @@ pub mod fb {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
                     "filter_map_index",
                     Self::VT_FILTER_MAP_INDEX,
                     true,
@@ -566,7 +566,7 @@ pub mod fb {
         }
     }
     pub struct NetworkFilterListArgs<'a> {
-        pub filter_map_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+        pub filter_map_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub filter_map_values: Option<
             flatbuffers::WIPOffset<
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
@@ -593,7 +593,7 @@ pub mod fb {
         #[inline]
         pub fn add_filter_map_index(
             &mut self,
-            filter_map_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
+            filter_map_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilterList::VT_FILTER_MAP_INDEX,
@@ -666,7 +666,7 @@ pub mod fb {
     #[non_exhaustive]
     #[derive(Debug, Clone, PartialEq)]
     pub struct NetworkFilterListT {
-        pub filter_map_index: Vec<u64>,
+        pub filter_map_index: Vec<u32>,
         pub filter_map_values: Vec<NetworkFilterT>,
         pub unique_domains_hashes: Vec<u64>,
     }

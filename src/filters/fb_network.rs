@@ -11,7 +11,7 @@ use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatFilterListMem
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
-use crate::utils::Hash;
+use crate::utils::{Hash, ShortHash};
 
 #[allow(dead_code, unused_imports, unsafe_code)]
 #[path = "../flatbuffers/fb_network_filter_generated.rs"]
@@ -118,21 +118,20 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
 
     pub fn finish(
         &mut self,
-        mut filter_map: HashMap<Hash, Vec<u32>>,
+        mut filter_map: HashMap<ShortHash, Vec<u32>>,
     ) -> VerifiedFlatFilterListMemory {
         let unique_domains_hashes = self.builder.create_vector(&self.unique_domains_hashes);
 
         let len = filter_map.len();
 
         // Convert filter_map keys to a sorted vector of (hash, filter_indices).
-        let mut sorted_entries: Vec<(Hash, Vec<u32>)> =
-            filter_map.drain().map(|(k, v)| (k, v)).collect();
-        sorted_entries.sort_unstable_by_key(|(k, _)| *k);
+        let mut entries: Vec<_> = filter_map.drain().collect();
+        entries.sort_unstable_by_key(|(k, _)| *k);
 
         // Convert sorted_entries to two flatbuffers vectors.
-        let mut flat_index: Vec<Hash> = Vec::with_capacity(len);
+        let mut flat_index: Vec<ShortHash> = Vec::with_capacity(len);
         let mut flat_values: Vec<_> = Vec::with_capacity(len);
-        for (key, filter_indices) in sorted_entries {
+        for (key, filter_indices) in entries {
             for &filter_index in &filter_indices {
                 flat_index.push(key);
                 flat_values.push(self.filters[filter_index as usize]);
@@ -219,7 +218,7 @@ impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
     pub fn new(
         filter: &'a fb::NetworkFilter<'a>,
-        index: u32,
+        index: usize,
         owner: &'a NetworkFilterList,
     ) -> Self {
         let list_address: *const NetworkFilterList = owner as *const NetworkFilterList;
