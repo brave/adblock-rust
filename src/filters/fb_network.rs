@@ -23,7 +23,7 @@ pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
     unique_domains_hashes: Vec<Hash>,
-    unique_domains_hashes_map: HashMap<Hash, u16>,
+    unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -36,11 +36,11 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         }
     }
 
-    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u16 {
+    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u32 {
         if let Some(&index) = self.unique_domains_hashes_map.get(h) {
             return index;
         }
-        let index = self.unique_domains_hashes.len() as u16;
+        let index = self.unique_domains_hashes.len() as u32;
         self.unique_domains_hashes.push(*h);
         self.unique_domains_hashes_map.insert(*h, index);
         return index;
@@ -48,7 +48,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
 
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
+            let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| self.get_or_insert_unique_domain_hash(x))
                 .collect();
@@ -58,7 +58,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         });
 
         let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
+            let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| self.get_or_insert_unique_domain_hash(x))
                 .collect();
@@ -242,14 +242,14 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn include_domains(&self) -> Option<&[u16]> {
+    pub fn include_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_domains()
             .map(|data| fb_vector_to_slice(data))
     }
 
     #[inline(always)]
-    pub fn exclude_domains(&self) -> Option<&[u16]> {
+    pub fn exclude_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_not_domains()
             .map(|data| fb_vector_to_slice(data))

@@ -119,26 +119,26 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u32>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
                         NetworkFilter::VT_OPT_DOMAINS,
                         None,
                     )
             }
         }
         #[inline]
-        pub fn opt_not_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        pub fn opt_not_domains(&self) -> Option<flatbuffers::Vector<'a, u32>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
                         NetworkFilter::VT_OPT_NOT_DOMAINS,
                         None,
                     )
@@ -210,12 +210,12 @@ pub mod fb {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
                 .visit_field::<u32>("mask", Self::VT_MASK, false)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
                     "opt_domains",
                     Self::VT_OPT_DOMAINS,
                     false,
                 )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
                     "opt_not_domains",
                     Self::VT_OPT_NOT_DOMAINS,
                     false,
@@ -245,8 +245,8 @@ pub mod fb {
     }
     pub struct NetworkFilterArgs<'a> {
         pub mask: u32,
-        pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
-        pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+        pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub patterns: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
@@ -283,7 +283,7 @@ pub mod fb {
         #[inline]
         pub fn add_opt_domains(
             &mut self,
-            opt_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u16>>,
+            opt_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilter::VT_OPT_DOMAINS,
@@ -293,7 +293,7 @@ pub mod fb {
         #[inline]
         pub fn add_opt_not_domains(
             &mut self,
-            opt_not_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u16>>,
+            opt_not_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilter::VT_OPT_NOT_DOMAINS,
@@ -373,8 +373,8 @@ pub mod fb {
     #[derive(Debug, Clone, PartialEq)]
     pub struct NetworkFilterT {
         pub mask: u32,
-        pub opt_domains: Option<Vec<u16>>,
-        pub opt_not_domains: Option<Vec<u16>>,
+        pub opt_domains: Option<Vec<u32>>,
+        pub opt_not_domains: Option<Vec<u32>>,
         pub patterns: Option<Vec<String>>,
         pub modifier_option: Option<String>,
         pub hostname: Option<String>,

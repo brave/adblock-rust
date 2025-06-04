@@ -432,9 +432,9 @@ pub fn check_included_domains(opt_domains: Option<&[Hash]>, request: &request::R
 
 #[inline]
 pub fn check_included_domains_mapped(
-    opt_domains: Option<&[u16]>,
+    opt_domains: Option<&[u32]>,
     request: &request::Request,
-    mapping: &HashMap<Hash, u16>,
+    mapping: &HashMap<Hash, u32>,
 ) -> bool {
     // Source URL must be among these domains to match
     if let Some(included_domains) = opt_domains.as_ref() {
@@ -472,9 +472,9 @@ pub fn check_excluded_domains(
 
 #[inline]
 pub fn check_excluded_domains_mapped(
-    opt_not_domains: Option<&[u16]>,
+    opt_not_domains: Option<&[u32]>,
     request: &request::Request,
-    mapping: &HashMap<Hash, u16>,
+    mapping: &HashMap<Hash, u32>,
 ) -> bool {
     if let Some(excluded_domains) = opt_not_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
