@@ -217,9 +217,9 @@ mod tests {
         let data = engine.serialize().unwrap();
 
         let expected_hash = if cfg!(feature = "css-validation") {
-            10737279629240860742
+            11273622377918966036
         } else {
-            9163356703747210137
+            3151397840865371565
         };
 
         assert_eq!(hash(&data), expected_hash, "{}", HASH_MISSMATCH_MSG);
