@@ -5,6 +5,6 @@ mod network_matchers;
 
 pub mod cosmetic;
 pub mod fb_network;
-pub mod flat_filter_map;
+pub(crate) mod flat_filter_map;
 pub mod network;
-pub mod unsafe_tools;
+pub(crate) mod unsafe_tools;

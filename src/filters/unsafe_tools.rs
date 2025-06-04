@@ -16,7 +16,7 @@ pub fn fb_vector_to_slice<'a, T>(vector: flatbuffers::Vector<'a, T>) -> &'a [T] 
 
     const fn static_assert_alignment<T>() {
         // We can't use T with the size more than MIN_ALIGNMENT.
-        // Since the begging of flatbuffer data is aligned to that size,
+        // Since the beginning of flatbuffer data is aligned to that size,
         // the alignment of the data must be a divisor of MIN_ALIGNMENT.
         assert!(MIN_ALIGNMENT % std::mem::size_of::<T>() == 0);
     }
