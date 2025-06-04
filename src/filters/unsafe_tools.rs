@@ -3,7 +3,7 @@
 use crate::filters::fb_network::flat::fb;
 
 // Minimum alignment for the beginning of the flatbuffer data.
-// Should be 4 until we support armv7 and x86_32.
+// Should be 4 while we support armv7 and x86_32.
 const MIN_ALIGNMENT: usize = 4;
 
 /// Converts a flatbuffers Vector to a slice.
