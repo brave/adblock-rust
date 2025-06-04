@@ -3,7 +3,6 @@ name = "adblock"
 version = "0.9.6"
 authors = ["Anton Lazarev <alazarev@brave.com>", "Andrius Aucinas"]
 edition = "2021"
-build = "build_capn.rs"
 
 description = "Native Rust module for Adblock Plus syntax (e.g. EasyList, EasyPrivacy) filter parsing and matching."
 repository = "https://github.com/brave/adblock-rust/"
