@@ -36,13 +36,12 @@ pub mod fb {
 
     impl<'a> NetworkFilter<'a> {
         pub const VT_MASK: flatbuffers::VOffsetT = 4;
-        pub const VT_OPT_DOMAINS: flatbuffers::VOffsetT = 6;
-        pub const VT_OPT_NOT_DOMAINS: flatbuffers::VOffsetT = 8;
-        pub const VT_PATTERNS: flatbuffers::VOffsetT = 10;
-        pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 12;
-        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 14;
-        pub const VT_TAG: flatbuffers::VOffsetT = 16;
-        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 18;
+        pub const VT_EXTRA_DOMAINS: flatbuffers::VOffsetT = 6;
+        pub const VT_PATTERNS: flatbuffers::VOffsetT = 8;
+        pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 10;
+        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 12;
+        pub const VT_TAG: flatbuffers::VOffsetT = 14;
+        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 16;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -74,11 +73,8 @@ pub mod fb {
             if let Some(x) = args.patterns {
                 builder.add_patterns(x);
             }
-            if let Some(x) = args.opt_not_domains {
-                builder.add_opt_not_domains(x);
-            }
-            if let Some(x) = args.opt_domains {
-                builder.add_opt_domains(x);
+            if let Some(x) = args.extra_domains {
+                builder.add_extra_domains(x);
             }
             builder.add_mask(args.mask);
             builder.finish()
@@ -86,8 +82,7 @@ pub mod fb {
 
         pub fn unpack(&self) -> NetworkFilterT {
             let mask = self.mask();
-            let opt_domains = self.opt_domains().map(|x| x.into_iter().collect());
-            let opt_not_domains = self.opt_not_domains().map(|x| x.into_iter().collect());
+            let extra_domains = self.extra_domains().map(|x| x.into_iter().collect());
             let patterns = self
                 .patterns()
                 .map(|x| x.iter().map(|s| s.to_string()).collect());
@@ -97,8 +92,7 @@ pub mod fb {
             let raw_line = self.raw_line().map(|x| x.to_string());
             NetworkFilterT {
                 mask,
-                opt_domains,
-                opt_not_domains,
+                extra_domains,
                 patterns,
                 modifier_option,
                 hostname,
@@ -119,27 +113,14 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        pub fn extra_domains(&self) -> Option<flatbuffers::Vector<'a, i32>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(
-                        NetworkFilter::VT_OPT_DOMAINS,
-                        None,
-                    )
-            }
-        }
-        #[inline]
-        pub fn opt_not_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(
-                        NetworkFilter::VT_OPT_NOT_DOMAINS,
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(
+                        NetworkFilter::VT_EXTRA_DOMAINS,
                         None,
                     )
             }
@@ -210,14 +191,9 @@ pub mod fb {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
                 .visit_field::<u32>("mask", Self::VT_MASK, false)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(
-                    "opt_domains",
-                    Self::VT_OPT_DOMAINS,
-                    false,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(
-                    "opt_not_domains",
-                    Self::VT_OPT_NOT_DOMAINS,
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>(
+                    "extra_domains",
+                    Self::VT_EXTRA_DOMAINS,
                     false,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
@@ -245,8 +221,7 @@ pub mod fb {
     }
     pub struct NetworkFilterArgs<'a> {
         pub mask: u32,
-        pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
-        pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+        pub extra_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
         pub patterns: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
@@ -260,8 +235,7 @@ pub mod fb {
         fn default() -> Self {
             NetworkFilterArgs {
                 mask: 0,
-                opt_domains: None,
-                opt_not_domains: None,
+                extra_domains: None,
                 patterns: None,
                 modifier_option: None,
                 hostname: None,
@@ -281,23 +255,13 @@ pub mod fb {
             self.fbb_.push_slot::<u32>(NetworkFilter::VT_MASK, mask, 0);
         }
         #[inline]
-        pub fn add_opt_domains(
+        pub fn add_extra_domains(
             &mut self,
-            opt_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u16>>,
+            extra_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, i32>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_OPT_DOMAINS,
-                opt_domains,
-            );
-        }
-        #[inline]
-        pub fn add_opt_not_domains(
-            &mut self,
-            opt_not_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u16>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_OPT_NOT_DOMAINS,
-                opt_not_domains,
+                NetworkFilter::VT_EXTRA_DOMAINS,
+                extra_domains,
             );
         }
         #[inline]
@@ -359,8 +323,7 @@ pub mod fb {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut ds = f.debug_struct("NetworkFilter");
             ds.field("mask", &self.mask());
-            ds.field("opt_domains", &self.opt_domains());
-            ds.field("opt_not_domains", &self.opt_not_domains());
+            ds.field("extra_domains", &self.extra_domains());
             ds.field("patterns", &self.patterns());
             ds.field("modifier_option", &self.modifier_option());
             ds.field("hostname", &self.hostname());
@@ -373,8 +336,7 @@ pub mod fb {
     #[derive(Debug, Clone, PartialEq)]
     pub struct NetworkFilterT {
         pub mask: u32,
-        pub opt_domains: Option<Vec<u16>>,
-        pub opt_not_domains: Option<Vec<u16>>,
+        pub extra_domains: Option<Vec<i32>>,
         pub patterns: Option<Vec<String>>,
         pub modifier_option: Option<String>,
         pub hostname: Option<String>,
@@ -385,8 +347,7 @@ pub mod fb {
         fn default() -> Self {
             Self {
                 mask: 0,
-                opt_domains: None,
-                opt_not_domains: None,
+                extra_domains: None,
                 patterns: None,
                 modifier_option: None,
                 hostname: None,
@@ -401,8 +362,7 @@ pub mod fb {
             _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
         ) -> flatbuffers::WIPOffset<NetworkFilter<'b>> {
             let mask = self.mask;
-            let opt_domains = self.opt_domains.as_ref().map(|x| _fbb.create_vector(x));
-            let opt_not_domains = self.opt_not_domains.as_ref().map(|x| _fbb.create_vector(x));
+            let extra_domains = self.extra_domains.as_ref().map(|x| _fbb.create_vector(x));
             let patterns = self.patterns.as_ref().map(|x| {
                 let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
                 _fbb.create_vector(&w)
@@ -415,8 +375,7 @@ pub mod fb {
                 _fbb,
                 &NetworkFilterArgs {
                     mask,
-                    opt_domains,
-                    opt_not_domains,
+                    extra_domains,
                     patterns,
                     modifier_option,
                     hostname,

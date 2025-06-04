@@ -9,11 +9,11 @@ namespace fb;
 table NetworkFilter {
   mask: uint32;  // NetworkFilterMask (network.rs)
 
-  // These arrays contain sorted (ascending) indices in the |unique_domains_hashes|
-  // instead of the hashes themselves. This approach saves memory, as there
-  // typically aren’t many unique hashes
-  opt_domains: [uint16];
-  opt_not_domains: [uint16];
+  // These arrays contain references to matched |unique_domains_hashes| entries.
+  // A positive item +x matches to an included domain with unique_domains_hashes[x + 1] hash.
+  // A negative item -x matches to an excluded doamin with unique_domains_hashes[-x + 1] hash.
+  // The items are sorted to search efficiently.
+  extra_domains: [int32];
 
   patterns: [string];
   modifier_option: string;

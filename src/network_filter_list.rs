@@ -48,12 +48,11 @@ impl NetworkFilterMaskHelper for CheckResult {
 #[derive(Debug, Clone)]
 pub enum FlatBufferParsingError {
     InvalidFlatbuffer(flatbuffers::InvalidFlatbuffer),
-    UniqueDomainsOutOfBounds(usize),
 }
 
 pub(crate) struct NetworkFilterList {
     pub(crate) memory: VerifiedFlatFilterListMemory,
-    pub(crate) unique_domains_hashes_map: HashMap<Hash, u16>,
+    pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
 impl Default for NetworkFilterList {
@@ -85,14 +84,10 @@ impl NetworkFilterList {
 
         // Reconstruct the unique_domains_hashes_map from the flatbuffer data
         let len = root.unique_domains_hashes().len();
-        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
+        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u32> =
             HashMap::with_capacity(len);
         for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(
-                hash,
-                u16::try_from(index)
-                    .map_err(|_| FlatBufferParsingError::UniqueDomainsOutOfBounds(index))?,
-            );
+            unique_domains_hashes_map.insert(hash, (index + 1) as u32);
         }
 
         Ok(Self {

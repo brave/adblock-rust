@@ -23,7 +23,7 @@ pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
     unique_domains_hashes: Vec<Hash>,
-    unique_domains_hashes_map: HashMap<Hash, u16>,
+    unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -36,35 +36,40 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         }
     }
 
-    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u16 {
+    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u32 {
         if let Some(&index) = self.unique_domains_hashes_map.get(h) {
             return index;
         }
-        let index = self.unique_domains_hashes.len() as u16;
+        let index = (self.unique_domains_hashes.len() + 1) as u32;
         self.unique_domains_hashes.push(*h);
         self.unique_domains_hashes_map.insert(*h, index);
         return index;
     }
 
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
-        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
-                .iter()
-                .map(|x| self.get_or_insert_unique_domain_hash(x))
-                .collect();
-            o.sort_unstable();
-            o.dedup();
-            self.builder.create_vector(&o)
+        let mut extra_domains: Option<Vec<i32>> = network_filter.opt_domains.as_ref().map(|v| {
+            v.iter()
+                .map(|x| self.get_or_insert_unique_domain_hash(x) as i32)
+                .collect()
         });
 
-        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
-                .iter()
-                .map(|x| self.get_or_insert_unique_domain_hash(x))
-                .collect();
-            o.sort_unstable();
-            o.dedup();
-            self.builder.create_vector(&o)
+        if let Some(opt_not_domains) = network_filter.opt_not_domains.as_ref() {
+            if extra_domains.is_none() {
+                extra_domains = Some(Vec::new());
+            }
+            for domain in opt_not_domains {
+                // negative indexes for excluded_domains, see .fbs for more details
+                extra_domains
+                    .as_mut()
+                    .unwrap()
+                    .push(-(self.get_or_insert_unique_domain_hash(domain) as i32));
+            }
+        }
+
+        let extra_domains = extra_domains.map(|mut v| {
+            v.sort_unstable();
+            v.dedup();
+            self.builder.create_vector(&v)
         });
 
         let modifier_option = network_filter
@@ -104,8 +109,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
                 mask: network_filter.mask.bits(),
                 patterns,
                 modifier_option,
-                opt_domains,
-                opt_not_domains,
+                extra_domains,
                 hostname,
                 tag,
                 raw_line,
@@ -242,16 +246,9 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn include_domains(&self) -> Option<&[u16]> {
+    pub fn extra_domains(&self) -> Option<&[i32]> {
         self.fb_filter
-            .opt_domains()
-            .map(|data| fb_vector_to_slice(data))
-    }
-
-    #[inline(always)]
-    pub fn exclude_domains(&self) -> Option<&[u16]> {
-        self.fb_filter
-            .opt_not_domains()
+            .extra_domains()
             .map(|data| fb_vector_to_slice(data))
     }
 
@@ -285,21 +282,13 @@ impl<'a> NetworkFilterMaskHelper for FlatNetworkFilter<'a> {
 impl<'a> NetworkMatchable for FlatNetworkFilter<'a> {
     fn matches(&self, request: &Request, regex_manager: &mut RegexManager) -> bool {
         use crate::filters::network_matchers::{
-            check_excluded_domains_mapped, check_included_domains_mapped, check_options,
-            check_pattern,
+            check_extra_domains_mapped, check_options, check_pattern,
         };
         if !check_options(self.mask, request) {
             return false;
         }
-        if !check_included_domains_mapped(
-            self.include_domains(),
-            request,
-            &self.owner.unique_domains_hashes_map,
-        ) {
-            return false;
-        }
-        if !check_excluded_domains_mapped(
-            self.exclude_domains(),
+        if !check_extra_domains_mapped(
+            self.extra_domains(),
             request,
             &self.owner.unique_domains_hashes_map,
         ) {

@@ -431,21 +431,36 @@ pub fn check_included_domains(opt_domains: Option<&[Hash]>, request: &request::R
 }
 
 #[inline]
-pub fn check_included_domains_mapped(
-    opt_domains: Option<&[u16]>,
+pub fn check_extra_domains_mapped(
+    extra_domains: Option<&[i32]>,
     request: &request::Request,
-    mapping: &HashMap<Hash, u16>,
+    mapping: &HashMap<Hash, u32>,
 ) -> bool {
     // Source URL must be among these domains to match
-    if let Some(included_domains) = opt_domains.as_ref() {
+    if let Some(extra_domains) = extra_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().all(|h| {
-                mapping
-                    .get(h)
-                    .map_or(true, |index| !utils::bin_lookup(included_domains, *index))
-            }) {
-                return false;
+            let has_included_domains = extra_domains.last().map_or(false, |last| *last > 0);
+            let has_excluded_domains = extra_domains.first().map_or(false, |first| *first < 0);
+
+            let mut included_domains_found = !has_included_domains; // Default to true if no included domains
+            for h in source_hashes {
+                let index = mapping.get(h);
+                if let Some(index) = index {
+                    if has_included_domains && !included_domains_found {
+                        if utils::bin_lookup(extra_domains, *index as i32) {
+                            included_domains_found = true;
+                        }
+                    }
+                    if has_excluded_domains {
+                        if utils::bin_lookup(extra_domains, -(*index as i32)) {
+                            return false;
+                        }
+                    }
+                } else {
+                    // The domain isn't in extra_domains (=unknown) Just skip it.
+                }
             }
+            return included_domains_found;
         }
     }
     true
@@ -462,27 +477,6 @@ pub fn check_excluded_domains(
                 .iter()
                 .any(|h| utils::bin_lookup(excluded_domains, *h))
             {
-                return false;
-            }
-        }
-    }
-
-    true
-}
-
-#[inline]
-pub fn check_excluded_domains_mapped(
-    opt_not_domains: Option<&[u16]>,
-    request: &request::Request,
-    mapping: &HashMap<Hash, u16>,
-) -> bool {
-    if let Some(excluded_domains) = opt_not_domains.as_ref() {
-        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().any(|h| {
-                mapping
-                    .get(h)
-                    .map_or(false, |index| utils::bin_lookup(excluded_domains, *index))
-            }) {
                 return false;
             }
         }
