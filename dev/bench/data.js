@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748971622327,
+  "lastUpdate": 1749076893036,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1163,6 +1163,84 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list-deserialize",
             "value": 71949624,
             "range": "± 1187759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 21536659,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523471,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604587,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68112,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b27f346436cce7c7a488ccbba47a7325f29337ff",
+          "message": "run release tests and asan (for linux) (#473)",
+          "timestamp": "2025-06-05T02:37:01+04:00",
+          "tree_id": "33dfc38452abcd3c0211a91026dcee355643bbea",
+          "url": "https://github.com/brave/adblock-rust/commit/b27f346436cce7c7a488ccbba47a7325f29337ff"
+        },
+        "date": 1749076892113,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2145876784,
+            "range": "± 26685070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1033860,
+            "range": "± 25453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 175100227,
+            "range": "± 3821230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 69749334,
+            "range": "± 1667536",
             "unit": "ns/iter"
           },
           {
