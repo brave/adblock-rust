@@ -25,7 +25,7 @@ table NetworkFilter {
 }
 
 table NetworkFilterList {
-  filter_map_index: [uint64] (required);
+  filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
   unique_domains_hashes: [uint64] (required);
 }

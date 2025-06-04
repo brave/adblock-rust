@@ -101,7 +101,7 @@ impl NetworkFilterList {
         })
     }
 
-    pub fn get_filter_map(&self) -> FlatFilterMap<Hash, fb::NetworkFilter> {
+    pub fn get_filter_map(&self) -> FlatFilterMap<u32, fb::NetworkFilter> {
         let filters_list = self.memory.filter_list();
         FlatFilterMap::new(
             fb_vector_to_slice(filters_list.filter_map_index()),
@@ -204,7 +204,7 @@ impl NetworkFilterList {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(token) {
+            for (index, fb_filter) in filter_map.get(*token as u32) {
                 let filter = FlatNetworkFilter::new(&fb_filter, index as u32, self);
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
@@ -244,7 +244,7 @@ impl NetworkFilterList {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(token) {
+            for (index, fb_filter) in filter_map.get(*token as u32) {
                 let filter = FlatNetworkFilter::new(&fb_filter, index as u32, self);
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)

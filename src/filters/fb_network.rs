@@ -125,12 +125,12 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         let len = filter_map.len();
 
         // Convert filter_map keys to a sorted vector of (hash, filter_indices).
-        let mut sorted_entries: Vec<(Hash, Vec<u32>)> =
-            filter_map.drain().map(|(k, v)| (k, v)).collect();
+        let mut sorted_entries: Vec<(u32, Vec<u32>)> =
+            filter_map.drain().map(|(k, v)| (k as u32, v)).collect();
         sorted_entries.sort_unstable_by_key(|(k, _)| *k);
 
         // Convert sorted_entries to two flatbuffers vectors.
-        let mut flat_index: Vec<Hash> = Vec::with_capacity(len);
+        let mut flat_index: Vec<u32> = Vec::with_capacity(len);
         let mut flat_values: Vec<_> = Vec::with_capacity(len);
         for (key, filter_indices) in sorted_entries {
             for &filter_index in &filter_indices {
