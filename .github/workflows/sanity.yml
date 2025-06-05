@@ -28,9 +28,20 @@ jobs:
           cargo generate-lockfile
           cargo audit
 
+      - name: Install nightly toolchain and rust-src (for asan)
+        run: |
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly
+
       - name: Cargo test 'adblock' package (asan)
         run: |
-          rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
           RUST_BACKTRACE=1 RUSTFLAGS="-Z sanitizer=address" \
           RUSTDOCFLAGS="-Z sanitizer=address" \
           cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu
+
+      - name: Cargo test 'adblock' package (asan, release)
+        run: |
+          RUST_BACKTRACE=1 RUSTFLAGS="-Z sanitizer=address" \
+          RUSTDOCFLAGS="-Z sanitizer=address" \
+          cargo +nightly test -Zbuild-std --release --all-features \
+          --target x86_64-unknown-linux-gnu
