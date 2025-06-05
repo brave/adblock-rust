@@ -185,6 +185,11 @@ fn check_basic_works_after_deserialization() {
 
 #[test]
 fn check_matching_equivalent() {
+    if cfg!(debug_assertions) {
+        // skip in debug mode, takes > 3 minutes.
+        return;
+    }
+
     let requests = load_requests();
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
@@ -263,7 +268,12 @@ fn check_matching_equivalent() {
 
 #[test]
 fn check_matching_hostnames() {
-    // Makes sure that reuqests are handled with the same result whether parsed form full url or from pre-parsed hostname
+    if cfg!(debug_assertions) {
+        // skip in debug mode, takes > 5 minutes.
+        return;
+    }
+
+    // Makes sure that requests are handled with the same result whether parsed form full url or from pre-parsed hostname
     let requests = load_requests();
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
