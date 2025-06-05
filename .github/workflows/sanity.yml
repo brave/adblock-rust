@@ -1,0 +1,36 @@
+name: Sanity
+
+on:
+  pull_request:
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+
+    env:
+      # Deny warnings for all steps
+      # (changing this flag triggers a complete rebuild, so it's helpful to define it globally)
+      RUSTFLAGS: --deny warnings
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Cargo fuzz
+        run: .github/workflows/fuzz-all.sh
+        shell: bash
+
+      # audit dependencies for severe vulnerabilities
+      # (to deny warnings in the future, note that cargo audit requires additional arguments)
+      - name: Cargo audit
+        run: |
+          cargo install --force cargo-audit
+          cargo generate-lockfile
+          cargo audit
+
+      - name: Cargo test 'adblock' package (asan)
+        run: |
+          rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+          RUST_BACKTRACE=1 RUSTFLAGS="-Z sanitizer=address" \
+          RUSTDOCFLAGS="-Z sanitizer=address" \
+          cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu

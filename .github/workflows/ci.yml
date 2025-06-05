@@ -1,6 +1,7 @@
 name: CI
 
-on: [push]
+on:
+  pull_request:
 
 jobs:
   ci:
@@ -43,23 +44,7 @@ jobs:
       - name: Build npm package
         run: npm ci
 
-      - name: Cargo fuzz
-        # Only runs on one runner for a few reasons:
-        #    1. The 'fuzz' package has no entrypoints, befuddling the mvsc linker on Windows
-        #    2. Mac CI Runners can be noticeably slower than the other two
-        #    3. Assumption: fuzzing on multiple OS's isn't likely to catch bugs
-        if: matrix.os == 'ubuntu-latest'
-        run: .github/workflows/fuzz-all.sh
-        shell: bash
 
-      # audit dependencies for severe vulnerabilities
-      # (to deny warnings in the future, note that cargo audit requires additional arguments)
-      - name: Cargo audit
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cargo install --force cargo-audit
-          cargo generate-lockfile
-          cargo audit
 
       - name: Cargo test 'adblock' package
         run: cargo test --all-features --tests --no-fail-fast
@@ -69,11 +54,3 @@ jobs:
 
       - name: Cargo test 'adblock' package (no default features)
         run: cargo test --no-default-features --features embedded-domain-resolver,full-regex-handling --tests --no-fail-fast
-
-      - name: Cargo test 'adblock' package (asan)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
-          RUST_BACKTRACE=1 RUSTFLAGS="-Z sanitizer=address" \
-          RUSTDOCFLAGS="-Z sanitizer=address" \
-          cargo +nightly test -Zbuild-std --target x86_64-unknown-linux-gnu
