@@ -432,18 +432,16 @@ pub fn check_included_domains(opt_domains: Option<&[Hash]>, request: &request::R
 
 #[inline]
 pub fn check_included_domains_mapped(
-    opt_domains: Option<&[u16]>,
+    opt_domains: Option<&[u64]>,
     request: &request::Request,
-    mapping: &HashMap<Hash, u16>,
 ) -> bool {
     // Source URL must be among these domains to match
     if let Some(included_domains) = opt_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().all(|h| {
-                mapping
-                    .get(h)
-                    .map_or(true, |index| !utils::bin_lookup(included_domains, *index))
-            }) {
+            if source_hashes
+                .iter()
+                .all(|h| !utils::bin_lookup(included_domains, *h))
+            {
                 return false;
             }
         }
@@ -472,17 +470,15 @@ pub fn check_excluded_domains(
 
 #[inline]
 pub fn check_excluded_domains_mapped(
-    opt_not_domains: Option<&[u16]>,
+    opt_not_domains: Option<&[u64]>,
     request: &request::Request,
-    mapping: &HashMap<Hash, u16>,
 ) -> bool {
     if let Some(excluded_domains) = opt_not_domains.as_ref() {
         if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().any(|h| {
-                mapping
-                    .get(h)
-                    .map_or(false, |index| utils::bin_lookup(excluded_domains, *index))
-            }) {
+            if source_hashes
+                .iter()
+                .any(|h| utils::bin_lookup(excluded_domains, *h))
+            {
                 return false;
             }
         }

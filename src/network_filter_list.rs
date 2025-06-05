@@ -53,7 +53,7 @@ pub enum FlatBufferParsingError {
 
 pub(crate) struct NetworkFilterList {
     pub(crate) memory: VerifiedFlatFilterListMemory,
-    pub(crate) unique_domains_hashes_map: HashMap<Hash, u16>,
+    // pub(crate) unique_domains_hashes_map: HashMap<Hash, u16>,
 }
 
 impl Default for NetworkFilterList {
@@ -62,7 +62,7 @@ impl Default for NetworkFilterList {
         let memory = builder.finish(HashMap::new());
         Self {
             memory,
-            unique_domains_hashes_map: HashMap::new(),
+            // unique_domains_hashes_map: HashMap::new(),
         }
     }
 }
@@ -83,21 +83,21 @@ impl NetworkFilterList {
     ) -> Result<NetworkFilterList, FlatBufferParsingError> {
         let root = memory.filter_list();
 
-        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
-        let len = root.unique_domains_hashes().len();
-        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
-            HashMap::with_capacity(len);
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(
-                hash,
-                u16::try_from(index)
-                    .map_err(|_| FlatBufferParsingError::UniqueDomainsOutOfBounds(index))?,
-            );
-        }
+        // // Reconstruct the unique_domains_hashes_map from the flatbuffer data
+        // let len = root.unique_domains_hashes().len();
+        // let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u16> =
+        //     HashMap::with_capacity(len);
+        // for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
+        //     unique_domains_hashes_map.insert(
+        //         hash,
+        //         u16::try_from(index)
+        //             .map_err(|_| FlatBufferParsingError::UniqueDomainsOutOfBounds(index))?,
+        //     );
+        // }
 
         Ok(Self {
             memory,
-            unique_domains_hashes_map,
+            // unique_domains_hashes_map,
         })
     }
 

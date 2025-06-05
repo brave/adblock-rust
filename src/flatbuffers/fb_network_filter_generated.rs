@@ -119,26 +119,26 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u64>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
                         NetworkFilter::VT_OPT_DOMAINS,
                         None,
                     )
             }
         }
         #[inline]
-        pub fn opt_not_domains(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+        pub fn opt_not_domains(&self) -> Option<flatbuffers::Vector<'a, u64>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
                         NetworkFilter::VT_OPT_NOT_DOMAINS,
                         None,
                     )
@@ -210,12 +210,12 @@ pub mod fb {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
                 .visit_field::<u32>("mask", Self::VT_MASK, false)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
                     "opt_domains",
                     Self::VT_OPT_DOMAINS,
                     false,
                 )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
                     "opt_not_domains",
                     Self::VT_OPT_NOT_DOMAINS,
                     false,
@@ -245,8 +245,8 @@ pub mod fb {
     }
     pub struct NetworkFilterArgs<'a> {
         pub mask: u32,
-        pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
-        pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+        pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+        pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
         pub patterns: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
@@ -283,7 +283,7 @@ pub mod fb {
         #[inline]
         pub fn add_opt_domains(
             &mut self,
-            opt_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u16>>,
+            opt_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilter::VT_OPT_DOMAINS,
@@ -293,7 +293,7 @@ pub mod fb {
         #[inline]
         pub fn add_opt_not_domains(
             &mut self,
-            opt_not_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u16>>,
+            opt_not_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilter::VT_OPT_NOT_DOMAINS,
@@ -373,8 +373,8 @@ pub mod fb {
     #[derive(Debug, Clone, PartialEq)]
     pub struct NetworkFilterT {
         pub mask: u32,
-        pub opt_domains: Option<Vec<u16>>,
-        pub opt_not_domains: Option<Vec<u16>>,
+        pub opt_domains: Option<Vec<u64>>,
+        pub opt_not_domains: Option<Vec<u64>>,
         pub patterns: Option<Vec<String>>,
         pub modifier_option: Option<String>,
         pub hostname: Option<String>,
@@ -446,7 +446,6 @@ pub mod fb {
     impl<'a> NetworkFilterList<'a> {
         pub const VT_FILTER_MAP_INDEX: flatbuffers::VOffsetT = 4;
         pub const VT_FILTER_MAP_VALUES: flatbuffers::VOffsetT = 6;
-        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -463,9 +462,6 @@ pub mod fb {
             args: &'args NetworkFilterListArgs<'args>,
         ) -> flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
             let mut builder = NetworkFilterListBuilder::new(_fbb);
-            if let Some(x) = args.unique_domains_hashes {
-                builder.add_unique_domains_hashes(x);
-            }
             if let Some(x) = args.filter_map_values {
                 builder.add_filter_map_values(x);
             }
@@ -484,14 +480,9 @@ pub mod fb {
                 let x = self.filter_map_values();
                 x.iter().map(|t| t.unpack()).collect()
             };
-            let unique_domains_hashes = {
-                let x = self.unique_domains_hashes();
-                x.into_iter().collect()
-            };
             NetworkFilterListT {
                 filter_map_index,
                 filter_map_values,
-                unique_domains_hashes,
             }
         }
 
@@ -524,20 +515,6 @@ pub mod fb {
                     .unwrap()
             }
         }
-        #[inline]
-        pub fn unique_domains_hashes(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
     }
 
     impl flatbuffers::Verifiable for NetworkFilterList<'_> {
@@ -556,11 +533,6 @@ pub mod fb {
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>,
                 >>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "unique_domains_hashes",
-                    Self::VT_UNIQUE_DOMAINS_HASHES,
-                    true,
-                )?
                 .finish();
             Ok(())
         }
@@ -572,15 +544,13 @@ pub mod fb {
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
             >,
         >,
-        pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
     }
     impl<'a> Default for NetworkFilterListArgs<'a> {
         #[inline]
         fn default() -> Self {
             NetworkFilterListArgs {
-                filter_map_index: None,      // required field
-                filter_map_values: None,     // required field
-                unique_domains_hashes: None, // required field
+                filter_map_index: None,  // required field
+                filter_map_values: None, // required field
             }
         }
     }
@@ -613,16 +583,6 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_unique_domains_hashes(
-            &mut self,
-            unique_domains_hashes: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
-                unique_domains_hashes,
-            );
-        }
-        #[inline]
         pub fn new(
             _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterListBuilder<'a, 'b, A> {
@@ -645,11 +605,6 @@ pub mod fb {
                 NetworkFilterList::VT_FILTER_MAP_VALUES,
                 "filter_map_values",
             );
-            self.fbb_.required(
-                o,
-                NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
-                "unique_domains_hashes",
-            );
             flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -659,7 +614,6 @@ pub mod fb {
             let mut ds = f.debug_struct("NetworkFilterList");
             ds.field("filter_map_index", &self.filter_map_index());
             ds.field("filter_map_values", &self.filter_map_values());
-            ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.finish()
         }
     }
@@ -668,14 +622,12 @@ pub mod fb {
     pub struct NetworkFilterListT {
         pub filter_map_index: Vec<u32>,
         pub filter_map_values: Vec<NetworkFilterT>,
-        pub unique_domains_hashes: Vec<u64>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
             Self {
                 filter_map_index: Default::default(),
                 filter_map_values: Default::default(),
-                unique_domains_hashes: Default::default(),
             }
         }
     }
@@ -693,16 +645,11 @@ pub mod fb {
                 let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
-            let unique_domains_hashes = Some({
-                let x = &self.unique_domains_hashes;
-                _fbb.create_vector(x)
-            });
             NetworkFilterList::create(
                 _fbb,
                 &NetworkFilterListArgs {
                     filter_map_index,
                     filter_map_values,
-                    unique_domains_hashes,
                 },
             )
         }
