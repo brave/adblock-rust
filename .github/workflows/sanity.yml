@@ -29,6 +29,9 @@ jobs:
           cargo generate-lockfile
           cargo audit
 
+      - name: Cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Install nightly toolchain and rust-src (for asan)
         run: |
           rustup toolchain install nightly
