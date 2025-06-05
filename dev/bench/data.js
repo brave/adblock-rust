@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749120013832,
+  "lastUpdate": 1749159265643,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1319,6 +1319,84 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list-deserialize",
             "value": 65313699,
             "range": "± 3305666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604587,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68112,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b1608861dc443c6d03a4be28e715fc1d11ff3ee2",
+          "message": "Skip slow tests in debug mode (#476)\n\n* Skip slow tests in debug mode\n* move fuzz, audit & asan to sanity.yml\n* add asan for release mode\n* use #[cfg(not(debug_assertions))]\n* Fix 'unused' code in debug\n* Add workflow_dispatch",
+          "timestamp": "2025-06-05T21:29:53Z",
+          "tree_id": "aa515109b6b509f90469035be5214902696e0974",
+          "url": "https://github.com/brave/adblock-rust/commit/b1608861dc443c6d03a4be28e715fc1d11ff3ee2"
+        },
+        "date": 1749159264698,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2149438967,
+            "range": "± 13840678",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 946740,
+            "range": "± 90392",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 151970677,
+            "range": "± 1412587",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 69850845,
+            "range": "± 618721",
             "unit": "ns/iter"
           },
           {
