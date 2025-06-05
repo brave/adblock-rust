@@ -236,8 +236,8 @@ fn check_live_redirects() {
             )
             .unwrap(),
         );
-        assert_eq!(
-            checked.matched, true,
+        assert!(
+            checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );
@@ -254,8 +254,8 @@ fn check_live_redirects() {
             )
             .unwrap(),
         );
-        assert_eq!(
-            checked.matched, true,
+        assert!(
+            checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );

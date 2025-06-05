@@ -316,7 +316,7 @@ impl RegexManager {
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.map
             .iter_mut()
-            .filter(|(k, _)| **k as u64 == regex_id)
+            .filter(|(k, _)| { **k } == regex_id)
             .for_each(|(_, v)| {
                 v.regex = None;
             });
@@ -328,7 +328,7 @@ impl RegexManager {
         self.map
             .iter()
             .map(|(k, e)| RegexDebugEntry {
-                id: *k as u64,
+                id: { *k },
                 regex: e.regex.as_ref().map(|x| x.to_string()),
                 last_used: e.last_used,
                 usage_count: e.usage_count,

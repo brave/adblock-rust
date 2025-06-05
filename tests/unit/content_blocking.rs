@@ -752,7 +752,7 @@ mod filterset_tests {
             "smskaraborg.se,örnsköldsviksgymnasium.se,mojligheternashusab.se##.env-modal-dialog__backdrop",
         ];
         let mut set = FilterSet::new(true);
-        set.add_filters(&list, Default::default());
+        set.add_filters(list, Default::default());
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
         assert_eq!(used_rules, list);
@@ -778,7 +778,7 @@ mod filterset_tests {
             r"/^example\d+\.com$/,test.net,b.*##.ad",
         ];
         let mut set = FilterSet::new(true);
-        set.add_filters(&list, Default::default());
+        set.add_filters(list, Default::default());
 
         let (cb_rules, used_rules) = set.into_content_blocking()?;
         assert_eq!(used_rules.len(), 1);

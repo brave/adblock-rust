@@ -104,7 +104,7 @@ fn check_specific_rules() {
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, true);
+        assert!(checked.matched);
         assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
 }

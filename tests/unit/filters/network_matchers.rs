@@ -689,7 +689,7 @@ mod match_tests {
             let mut regex_manager = RegexManager::default();
             assert!(regex_manager.get_compiled_regex_count() == 0);
             assert!(
-                network_filter.matches(&request, &mut regex_manager) == true,
+                network_filter.matches(&request, &mut regex_manager),
                 "Expected match for {} on {}",
                 filter,
                 url
