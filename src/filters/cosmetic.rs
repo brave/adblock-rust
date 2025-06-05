@@ -341,7 +341,7 @@ impl CosmeticFilter {
     /// Returns the CSS selector, for rules which only consist of a CSS selector.
     /// If a rule contains procedural operators, this method will return `None`.
     pub fn plain_css_selector(&self) -> Option<&str> {
-        assert!(self.selector.len() > 0);
+        assert!(!self.selector.is_empty());
         if self.selector.len() > 1 {
             return None;
         }

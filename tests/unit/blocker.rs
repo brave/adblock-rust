@@ -51,7 +51,7 @@ mod blocker_tests {
         let blocker = Blocker::new(network_filters, &blocker_options);
 
         requests.iter().for_each(|(req, expected_result)| {
-            let matched_rule = blocker.check(&req, &Default::default());
+            let matched_rule = blocker.check(req, &Default::default());
             if *expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", req.url);
             } else {
@@ -78,7 +78,7 @@ mod blocker_tests {
         )
         .unwrap();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -96,8 +96,8 @@ mod blocker_tests {
             .unwrap();
 
         let matched_rule = blocker.check(&request, &resources);
-        assert_eq!(matched_rule.matched, false);
-        assert_eq!(matched_rule.important, false);
+        assert!(!matched_rule.matched);
+        assert!(!matched_rule.important);
         assert_eq!(
             matched_rule.redirect,
             Some("data:audio/mp3;base64,bXAz".to_string())
@@ -122,7 +122,7 @@ mod blocker_tests {
         )
         .unwrap();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -140,8 +140,8 @@ mod blocker_tests {
             .unwrap();
 
         let matched_rule = blocker.check(&request, &resources);
-        assert_eq!(matched_rule.matched, false);
-        assert_eq!(matched_rule.important, false);
+        assert!(!matched_rule.matched);
+        assert!(!matched_rule.important);
         assert_eq!(matched_rule.redirect, None);
         assert_eq!(
             matched_rule.exception,
@@ -161,7 +161,7 @@ mod blocker_tests {
         let request =
             Request::new("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -179,8 +179,8 @@ mod blocker_tests {
             .unwrap();
 
         let matched_rule = blocker.check(&request, &resources);
-        assert_eq!(matched_rule.matched, true);
-        assert_eq!(matched_rule.important, false);
+        assert!(matched_rule.matched);
+        assert!(!matched_rule.important);
         assert_eq!(
             matched_rule.redirect,
             Some("data:text/plain;base64,bm9vcA==".to_string())
@@ -198,10 +198,9 @@ mod blocker_tests {
 
         let request_expectations: Vec<_> = url_results
             .into_iter()
-            .map(|(request, expected_result)| (request, expected_result))
             .collect();
 
-        test_requests_filters(&filters, &request_expectations);
+        test_requests_filters(filters, &request_expectations);
     }
 
     #[test]
@@ -217,10 +216,9 @@ mod blocker_tests {
 
         let request_expectations: Vec<_> = url_results
             .into_iter()
-            .map(|(request, expected_result)| (request, expected_result))
             .collect();
 
-        test_requests_filters(&filters, &request_expectations);
+        test_requests_filters(filters, &request_expectations);
     }
 
     #[test]
@@ -236,10 +234,9 @@ mod blocker_tests {
 
         let request_expectations: Vec<_> = url_results
             .into_iter()
-            .map(|(request, expected_result)| (request, expected_result))
             .collect();
 
-        test_requests_filters(&filters, &request_expectations);
+        test_requests_filters(filters, &request_expectations);
     }
 
     #[test]
@@ -287,7 +284,7 @@ mod blocker_tests {
             ),
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
@@ -322,7 +319,7 @@ mod blocker_tests {
             "^first-party-only^$csp=script-src 'none',1p",
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: false,
@@ -516,7 +513,7 @@ mod blocker_tests {
             "$removeparam=testCase,~xhr",
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
@@ -949,7 +946,7 @@ mod blocker_tests {
     fn test_removeparam_same_tokens() {
         let filters = ["$removeparam=example1_", "$removeparam=example1-"];
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
@@ -981,7 +978,7 @@ mod blocker_tests {
             "@@^exceptc20^$redirect-rule=c:20",
         ];
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
@@ -1141,7 +1138,7 @@ mod blocker_tests {
             })
             .collect();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
@@ -1195,7 +1192,7 @@ mod blocker_tests {
             })
             .collect();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
@@ -1250,7 +1247,7 @@ mod blocker_tests {
             })
             .collect();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules

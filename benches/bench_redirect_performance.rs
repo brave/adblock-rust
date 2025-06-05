@@ -90,9 +90,9 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
         enable_optimizations: true,
     };
 
-    let blocker = Blocker::new(rules, &blocker_options);
+    
 
-    blocker
+    Blocker::new(rules, &blocker_options)
 }
 
 fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> ResourceStorage {
@@ -137,7 +137,7 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
                 Resource {
                     name: redirect.to_owned(),
                     aliases: vec![],
-                    kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
+                    kind: ResourceType::Mime(MimeType::from_extension(redirect)),
                     content: BASE64_STANDARD.encode(redirect),
                     dependencies: vec![],
                     permission: Default::default(),
@@ -196,12 +196,12 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
                 let domain_end = from_start
                     .find('|')
                     .or_else(|| from_start.find(","))
-                    .or_else(|| Some(from_start.len()))
+                    .or(Some(from_start.len()))
                     .unwrap()
                     + domain_start;
-                let source_hostname = &raw_line[domain_start..domain_end];
+                
 
-                source_hostname
+                &raw_line[domain_start..domain_end]
             } else if rule.mask.contains(NetworkFilterMask::THIRD_PARTY) {
                 "always-third-party.com"
             } else {
@@ -217,7 +217,7 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
 
 fn bench_fn(blocker: &Blocker, resources: &ResourceStorage, requests: &[Request]) {
     requests.iter().for_each(|request| {
-        let block_result = blocker.check(&request, &resources);
+        let block_result = blocker.check(request, resources);
         assert!(
             block_result.redirect.is_some(),
             "{:?}, {:?}",

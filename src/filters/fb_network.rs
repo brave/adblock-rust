@@ -26,7 +26,7 @@ pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
-impl<'a> FlatNetworkFiltersListBuilder<'a> {
+impl FlatNetworkFiltersListBuilder<'_> {
     pub fn new() -> Self {
         Self {
             builder: flatbuffers::FlatBufferBuilder::new(),
@@ -43,7 +43,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         let index = self.unique_domains_hashes.len() as u32;
         self.unique_domains_hashes.push(*h);
         self.unique_domains_hashes_map.insert(*h, index);
-        return index;
+        index
     }
 
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
@@ -70,17 +70,17 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         let modifier_option = network_filter
             .modifier_option
             .as_ref()
-            .map(|s| self.builder.create_string(&s));
+            .map(|s| self.builder.create_string(s));
 
         let hostname = network_filter
             .hostname
             .as_ref()
-            .map(|s| self.builder.create_string(&s));
+            .map(|s| self.builder.create_string(s));
 
         let tag = network_filter
             .tag
             .as_ref()
-            .map(|s| self.builder.create_string(&s));
+            .map(|s| self.builder.create_string(s));
 
         let patterns = if network_filter.filter.iter().len() > 0 {
             let offsets: Vec<WIPOffset<&str>> = network_filter
@@ -188,7 +188,7 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.patterns.patterns.map_or(None, |fi| {
+        self.patterns.patterns.and_then(|fi| {
             if self.index < self.len {
                 self.index += 1;
                 Some(fi.get(self.index - 1))
@@ -199,7 +199,7 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for FlatPatternsIterator<'a> {
+impl ExactSizeIterator for FlatPatternsIterator<'_> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.len
@@ -227,7 +227,7 @@ impl<'a> FlatNetworkFilter<'a> {
             fb_filter: filter,
             key: index as u64 | (((list_address) as u64) << 32),
             mask: NetworkFilterMask::from_bits_retain(filter.mask()),
-            owner: owner,
+            owner,
         }
     }
 
@@ -275,14 +275,14 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 }
 
-impl<'a> NetworkFilterMaskHelper for FlatNetworkFilter<'a> {
+impl NetworkFilterMaskHelper for FlatNetworkFilter<'_> {
     #[inline]
     fn has_flag(&self, v: NetworkFilterMask) -> bool {
         self.mask.contains(v)
     }
 }
 
-impl<'a> NetworkMatchable for FlatNetworkFilter<'a> {
+impl NetworkMatchable for FlatNetworkFilter<'_> {
     fn matches(&self, request: &Request, regex_manager: &mut RegexManager) -> bool {
         use crate::filters::network_matchers::{
             check_excluded_domains_mapped, check_included_domains_mapped, check_options,

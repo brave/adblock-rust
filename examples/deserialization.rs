@@ -75,7 +75,7 @@ fn main() {
         }
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
         let checked = engine.check_network_request(&request);
-        if req.blocked == 1 && checked.matched != true {
+        if req.blocked == 1 && !checked.matched {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
                 false_negative_rules.insert(
@@ -93,7 +93,7 @@ fn main() {
                 )
             });
             // println!("Expected exception to match for {} at {}, type {}, got rule match {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
-        } else if req.blocked == 0 && checked.matched != false {
+        } else if req.blocked == 0 && checked.matched {
             mismatch_expected_pass += 1;
             checked.filter.as_ref().map(|f| {
                 false_positive_rules.insert(

@@ -1108,7 +1108,7 @@ mod matching_tests {
 
     #[test]
     fn zero_width_space() {
-        assert!(parse_cf(r#"​##a[href^="https://www.g2fame.com/"] > img"#).is_err());
+        assert!(parse_cf(r#"\u{200B}##a[href^="https://www.g2fame.com/"] > img"#).is_err());
     }
 
     #[test]

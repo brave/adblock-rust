@@ -561,7 +561,7 @@ mod parse_tests {
         {
             let filter =
                 NetworkFilter::parse("||foo.com$important", true, Default::default()).unwrap();
-            assert_eq!(filter.is_important(), true);
+            assert!(filter.is_important());
         }
         {
             // parses ~important
@@ -571,7 +571,7 @@ mod parse_tests {
         {
             // defaults to false
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.is_important(), false);
+            assert!(!filter.is_important());
         }
     }
 
@@ -586,13 +586,13 @@ mod parse_tests {
             let filter =
                 NetworkFilter::parse(r#"||foo.com$csp=self bar """#, true, Default::default())
                     .unwrap();
-            assert_eq!(filter.is_csp(), true);
+            assert!(filter.is_csp());
             assert_eq!(filter.modifier_option, Some(String::from(r#"self bar """#)));
         }
         {
             // parses empty CSP
             let filter = NetworkFilter::parse("||foo.com$csp", true, Default::default()).unwrap();
-            assert_eq!(filter.is_csp(), true);
+            assert!(filter.is_csp());
             assert_eq!(filter.modifier_option, None);
         }
         {
@@ -828,11 +828,11 @@ mod parse_tests {
                 Default::default(),
             )
             .unwrap();
-            assert_eq!(filter.match_case(), true);
+            assert!(filter.match_case());
         }
         {
             let filter = NetworkFilter::parse(r#"/^https?:\/\/[a-z]{8,15}\.top\/[-a-z]{4,}\.css\?aHR0c[\/0-9a-zA-Z]{33,}=?=?\$/$css,3p,match-case"#, true, Default::default()).unwrap();
-            assert_eq!(filter.match_case(), true);
+            assert!(filter.match_case());
         }
 
         // parses ~match-case
@@ -848,107 +848,94 @@ mod parse_tests {
         // defaults to false
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.match_case(), false)
+            assert!(!filter.match_case())
         }
     }
 
     #[test]
     fn parses_first_party() {
         // parses first-party
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("||foo.com$first-party", true, Default::default())
                 .unwrap()
-                .first_party(),
-            true
+                .first_party()
         );
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("@@||foo.com$first-party", true, Default::default())
                 .unwrap()
-                .first_party(),
-            true
+                .first_party()
         );
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("@@||foo.com|$first-party", true, Default::default())
                 .unwrap()
-                .first_party(),
-            true
+                .first_party()
         );
         // parses ~first-party
-        assert_eq!(
-            NetworkFilter::parse("||foo.com$~first-party", true, Default::default())
+        assert!(
+            !NetworkFilter::parse("||foo.com$~first-party", true, Default::default())
                 .unwrap()
-                .first_party(),
-            false
+                .first_party()
         );
-        assert_eq!(
-            NetworkFilter::parse(
+        assert!(
+            !NetworkFilter::parse(
                 "||foo.com$first-party,~first-party",
                 true,
                 Default::default()
             )
             .unwrap()
-            .first_party(),
-            false
+            .first_party()
         );
         // defaults to true
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("||foo.com", true, Default::default())
                 .unwrap()
-                .first_party(),
-            true
+                .first_party()
         );
     }
 
     #[test]
     fn parses_third_party() {
         // parses third-party
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("||foo.com$third-party", true, Default::default())
                 .unwrap()
-                .third_party(),
-            true
+                .third_party()
         );
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("@@||foo.com$third-party", true, Default::default())
                 .unwrap()
-                .third_party(),
-            true
+                .third_party()
         );
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("@@||foo.com|$third-party", true, Default::default())
                 .unwrap()
-                .third_party(),
-            true
+                .third_party()
         );
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("||foo.com$~first-party", true, Default::default())
                 .unwrap()
-                .third_party(),
-            true
+                .third_party()
         );
         // parses ~third-party
-        assert_eq!(
-            NetworkFilter::parse("||foo.com$~third-party", true, Default::default())
+        assert!(
+            !NetworkFilter::parse("||foo.com$~third-party", true, Default::default())
                 .unwrap()
-                .third_party(),
-            false
+                .third_party()
         );
-        assert_eq!(
-            NetworkFilter::parse(
+        assert!(
+            !NetworkFilter::parse(
                 "||foo.com$first-party,~third-party",
                 true,
                 Default::default()
             )
             .unwrap()
-            .third_party(),
-            false
+            .third_party()
         );
         // defaults to true
-        assert_eq!(
+        assert!(
             NetworkFilter::parse("||foo.com", true, Default::default())
                 .unwrap()
-                .third_party(),
-            true
+                .third_party()
         );
     }
 
@@ -961,14 +948,14 @@ mod parse_tests {
         {
             let filter =
                 NetworkFilter::parse("@@||foo.com$generichide", true, Default::default()).unwrap();
-            assert_eq!(filter.is_exception(), true);
-            assert_eq!(filter.is_generic_hide(), true);
+            assert!(filter.is_exception());
+            assert!(filter.is_generic_hide());
         }
         {
             let filter =
                 NetworkFilter::parse("@@||foo.com|$generichide", true, Default::default()).unwrap();
-            assert_eq!(filter.is_exception(), true);
-            assert_eq!(filter.is_generic_hide(), true);
+            assert!(filter.is_exception());
+            assert!(filter.is_generic_hide());
         }
         {
             let filter = NetworkFilter::parse(
@@ -977,7 +964,7 @@ mod parse_tests {
                 Default::default(),
             )
             .unwrap();
-            assert_eq!(filter.is_generic_hide(), true);
+            assert!(filter.is_generic_hide());
             let breakdown = NetworkFilterBreakdown::from(&filter);
             assert_eq!(
                 breakdown.opt_domains,
@@ -986,7 +973,7 @@ mod parse_tests {
         }
         {
             let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
-            assert_eq!(filter.is_generic_hide(), false);
+            assert!(!filter.is_generic_hide());
         }
     }
 
@@ -1107,7 +1094,7 @@ mod parse_tests {
                 defaults.is_plain = true;
                 defaults.from_network_types = false;
                 set_all_options(&mut defaults, false);
-                set_option(&option, &mut defaults, true);
+                set_option(option, &mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
 
@@ -1124,7 +1111,7 @@ mod parse_tests {
                 defaults.is_plain = true;
                 defaults.from_network_types = false;
                 set_all_options(&mut defaults, false);
-                set_option(&option, &mut defaults, true);
+                set_option(option, &mut defaults, true);
                 set_option("object", &mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
@@ -1143,7 +1130,7 @@ mod parse_tests {
                 defaults.from_network_types = false;
                 defaults.opt_domains = Some(vec![utils::fast_hash("bar.com")]);
                 set_all_options(&mut defaults, false);
-                set_option(&option, &mut defaults, true);
+                set_option(option, &mut defaults, true);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
 
@@ -1161,7 +1148,7 @@ mod parse_tests {
                 defaults.is_plain = true;
                 defaults.from_network_types = false;
                 set_all_options(&mut defaults, true);
-                set_option(&option, &mut defaults, false);
+                set_option(option, &mut defaults, false);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
 
@@ -1178,13 +1165,13 @@ mod parse_tests {
                 defaults.is_plain = true;
                 defaults.from_network_types = false;
                 set_all_options(&mut defaults, true);
-                set_option(&option, &mut defaults, false);
+                set_option(option, &mut defaults, false);
                 assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
             }
             // default - positive
             {
                 let filter =
-                    NetworkFilter::parse(&format!("||foo.com"), true, Default::default()).unwrap();
+                    NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
@@ -1237,14 +1224,13 @@ mod parse_tests {
             let decoded: NetworkFilter = Deserialize::deserialize(&mut de).unwrap();
 
             assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded));
-            assert_eq!(
+            assert!(
                 RegexManager::default().matches(
                     decoded.mask,
                     decoded.filter.iter(),
                     (&decoded as *const NetworkFilter) as u64,
                     "bar/"
-                ),
-                true
+                )
             );
         }
     }

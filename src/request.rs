@@ -109,7 +109,7 @@ impl Request {
             .as_ref()
             .into_iter()
             .flatten()
-            .chain(self.get_tokens().into_iter())
+            .chain(self.get_tokens())
     }
 
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {

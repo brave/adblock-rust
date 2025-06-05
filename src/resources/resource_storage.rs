@@ -74,7 +74,7 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
         output.extend_from_slice(&string.as_bytes()[start..]);
     }
 
-    let mut output = Vec::with_capacity(arg.as_bytes().len() + 2);
+    let mut output = Vec::with_capacity(arg.len() + 2);
     if QUOTED {
         output.push(b'"');
     }
@@ -96,7 +96,7 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
 
     // unwrap safety: input is always valid UTF8; output processing only replaces some ASCII
     // characters with other valid ones
-    return String::from_utf8(output).unwrap();
+    String::from_utf8(output).unwrap()
 }
 
 /// Gets the function name from a JS function definition
@@ -105,7 +105,7 @@ fn extract_function_name(fn_def: &str) -> Option<&str> {
     const FUNCTION_NAME_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r#"^function\s+([^\(\)\{\}\s]+)\s*\("#).unwrap());
 
-    FUNCTION_NAME_RE.captures(&fn_def).map(|captures| {
+    FUNCTION_NAME_RE.captures(fn_def).map(|captures| {
         // capture 1 is always present in the above regex if any match was made
         captures.get(1).unwrap().as_str()
     })
@@ -118,7 +118,7 @@ impl ResourceStorage {
         let mut self_ = Self::default();
 
         resources.into_iter().for_each(|resource| {
-            self_.add_resource(resource).unwrap_or_else(|_e| {
+            self_.add_resource(resource).unwrap_or({
                 #[cfg(test)]
                 eprintln!("Failed to add resource: {:?}", _e)
             })
@@ -199,7 +199,7 @@ impl ResourceStorage {
         prev_deps: &mut Vec<&'b Resource>,
         filter_permission: PermissionMask,
     ) -> Result<(), ScriptletResourceError> {
-        if prev_deps.iter().find(|dep| dep.name == new_dep).is_some() {
+        if prev_deps.iter().any(|dep| dep.name == new_dep) {
             return Ok(());
         }
 
@@ -252,10 +252,8 @@ impl ResourceStorage {
             // newer function-style resource: pass args using function call syntax
 
             // add the scriptlet itself as a dependency and invoke via function name
-            if required_deps
-                .iter()
-                .find(|dep| dep.name == resource.name)
-                .is_none()
+            if !required_deps
+                .iter().any(|dep| dep.name == resource.name)
             {
                 required_deps.push(resource);
             }
@@ -313,7 +311,7 @@ impl ResourceStorage {
         filter_permission: PermissionMask,
     ) -> Result<&Resource, ScriptletResourceError> {
         let resource = self
-            .get_internal_resource(&scriptlet_name)
+            .get_internal_resource(scriptlet_name)
             .ok_or(ScriptletResourceError::NoMatchingScriptlet)?;
 
         if !resource.permission.is_injectable_by(filter_permission) {

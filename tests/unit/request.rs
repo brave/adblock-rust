@@ -35,9 +35,9 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(simple_example.is_https, true);
-        assert_eq!(simple_example.is_supported, true);
-        assert_eq!(simple_example.is_third_party, false);
+        assert!(simple_example.is_https);
+        assert!(simple_example.is_supported);
+        assert!(!simple_example.is_third_party);
         assert_eq!(simple_example.request_type, RequestType::Document);
         assert_eq!(
             simple_example.source_hostname_hashes,
@@ -56,9 +56,9 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(unsupported_example.is_https, false);
-        assert_eq!(unsupported_example.is_http, false);
-        assert_eq!(unsupported_example.is_supported, false);
+        assert!(!unsupported_example.is_https);
+        assert!(!unsupported_example.is_http);
+        assert!(!unsupported_example.is_supported);
 
         let first_party = build_request(
             "document",
@@ -69,9 +69,9 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(first_party.is_https, true);
-        assert_eq!(first_party.is_supported, true);
-        assert_eq!(first_party.is_third_party, false);
+        assert!(first_party.is_https);
+        assert!(first_party.is_supported);
+        assert!(!first_party.is_third_party);
 
         let third_party = build_request(
             "document",
@@ -82,9 +82,9 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(third_party.is_https, true);
-        assert_eq!(third_party.is_supported, true);
-        assert_eq!(third_party.is_third_party, true);
+        assert!(third_party.is_https);
+        assert!(third_party.is_supported);
+        assert!(third_party.is_third_party);
 
         let websocket = build_request(
             "document",
@@ -95,10 +95,10 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(websocket.is_https, false);
-        assert_eq!(websocket.is_https, false);
-        assert_eq!(websocket.is_supported, true);
-        assert_eq!(websocket.is_third_party, true);
+        assert!(!websocket.is_https);
+        assert!(!websocket.is_https);
+        assert!(websocket.is_supported);
+        assert!(websocket.is_third_party);
         assert_eq!(websocket.request_type, RequestType::Websocket);
 
         let assumed_https = build_request(
@@ -110,13 +110,13 @@ mod tests {
             "example.com",
             "example.com",
         );
-        assert_eq!(assumed_https.is_https, true);
-        assert_eq!(assumed_https.is_http, false);
-        assert_eq!(assumed_https.is_supported, true);
+        assert!(assumed_https.is_https);
+        assert!(!assumed_https.is_http);
+        assert!(assumed_https.is_supported);
     }
 
     fn tokenize(tokens: &[&str], extra_tokens: &[utils::Hash]) -> Vec<utils::Hash> {
-        let mut tokens: Vec<_> = tokens.into_iter().map(|t| utils::fast_hash(&t)).collect();
+        let mut tokens: Vec<_> = tokens.iter().map(|t| utils::fast_hash(t)).collect();
         tokens.extend(extra_tokens);
         tokens
     }
@@ -155,9 +155,9 @@ mod tests {
             "document",
         )
         .unwrap();
-        assert_eq!(parsed.is_https, true);
-        assert_eq!(parsed.is_supported, true);
-        assert_eq!(parsed.is_third_party, false);
+        assert!(parsed.is_https);
+        assert!(parsed.is_supported);
+        assert!(!parsed.is_third_party);
         assert_eq!(parsed.request_type, RequestType::Document);
 
         // assert_eq!(parsed.domain, "example.com");

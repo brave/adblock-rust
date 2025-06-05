@@ -47,7 +47,7 @@ mod test_utils;
 mod sync_tests {
     #[allow(unused)]
     fn static_assert_sync<S: Sync>() {
-        let _ = core::marker::PhantomData::<S>::default();
+        let _ = core::marker::PhantomData::<S>;
     }
 
     #[test]

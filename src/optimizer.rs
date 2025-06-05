@@ -77,7 +77,7 @@ fn insert_dup<K, V>(map: &mut HashMap<K, Vec<V>>, k: K, v: V)
 where
     K: std::cmp::Ord + std::hash::Hash,
 {
-    map.entry(k).or_insert_with(Vec::new).push(v)
+    map.entry(k).or_default().push(v)
 }
 
 struct SimplePatternGroup {}
