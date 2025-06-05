@@ -370,9 +370,8 @@ pub mod fb {
         }
     }
     #[non_exhaustive]
-    #[derive(Debug, Clone, PartialEq)]
-    #[derive(Default)]
-pub struct NetworkFilterT {
+    #[derive(Debug, Clone, PartialEq, Default)]
+    pub struct NetworkFilterT {
         pub mask: u32,
         pub opt_domains: Option<Vec<u32>>,
         pub opt_not_domains: Option<Vec<u32>>,
@@ -382,7 +381,7 @@ pub struct NetworkFilterT {
         pub tag: Option<String>,
         pub raw_line: Option<String>,
     }
-    
+
     impl NetworkFilterT {
         pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
             &self,
@@ -652,14 +651,13 @@ pub struct NetworkFilterT {
         }
     }
     #[non_exhaustive]
-    #[derive(Debug, Clone, PartialEq)]
-    #[derive(Default)]
-pub struct NetworkFilterListT {
+    #[derive(Debug, Clone, PartialEq, Default)]
+    pub struct NetworkFilterListT {
         pub filter_map_index: Vec<u32>,
         pub filter_map_values: Vec<NetworkFilterT>,
         pub unique_domains_hashes: Vec<u64>,
     }
-    
+
     impl NetworkFilterListT {
         pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
             &self,

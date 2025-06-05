@@ -83,10 +83,7 @@ mod tests {
 
         // Tokens cannot be surrounded by *
         assert_eq!(tokenize("foo.barƬ*").as_slice(), t(&["foo"]).as_slice());
-        assert_eq!(
-            tokenize("*foo.barƬ").as_slice(),
-            t(&["barƬ"]).as_slice()
-        );
+        assert_eq!(tokenize("*foo.barƬ").as_slice(), t(&["barƬ"]).as_slice());
         assert_eq!(tokenize("*foo.barƬ*").as_slice(), t(&[]).as_slice());
     }
 

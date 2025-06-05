@@ -272,8 +272,7 @@ impl RegexManager {
                     last_used: self.now,
                     usage_count: 1,
                 };
-                e
-                    .insert(new_entry)
+                e.insert(new_entry)
                     .regex
                     .as_ref()
                     .unwrap()

@@ -196,9 +196,7 @@ mod blocker_tests {
             false,
         )];
 
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .collect();
+        let request_expectations: Vec<_> = url_results.into_iter().collect();
 
         test_requests_filters(filters, &request_expectations);
     }
@@ -214,9 +212,7 @@ mod blocker_tests {
             false,
         )];
 
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .collect();
+        let request_expectations: Vec<_> = url_results.into_iter().collect();
 
         test_requests_filters(filters, &request_expectations);
     }
@@ -232,9 +228,7 @@ mod blocker_tests {
             true,
         )];
 
-        let request_expectations: Vec<_> = url_results
-            .into_iter()
-            .collect();
+        let request_expectations: Vec<_> = url_results.into_iter().collect();
 
         test_requests_filters(filters, &request_expectations);
     }

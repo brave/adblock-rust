@@ -7,10 +7,12 @@ fn bench_simple_regexes(c: &mut Criterion) {
 
     let pattern = "?/static/adv/foobar/asd?q=1";
 
-    let rules = [Regex::new(r"(?:[^\\w\\d\\._%-])/static/ad-").unwrap(),
+    let rules = [
+        Regex::new(r"(?:[^\\w\\d\\._%-])/static/ad-").unwrap(),
         Regex::new(r"(?:[^\\w\\d\\._%-])/static/ad/.*").unwrap(),
         Regex::new(r"(?:[^\\w\\d\\._%-])/static/ads/.*").unwrap(),
-        Regex::new(r"(?:[^\\w\\d\\._%-])/static/adv/.*").unwrap()];
+        Regex::new(r"(?:[^\\w\\d\\._%-])/static/adv/.*").unwrap(),
+    ];
 
     group.bench_function("list", move |b| {
         b.iter(|| {

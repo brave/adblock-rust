@@ -90,8 +90,6 @@ fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
         enable_optimizations: true,
     };
 
-    
-
     Blocker::new(rules, &blocker_options)
 }
 
@@ -199,7 +197,6 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
                     .or(Some(from_start.len()))
                     .unwrap()
                     + domain_start;
-                
 
                 &raw_line[domain_start..domain_end]
             } else if rule.mask.contains(NetworkFilterMask::THIRD_PARTY) {

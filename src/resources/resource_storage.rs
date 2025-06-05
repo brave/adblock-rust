@@ -118,7 +118,7 @@ impl ResourceStorage {
         let mut self_ = Self::default();
 
         resources.into_iter().for_each(|resource| {
-            self_.add_resource(resource).unwrap_or_else(|_e|{
+            self_.add_resource(resource).unwrap_or_else(|_e| {
                 #[cfg(test)]
                 eprintln!("Failed to add resource: {:?}", _e)
             })
@@ -252,9 +252,7 @@ impl ResourceStorage {
             // newer function-style resource: pass args using function call syntax
 
             // add the scriptlet itself as a dependency and invoke via function name
-            if !required_deps
-                .iter().any(|dep| dep.name == resource.name)
-            {
+            if !required_deps.iter().any(|dep| dep.name == resource.name) {
                 required_deps.push(resource);
             }
 

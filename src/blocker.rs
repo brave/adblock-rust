@@ -19,8 +19,7 @@ pub struct BlockerOptions {
 }
 
 /// Describes how a particular network request should be handled.
-#[derive(Debug, Serialize)]
-#[derive(Default)]
+#[derive(Debug, Serialize, Default)]
 pub struct BlockerResult {
     /// Was a blocking filter matched for this request?
     pub matched: bool,
@@ -60,7 +59,6 @@ pub struct BlockerResult {
     /// will only contain a constant `"NetworkFilter"` placeholder string.
     pub filter: Option<String>,
 }
-
 
 // only check for tags in tagged and exception rule buckets,
 // pass empty set for the rest

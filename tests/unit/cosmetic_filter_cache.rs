@@ -555,13 +555,15 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn class_id_exceptions() {
-        let rules = ["##.a-class",
+        let rules = [
+            "##.a-class",
             "###simple-id",
             "##.a-class .with .children",
             "##.children .including #simple-id",
             "##a.a-class",
             "example.*#@#.a-class",
-            "~test.com###test-element"];
+            "~test.com###test-element",
+        ];
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
@@ -615,11 +617,13 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn misc_generic_exceptions() {
-        let rules = ["##a[href=\"bad.com\"]",
+        let rules = [
+            "##a[href=\"bad.com\"]",
             "##div > p",
             "##a[href=\"notbad.com\"]",
             "example.com#@#div > p",
-            "~example.com##a[href=\"notbad.com\"]"];
+            "~example.com##a[href=\"notbad.com\"]",
+        ];
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()
@@ -651,8 +655,10 @@ mod cosmetic_cache_tests {
 
         // toolforge.org and github.io are examples of TLDs with multiple segments. These rules
         // should still be parsed correctly and applied on corresponding subdomains.
-        let rules = ["toolforge.org##+js(abort-on-property-read, noAdBlockers)",
-            "github.io##div.adToBlock"];
+        let rules = [
+            "toolforge.org##+js(abort-on-property-read, noAdBlockers)",
+            "github.io##div.adToBlock",
+        ];
         let cfcache = CosmeticFilterCache::from_rules(
             rules
                 .iter()

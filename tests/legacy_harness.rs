@@ -415,9 +415,7 @@ mod legacy_check_match {
             )
             .unwrap();
             assert!(!engine.check_network_request(&request).matched);
-            assert!(
-                !engine_deserialized.check_network_request(&request).matched
-            );
+            assert!(!engine_deserialized.check_network_request(&request).matched);
         }
 
         check_match(
@@ -1012,8 +1010,7 @@ mod legacy_misc_tests {
         );
 
         // Test when no filter is found, returns None
-        let request =
-            Request::new("http://ssafsdf.com", current_page_frame, request_type).unwrap();
+        let request = Request::new("http://ssafsdf.com", current_page_frame, request_type).unwrap();
         let checked = engine.check_network_request(&request);
         assert!(!checked.matched, "Expected url to pass");
         assert!(checked.filter.is_none(), "Expected no fitler to match");
