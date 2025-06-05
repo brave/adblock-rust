@@ -24,7 +24,7 @@ where
     type Item = (usize, <V as Follow<'a>>::Inner);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.values.len() {
+        if self.current_index < self.indexes.len() {
             if self.indexes[self.current_index] != self.key {
                 return None;
             }
@@ -39,8 +39,15 @@ where
 }
 
 impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
+    // Construct FlatFilterMap from two vectors:
+    // - index: sorted array of keys
+    // - values: array of values, same length as index
     pub fn new(index: &'a [I], values: Vector<'a, ForwardsUOffset<V>>) -> Self {
-        assert!(index.len() == values.len());
+        // Sanity check the size are equal. Note: next() will handle |values| correctly.
+        debug_assert!(index.len() == values.len());
+
+        debug_assert!(index.is_sorted());
+
         Self { index, values }
     }
 
