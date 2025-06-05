@@ -118,7 +118,7 @@ impl ResourceStorage {
         let mut self_ = Self::default();
 
         resources.into_iter().for_each(|resource| {
-            self_.add_resource(resource).unwrap_or({
+            self_.add_resource(resource).unwrap_or_else(|_e|{
                 #[cfg(test)]
                 eprintln!("Failed to add resource: {:?}", _e)
             })
