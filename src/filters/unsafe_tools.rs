@@ -42,23 +42,49 @@ pub fn fb_vector_to_slice<'a, T>(vector: flatbuffers::Vector<'a, T>) -> &'a [T] 
 pub(crate) struct VerifiedFlatFilterListMemory {
     // The buffer containing the flatbuffer data.
     raw_data: Vec<u8>,
+
+    // The offset of the data in the buffer.
+    // Must be aligned to MIN_ALIGNMENT bytes.
+    start: usize,
 }
 
 impl VerifiedFlatFilterListMemory {
     pub(crate) fn from_raw(data: Vec<u8>) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
-        assert!(data.as_ptr() as usize % MIN_ALIGNMENT == 0);
+        let memory = Self::from_vec(data);
 
         // Verify that the data is a valid flatbuffer.
-        let _ = fb::root_as_network_filter_list(&data)?;
+        let _ = fb::root_as_network_filter_list(memory.data())?;
 
-        Ok(Self { raw_data: data })
+        Ok(memory)
     }
 
     // Creates a new VerifiedFlatFilterListMemory from a builder.
     // Skip the verification, the builder must contains a valid FilterList.
     pub(crate) fn from_builder(builder: &flatbuffers::FlatBufferBuilder<'_>) -> Self {
-        Self {
-            raw_data: builder.finished_data().to_vec(),
+        let raw_data = builder.finished_data().to_vec();
+        Self::from_vec(raw_data)
+    }
+
+    // Properly align the buffer to MIN_ALIGNMENT bytes.
+    pub(crate) fn from_vec(mut vec: Vec<u8>) -> Self {
+        let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
+        if shift == 0 {
+            // Fast path, the buffer is already aligned.
+            Self {
+                raw_data: vec,
+                start: 0,
+            }
+        } else {
+            vec.reserve(vec.len() + MIN_ALIGNMENT); // vec.as_ptr() is changed
+            let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
+            let padding = MIN_ALIGNMENT - shift;
+            vec.splice(0..0, vec![0u8; padding]);
+            let memory = Self {
+                raw_data: vec,
+                start: padding,
+            };
+            assert!(memory.data().as_ptr() as usize % MIN_ALIGNMENT == 0);
+            memory
         }
     }
 
@@ -67,6 +93,6 @@ impl VerifiedFlatFilterListMemory {
     }
 
     pub fn data(&self) -> &[u8] {
-        &self.raw_data
+        &self.raw_data[self.start..]
     }
 }
