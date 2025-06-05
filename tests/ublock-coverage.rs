@@ -1,17 +1,15 @@
 use adblock::request::Request;
 use adblock::Engine;
 
-use serde::Deserialize;
-
+#[allow(unused_imports)]
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
 
 mod test_utils;
 use test_utils::rules_from_lists;
 
+#[cfg(not(debug_assertions))]
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct RequestRuleMatch {
     url: String,
     sourceUrl: String,
@@ -20,7 +18,11 @@ struct RequestRuleMatch {
     filter: Option<String>,
 }
 
+#[cfg(not(debug_assertions))]
 fn load_requests() -> Vec<RequestRuleMatch> {
+    use std::fs::File;
+    use std::io::BufReader;
+
     let f = File::open("data/ublock-matches.tsv").expect("file not found");
     let reader = BufReader::new(f);
     let mut rdr = csv::ReaderBuilder::new()
@@ -184,6 +186,7 @@ fn check_basic_works_after_deserialization() {
 }
 
 #[test]
+#[cfg(not(debug_assertions))] // This test takes > 3 minutes in debug mode
 fn check_matching_equivalent() {
     let requests = load_requests();
 
@@ -262,8 +265,9 @@ fn check_matching_equivalent() {
 }
 
 #[test]
+#[cfg(not(debug_assertions))] // This test takes > 5 minutes to run in debug mode
 fn check_matching_hostnames() {
-    // Makes sure that reuqests are handled with the same result whether parsed form full url or from pre-parsed hostname
+    // Makes sure that requests are handled with the same result whether parsed form full url or from pre-parsed hostname
     let requests = load_requests();
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
