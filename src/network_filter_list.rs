@@ -2,8 +2,7 @@ use std::{collections::HashMap, collections::HashSet, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use crate::filters::fb_network::flat::fb;
-use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
+use crate::filters::fb_network::CapnpNetworkFilter;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
@@ -11,6 +10,175 @@ use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, Hash};
+
+use capnp::message::{Builder, HeapAllocator, ReaderOptions};
+use capnp::serialize;
+
+// Include the Cap'n Proto generated code
+#[allow(dead_code, unused_imports, unsafe_code)]
+#[path = "capnp_network/network_filter_capnp.rs"]
+pub mod network_filter_capnp;
+
+use network_filter_capnp::network_filter_list;
+
+// Builder for Cap'n Proto network filter list
+struct CapnpNetworkFiltersListBuilder {
+    message: Builder<HeapAllocator>,
+    unique_domains_hashes: Vec<Hash>,
+    unique_domains_hashes_map: HashMap<Hash, u16>,
+    // Store only essential data needed for building - much more compact than full NetworkFilter
+    filters: Vec<CompactFilter>,
+}
+
+// Compact representation of a filter for building - avoids cloning full NetworkFilter
+struct CompactFilter {
+    mask: NetworkFilterMask,
+    opt_domain_indices: Vec<u16>,
+    opt_not_domain_indices: Vec<u16>,
+    patterns: Vec<String>,
+    modifier_option: Option<String>,
+    hostname: Option<String>,
+    tag: Option<String>,
+    raw_line: Option<String>,
+}
+
+impl CapnpNetworkFiltersListBuilder {
+    fn new() -> Self {
+        Self {
+            message: Builder::new_default(),
+            unique_domains_hashes: vec![],
+            unique_domains_hashes_map: HashMap::new(),
+            filters: vec![],
+        }
+    }
+
+    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u16 {
+        if let Some(&index) = self.unique_domains_hashes_map.get(h) {
+            index
+        } else {
+            let index = self.unique_domains_hashes.len() as u16;
+            self.unique_domains_hashes.push(*h);
+            self.unique_domains_hashes_map.insert(*h, index);
+            index
+        }
+    }
+
+    fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
+        let opt_domain_indices: Vec<u16> = if let Some(ref domains) = network_filter.opt_domains {
+            domains
+                .iter()
+                .map(|h| self.get_or_insert_unique_domain_hash(h))
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let opt_not_domain_indices: Vec<u16> =
+            if let Some(ref domains) = network_filter.opt_not_domains {
+                domains
+                    .iter()
+                    .map(|h| self.get_or_insert_unique_domain_hash(h))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+        let patterns: Vec<String> = network_filter
+            .filter
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        self.filters.push(CompactFilter {
+            mask: network_filter.mask,
+            opt_domain_indices,
+            opt_not_domain_indices,
+            patterns,
+            modifier_option: network_filter.modifier_option.clone(),
+            hostname: network_filter.hostname.clone(),
+            tag: network_filter.tag.clone(),
+            raw_line: network_filter
+                .raw_line
+                .as_ref()
+                .map(|s| s.as_str().to_string()),
+        });
+
+        (self.filters.len() - 1) as u32
+    }
+
+    fn finish(mut self) -> Vec<u8> {
+        let mut root = self.message.init_root::<network_filter_list::Builder>();
+
+        // Set unique domains hashes
+        let mut unique_domains_hashes = root
+            .reborrow()
+            .init_unique_domains_hashes(self.unique_domains_hashes.len() as u32);
+        for (index, hash) in self.unique_domains_hashes.iter().enumerate() {
+            unique_domains_hashes.set(index as u32, *hash);
+        }
+
+        // Set network filters
+        let mut network_filters = root
+            .reborrow()
+            .init_network_filters(self.filters.len() as u32);
+        for (i, filter_data) in self.filters.iter().enumerate() {
+            let mut filter_builder = network_filters.reborrow().get(i as u32);
+
+            // Set mask
+            filter_builder.set_mask(filter_data.mask.bits());
+
+            // Set opt domains
+            if !filter_data.opt_domain_indices.is_empty() {
+                let mut opt_domains = filter_builder
+                    .reborrow()
+                    .init_opt_domains(filter_data.opt_domain_indices.len() as u32);
+                for (j, &domain_index) in filter_data.opt_domain_indices.iter().enumerate() {
+                    opt_domains.set(j as u32, domain_index);
+                }
+            }
+
+            // Set opt not domains
+            if !filter_data.opt_not_domain_indices.is_empty() {
+                let mut opt_not_domains = filter_builder
+                    .reborrow()
+                    .init_opt_not_domains(filter_data.opt_not_domain_indices.len() as u32);
+                for (j, &domain_index) in filter_data.opt_not_domain_indices.iter().enumerate() {
+                    opt_not_domains.set(j as u32, domain_index);
+                }
+            }
+
+            // Set patterns
+            if !filter_data.patterns.is_empty() {
+                let mut patterns_builder = filter_builder
+                    .reborrow()
+                    .init_patterns(filter_data.patterns.len() as u32);
+                for (j, pattern) in filter_data.patterns.iter().enumerate() {
+                    patterns_builder.set(j as u32, pattern);
+                }
+            }
+
+            // Set optional strings
+            if let Some(ref modifier) = filter_data.modifier_option {
+                filter_builder.reborrow().set_modifier_option(modifier);
+            }
+            if let Some(ref hostname) = filter_data.hostname {
+                filter_builder.reborrow().set_hostname(hostname);
+            }
+            if let Some(ref tag) = filter_data.tag {
+                filter_builder.reborrow().set_tag(tag);
+            }
+            if let Some(ref raw_line) = filter_data.raw_line {
+                filter_builder.reborrow().set_raw_line(raw_line);
+            }
+        }
+
+        // Serialize the message to bytes - this consumes self.message
+        let mut buffer = Vec::new();
+        serialize::write_message(&mut buffer, &self.message).expect("Failed to serialize message");
+        buffer
+        // Builder and all internal data is dropped here automatically
+    }
+}
 
 pub struct CheckResult {
     pub filter_mask: NetworkFilterMask,
@@ -75,7 +243,7 @@ impl NetworkFilterList {
         // compute the tokens' frequency histogram
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
-        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
+        let mut flat_builder = CapnpNetworkFiltersListBuilder::new();
         let mut filter_map = HashMap::<Hash, Vec<u32>>::new();
 
         let mut optimizable = HashMap::<Hash, Vec<NetworkFilter>>::new();
@@ -130,13 +298,21 @@ impl NetworkFilterList {
             );
         }
 
+        // Builder is consumed here and all internal data is dropped
         let flatbuffer_memory = flat_builder.finish();
-        let root = fb::root_as_network_filter_list(&flatbuffer_memory)
+
+        let mut slice = flatbuffer_memory.as_slice();
+        let reader = serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new())
+            .expect("Ok because it is created in the previous line");
+        let root = reader
+            .get_root::<network_filter_list::Reader>()
             .expect("Ok because it is created in the previous line");
 
         let mut unique_domains_hashes_map: HashMap<Hash, u16> = HashMap::new();
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(hash, u16::try_from(index).expect("< u16 max"));
+        if let Ok(unique_domains_hashes) = root.get_unique_domains_hashes() {
+            for (index, hash) in unique_domains_hashes.iter().enumerate() {
+                unique_domains_hashes_map.insert(hash, u16::try_from(index).expect("< u16 max"));
+            }
         }
 
         filter_map.shrink_to_fit();
@@ -163,15 +339,17 @@ impl NetworkFilterList {
             return None;
         }
 
-        let filters_list =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let mut slice = self.flatbuffer_memory.as_slice();
+        let reader =
+            serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new()).ok()?;
+        let filters_list = reader.get_root::<network_filter_list::Reader>().ok()?;
+        let network_filters = filters_list.get_network_filters().ok()?;
 
         for token in request.get_tokens_for_match() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
+                    let fb_filter = network_filters.get(*filter_index);
+                    let filter = CapnpNetworkFilter::new(fb_filter, *filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
@@ -206,15 +384,26 @@ impl NetworkFilterList {
             return filters;
         }
 
-        let filters_list =
-            unsafe { fb::root_as_network_filter_list_unchecked(&self.flatbuffer_memory) };
-        let network_filters = filters_list.network_filters();
+        let mut slice = self.flatbuffer_memory.as_slice();
+        let reader = match serialize::read_message_from_flat_slice(&mut slice, ReaderOptions::new())
+        {
+            Ok(reader) => reader,
+            Err(_) => return filters,
+        };
+        let filters_list = match reader.get_root::<network_filter_list::Reader>() {
+            Ok(list) => list,
+            Err(_) => return filters,
+        };
+        let network_filters = match filters_list.get_network_filters() {
+            Ok(filters) => filters,
+            Err(_) => return filters,
+        };
 
         for token in request.get_tokens_for_match() {
             if let Some(filter_bucket) = self.filter_map.get(token) {
                 for filter_index in filter_bucket {
-                    let fb_filter = network_filters.get(*filter_index as usize);
-                    let filter = FlatNetworkFilter::new(&fb_filter, *filter_index, self);
+                    let fb_filter = network_filters.get(*filter_index);
+                    let filter = CapnpNetworkFilter::new(fb_filter, *filter_index, self);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)

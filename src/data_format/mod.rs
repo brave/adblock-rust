@@ -15,7 +15,7 @@ use crate::cosmetic_filter_cache::CosmeticFilterCache;
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.
 const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
-const ADBLOCK_RUST_DAT_VERSION: u8 = 1;
+const ADBLOCK_RUST_DAT_VERSION: u8 = 2;
 
 #[derive(Debug)]
 pub enum SerializationError {
@@ -33,8 +33,8 @@ pub enum DeserializationError {
     RmpSerdeError(rmp_serde::decode::Error),
     UnsupportedFormatVersion(u8),
     NoHeaderFound,
-    InvalidFlatBuffer(flatbuffers::InvalidFlatbuffer),
-    FlatbufferSemanticError,
+    InvalidCapnp(capnp::Error),
+    CapnpSemanticError,
 }
 
 impl From<std::convert::Infallible> for DeserializationError {
@@ -49,9 +49,9 @@ impl From<rmp_serde::decode::Error> for DeserializationError {
     }
 }
 
-impl From<flatbuffers::InvalidFlatbuffer> for DeserializationError {
-    fn from(e: flatbuffers::InvalidFlatbuffer) -> Self {
-        Self::InvalidFlatBuffer(e)
+impl From<capnp::Error> for DeserializationError {
+    fn from(e: capnp::Error) -> Self {
+        Self::InvalidCapnp(e)
     }
 }
 
