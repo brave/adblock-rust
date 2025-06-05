@@ -6,11 +6,12 @@ use flatbuffers::WIPOffset;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
+use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatFilterListMemory};
 
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
-use crate::utils::Hash;
+use crate::utils::{Hash, ShortHash};
 
 #[allow(dead_code, unused_imports, unsafe_code)]
 #[path = "../flatbuffers/fb_network_filter_generated.rs"]
@@ -22,7 +23,7 @@ pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
 
     unique_domains_hashes: Vec<Hash>,
-    unique_domains_hashes_map: HashMap<Hash, u16>,
+    unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
 impl<'a> FlatNetworkFiltersListBuilder<'a> {
@@ -35,11 +36,11 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         }
     }
 
-    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u16 {
+    fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u32 {
         if let Some(&index) = self.unique_domains_hashes_map.get(h) {
             return index;
         }
-        let index = self.unique_domains_hashes.len() as u16;
+        let index = self.unique_domains_hashes.len() as u32;
         self.unique_domains_hashes.push(*h);
         self.unique_domains_hashes_map.insert(*h, index);
         return index;
@@ -47,7 +48,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
 
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
+            let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| self.get_or_insert_unique_domain_hash(x))
                 .collect();
@@ -57,7 +58,7 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         });
 
         let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u16> = v
+            let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| self.get_or_insert_unique_domain_hash(x))
                 .collect();
@@ -115,22 +116,43 @@ impl<'a> FlatNetworkFiltersListBuilder<'a> {
         u32::try_from(self.filters.len() - 1).expect("< u32::MAX")
     }
 
-    pub fn finish(&mut self) -> Vec<u8> {
-        let filters = self.builder.create_vector(&self.filters);
-
+    pub fn finish(
+        &mut self,
+        mut filter_map: HashMap<ShortHash, Vec<u32>>,
+    ) -> VerifiedFlatFilterListMemory {
         let unique_domains_hashes = self.builder.create_vector(&self.unique_domains_hashes);
+
+        let len = filter_map.len();
+
+        // Convert filter_map keys to a sorted vector of (hash, filter_indices).
+        let mut entries: Vec<_> = filter_map.drain().collect();
+        entries.sort_unstable_by_key(|(k, _)| *k);
+
+        // Convert sorted_entries to two flatbuffers vectors.
+        let mut flat_index: Vec<ShortHash> = Vec::with_capacity(len);
+        let mut flat_values: Vec<_> = Vec::with_capacity(len);
+        for (key, filter_indices) in entries {
+            for &filter_index in &filter_indices {
+                flat_index.push(key);
+                flat_values.push(self.filters[filter_index as usize]);
+            }
+        }
+
+        let filter_map_index = self.builder.create_vector(&flat_index);
+        let filter_map_values = self.builder.create_vector(&flat_values);
 
         let storage = fb::NetworkFilterList::create(
             &mut self.builder,
-            &&fb::NetworkFilterListArgs {
-                network_filters: Some(filters),
+            &fb::NetworkFilterListArgs {
+                filter_map_index: Some(filter_map_index),
+                filter_map_values: Some(filter_map_values),
                 unique_domains_hashes: Some(unique_domains_hashes),
             },
         );
         self.builder.finish(storage, None);
 
-        let binary = Vec::from(self.builder.finished_data());
-        binary
+        // TODO: consider using builder.collapse() to avoid reallocating memory.
+        VerifiedFlatFilterListMemory::from_builder(&self.builder)
     }
 }
 pub(crate) struct FlatPatterns<'a> {
@@ -196,7 +218,7 @@ impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
     pub fn new(
         filter: &'a fb::NetworkFilter<'a>,
-        index: u32,
+        index: usize,
         owner: &'a NetworkFilterList,
     ) -> Self {
         let list_address: *const NetworkFilterList = owner as *const NetworkFilterList;
@@ -220,31 +242,17 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn include_domains(&self) -> Option<&[u16]> {
-        self.fb_filter.opt_domains().map(|data| {
-            let bytes = data.bytes();
-            assert!(bytes.len() % std::mem::size_of::<u16>() == 0);
-            unsafe {
-                std::slice::from_raw_parts(
-                    bytes.as_ptr() as *const u16,
-                    bytes.len() / std::mem::size_of::<u16>(),
-                )
-            }
-        })
+    pub fn include_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_domains()
+            .map(|data| fb_vector_to_slice(data))
     }
 
     #[inline(always)]
-    pub fn exclude_domains(&self) -> Option<&[u16]> {
-        self.fb_filter.opt_not_domains().map(|data| {
-            let bytes = data.bytes();
-            assert!(bytes.len() % std::mem::size_of::<u16>() == 0);
-            unsafe {
-                std::slice::from_raw_parts(
-                    bytes.as_ptr() as *const u16,
-                    bytes.len() / std::mem::size_of::<u16>(),
-                )
-            }
-        })
+    pub fn exclude_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_not_domains()
+            .map(|data| fb_vector_to_slice(data))
     }
 
     #[inline(always)]

@@ -8,9 +8,18 @@ use seahash::reference::hash;
 
 pub type Hash = u64;
 
+// A smaller version of Hash that is used in serialized format.
+// Shouldn't be used to compare strings with each other.
+pub type ShortHash = u32;
+
 #[inline]
 pub fn fast_hash(input: &str) -> Hash {
     hash(input.as_bytes()) as Hash
+}
+
+#[inline]
+pub fn to_short_hash(hash: Hash) -> ShortHash {
+    hash as ShortHash
 }
 
 #[inline]

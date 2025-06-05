@@ -3,7 +3,6 @@ mod blocker_tests {
 
     use super::super::*;
     use crate::lists::parse_filters;
-    use crate::network_filter_list::vec_hashmap_len;
     use crate::request::Request;
     use crate::resources::Resource;
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
@@ -1155,7 +1154,7 @@ mod blocker_tests {
             blocker.tags_enabled,
             HashSet::from_iter([String::from("stuff")].into_iter())
         );
-        assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
+        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 2);
 
         request_expectations
             .into_iter()
@@ -1210,7 +1209,7 @@ mod blocker_tests {
             blocker.tags_enabled,
             HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter())
         );
-        assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
+        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 4);
 
         request_expectations
             .into_iter()
@@ -1264,13 +1263,13 @@ mod blocker_tests {
             blocker.tags_enabled,
             HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter())
         );
-        assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 4);
+        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 4);
         blocker.disable_tags(&["stuff"]);
         assert_eq!(
             blocker.tags_enabled,
             HashSet::from_iter([String::from("brian")].into_iter())
         );
-        assert_eq!(vec_hashmap_len(&blocker.filters_tagged.filter_map), 2);
+        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 2);
 
         request_expectations
             .into_iter()
@@ -1360,7 +1359,6 @@ mod legacy_rule_parsing_tests {
     use crate::blocker::{Blocker, BlockerOptions};
     use crate::filters::network::NetworkFilterMaskHelper;
     use crate::lists::{parse_filters, FilterFormat, ParseOptions};
-    use crate::network_filter_list::vec_hashmap_len;
     use crate::test_utils::rules_from_lists;
 
     struct ListCounts {
@@ -1490,18 +1488,17 @@ mod legacy_rule_parsing_tests {
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
         assert!(
-            vec_hashmap_len(&blocker.exceptions.filter_map)
-                + vec_hashmap_len(&blocker.generic_hide.filter_map)
+            blocker.exceptions.get_filter_map().total_size()
+                + blocker.generic_hide.get_filter_map().total_size()
                 >= expectation.exceptions,
             "Number of collected exceptions does not match expectation"
         );
 
         assert!(
-            vec_hashmap_len(&blocker.filters.filter_map)
-                + vec_hashmap_len(&blocker.importants.filter_map)
-                + vec_hashmap_len(&blocker.redirects.filter_map)
-                + vec_hashmap_len(&blocker.redirects.filter_map)
-                + vec_hashmap_len(&blocker.csp.filter_map)
+            blocker.filters.get_filter_map().total_size()
+                + blocker.importants.get_filter_map().total_size()
+                + blocker.redirects.get_filter_map().total_size()
+                + blocker.csp.get_filter_map().total_size()
                 >= expectation.filters - expectation.duplicates,
             "Number of collected network filters does not match expectation"
         );

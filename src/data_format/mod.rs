@@ -11,6 +11,7 @@ pub(crate) mod utils;
 
 use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::CosmeticFilterCache;
+use crate::network_filter_list::FlatBufferParsingError;
 
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.
@@ -33,8 +34,8 @@ pub enum DeserializationError {
     RmpSerdeError(rmp_serde::decode::Error),
     UnsupportedFormatVersion(u8),
     NoHeaderFound,
-    InvalidFlatBuffer(flatbuffers::InvalidFlatbuffer),
-    FlatbufferSemanticError,
+    LegacyFormatNoLongerSupported, // not used, for backward compatibility
+    FlatBufferParsingError(FlatBufferParsingError),
 }
 
 impl From<std::convert::Infallible> for DeserializationError {
@@ -49,9 +50,9 @@ impl From<rmp_serde::decode::Error> for DeserializationError {
     }
 }
 
-impl From<flatbuffers::InvalidFlatbuffer> for DeserializationError {
-    fn from(e: flatbuffers::InvalidFlatbuffer) -> Self {
-        Self::InvalidFlatBuffer(e)
+impl From<FlatBufferParsingError> for DeserializationError {
+    fn from(e: FlatBufferParsingError) -> Self {
+        Self::FlatBufferParsingError(e)
     }
 }
 
