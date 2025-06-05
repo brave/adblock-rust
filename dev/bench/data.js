@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749076893036,
+  "lastUpdate": 1749120013832,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1258,6 +1258,84 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial/alloc-count",
             "value": 1523471,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604587,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68112,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cc3836922ae37a368fb5adf65ec61f5ec71c7c7d",
+          "message": "Move filter_map to flatbuffers (#464)\n\n* Put filter_map to flatbuffer\n* Return LegacyFormatNoLongerSupported enum item\n* check the hash of .dat files in tests\n* use a short name\n* Make serialization determenistic\n* Fix deserialization_brave_list expectations\n* Introduce ShortHash = u32, remove custom align\n* Update tests\n* Fix comment\n* Fix review issues\n* u16 => u32 for unique domains\n* assert => debug_assert",
+          "timestamp": "2025-06-05T10:35:35Z",
+          "tree_id": "bc9688b3c6cb92d05c457b065e0ddff01071c3f1",
+          "url": "https://github.com/brave/adblock-rust/commit/cc3836922ae37a368fb5adf65ec61f5ec71c7c7d"
+        },
+        "date": 1749120012061,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2112429243,
+            "range": "± 16656758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 946219,
+            "range": "± 67552",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 150375291,
+            "range": "± 2474708",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 65313699,
+            "range": "± 3305666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
             "range": "± 3",
             "unit": "ns/iter"
           },
