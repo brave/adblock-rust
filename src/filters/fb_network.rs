@@ -13,7 +13,7 @@ use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{Hash, ShortHash};
 
-#[allow(dead_code, unused_imports, unsafe_code)]
+#[allow(dead_code, clippy::all, unused_imports, unsafe_code)]
 #[path = "../flatbuffers/fb_network_filter_generated.rs"]
 pub mod flat;
 use flat::fb;

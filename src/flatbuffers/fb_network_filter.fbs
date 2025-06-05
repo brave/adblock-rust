@@ -3,8 +3,7 @@
 //
 // To build *_generated.rs run:
 // 1. flatc --rust --gen-object-api -o src/flatbuffers/ src/flatbuffers/fb_network_filter.fbs
-// 2. sed -i '' 's|// @generated|#![allow(clippy::all)]\n// @generated|g' src/flatbuffers/fb_network_filter_generated.rs
-// 3. cargo fmt
+// 2. cargo fmt
 namespace fb;
 
 table NetworkFilter {
