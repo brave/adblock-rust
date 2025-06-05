@@ -184,12 +184,8 @@ fn check_basic_works_after_deserialization() {
 }
 
 #[test]
+#[cfg(not(debug_assertions))] // This test takes > 3 minutes in debug mode
 fn check_matching_equivalent() {
-    if cfg!(debug_assertions) {
-        // skip in debug mode, takes > 3 minutes.
-        return;
-    }
-
     let requests = load_requests();
 
     assert!(requests.len() > 0, "List of parsed request info is empty");
@@ -267,12 +263,8 @@ fn check_matching_equivalent() {
 }
 
 #[test]
+#[cfg(not(debug_assertions))] // This test takes > 5 minutes to run in debug mode
 fn check_matching_hostnames() {
-    if cfg!(debug_assertions) {
-        // skip in debug mode, takes > 5 minutes.
-        return;
-    }
-
     // Makes sure that requests are handled with the same result whether parsed form full url or from pre-parsed hostname
     let requests = load_requests();
 

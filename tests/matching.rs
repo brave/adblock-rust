@@ -150,6 +150,7 @@ fn check_engine_matching() {
 }
 
 #[test]
+#[cfg(not(debug_assertions))] // This test is too slow to run in debug mode
 fn check_rule_matching_browserlike() {
     #[path = "../tests/test_utils.rs"]
     mod test_utils;
@@ -158,11 +159,6 @@ fn check_rule_matching_browserlike() {
     use adblock::request::Request;
     use adblock::Engine;
     use serde::Deserialize;
-
-    if cfg!(debug_assertions) {
-        // skip in debug mode, too slow to run.
-        return;
-    }
 
     #[allow(non_snake_case)]
     #[derive(Deserialize)]
