@@ -77,7 +77,7 @@ fn check_specific_rules() {
             Request::new("https://www.facebook.com/v3.2/plugins/comments.ph", "", "").unwrap();
         let checked = engine.check_network_request(&request);
 
-        assert_eq!(checked.matched, true);
+        assert!(checked.matched);
     }
 
     #[cfg(feature = "resource-assembler")]
@@ -104,7 +104,7 @@ fn check_specific_rules() {
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, true);
+        assert!(checked.matched);
         assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
 }
@@ -118,7 +118,7 @@ fn check_specifics_default() {
     {
         let request = Request::new("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, true);
+        assert!(checked.matched);
     }
     {
         let request = Request::new(
@@ -127,7 +127,7 @@ fn check_specifics_default() {
             "main_frame",
         ).unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+        assert!(!checked.matched, "Matched on {:?}", checked.filter);
     }
     {
         let request = Request::new(
@@ -136,7 +136,7 @@ fn check_specifics_default() {
             "main_frame",
         ).unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+        assert!(!checked.matched, "Matched on {:?}", checked.filter);
     }
     {
         let request = Request::new(
@@ -145,7 +145,7 @@ fn check_specifics_default() {
             "main_frame",
         ).unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+        assert!(!checked.matched, "Matched on {:?}", checked.filter);
     }
     {
         let request = Request::new(
@@ -154,7 +154,7 @@ fn check_specifics_default() {
             "main_frame",
         ).unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, false, "Matched on {:?}", checked.filter);
+        assert!(!checked.matched, "Matched on {:?}", checked.filter);
     }
     {
         engine.use_tags(&["fb-embeds", "twitter-embeds"]);
@@ -167,7 +167,7 @@ fn check_specifics_default() {
         let checked = engine.check_network_request(&request);
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");
-        assert_eq!(checked.matched, false, "Matched on {:?}", checked.exception)
+        assert!(!checked.matched, "Matched on {:?}", checked.exception)
     }
 }
 
@@ -181,7 +181,7 @@ fn check_basic_works_after_deserialization() {
     {
         let request = Request::new("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert_eq!(checked.matched, true);
+        assert!(checked.matched);
     }
 }
 
@@ -190,7 +190,7 @@ fn check_basic_works_after_deserialization() {
 fn check_matching_equivalent() {
     let requests = load_requests();
 
-    assert!(requests.len() > 0, "List of parsed request info is empty");
+    assert!(!requests.is_empty(), "List of parsed request info is empty");
 
     let engine = get_blocker_engine();
 
@@ -205,7 +205,7 @@ fn check_matching_equivalent() {
     for req in requests {
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
         let checked = engine.check_network_request(&request);
-        if req.blocked == 1 && checked.matched != true {
+        if req.blocked == 1 && !checked.matched {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
                 false_negative_rules.insert(
@@ -229,7 +229,7 @@ fn check_matching_equivalent() {
                 "Expected exception to match for {} at {}, type {}, got rule match {:?}",
                 req.url, req.sourceUrl, req.r#type, checked.filter
             );
-        } else if req.blocked == 0 && checked.matched != false {
+        } else if req.blocked == 0 && checked.matched {
             mismatch_expected_pass += 1;
             checked.filter.as_ref().map(|f| {
                 false_positive_rules.insert(
@@ -270,7 +270,7 @@ fn check_matching_hostnames() {
     // Makes sure that requests are handled with the same result whether parsed form full url or from pre-parsed hostname
     let requests = load_requests();
 
-    assert!(requests.len() > 0, "List of parsed request info is empty");
+    assert!(!requests.is_empty(), "List of parsed request info is empty");
 
     let engine = get_blocker_engine();
 

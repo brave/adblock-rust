@@ -265,7 +265,7 @@ where
                 if filters.len() == 0 {
                     return true;
                 }
-                let url_after_hostname = get_url_after_hostname(&request_url, hostname);
+                let url_after_hostname = get_url_after_hostname(request_url, hostname);
                 filters.any(|f| {
                     // Since it must follow immediatly after the hostname and be a suffix of
                     // the URL, we conclude that filter must be equal to the part of the
@@ -302,7 +302,7 @@ where
                     return true;
                 }
                 let request_url = request.get_url(mask.match_case());
-                let url_after_hostname = get_url_after_hostname(&request_url, hostname);
+                let url_after_hostname = get_url_after_hostname(request_url, hostname);
                 filters.any(|f| {
                     // Since this is not a regex, the filter pattern must follow the hostname
                     // with nothing in between. So we extract the part of the URL following
@@ -338,7 +338,7 @@ where
                     return true;
                 }
                 let request_url = request.get_url(mask.match_case());
-                let url_after_hostname = get_url_after_hostname(&request_url, hostname);
+                let url_after_hostname = get_url_after_hostname(request_url, hostname);
                 filters.any(|f| {
                     // Filter hostname does not necessarily have to be a full, proper hostname, part of it can be lumped together with the URL
                     url_after_hostname.contains(f)
@@ -442,7 +442,7 @@ pub fn check_included_domains_mapped(
             if source_hashes.iter().all(|h| {
                 mapping
                     .get(h)
-                    .map_or(true, |index| !utils::bin_lookup(included_domains, *index))
+                    .is_none_or(|index| !utils::bin_lookup(included_domains, *index))
             }) {
                 return false;
             }
@@ -481,7 +481,7 @@ pub fn check_excluded_domains_mapped(
             if source_hashes.iter().any(|h| {
                 mapping
                     .get(h)
-                    .map_or(false, |index| utils::bin_lookup(excluded_domains, *index))
+                    .is_some_and(|index| utils::bin_lookup(excluded_domains, *index))
             }) {
                 return false;
             }

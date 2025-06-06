@@ -555,7 +555,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn class_id_exceptions() {
-        let rules = vec![
+        let rules = [
             "##.a-class",
             "###simple-id",
             "##.a-class .with .children",
@@ -617,7 +617,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn misc_generic_exceptions() {
-        let rules = vec![
+        let rules = [
             "##a[href=\"bad.com\"]",
             "##div > p",
             "##a[href=\"notbad.com\"]",
@@ -655,7 +655,7 @@ mod cosmetic_cache_tests {
 
         // toolforge.org and github.io are examples of TLDs with multiple segments. These rules
         // should still be parsed correctly and applied on corresponding subdomains.
-        let rules = vec![
+        let rules = [
             "toolforge.org##+js(abort-on-property-read, noAdBlockers)",
             "github.io##div.adToBlock",
         ];

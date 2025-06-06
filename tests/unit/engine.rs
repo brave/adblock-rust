@@ -21,12 +21,12 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_rules(&filters, Default::default());
+        let mut engine = Engine::from_rules(filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(&url, "", "").unwrap();
+            let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
@@ -55,12 +55,12 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_rules(&filters, Default::default());
+        let mut engine = Engine::from_rules(filters, Default::default());
         engine.enable_tags(&["brian", "stuff"]);
         engine.disable_tags(&["stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(&url, "", "").unwrap();
+            let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
@@ -87,10 +87,10 @@ mod tests {
             ("https://brianbondy.com/advert", true),
         ];
 
-        let engine = Engine::from_rules(&filters, Default::default());
+        let engine = Engine::from_rules(filters, Default::default());
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(&url, "", "").unwrap();
+            let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
@@ -117,11 +117,11 @@ mod tests {
             ("https://brianbondy.com/advert", false),
         ];
 
-        let mut engine = Engine::from_rules(&filters, Default::default());
+        let mut engine = Engine::from_rules(filters, Default::default());
         engine.enable_tags(&["brian", "stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(&url, "", "").unwrap();
+            let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
@@ -150,7 +150,7 @@ mod tests {
             ("https://brave.com/about", false),
         ];
 
-        let mut engine = Engine::from_rules(&filters, Default::default());
+        let mut engine = Engine::from_rules(filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
         let serialized = engine.serialize().unwrap();
@@ -159,7 +159,7 @@ mod tests {
         deserialized_engine.deserialize(&serialized).unwrap();
 
         url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(&url, "", "").unwrap();
+            let request = Request::new(url, "", "").unwrap();
             let matched_rule = deserialized_engine.check_network_request(&request);
             if expected_result {
                 assert!(matched_rule.matched, "Expected match for {}", url);
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_simple() {
-        let mut engine = Engine::from_rules(&["ad-banner"], Default::default());
+        let mut engine = Engine::from_rules(["ad-banner"], Default::default());
         let data = engine.serialize().unwrap();
         assert_eq!(hash(&data), 867372640370260034, "{}", HASH_MISSMATCH_MSG);
         engine.deserialize(&data).unwrap();
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_tags() {
-        let mut engine = Engine::from_rules(&["ad-banner$tag=abc"], Default::default());
+        let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().unwrap();
         assert_eq!(hash(&data), 13055424859571526788, "{}", HASH_MISSMATCH_MSG);
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_resources() {
-        let mut engine = Engine::from_rules(&["ad-banner$redirect=nooptext"], Default::default());
+        let mut engine = Engine::from_rules(["ad-banner$redirect=nooptext"], Default::default());
 
         engine.use_resources([
             Resource::simple("nooptext", MimeType::TextPlain, ""),
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(
-            &["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],
+            ["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],
             Default::default(),
         );
 
@@ -265,7 +265,7 @@ mod tests {
             matched_rule.redirect,
             Some(format!(
                 "data:application/javascript;base64,{}",
-                BASE64_STANDARD.encode(format!("{}", script))
+                BASE64_STANDARD.encode(script)
             )),
             "Expected redirect to contain resource"
         );
@@ -275,7 +275,7 @@ mod tests {
     fn document() {
         let filters = ["||example.com$document", "@@||sub.example.com$document"];
 
-        let engine = Engine::from_rules_debug(&filters, Default::default());
+        let engine = Engine::from_rules_debug(filters, Default::default());
 
         assert!(
             engine
@@ -464,7 +464,7 @@ mod tests {
             ("https://example2.com/test.html", vec![".block"], true),
         ];
 
-        let engine = Engine::from_rules(&filters, Default::default());
+        let engine = Engine::from_rules(filters, Default::default());
 
         url_results
             .into_iter()

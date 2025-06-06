@@ -34,7 +34,7 @@ fn load_requests() -> Vec<TestRuleRequest> {
 fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
     filters
         .iter()
-        .map(|r| NetworkFilter::parse(&r, true, Default::default()))
+        .map(|r| NetworkFilter::parse(r, true, Default::default()))
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
         .map(|f| {
@@ -58,7 +58,7 @@ fn check_filter_matching() {
 
     let mut requests_checked = 0;
 
-    assert!(requests.len() > 0, "List of parsed request info is empty");
+    assert!(!requests.is_empty(), "List of parsed request info is empty");
 
     let opts = ParseOptions::default();
 
@@ -96,7 +96,7 @@ fn check_filter_matching() {
 fn check_engine_matching() {
     let requests = load_requests();
 
-    assert!(requests.len() > 0, "List of parsed request info is empty");
+    assert!(!requests.is_empty(), "List of parsed request info is empty");
 
     for req in requests {
         if req.url == "http://" || req.url == "https://" {

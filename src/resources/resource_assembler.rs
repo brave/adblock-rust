@@ -145,7 +145,7 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
 fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
     let mut resources = Vec::new();
 
-    let uncommented = TOP_COMMENT_RE.replace_all(&scriptlets_data, "");
+    let uncommented = TOP_COMMENT_RE.replace_all(scriptlets_data, "");
     let mut name: Option<&str> = None;
     let mut details = std::collections::HashMap::<_, Vec<_>>::new();
     let mut script = String::new();
@@ -221,9 +221,9 @@ fn build_resource_from_file_contents(
     let content = match mimetype {
         MimeType::ApplicationJavascript | MimeType::TextHtml | MimeType::TextPlain => {
             let utf8string = std::str::from_utf8(resource_contents).unwrap();
-            BASE64_STANDARD.encode(&utf8string.replace('\r', ""))
+            BASE64_STANDARD.encode(utf8string.replace('\r', ""))
         }
-        _ => BASE64_STANDARD.encode(&resource_contents),
+        _ => BASE64_STANDARD.encode(resource_contents),
     };
 
     Resource {

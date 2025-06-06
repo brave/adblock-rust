@@ -11,7 +11,7 @@ const MIN_ALIGNMENT: usize = 4;
 /// This function uses unsafe code to convert flatbuffer vector bytes to a slice.
 /// It asserts the vector data is properly aligned and sized.
 #[inline(always)]
-pub fn fb_vector_to_slice<'a, T>(vector: flatbuffers::Vector<'a, T>) -> &'a [T] {
+pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
     let bytes = vector.bytes();
 
     const fn static_assert_alignment<T>() {
@@ -62,8 +62,8 @@ impl VerifiedFlatFilterListMemory {
         }
     }
 
-    pub(crate) fn filter_list<'a>(&'a self) -> fb::NetworkFilterList<'a> {
-        return unsafe { fb::root_as_network_filter_list_unchecked(&self.data()) };
+    pub(crate) fn filter_list(&self) -> fb::NetworkFilterList<'_> {
+        unsafe { fb::root_as_network_filter_list_unchecked(self.data()) }
     }
 
     pub fn data(&self) -> &[u8] {

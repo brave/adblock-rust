@@ -198,7 +198,7 @@ where
 
             escaped_patterns.push(unescaped);
         } else {
-            let repl = SPECIAL_RE.replace_all(&filter_str, "\\$1");
+            let repl = SPECIAL_RE.replace_all(filter_str, "\\$1");
             let repl = WILDCARD_RE.replace_all(&repl, ".*");
             // in adblock rules, '^' is a separator.
             // The separator character is anything but a letter, a digit, or one of the following: _ - . %
@@ -263,7 +263,7 @@ impl RegexManager {
                     v.regex = Some(make_regexp(mask, filters));
                     self.compiled_regex_count += 1;
                 }
-                return v.regex.as_ref().unwrap().is_match(pattern);
+                v.regex.as_ref().unwrap().is_match(pattern)
             }
             Entry::Vacant(e) => {
                 self.compiled_regex_count += 1;
@@ -272,14 +272,13 @@ impl RegexManager {
                     last_used: self.now,
                     usage_count: 1,
                 };
-                return e
-                    .insert(new_entry)
+                e.insert(new_entry)
                     .regex
                     .as_ref()
                     .unwrap()
-                    .is_match(pattern);
+                    .is_match(pattern)
             }
-        };
+        }
     }
 
     /// The [`RegexManager`] is just a struct and doesn't manage any worker threads, so this method
@@ -317,7 +316,7 @@ impl RegexManager {
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.map
             .iter_mut()
-            .filter(|(k, _)| **k as u64 == regex_id)
+            .filter(|(k, _)| { **k } == regex_id)
             .for_each(|(_, v)| {
                 v.regex = None;
             });
@@ -329,7 +328,7 @@ impl RegexManager {
         self.map
             .iter()
             .map(|(k, e)| RegexDebugEntry {
-                id: *k as u64,
+                id: { *k },
                 regex: e.regex.as_ref().map(|x| x.to_string()),
                 last_used: e.last_used,
                 usage_count: e.usage_count,

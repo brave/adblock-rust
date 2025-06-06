@@ -28,7 +28,7 @@ mod legacy_test_filters {
         );
 
         let filter_string = filter.filter.string_view();
-        let filter_part = filter_string.as_ref().map(|f| f.as_str());
+        let filter_part = filter_string.as_deref();
         assert!(
             expected_filter == filter_part,
             "Expected filter to be {:?}, found {:?}",
@@ -39,7 +39,7 @@ mod legacy_test_filters {
         for to_block in blocked {
             assert!(
                 filter.matches(
-                    &Request::new(&to_block, "https://example.com", "other").unwrap(),
+                    &Request::new(to_block, "https://example.com", "other").unwrap(),
                     &mut RegexManager::default()
                 ),
                 "Expected filter {} to match {}",
@@ -51,7 +51,7 @@ mod legacy_test_filters {
         for to_pass in not_blocked {
             assert!(
                 !filter.matches(
-                    &Request::new(&to_pass, "https://example.com", "other").unwrap(),
+                    &Request::new(to_pass, "https://example.com", "other").unwrap(),
                     &mut RegexManager::default()
                 ),
                 "Expected filter {} to pass {}",
@@ -335,7 +335,7 @@ mod legacy_check_match {
         }
 
         for to_block in blocked {
-            let request = Request::new(&to_block, "alwaysthirdparty.com", "script").unwrap();
+            let request = Request::new(to_block, "alwaysthirdparty.com", "script").unwrap();
 
             assert!(
                 engine.check_network_request(&request).matched,
@@ -353,7 +353,7 @@ mod legacy_check_match {
         }
 
         for to_pass in not_blocked {
-            let request = Request::new(&to_pass, "alwaysthirdparty.com", "script").unwrap();
+            let request = Request::new(to_pass, "alwaysthirdparty.com", "script").unwrap();
 
             assert!(
                 !engine.check_network_request(&request).matched,
@@ -414,11 +414,8 @@ mod legacy_check_match {
                 "",
             )
             .unwrap();
-            assert_eq!(engine.check_network_request(&request).matched, false);
-            assert_eq!(
-                engine_deserialized.check_network_request(&request).matched,
-                false
-            );
+            assert!(!engine.check_network_request(&request).matched);
+            assert!(!engine_deserialized.check_network_request(&request).matched);
         }
 
         check_match(
@@ -996,8 +993,8 @@ mod legacy_misc_tests {
         // Test finds a match
         let request = Request::new(
             "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
-            &current_page_frame,
-            &request_type,
+            current_page_frame,
+            request_type,
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
@@ -1013,10 +1010,9 @@ mod legacy_misc_tests {
         );
 
         // Test when no filter is found, returns None
-        let request =
-            Request::new("http://ssafsdf.com", &current_page_frame, &request_type).unwrap();
+        let request = Request::new("http://ssafsdf.com", current_page_frame, request_type).unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(checked.matched == false, "Expected url to pass");
+        assert!(!checked.matched, "Expected url to pass");
         assert!(checked.filter.is_none(), "Expected no fitler to match");
         assert!(
             checked.exception.is_none(),
@@ -1042,12 +1038,12 @@ mod legacy_misc_tests {
         // Parse that it finds exception filters correctly
         let request = Request::new(
             "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
-            &current_page_frame,
-            &request_type,
+            current_page_frame,
+            request_type,
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(checked.matched == false, "Expected url to pass");
+        assert!(!checked.matched, "Expected url to pass");
         assert!(checked.filter.is_some(), "Expected a fitler to match");
         assert!(
             checked.exception.is_some(),
@@ -1074,7 +1070,7 @@ mod legacy_misc_tests {
             Request::new("https://brianbondy.com/t", "https://test.com", "script").unwrap();
         let checked = engine.check_network_request(&request);
 
-        assert_eq!(checked.matched, true);
+        assert!(checked.matched);
         assert!(checked.filter.is_some(), "Expected filter to match");
         let matched_filter = checked.filter.unwrap();
         assert_eq!(matched_filter, "||brianbondy.com^$important");

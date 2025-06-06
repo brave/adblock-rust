@@ -19,7 +19,7 @@ pub struct BlockerOptions {
 }
 
 /// Describes how a particular network request should be handled.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct BlockerResult {
     /// Was a blocking filter matched for this request?
     pub matched: bool,
@@ -58,19 +58,6 @@ pub struct BlockerResult {
     /// If debugging was _not_ enabled (see [`crate::FilterSet::new`]), this
     /// will only contain a constant `"NetworkFilter"` placeholder string.
     pub filter: Option<String>,
-}
-
-impl Default for BlockerResult {
-    fn default() -> BlockerResult {
-        BlockerResult {
-            matched: false,
-            important: false,
-            redirect: None,
-            rewritten_url: None,
-            exception: None,
-            filter: None,
-        }
-    }
 }
 
 // only check for tags in tagged and exception rule buckets,
@@ -227,7 +214,7 @@ impl Blocker {
         };
 
         let redirect: Option<String> = redirect_resource.and_then(|resource_name| {
-            resources.get_redirect_resource(resource_name).or_else(|| {
+            resources.get_redirect_resource(resource_name).or({
                 // It's acceptable to pass no redirection if no matching resource is loaded.
                 // TODO - it may be useful to return a status flag to indicate that this occurred.
                 #[cfg(test)]
@@ -273,7 +260,7 @@ impl Blocker {
             KeyValue(&'a str, &'a str),
         }
 
-        impl<'a> std::fmt::Display for QParam<'a> {
+        impl std::fmt::Display for QParam<'_> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     Self::KeyOnly(k) => write!(f, "{}", k),
@@ -464,12 +451,10 @@ impl Blocker {
                 } else if filter.tag.is_some() && !filter.is_redirect() {
                     // `tag` + `redirect` is unsupported for now.
                     tagged_filters_all.push(filter);
-                } else {
-                    if (filter.is_redirect() && filter.also_block_redirect())
-                        || !filter.is_redirect()
-                    {
-                        filters.push(filter);
-                    }
+                } else if (filter.is_redirect() && filter.also_block_redirect())
+                    || !filter.is_redirect()
+                {
+                    filters.push(filter);
                 }
             }
         }

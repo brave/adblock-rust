@@ -66,7 +66,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
         async fn get_all_filters() -> adblock::lists::FilterSet {
             use futures::FutureExt;
 
-            const DEFAULT_LISTS_URL: &'static str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
+            const DEFAULT_LISTS_URL: &str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
 
             println!(
                 "Downloading list of filter lists from '{}'",
@@ -114,7 +114,7 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
                 .iter()
                 .for_each(|(format, list)| {
                     filter_set.add_filters(
-                        &list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(),
+                        list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(),
                         adblock::lists::ParseOptions {
                             format: *format,
                             ..Default::default()
@@ -160,8 +160,8 @@ fn check_live_specific_urls() {
             )
             .unwrap(),
         );
-        assert_eq!(
-            checked.matched, false,
+        assert!(
+            !checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );
@@ -176,8 +176,8 @@ fn check_live_specific_urls() {
             )
             .unwrap(),
         );
-        assert_eq!(
-            checked.matched, true,
+        assert!(
+            checked.matched,
             "Expected no match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );
@@ -190,8 +190,8 @@ fn check_live_specific_urls() {
             "https://spiegel.de",
             "image",
         ).unwrap());
-        assert_eq!(
-            checked.matched, true,
+        assert!(
+            checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );
@@ -236,8 +236,8 @@ fn check_live_redirects() {
             )
             .unwrap(),
         );
-        assert_eq!(
-            checked.matched, true,
+        assert!(
+            checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );
@@ -254,8 +254,8 @@ fn check_live_redirects() {
             )
             .unwrap(),
         );
-        assert_eq!(
-            checked.matched, true,
+        assert!(
+            checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
             checked.filter, checked.exception
         );

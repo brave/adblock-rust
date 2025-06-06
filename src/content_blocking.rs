@@ -240,7 +240,7 @@ impl TryFrom<ParsedFilter> for CbRuleEquivalent {
 }
 
 fn non_empty(v: Vec<String>) -> Option<Vec<String>> {
-    if v.len() > 0 {
+    if !v.is_empty() {
         Some(v)
     } else {
         None
@@ -605,7 +605,7 @@ impl TryFrom<CosmeticFilter> for CbRule {
 
             // Unwrap is okay here - cosmetic rules must have a '#' character
             let sharp_index = find_char(b'#', raw_line.as_bytes()).unwrap();
-            CosmeticFilter::locations_before_sharp(&raw_line, sharp_index).for_each(
+            CosmeticFilter::locations_before_sharp(raw_line, sharp_index).for_each(
                 |(location_type, location)| match location_type {
                     LocationType::Entity | LocationType::NotEntity | LocationType::Unsupported => {
                         any_unsupported = true

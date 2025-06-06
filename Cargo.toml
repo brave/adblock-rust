@@ -101,3 +101,26 @@ css-validation = ["cssparser", "selectors"]
 content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
 resource-assembler = []
+
+[lints.clippy]
+len_zero = "allow"
+# Temporary disabled until the code isn't fixed:
+sliced-string-as-bytes = "allow"
+doc-lazy-continuation = "allow"
+extra-unused-lifetimes = "allow"
+type-complexity = "allow"
+missing-safety-doc = "allow"
+declare-interior-mutable-const = "allow"
+borrow-interior-mutable-const = "allow"
+unnecessary-lazy-evaluations = "allow"
+invisible-characters = "allow"
+module-inception = "allow"
+no-effect = "allow"
+ptr-arg = "allow"
+explicit-counter-loop = "allow"
+or-then-unwrap = "allow"
+large-enum-variant = "allow"
+match-like-matches-macro = "allow"
+result-unit-err = "allow"
+wrong-self-convention = "allow"
+search-is-some = "allow"

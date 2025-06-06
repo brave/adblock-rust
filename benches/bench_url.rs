@@ -19,7 +19,6 @@ struct TestRequest {
 
 fn load_requests() -> Vec<TestRequest> {
     rules_from_lists(&["data/requests.json"])
-        .into_iter()
         .map(|r| serde_json::from_str(&r))
         .filter_map(Result::ok)
         .collect::<Vec<_>>()

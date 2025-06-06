@@ -69,7 +69,7 @@ fn bench_matching_only(
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(|parsed| {
-        let check = blocker.check(&parsed, resources);
+        let check = blocker.check(parsed, resources);
         if check.matched {
             matches += 1;
         } else {
@@ -88,10 +88,10 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &Vec<ParsedReques
     requests.iter().for_each(
         |(url, hostname, source_hostname, request_type, third_party)| {
             let check = blocker.check_network_request(&Request::preparsed(
-                &url,
-                &hostname,
-                &source_hostname,
-                &request_type,
+                url,
+                hostname,
+                source_hostname,
+                request_type,
                 *third_party,
             ));
             if check.matched {

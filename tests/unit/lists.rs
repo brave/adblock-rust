@@ -344,7 +344,7 @@ mod tests {
 ! License: https://github.com/uBlockOrigin/uAssets/blob/master/LICENSE
 ! Homepage: https://github.com/uBlockOrigin/uAssets
 ! Forums: https://github.com/uBlockOrigin/uAssets/issues"##;
-            let metadata = read_list_metadata(&list);
+            let metadata = read_list_metadata(list);
 
             assert_eq!(
                 metadata.title,
@@ -375,7 +375,7 @@ mod tests {
 !! mybia4music.com, my-film.pw, pedal.ir, vgdl.ir, sakhamusic.ir
 /wp-admin/admin-ajax.php?postviews_id=$xhr
 "##;
-            let metadata = read_list_metadata(&list);
+            let metadata = read_list_metadata(list);
 
             assert_eq!(metadata.title, Some("PersianBlocker".to_string()));
             assert_eq!(

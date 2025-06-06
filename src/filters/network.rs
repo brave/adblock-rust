@@ -343,7 +343,7 @@ impl<'a> Iterator for FilterPartIterator<'a> {
 }
 
 // Implement ExactSizeIterator for FilterPartIterator
-impl<'a> ExactSizeIterator for FilterPartIterator<'a> {
+impl ExactSizeIterator for FilterPartIterator<'_> {
     fn len(&self) -> usize {
         match self.filter_part {
             FilterPart::Empty => 0,
@@ -633,10 +633,8 @@ impl NetworkFilter {
             {
                 return Err(NetworkFilterError::FullRegexUnsupported);
             }
-        } else {
-            if !(mask & NetworkFilterMask::MATCH_CASE).is_empty() {
-                return Err(NetworkFilterError::MatchCaseWithoutFullRegex);
-            }
+        } else if !(mask & NetworkFilterMask::MATCH_CASE).is_empty() {
+            return Err(NetworkFilterError::MatchCaseWithoutFullRegex);
         }
 
         let (mut filter_index_start, mut filter_index_end) = (0, pattern.len());

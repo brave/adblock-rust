@@ -72,46 +72,40 @@ impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
         }
         for (hash, bin) in v.procedural_action.0.iter() {
             for f in bin {
-                match serde_json::from_str::<ProceduralOrActionFilter>(f) {
-                    Ok(f) => {
-                        if let Some((selector, style)) = f.as_css() {
-                            db.entry(*hash)
-                                .and_modify(|v| {
-                                    v.push(LegacySpecificFilterType::Style(
-                                        selector.clone(),
-                                        style.clone(),
-                                    ))
-                                })
-                                .or_insert_with(|| {
-                                    vec![LegacySpecificFilterType::Style(selector, style)]
-                                });
-                        }
+                if let Ok(f) = serde_json::from_str::<ProceduralOrActionFilter>(f) {
+                    if let Some((selector, style)) = f.as_css() {
+                        db.entry(*hash)
+                            .and_modify(|v| {
+                                v.push(LegacySpecificFilterType::Style(
+                                    selector.clone(),
+                                    style.clone(),
+                                ))
+                            })
+                            .or_insert_with(|| {
+                                vec![LegacySpecificFilterType::Style(selector, style)]
+                            });
                     }
-                    _ => (),
                 }
             }
         }
         for (hash, bin) in v.procedural_action_exception.0.iter() {
             for f in bin {
-                match serde_json::from_str::<ProceduralOrActionFilter>(f) {
-                    Ok(f) => {
-                        if let Some((selector, style)) = f.as_css() {
-                            db.entry(*hash)
-                                .and_modify(|v| {
-                                    v.push(LegacySpecificFilterType::UnhideStyle(
-                                        selector.to_owned(),
-                                        style.to_owned(),
-                                    ))
-                                })
-                                .or_insert_with(|| {
-                                    vec![LegacySpecificFilterType::UnhideStyle(
-                                        selector.to_owned(),
-                                        style.to_owned(),
-                                    )]
-                                });
-                        }
+                if let Ok(f) = serde_json::from_str::<ProceduralOrActionFilter>(f) {
+                    if let Some((selector, style)) = f.as_css() {
+                        db.entry(*hash)
+                            .and_modify(|v| {
+                                v.push(LegacySpecificFilterType::UnhideStyle(
+                                    selector.to_owned(),
+                                    style.to_owned(),
+                                ))
+                            })
+                            .or_insert_with(|| {
+                                vec![LegacySpecificFilterType::UnhideStyle(
+                                    selector.to_owned(),
+                                    style.to_owned(),
+                                )]
+                            });
                     }
-                    _ => (),
                 }
             }
         }
@@ -119,8 +113,8 @@ impl From<&HostnameRuleDb> for LegacyHostnameRuleDb {
     }
 }
 
-impl Into<HostnameRuleDb> for LegacyHostnameRuleDb {
-    fn into(self) -> HostnameRuleDb {
+impl From<LegacyHostnameRuleDb> for HostnameRuleDb {
+    fn from(val: LegacyHostnameRuleDb) -> Self {
         use crate::cosmetic_filter_cache::HostnameFilterBin;
 
         let mut hide = HostnameFilterBin::default();
@@ -130,7 +124,7 @@ impl Into<HostnameRuleDb> for LegacyHostnameRuleDb {
         let mut inject_script = HostnameFilterBin::default();
         let mut uninject_script = HostnameFilterBin::default();
 
-        for (hash, bin) in self.db.into_iter() {
+        for (hash, bin) in val.db.into_iter() {
             for rule in bin.into_iter() {
                 match rule {
                     LegacySpecificFilterType::Hide(s) => hide.insert(&hash, s),
@@ -317,7 +311,7 @@ pub(crate) struct SerializeFormat<'a> {
     procedural_action_exception: &'a HashMap<Hash, Vec<String>>,
 }
 
-impl<'a> SerializeFormat<'a> {
+impl SerializeFormat<'_> {
     pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
         let mut output = super::ADBLOCK_RUST_DAT_MAGIC.to_vec();
         output.push(super::ADBLOCK_RUST_DAT_VERSION);

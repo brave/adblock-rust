@@ -15,7 +15,7 @@ mod optimization_tests_pattern_group {
             assert!(
                 is_match == matches,
                 "Expected {} match {} = {}",
-                regex.to_string(),
+                regex,
                 pattern,
                 matches
             );
@@ -39,7 +39,7 @@ mod optimization_tests_pattern_group {
             assert!(
                 is_match == matches,
                 "Expected {} match {} = {}",
-                filter.to_string(),
+                filter,
                 url_path,
                 matches
             );
@@ -47,7 +47,7 @@ mod optimization_tests_pattern_group {
 
         #[test]
         fn regex_set_works() {
-            let regex_set = BytesRegexSetBuilder::new(&[
+            let regex_set = BytesRegexSetBuilder::new([
                 r"/static/ad\.",
                 "/static/ad-",
                 "/static/ad/.*",
@@ -86,7 +86,7 @@ mod optimization_tests_pattern_group {
                 "/static/adv/*",
             ];
 
-            let (filters, _) = lists::parse_filters(&rules, true, Default::default());
+            let (filters, _) = lists::parse_filters(rules, true, Default::default());
 
             let optimization = SimplePatternGroup {};
 
@@ -96,7 +96,7 @@ mod optimization_tests_pattern_group {
 
             let fused = optimization.fusion(&filters);
 
-            assert!(fused.is_regex() == false, "Expected rule to not be a regex");
+            assert!(!fused.is_regex(), "Expected rule to not be a regex");
             assert_eq!(
                 fused.to_string(),
                 "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
@@ -145,14 +145,14 @@ mod optimization_tests_pattern_group {
                 "/v1/ads/*",
             ];
 
-            let (filters, _) = lists::parse_filters(&rules, true, Default::default());
+            let (filters, _) = lists::parse_filters(rules, true, Default::default());
 
             let optimization = SimplePatternGroup {};
 
             let (fused, skipped) = apply_optimisation(&optimization, filters);
 
             assert_eq!(fused.len(), 1);
-            let filter = fused.get(0).unwrap();
+            let filter = fused.first().unwrap();
             assert_eq!(
                 filter.to_string(),
                 "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
@@ -168,7 +168,7 @@ mod optimization_tests_pattern_group {
             ));
 
             assert_eq!(skipped.len(), 1);
-            let filter = skipped.get(0).unwrap();
+            let filter = skipped.first().unwrap();
             assert_eq!(
                 filter.to_string(),
                 "/analytics/v1/*$domain=~my.leadpages.net"
@@ -343,7 +343,7 @@ mod optimization_tests_pattern_group {
         assert!(
             is_match == matches,
             "Expected {} match {} = {}",
-            regex.to_string(),
+            regex,
             pattern,
             matches
         );
@@ -367,7 +367,7 @@ mod optimization_tests_pattern_group {
         assert!(
             is_match == matches,
             "Expected {} match {} = {}",
-            filter.to_string(),
+            filter,
             url_path,
             matches
         );
@@ -375,7 +375,7 @@ mod optimization_tests_pattern_group {
 
     #[test]
     fn regex_set_works() {
-        let regex_set = BytesRegexSetBuilder::new(&[
+        let regex_set = BytesRegexSetBuilder::new([
             r"/static/ad\.",
             "/static/ad-",
             "/static/ad/.*",
@@ -414,7 +414,7 @@ mod optimization_tests_pattern_group {
             "/static/adv/*",
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, Default::default());
+        let (filters, _) = lists::parse_filters(rules, true, Default::default());
 
         let optimization = SimplePatternGroup {};
 
@@ -424,7 +424,7 @@ mod optimization_tests_pattern_group {
 
         let fused = optimization.fusion(&filters);
 
-        assert!(fused.is_regex() == false, "Expected rule to not be a regex");
+        assert!(!fused.is_regex(), "Expected rule to not be a regex");
         assert_eq!(
             fused.to_string(),
             "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
@@ -473,14 +473,14 @@ mod optimization_tests_pattern_group {
             "/v1/ads/*",
         ];
 
-        let (filters, _) = lists::parse_filters(&rules, true, Default::default());
+        let (filters, _) = lists::parse_filters(rules, true, Default::default());
 
         let optimization = SimplePatternGroup {};
 
         let (fused, skipped) = apply_optimisation(&optimization, filters);
 
         assert_eq!(fused.len(), 1);
-        let filter = fused.get(0).unwrap();
+        let filter = fused.first().unwrap();
         assert_eq!(
             filter.to_string(),
             "/analytics-v1. <+> /v1/pixel? <+> /api/v1/stat? <+> /v1/ads/*"
@@ -496,7 +496,7 @@ mod optimization_tests_pattern_group {
         ));
 
         assert_eq!(skipped.len(), 1);
-        let filter = skipped.get(0).unwrap();
+        let filter = skipped.first().unwrap();
         assert_eq!(
             filter.to_string(),
             "/analytics/v1/*$domain=~my.leadpages.net"

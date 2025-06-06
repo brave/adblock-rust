@@ -142,12 +142,10 @@ impl CosmeticFilterCache {
                 let class = key[1..].to_string();
                 if key == selector {
                     self.simple_class_rules.insert(class);
+                } else if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
+                    bucket.push(selector);
                 } else {
-                    if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
-                        bucket.push(selector);
-                    } else {
-                        self.complex_class_rules.insert(class, vec![selector]);
-                    }
+                    self.complex_class_rules.insert(class, vec![selector]);
                 }
             }
         } else if selector.starts_with('#') {
@@ -156,12 +154,10 @@ impl CosmeticFilterCache {
                 let id = key[1..].to_string();
                 if key == selector {
                     self.simple_id_rules.insert(id);
+                } else if let Some(bucket) = self.complex_id_rules.get_mut(&id) {
+                    bucket.push(selector);
                 } else {
-                    if let Some(bucket) = self.complex_id_rules.get_mut(&id) {
-                        bucket.push(selector);
-                    } else {
-                        self.complex_id_rules.insert(id, vec![selector]);
-                    }
+                    self.complex_id_rules.insert(id, vec![selector]);
                 }
             }
         } else {
@@ -495,14 +491,14 @@ impl HostnameRuleDb {
         let kind = if unhide { kind.negated() } else { kind };
 
         let tokens_to_insert = std::iter::empty()
-            .chain(rule.hostnames.unwrap_or(Vec::new()))
-            .chain(rule.entities.unwrap_or(Vec::new()));
+            .chain(rule.hostnames.unwrap_or_default())
+            .chain(rule.entities.unwrap_or_default());
 
         tokens_to_insert.for_each(|t| self.store(&t, kind.clone()));
 
         let tokens_to_insert_negated = std::iter::empty()
-            .chain(rule.not_hostnames.unwrap_or(Vec::new()))
-            .chain(rule.not_entities.unwrap_or(Vec::new()));
+            .chain(rule.not_hostnames.unwrap_or_default())
+            .chain(rule.not_entities.unwrap_or_default());
 
         let negated = kind.negated();
 

@@ -63,7 +63,7 @@ impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
     }
 }
 
-impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
+impl<I: PartialOrd + Copy, V> FlatFilterMap<'_, I, V> {
     #[cfg(test)]
     pub fn total_size(&self) -> usize {
         self.index.len()

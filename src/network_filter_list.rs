@@ -198,7 +198,7 @@ impl NetworkFilterList {
     ) -> Option<CheckResult> {
         let filters_list = self.memory.filter_list();
 
-        if filters_list.filter_map_index().len() == 0 {
+        if filters_list.filter_map_index().is_empty() {
             return None;
         }
 
@@ -210,7 +210,7 @@ impl NetworkFilterList {
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
                 if filter.matches(request, regex_manager)
-                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                    && filter.tag().is_none_or(|t| active_tags.contains(t))
                 {
                     return Some(CheckResult {
                         filter_mask: filter.mask,
@@ -238,7 +238,7 @@ impl NetworkFilterList {
 
         let filters_list = self.memory.filter_list();
 
-        if filters_list.filter_map_index().len() == 0 {
+        if filters_list.filter_map_index().is_empty() {
             return filters;
         }
 
@@ -250,7 +250,7 @@ impl NetworkFilterList {
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
                 if filter.matches(request, regex_manager)
-                    && filter.tag().map_or(true, |t| active_tags.contains(t))
+                    && filter.tag().is_none_or(|t| active_tags.contains(t))
                 {
                     filters.push(CheckResult {
                         filter_mask: filter.mask,
@@ -275,7 +275,7 @@ pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
     K: std::cmp::Ord + std::hash::Hash,
     V: PartialOrd,
 {
-    let entry = map.entry(k).or_insert_with(Vec::new);
+    let entry = map.entry(k).or_default();
 
     match entry.binary_search_by(|f| f.partial_cmp(&v).unwrap_or(std::cmp::Ordering::Equal)) {
         Ok(_pos) => (), // Can occur if the exact same rule is inserted twice. No reason to add anything.

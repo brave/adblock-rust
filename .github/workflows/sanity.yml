@@ -17,6 +17,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Cargo fuzz
         run: .github/workflows/fuzz-all.sh
         shell: bash

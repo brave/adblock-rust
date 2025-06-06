@@ -56,7 +56,7 @@ fn bench_parsing_impl(lists: &Vec<&Vec<String>>) -> usize {
 
     for list in lists {
         let (network_filters, _) = adblock::lists::parse_filters(*list, false, Default::default());
-        dummy = dummy + network_filters.len() % 1000000;
+        dummy += network_filters.len() % 1000000;
     }
 
     dummy

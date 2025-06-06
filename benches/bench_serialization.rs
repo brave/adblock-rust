@@ -18,19 +18,19 @@ fn serialization(c: &mut Criterion) {
         ]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        b.iter(|| assert!(engine.serialize().unwrap().len() > 0))
+        b.iter(|| assert!(!engine.serialize().unwrap().is_empty()))
     });
     group.bench_function("el", move |b| {
         let full_rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        b.iter(|| assert!(engine.serialize().unwrap().len() > 0))
+        b.iter(|| assert!(!engine.serialize().unwrap().is_empty()))
     });
     group.bench_function("slimlist", move |b| {
         let full_rules = rules_from_lists(&["data/slim-list.txt"]);
 
         let engine = Engine::from_rules(full_rules, Default::default());
-        b.iter(|| assert!(engine.serialize().unwrap().len() > 0))
+        b.iter(|| assert!(!engine.serialize().unwrap().is_empty()))
     });
 
     group.finish();
