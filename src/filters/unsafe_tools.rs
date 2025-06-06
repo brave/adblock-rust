@@ -68,24 +68,22 @@ impl VerifiedFlatFilterListMemory {
     // Properly align the buffer to MIN_ALIGNMENT bytes.
     pub(crate) fn from_vec(mut vec: Vec<u8>) -> Self {
         let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
-        if shift == 0 {
-            // Fast path, the buffer is already aligned.
-            Self {
-                raw_data: vec,
-                start: 0,
-            }
+        let start = if shift == 0 {
+            0
         } else {
             vec.reserve(vec.len() + MIN_ALIGNMENT); // vec.as_ptr() is changed
             let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
             let padding = MIN_ALIGNMENT - shift;
             vec.splice(0..0, vec![0u8; padding]);
-            let memory = Self {
-                raw_data: vec,
-                start: padding,
-            };
-            assert!(memory.data().as_ptr() as usize % MIN_ALIGNMENT == 0);
-            memory
-        }
+            padding
+        };
+
+        let memory = Self {
+            raw_data: vec,
+            start,
+        };
+        assert!(memory.data().as_ptr() as usize % MIN_ALIGNMENT == 0);
+        memory
     }
 
     pub(crate) fn filter_list<'a>(&'a self) -> fb::NetworkFilterList<'a> {
