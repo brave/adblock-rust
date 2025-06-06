@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749159265643,
+  "lastUpdate": 1749198045073,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1397,6 +1397,84 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list-deserialize",
             "value": 69850845,
             "range": "± 618721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604587,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68112,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "145a85a0aedbcdea21a3250f522ef7d9a188a3c7",
+          "message": "Cargo clippy fixes (#477)\n\n* Apply cargo clippy --fix\n* revert some clippy changes\n* allow the rest clippy rules\n* cargo fmt\n* Disable clippy for the generated file\n* Add clippy to sanity.yml\n* cargo clippy --all-targets --all-features --fix\n* Disable more rules\n* move clippy step above\n* clippy::all when importing",
+          "timestamp": "2025-06-06T12:16:25+04:00",
+          "tree_id": "5dd59c4cb2912b43ae15b0a5a81b2173a1a1f67f",
+          "url": "https://github.com/brave/adblock-rust/commit/145a85a0aedbcdea21a3250f522ef7d9a188a3c7"
+        },
+        "date": 1749198044317,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2143071249,
+            "range": "± 14186817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 937902,
+            "range": "± 11568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 150868089,
+            "range": "± 1857377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 66146279,
+            "range": "± 1253432",
             "unit": "ns/iter"
           },
           {
