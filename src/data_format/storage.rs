@@ -196,8 +196,6 @@ struct NetworkFilterSerializeFmt<'a> {
     tag: &'a Option<String>,
     raw_line: Option<String>,
     id: &'a crate::utils::Hash,
-    opt_domains_union: &'a Option<crate::utils::Hash>,
-    opt_not_domains_union: &'a Option<crate::utils::Hash>,
 }
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
@@ -228,8 +226,6 @@ where
             tag: &v.tag,
             raw_line: v.raw_line.as_ref().map(|raw| *raw.clone()),
             id: &v.id,
-            opt_domains_union: &v.opt_domains_union,
-            opt_not_domains_union: &v.opt_not_domains_union,
         }
     }
 }
@@ -334,8 +330,6 @@ pub(crate) struct NetworkFilterDeserializeFmt {
     pub tag: Option<String>,
     pub raw_line: Option<String>,
     pub id: crate::utils::Hash,
-    pub opt_domains_union: Option<crate::utils::Hash>,
-    pub opt_not_domains_union: Option<crate::utils::Hash>,
 }
 
 impl From<NetworkFilterDeserializeFmt> for NetworkFilter {
@@ -350,8 +344,6 @@ impl From<NetworkFilterDeserializeFmt> for NetworkFilter {
             tag: v.tag,
             raw_line: v.raw_line.map(Box::new),
             id: v.id,
-            opt_domains_union: v.opt_domains_union,
-            opt_not_domains_union: v.opt_not_domains_union,
         }
     }
 }

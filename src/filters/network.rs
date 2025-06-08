@@ -385,10 +385,6 @@ pub struct NetworkFilter {
     pub raw_line: Option<Box<String>>,
 
     pub id: Hash,
-
-    // All domain option values (their hashes) OR'ed together to quickly dismiss mis-matches
-    pub opt_domains_union: Option<Hash>,
-    pub opt_not_domains_union: Option<Hash>,
 }
 
 // TODO - restrict the API so that this is always true - i.e. lazy-calculate IDs from actual data,
@@ -453,8 +449,6 @@ impl NetworkFilter {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
-        let mut opt_domains_union: Option<Hash> = None;
-        let mut opt_not_domains_union: Option<Hash> = None;
 
         let mut modifier_option: Option<String> = None;
         let mut tag: Option<String> = None;
@@ -497,14 +491,10 @@ impl NetworkFilter {
 
                         if !opt_domains_array.is_empty() {
                             opt_domains_array.sort_unstable();
-                            opt_domains_union =
-                                Some(opt_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort_unstable();
-                            opt_not_domains_union =
-                                Some(opt_not_domains_array.iter().fold(0, |acc, x| acc | x));
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
@@ -822,8 +812,6 @@ impl NetworkFilter {
             },
             modifier_option,
             id: utils::fast_hash(line),
-            opt_domains_union,
-            opt_not_domains_union,
         })
     }
 

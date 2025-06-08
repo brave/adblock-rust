@@ -192,7 +192,7 @@ mod tests {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().unwrap();
-        assert_eq!(hash(&data), 13055424859571526788, "{}", HASH_MISSMATCH_MSG);
+        assert_eq!(hash(&data), 716766226510672918, "{}", HASH_MISSMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
 
