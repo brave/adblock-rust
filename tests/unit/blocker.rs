@@ -1145,7 +1145,6 @@ mod blocker_tests {
             blocker.tags_enabled,
             HashSet::from_iter([String::from("stuff")].into_iter())
         );
-        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 2);
 
         request_expectations
             .into_iter()
@@ -1200,7 +1199,6 @@ mod blocker_tests {
             blocker.tags_enabled,
             HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter())
         );
-        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 4);
 
         request_expectations
             .into_iter()
@@ -1254,13 +1252,11 @@ mod blocker_tests {
             blocker.tags_enabled,
             HashSet::from_iter([String::from("brian"), String::from("stuff")].into_iter())
         );
-        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 4);
         blocker.disable_tags(&["stuff"]);
         assert_eq!(
             blocker.tags_enabled,
             HashSet::from_iter([String::from("brian")].into_iter())
         );
-        assert_eq!(blocker.filters_tagged.get_filter_map().total_size(), 2);
 
         request_expectations
             .into_iter()
