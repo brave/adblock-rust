@@ -724,6 +724,7 @@ mod filterset_tests {
     fn ignore_unsupported_rules() -> Result<(), ()> {
         let mut set = FilterSet::new(true);
         set.add_filters(FILTER_LIST, Default::default());
+        #[allow(clippy::invisible_characters)]
         set.add_filters(
             [
                 // unicode characters

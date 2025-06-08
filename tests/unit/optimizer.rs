@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod optimization_tests_pattern_group {
     #[cfg(test)]
-    mod optimization_tests_pattern_group {
+    mod optimization_tests_pattern_group_tests {
         use super::*;
         use crate::filters::network::NetworkMatchable;
         use crate::lists;

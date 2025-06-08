@@ -298,10 +298,12 @@ impl CosmeticFilter {
 
         const REMOVE_TOKEN: &str = ":remove()";
 
-        const PAIRS: &[(
-            &[u8],
+        type PairType = (
+            &'static [u8],
             fn(&str) -> Result<CosmeticFilterAction, CosmeticFilterError>,
-        )] = &[
+        );
+
+        const PAIRS: &[PairType] = &[
             (STYLE_TOKEN, CosmeticFilterAction::new_style),
             (REMOVE_ATTR_TOKEN, CosmeticFilterAction::new_remove_attr),
             (REMOVE_CLASS_TOKEN, CosmeticFilterAction::new_remove_class),
@@ -665,18 +667,18 @@ mod css_validation {
         fn is_procedural_operator(c: &selectors::parser::Component<SelectorImpl>) -> bool {
             use selectors::parser::Component;
             // Avoid using `to_procedural_operator.is_some()`, which will re-allocate the argument string.
-            match c {
-                Component::NonTSPseudoClass(NonTSPseudoClass::HasText(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesAttr(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCss(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCssBefore(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCssAfter(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::MatchesPath(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::MinTextLength(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::Upward(_)) => true,
-                Component::NonTSPseudoClass(NonTSPseudoClass::Xpath(_)) => true,
-                _ => false,
-            }
+            matches!(
+                c,
+                Component::NonTSPseudoClass(NonTSPseudoClass::HasText(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::MatchesAttr(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCss(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCssBefore(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::MatchesCssAfter(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::MatchesPath(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::MinTextLength(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::Upward(_))
+                    | Component::NonTSPseudoClass(NonTSPseudoClass::Xpath(_))
+            )
         }
 
         if let Some(prelude) = prelude {

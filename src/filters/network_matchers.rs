@@ -396,7 +396,7 @@ where
 }
 
 #[inline]
-pub fn check_options<'a>(mask: NetworkFilterMask, request: &request::Request) -> bool {
+pub fn check_options(mask: NetworkFilterMask, request: &request::Request) -> bool {
     // Bad filter never matches
     if mask.is_badfilter() {
         return false;

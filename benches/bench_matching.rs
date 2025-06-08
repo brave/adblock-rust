@@ -46,7 +46,7 @@ fn get_blocker(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Blocker {
     Blocker::new(network_filters, &blocker_options)
 }
 
-fn bench_rule_matching(engine: &Engine, requests: &Vec<TestRequest>) -> (u32, u32) {
+fn bench_rule_matching(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(|r| {
@@ -64,7 +64,7 @@ fn bench_rule_matching(engine: &Engine, requests: &Vec<TestRequest>) -> (u32, u3
 fn bench_matching_only(
     blocker: &Blocker,
     resources: &ResourceStorage,
-    requests: &Vec<Request>,
+    requests: &[Request],
 ) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
@@ -82,7 +82,7 @@ fn bench_matching_only(
 
 type ParsedRequest = (String, String, String, String, bool);
 
-fn bench_rule_matching_browserlike(blocker: &Engine, requests: &Vec<ParsedRequest>) -> (u32, u32) {
+fn bench_rule_matching_browserlike(blocker: &Engine, requests: &[ParsedRequest]) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(

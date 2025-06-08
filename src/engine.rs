@@ -59,7 +59,7 @@ impl Engine {
     /// Creates a new adblocking `Engine`. `Engine`s created without rules should generally only be
     /// used with deserialization.
     /// - `optimize` specifies whether or not to attempt to compress the internal representation by
-    /// combining similar rules.
+    ///   combining similar rules.
     pub fn new(optimize: bool) -> Self {
         let blocker_options = BlockerOptions {
             enable_optimizations: optimize,

@@ -1107,6 +1107,7 @@ mod matching_tests {
     }
 
     #[test]
+    #[allow(clippy::invisible_characters)]
     fn zero_width_space() {
         assert!(parse_cf(r#"​##a[href^="https://www.g2fame.com/"] > img"#).is_err());
     }
