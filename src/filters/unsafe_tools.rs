@@ -53,7 +53,37 @@ impl VerifiedFlatFilterListMemory {
         let memory = Self::from_vec(data);
 
         // Verify that the data is a valid flatbuffer.
-        let _ = fb::root_as_network_filter_list(memory.data())?;
+        let root = fb::root_as_network_filter_list(memory.data())?;
+
+        if root.filter_map_index().len() != root.filter_map_values().len() {
+            return Err(flatbuffers::InvalidFlatbuffer::DepthLimitReached);
+        }
+
+        for f in root.filter_map_values().iter() {
+            // check any opt_domains or opt_not_domains <= unique_domains_hashes.size9()
+            f.opt_domains()
+                .map(|domains| {
+                    if domains
+                        .iter()
+                        .any(|d| d >= root.unique_domains_hashes().len() as u32)
+                    {
+                        return Err(flatbuffers::InvalidFlatbuffer::DepthLimitReached);
+                    }
+                    Ok(())
+                })
+                .unwrap_or(Ok(()))?;
+            f.opt_not_domains()
+                .map(|domains| {
+                    if domains
+                        .iter()
+                        .any(|d| d >= root.unique_domains_hashes().len() as u32)
+                    {
+                        return Err(flatbuffers::InvalidFlatbuffer::DepthLimitReached);
+                    }
+                    Ok(())
+                })
+                .unwrap_or(Ok(()))?;
+        }
 
         Ok(memory)
     }

@@ -44,9 +44,9 @@ impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
     // - values: array of values, same length as index
     pub fn new(index: &'a [I], values: Vector<'a, ForwardsUOffset<V>>) -> Self {
         // Sanity check the size are equal. Note: next() will handle |values| correctly.
-        debug_assert!(index.len() == values.len());
+        // debug_assert!(index.len() == values.len());
 
-        debug_assert!(index.is_sorted());
+        // debug_assert!(index.is_sorted());
 
         Self { index, values }
     }

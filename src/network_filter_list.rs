@@ -51,7 +51,7 @@ pub enum FlatBufferParsingError {
     UniqueDomainsOutOfBounds(usize),
 }
 
-pub(crate) struct NetworkFilterList {
+pub struct NetworkFilterList {
     pub(crate) memory: VerifiedFlatFilterListMemory,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
 }
@@ -69,7 +69,7 @@ impl Default for NetworkFilterList {
 
 impl NetworkFilterList {
     /// Create a new NetworkFilterList from raw memory (includes verification).
-    pub(crate) fn try_from_unverified_memory(
+    pub fn try_from_unverified_memory(
         flatbuffer_memory: Vec<u8>,
     ) -> Result<NetworkFilterList, FlatBufferParsingError> {
         let memory = VerifiedFlatFilterListMemory::from_raw(flatbuffer_memory)

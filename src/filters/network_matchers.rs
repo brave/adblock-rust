@@ -201,7 +201,7 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        .unwrap_or(false) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern|
@@ -236,7 +236,7 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        .unwrap_or_else(|| false) // no match if filter has no hostname - should be unreachable
 }
 
 // |||pattern|
@@ -276,7 +276,7 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        .unwrap_or_else(|| false) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern + left-anchor => This means that a plain pattern needs to appear
@@ -313,7 +313,7 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        .unwrap_or_else(|| false) // no match if filter has no hostname - should be unreachable
 }
 
 // ||pattern
@@ -347,7 +347,7 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        .unwrap_or_else(|| false) // no match if filter has no hostname - should be unreachable
 }
 
 /// Efficiently checks if a certain network filter matches against a network
