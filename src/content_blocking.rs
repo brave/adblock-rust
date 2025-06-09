@@ -204,6 +204,7 @@ pub enum CbRuleCreationFailure {
     /// - Matching ranges with the range syntax [a-b].
     /// - Quantifying expressions with “?”, “+” and “*”.
     /// - Groups with parenthesis.
+    ///
     /// It may be possible to correctly convert some full-regex rules, but others use unsupported
     /// features (e.g. quantified repetition with {...}) that make conversion to content blocking
     /// syntax impossible.

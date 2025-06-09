@@ -271,6 +271,7 @@ impl FilterSet {
     ///
     /// This function will fail if the `FilterSet` was not created in debug mode.
     #[cfg(feature = "content-blocking")]
+    #[allow(clippy::result_unit_err)]
     pub fn into_content_blocking(
         self,
     ) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {

@@ -36,7 +36,7 @@ enum ResourceAliasField {
 }
 
 impl ResourceAliasField {
-    fn to_vec(self) -> Vec<String> {
+    fn into_vec(self) -> Vec<String> {
         match self {
             Self::SingleString(s) => vec![s],
             Self::ListOfStrings(l) => l,
@@ -132,7 +132,7 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
             } else {
                 Some(ResourceProperties {
                     name,
-                    alias: props.alias.map(|a| a.to_vec()).unwrap_or_default(),
+                    alias: props.alias.map(|a| a.into_vec()).unwrap_or_default(),
                     data: props.data,
                 })
             }
@@ -260,7 +260,7 @@ fn read_resource_from_web_accessible_dir(
 /// - `web_accessible_resource_dir`: A folder full of resource files
 ///
 /// - `redirect_resources_path`: A file in the format of uBlock Origin's `redirect-resources.js`
-/// containing an index of the resources in `web_accessible_resource_dir`
+///   containing an index of the resources in `web_accessible_resource_dir`
 ///
 /// The resulting resources can be serialized into JSON using `serde_json`.
 pub fn assemble_web_accessible_resources(
@@ -288,7 +288,7 @@ pub fn assemble_web_accessible_resources(
 /// supported in a future update.
 ///
 /// - `scriptlets_path`: A file in the format of uBlock Origin's `scriptlets.js` containing
-/// templatable scriptlet files for use in cosmetic filtering
+///   templatable scriptlet files for use in cosmetic filtering
 #[deprecated]
 pub fn assemble_scriptlet_resources(scriptlets_path: &Path) -> Vec<Resource> {
     let scriptlets_data = std::fs::read_to_string(scriptlets_path).expect("read scriptlets path");

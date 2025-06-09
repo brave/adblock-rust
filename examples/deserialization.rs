@@ -68,8 +68,7 @@ fn main() {
     let mut false_negative_rules: HashMap<String, (String, String, String)> = HashMap::new();
     let mut false_positive_rules: HashMap<String, (String, String, String)> = HashMap::new();
     let mut false_negative_exceptions: HashMap<String, (String, String, String)> = HashMap::new();
-    let mut reqs_processed = 0;
-    for req in requests {
+    for (reqs_processed, req) in requests.into_iter().enumerate() {
         if reqs_processed % 10000 == 0 {
             println!("{} requests processed", reqs_processed);
         }
@@ -103,7 +102,6 @@ fn main() {
             });
             // println!("Expected pass, matched {} at {}, type {} ON {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
         }
-        reqs_processed += 1;
     }
 
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;

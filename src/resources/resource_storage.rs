@@ -102,7 +102,7 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
 /// Gets the function name from a JS function definition
 fn extract_function_name(fn_def: &str) -> Option<&str> {
     // This is not bulletproof, but should be robust against most issues.
-    const FUNCTION_NAME_RE: Lazy<Regex> =
+    static FUNCTION_NAME_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r#"^function\s+([^\(\)\{\}\s]+)\s*\("#).unwrap());
 
     FUNCTION_NAME_RE.captures(fn_def).map(|captures| {
@@ -118,6 +118,7 @@ impl ResourceStorage {
         let mut self_ = Self::default();
 
         resources.into_iter().for_each(|resource| {
+            #[allow(clippy::unnecessary_lazy_evaluations)]
             self_.add_resource(resource).unwrap_or_else(|_e| {
                 #[cfg(test)]
                 eprintln!("Failed to add resource: {:?}", _e)
