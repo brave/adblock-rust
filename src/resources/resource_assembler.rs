@@ -36,10 +36,10 @@ enum ResourceAliasField {
 }
 
 impl ResourceAliasField {
-    fn to_vec(&self) -> Vec<String> {
+    fn into_vec(self) -> Vec<String> {
         match self {
-            Self::SingleString(s) => vec![s.clone()],
-            Self::ListOfStrings(l) => l.clone(),
+            Self::SingleString(s) => vec![s],
+            Self::ListOfStrings(l) => l,
         }
     }
 }
@@ -132,7 +132,7 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
             } else {
                 Some(ResourceProperties {
                     name,
-                    alias: props.alias.map(|a| a.to_vec()).unwrap_or_default(),
+                    alias: props.alias.map(|a| a.into_vec()).unwrap_or_default(),
                     data: props.data,
                 })
             }
