@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749198287112,
+  "lastUpdate": 1749508482369,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1582,6 +1582,84 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-1000-requests/alloc-count",
             "value": 68112,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22821309+antonok-edm@users.noreply.github.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fce2a75e3b6ded0f7e06b658056bc641b9e110ae",
+          "message": "Merge pull request #480 from brave/trivial-clippy-fixes\n\nFix some trivial clippy warnings",
+          "timestamp": "2025-06-09T15:30:16-07:00",
+          "tree_id": "30620e75a0b991fb4ef6e555c5bdb42d25df41d8",
+          "url": "https://github.com/brave/adblock-rust/commit/fce2a75e3b6ded0f7e06b658056bc641b9e110ae"
+        },
+        "date": 1749508481448,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2112833185,
+            "range": "± 11153270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 923173,
+            "range": "± 42544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 146335686,
+            "range": "± 467856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 60780664,
+            "range": "± 159363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604603,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68144,
             "range": "± 3",
             "unit": "ns/iter"
           }
