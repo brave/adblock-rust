@@ -16,7 +16,7 @@ use crate::network_filter_list::FlatBufferParsingError;
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.
 const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
-const ADBLOCK_RUST_DAT_VERSION: u8 = 2;
+const ADBLOCK_RUST_DAT_VERSION: u8 = 1;
 
 #[derive(Debug)]
 pub enum SerializationError {
