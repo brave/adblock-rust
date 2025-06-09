@@ -17,15 +17,232 @@ pub mod fb {
     extern crate flatbuffers;
     use self::flatbuffers::{EndianScalar, Follow};
 
-    pub enum NetworkFilterOffset {}
+    // struct NetworkFilter, aligned to 4
+    #[repr(transparent)]
+    #[derive(Clone, Copy, PartialEq)]
+    pub struct NetworkFilter(pub [u8; 16]);
+    impl Default for NetworkFilter {
+        fn default() -> Self {
+            Self([0; 16])
+        }
+    }
+    impl core::fmt::Debug for NetworkFilter {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            f.debug_struct("NetworkFilter")
+                .field("mask", &self.mask())
+                .field("hostname_idx", &self.hostname_idx())
+                .field("single_pattern_idx", &self.single_pattern_idx())
+                .field("extra_idx", &self.extra_idx())
+                .finish()
+        }
+    }
+
+    impl flatbuffers::SimpleToVerifyInSlice for NetworkFilter {}
+    impl<'a> flatbuffers::Follow<'a> for NetworkFilter {
+        type Inner = &'a NetworkFilter;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+            <&'a NetworkFilter>::follow(buf, loc)
+        }
+    }
+    impl<'a> flatbuffers::Follow<'a> for &'a NetworkFilter {
+        type Inner = &'a NetworkFilter;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+            flatbuffers::follow_cast_ref::<NetworkFilter>(buf, loc)
+        }
+    }
+    impl<'b> flatbuffers::Push for NetworkFilter {
+        type Output = NetworkFilter;
+        #[inline]
+        unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+            let src = ::core::slice::from_raw_parts(
+                self as *const NetworkFilter as *const u8,
+                <Self as flatbuffers::Push>::size(),
+            );
+            dst.copy_from_slice(src);
+        }
+        #[inline]
+        fn alignment() -> flatbuffers::PushAlignment {
+            flatbuffers::PushAlignment::new(4)
+        }
+    }
+
+    impl<'a> flatbuffers::Verifiable for NetworkFilter {
+        #[inline]
+        fn run_verifier(
+            v: &mut flatbuffers::Verifier,
+            pos: usize,
+        ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+            use self::flatbuffers::Verifiable;
+            v.in_buffer::<Self>(pos)
+        }
+    }
+
+    impl<'a> NetworkFilter {
+        #[allow(clippy::too_many_arguments)]
+        pub fn new(mask: u32, hostname_idx: u32, single_pattern_idx: u32, extra_idx: u32) -> Self {
+            let mut s = Self([0; 16]);
+            s.set_mask(mask);
+            s.set_hostname_idx(hostname_idx);
+            s.set_single_pattern_idx(single_pattern_idx);
+            s.set_extra_idx(extra_idx);
+            s
+        }
+
+        pub fn mask(&self) -> u32 {
+            let mut mem = core::mem::MaybeUninit::<<u32 as EndianScalar>::Scalar>::uninit();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            EndianScalar::from_little_endian(unsafe {
+                core::ptr::copy_nonoverlapping(
+                    self.0[0..].as_ptr(),
+                    mem.as_mut_ptr() as *mut u8,
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+                mem.assume_init()
+            })
+        }
+
+        pub fn set_mask(&mut self, x: u32) {
+            let x_le = x.to_little_endian();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    &x_le as *const _ as *const u8,
+                    self.0[0..].as_mut_ptr(),
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+            }
+        }
+
+        pub fn hostname_idx(&self) -> u32 {
+            let mut mem = core::mem::MaybeUninit::<<u32 as EndianScalar>::Scalar>::uninit();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            EndianScalar::from_little_endian(unsafe {
+                core::ptr::copy_nonoverlapping(
+                    self.0[4..].as_ptr(),
+                    mem.as_mut_ptr() as *mut u8,
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+                mem.assume_init()
+            })
+        }
+
+        pub fn set_hostname_idx(&mut self, x: u32) {
+            let x_le = x.to_little_endian();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    &x_le as *const _ as *const u8,
+                    self.0[4..].as_mut_ptr(),
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+            }
+        }
+
+        pub fn single_pattern_idx(&self) -> u32 {
+            let mut mem = core::mem::MaybeUninit::<<u32 as EndianScalar>::Scalar>::uninit();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            EndianScalar::from_little_endian(unsafe {
+                core::ptr::copy_nonoverlapping(
+                    self.0[8..].as_ptr(),
+                    mem.as_mut_ptr() as *mut u8,
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+                mem.assume_init()
+            })
+        }
+
+        pub fn set_single_pattern_idx(&mut self, x: u32) {
+            let x_le = x.to_little_endian();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    &x_le as *const _ as *const u8,
+                    self.0[8..].as_mut_ptr(),
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+            }
+        }
+
+        pub fn extra_idx(&self) -> u32 {
+            let mut mem = core::mem::MaybeUninit::<<u32 as EndianScalar>::Scalar>::uninit();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            EndianScalar::from_little_endian(unsafe {
+                core::ptr::copy_nonoverlapping(
+                    self.0[12..].as_ptr(),
+                    mem.as_mut_ptr() as *mut u8,
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+                mem.assume_init()
+            })
+        }
+
+        pub fn set_extra_idx(&mut self, x: u32) {
+            let x_le = x.to_little_endian();
+            // Safety:
+            // Created from a valid Table for this object
+            // Which contains a valid value in this slot
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    &x_le as *const _ as *const u8,
+                    self.0[12..].as_mut_ptr(),
+                    core::mem::size_of::<<u32 as EndianScalar>::Scalar>(),
+                );
+            }
+        }
+
+        pub fn unpack(&self) -> NetworkFilterT {
+            NetworkFilterT {
+                mask: self.mask(),
+                hostname_idx: self.hostname_idx(),
+                single_pattern_idx: self.single_pattern_idx(),
+                extra_idx: self.extra_idx(),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Default)]
+    pub struct NetworkFilterT {
+        pub mask: u32,
+        pub hostname_idx: u32,
+        pub single_pattern_idx: u32,
+        pub extra_idx: u32,
+    }
+    impl NetworkFilterT {
+        pub fn pack(&self) -> NetworkFilter {
+            NetworkFilter::new(
+                self.mask,
+                self.hostname_idx,
+                self.single_pattern_idx,
+                self.extra_idx,
+            )
+        }
+    }
+
+    pub enum NetworkFilterExtrasOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
-    pub struct NetworkFilter<'a> {
+    pub struct NetworkFilterExtras<'a> {
         pub _tab: flatbuffers::Table<'a>,
     }
 
-    impl<'a> flatbuffers::Follow<'a> for NetworkFilter<'a> {
-        type Inner = NetworkFilter<'a>;
+    impl<'a> flatbuffers::Follow<'a> for NetworkFilterExtras<'a> {
+        type Inner = NetworkFilterExtras<'a>;
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
@@ -34,19 +251,17 @@ pub mod fb {
         }
     }
 
-    impl<'a> NetworkFilter<'a> {
-        pub const VT_MASK: flatbuffers::VOffsetT = 4;
-        pub const VT_OPT_DOMAINS: flatbuffers::VOffsetT = 6;
-        pub const VT_OPT_NOT_DOMAINS: flatbuffers::VOffsetT = 8;
-        pub const VT_PATTERNS: flatbuffers::VOffsetT = 10;
+    impl<'a> NetworkFilterExtras<'a> {
+        pub const VT_OPT_DOMAINS: flatbuffers::VOffsetT = 4;
+        pub const VT_OPT_NOT_DOMAINS: flatbuffers::VOffsetT = 6;
+        pub const VT_ANY_OF_PATTERN: flatbuffers::VOffsetT = 8;
+        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 10;
         pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 12;
-        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 14;
-        pub const VT_TAG: flatbuffers::VOffsetT = 16;
-        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 18;
+        pub const VT_TAG: flatbuffers::VOffsetT = 14;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-            NetworkFilter { _tab: table }
+            NetworkFilterExtras { _tab: table }
         }
         #[allow(unused_mut)]
         pub fn create<
@@ -56,23 +271,20 @@ pub mod fb {
             A: flatbuffers::Allocator + 'bldr,
         >(
             _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-            args: &'args NetworkFilterArgs<'args>,
-        ) -> flatbuffers::WIPOffset<NetworkFilter<'bldr>> {
-            let mut builder = NetworkFilterBuilder::new(_fbb);
-            if let Some(x) = args.raw_line {
-                builder.add_raw_line(x);
-            }
+            args: &'args NetworkFilterExtrasArgs<'args>,
+        ) -> flatbuffers::WIPOffset<NetworkFilterExtras<'bldr>> {
+            let mut builder = NetworkFilterExtrasBuilder::new(_fbb);
             if let Some(x) = args.tag {
                 builder.add_tag(x);
-            }
-            if let Some(x) = args.hostname {
-                builder.add_hostname(x);
             }
             if let Some(x) = args.modifier_option {
                 builder.add_modifier_option(x);
             }
-            if let Some(x) = args.patterns {
-                builder.add_patterns(x);
+            if let Some(x) = args.raw_line {
+                builder.add_raw_line(x);
+            }
+            if let Some(x) = args.any_of_pattern {
+                builder.add_any_of_pattern(x);
             }
             if let Some(x) = args.opt_not_domains {
                 builder.add_opt_not_domains(x);
@@ -80,44 +292,28 @@ pub mod fb {
             if let Some(x) = args.opt_domains {
                 builder.add_opt_domains(x);
             }
-            builder.add_mask(args.mask);
             builder.finish()
         }
 
-        pub fn unpack(&self) -> NetworkFilterT {
-            let mask = self.mask();
+        pub fn unpack(&self) -> NetworkFilterExtrasT {
             let opt_domains = self.opt_domains().map(|x| x.into_iter().collect());
             let opt_not_domains = self.opt_not_domains().map(|x| x.into_iter().collect());
-            let patterns = self
-                .patterns()
+            let any_of_pattern = self
+                .any_of_pattern()
                 .map(|x| x.iter().map(|s| s.to_string()).collect());
-            let modifier_option = self.modifier_option().map(|x| x.to_string());
-            let hostname = self.hostname().map(|x| x.to_string());
-            let tag = self.tag().map(|x| x.to_string());
             let raw_line = self.raw_line().map(|x| x.to_string());
-            NetworkFilterT {
-                mask,
+            let modifier_option = self.modifier_option().map(|x| x.to_string());
+            let tag = self.tag().map(|x| x.to_string());
+            NetworkFilterExtrasT {
                 opt_domains,
                 opt_not_domains,
-                patterns,
-                modifier_option,
-                hostname,
-                tag,
+                any_of_pattern,
                 raw_line,
+                modifier_option,
+                tag,
             }
         }
 
-        #[inline]
-        pub fn mask(&self) -> u32 {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<u32>(NetworkFilter::VT_MASK, Some(0))
-                    .unwrap()
-            }
-        }
         #[inline]
         pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u32>> {
             // Safety:
@@ -126,7 +322,7 @@ pub mod fb {
             unsafe {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
-                        NetworkFilter::VT_OPT_DOMAINS,
+                        NetworkFilterExtras::VT_OPT_DOMAINS,
                         None,
                     )
             }
@@ -139,13 +335,13 @@ pub mod fb {
             unsafe {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
-                        NetworkFilter::VT_OPT_NOT_DOMAINS,
+                        NetworkFilterExtras::VT_OPT_NOT_DOMAINS,
                         None,
                     )
             }
         }
         #[inline]
-        pub fn patterns(
+        pub fn any_of_pattern(
             &self,
         ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
             // Safety:
@@ -154,7 +350,19 @@ pub mod fb {
             unsafe {
                 self._tab.get::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                >>(NetworkFilter::VT_PATTERNS, None)
+                >>(NetworkFilterExtras::VT_ANY_OF_PATTERN, None)
+            }
+        }
+        #[inline]
+        pub fn raw_line(&self) -> Option<&'a str> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                    NetworkFilterExtras::VT_RAW_LINE,
+                    None,
+                )
             }
         }
         #[inline]
@@ -164,19 +372,9 @@ pub mod fb {
             // which contains a valid value in this slot
             unsafe {
                 self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
-                    NetworkFilter::VT_MODIFIER_OPTION,
+                    NetworkFilterExtras::VT_MODIFIER_OPTION,
                     None,
                 )
-            }
-        }
-        #[inline]
-        pub fn hostname(&self) -> Option<&'a str> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<&str>>(NetworkFilter::VT_HOSTNAME, None)
             }
         }
         #[inline]
@@ -186,22 +384,12 @@ pub mod fb {
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<&str>>(NetworkFilter::VT_TAG, None)
-            }
-        }
-        #[inline]
-        pub fn raw_line(&self) -> Option<&'a str> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<&str>>(NetworkFilter::VT_RAW_LINE, None)
+                    .get::<flatbuffers::ForwardsUOffset<&str>>(NetworkFilterExtras::VT_TAG, None)
             }
         }
     }
 
-    impl flatbuffers::Verifiable for NetworkFilter<'_> {
+    impl flatbuffers::Verifiable for NetworkFilterExtras<'_> {
         #[inline]
         fn run_verifier(
             v: &mut flatbuffers::Verifier,
@@ -209,7 +397,6 @@ pub mod fb {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
-                .visit_field::<u32>("mask", Self::VT_MASK, false)?
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
                     "opt_domains",
                     Self::VT_OPT_DOMAINS,
@@ -222,71 +409,58 @@ pub mod fb {
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>("patterns", Self::VT_PATTERNS, false)?
-                .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
-                    "modifier_option",
-                    Self::VT_MODIFIER_OPTION,
-                    false,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
-                    "hostname",
-                    Self::VT_HOSTNAME,
-                    false,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<&str>>("tag", Self::VT_TAG, false)?
+                >>("any_of_pattern", Self::VT_ANY_OF_PATTERN, false)?
                 .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
                     "raw_line",
                     Self::VT_RAW_LINE,
                     false,
                 )?
+                .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                    "modifier_option",
+                    Self::VT_MODIFIER_OPTION,
+                    false,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<&str>>("tag", Self::VT_TAG, false)?
                 .finish();
             Ok(())
         }
     }
-    pub struct NetworkFilterArgs<'a> {
-        pub mask: u32,
+    pub struct NetworkFilterExtrasArgs<'a> {
         pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
-        pub patterns: Option<
+        pub any_of_pattern: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
-        pub modifier_option: Option<flatbuffers::WIPOffset<&'a str>>,
-        pub hostname: Option<flatbuffers::WIPOffset<&'a str>>,
-        pub tag: Option<flatbuffers::WIPOffset<&'a str>>,
         pub raw_line: Option<flatbuffers::WIPOffset<&'a str>>,
+        pub modifier_option: Option<flatbuffers::WIPOffset<&'a str>>,
+        pub tag: Option<flatbuffers::WIPOffset<&'a str>>,
     }
-    impl<'a> Default for NetworkFilterArgs<'a> {
+    impl<'a> Default for NetworkFilterExtrasArgs<'a> {
         #[inline]
         fn default() -> Self {
-            NetworkFilterArgs {
-                mask: 0,
+            NetworkFilterExtrasArgs {
                 opt_domains: None,
                 opt_not_domains: None,
-                patterns: None,
-                modifier_option: None,
-                hostname: None,
-                tag: None,
+                any_of_pattern: None,
                 raw_line: None,
+                modifier_option: None,
+                tag: None,
             }
         }
     }
 
-    pub struct NetworkFilterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+    pub struct NetworkFilterExtrasBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
         fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
         start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
     }
-    impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterBuilder<'a, 'b, A> {
-        #[inline]
-        pub fn add_mask(&mut self, mask: u32) {
-            self.fbb_.push_slot::<u32>(NetworkFilter::VT_MASK, mask, 0);
-        }
+    impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterExtrasBuilder<'a, 'b, A> {
         #[inline]
         pub fn add_opt_domains(
             &mut self,
             opt_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_OPT_DOMAINS,
+                NetworkFilterExtras::VT_OPT_DOMAINS,
                 opt_domains,
             );
         }
@@ -296,132 +470,115 @@ pub mod fb {
             opt_not_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_OPT_NOT_DOMAINS,
+                NetworkFilterExtras::VT_OPT_NOT_DOMAINS,
                 opt_not_domains,
             );
         }
         #[inline]
-        pub fn add_patterns(
+        pub fn add_any_of_pattern(
             &mut self,
-            patterns: flatbuffers::WIPOffset<
+            any_of_pattern: flatbuffers::WIPOffset<
                 flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_PATTERNS,
-                patterns,
+                NetworkFilterExtras::VT_ANY_OF_PATTERN,
+                any_of_pattern,
+            );
+        }
+        #[inline]
+        pub fn add_raw_line(&mut self, raw_line: flatbuffers::WIPOffset<&'b str>) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilterExtras::VT_RAW_LINE,
+                raw_line,
             );
         }
         #[inline]
         pub fn add_modifier_option(&mut self, modifier_option: flatbuffers::WIPOffset<&'b str>) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_MODIFIER_OPTION,
+                NetworkFilterExtras::VT_MODIFIER_OPTION,
                 modifier_option,
-            );
-        }
-        #[inline]
-        pub fn add_hostname(&mut self, hostname: flatbuffers::WIPOffset<&'b str>) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_HOSTNAME,
-                hostname,
             );
         }
         #[inline]
         pub fn add_tag(&mut self, tag: flatbuffers::WIPOffset<&'b str>) {
             self.fbb_
-                .push_slot_always::<flatbuffers::WIPOffset<_>>(NetworkFilter::VT_TAG, tag);
-        }
-        #[inline]
-        pub fn add_raw_line(&mut self, raw_line: flatbuffers::WIPOffset<&'b str>) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_RAW_LINE,
-                raw_line,
-            );
+                .push_slot_always::<flatbuffers::WIPOffset<_>>(NetworkFilterExtras::VT_TAG, tag);
         }
         #[inline]
         pub fn new(
             _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-        ) -> NetworkFilterBuilder<'a, 'b, A> {
+        ) -> NetworkFilterExtrasBuilder<'a, 'b, A> {
             let start = _fbb.start_table();
-            NetworkFilterBuilder {
+            NetworkFilterExtrasBuilder {
                 fbb_: _fbb,
                 start_: start,
             }
         }
         #[inline]
-        pub fn finish(self) -> flatbuffers::WIPOffset<NetworkFilter<'a>> {
+        pub fn finish(self) -> flatbuffers::WIPOffset<NetworkFilterExtras<'a>> {
             let o = self.fbb_.end_table(self.start_);
             flatbuffers::WIPOffset::new(o.value())
         }
     }
 
-    impl core::fmt::Debug for NetworkFilter<'_> {
+    impl core::fmt::Debug for NetworkFilterExtras<'_> {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-            let mut ds = f.debug_struct("NetworkFilter");
-            ds.field("mask", &self.mask());
+            let mut ds = f.debug_struct("NetworkFilterExtras");
             ds.field("opt_domains", &self.opt_domains());
             ds.field("opt_not_domains", &self.opt_not_domains());
-            ds.field("patterns", &self.patterns());
-            ds.field("modifier_option", &self.modifier_option());
-            ds.field("hostname", &self.hostname());
-            ds.field("tag", &self.tag());
+            ds.field("any_of_pattern", &self.any_of_pattern());
             ds.field("raw_line", &self.raw_line());
+            ds.field("modifier_option", &self.modifier_option());
+            ds.field("tag", &self.tag());
             ds.finish()
         }
     }
     #[non_exhaustive]
     #[derive(Debug, Clone, PartialEq)]
-    pub struct NetworkFilterT {
-        pub mask: u32,
+    pub struct NetworkFilterExtrasT {
         pub opt_domains: Option<Vec<u32>>,
         pub opt_not_domains: Option<Vec<u32>>,
-        pub patterns: Option<Vec<String>>,
-        pub modifier_option: Option<String>,
-        pub hostname: Option<String>,
-        pub tag: Option<String>,
+        pub any_of_pattern: Option<Vec<String>>,
         pub raw_line: Option<String>,
+        pub modifier_option: Option<String>,
+        pub tag: Option<String>,
     }
-    impl Default for NetworkFilterT {
+    impl Default for NetworkFilterExtrasT {
         fn default() -> Self {
             Self {
-                mask: 0,
                 opt_domains: None,
                 opt_not_domains: None,
-                patterns: None,
-                modifier_option: None,
-                hostname: None,
-                tag: None,
+                any_of_pattern: None,
                 raw_line: None,
+                modifier_option: None,
+                tag: None,
             }
         }
     }
-    impl NetworkFilterT {
+    impl NetworkFilterExtrasT {
         pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
             &self,
             _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
-        ) -> flatbuffers::WIPOffset<NetworkFilter<'b>> {
-            let mask = self.mask;
+        ) -> flatbuffers::WIPOffset<NetworkFilterExtras<'b>> {
             let opt_domains = self.opt_domains.as_ref().map(|x| _fbb.create_vector(x));
             let opt_not_domains = self.opt_not_domains.as_ref().map(|x| _fbb.create_vector(x));
-            let patterns = self.patterns.as_ref().map(|x| {
+            let any_of_pattern = self.any_of_pattern.as_ref().map(|x| {
                 let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
                 _fbb.create_vector(&w)
             });
-            let modifier_option = self.modifier_option.as_ref().map(|x| _fbb.create_string(x));
-            let hostname = self.hostname.as_ref().map(|x| _fbb.create_string(x));
-            let tag = self.tag.as_ref().map(|x| _fbb.create_string(x));
             let raw_line = self.raw_line.as_ref().map(|x| _fbb.create_string(x));
-            NetworkFilter::create(
+            let modifier_option = self.modifier_option.as_ref().map(|x| _fbb.create_string(x));
+            let tag = self.tag.as_ref().map(|x| _fbb.create_string(x));
+            NetworkFilterExtras::create(
                 _fbb,
-                &NetworkFilterArgs {
-                    mask,
+                &NetworkFilterExtrasArgs {
                     opt_domains,
                     opt_not_domains,
-                    patterns,
-                    modifier_option,
-                    hostname,
-                    tag,
+                    any_of_pattern,
                     raw_line,
+                    modifier_option,
+                    tag,
                 },
             )
         }
@@ -447,6 +604,8 @@ pub mod fb {
         pub const VT_FILTER_MAP_INDEX: flatbuffers::VOffsetT = 4;
         pub const VT_FILTER_MAP_VALUES: flatbuffers::VOffsetT = 6;
         pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
+        pub const VT_STRINGS: flatbuffers::VOffsetT = 10;
+        pub const VT_FILTER_EXTRAS: flatbuffers::VOffsetT = 12;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -463,6 +622,12 @@ pub mod fb {
             args: &'args NetworkFilterListArgs<'args>,
         ) -> flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
             let mut builder = NetworkFilterListBuilder::new(_fbb);
+            if let Some(x) = args.filter_extras {
+                builder.add_filter_extras(x);
+            }
+            if let Some(x) = args.strings {
+                builder.add_strings(x);
+            }
             if let Some(x) = args.unique_domains_hashes {
                 builder.add_unique_domains_hashes(x);
             }
@@ -488,10 +653,20 @@ pub mod fb {
                 let x = self.unique_domains_hashes();
                 x.into_iter().collect()
             };
+            let strings = {
+                let x = self.strings();
+                x.iter().map(|s| s.to_string()).collect()
+            };
+            let filter_extras = {
+                let x = self.filter_extras();
+                x.iter().map(|t| t.unpack()).collect()
+            };
             NetworkFilterListT {
                 filter_map_index,
                 filter_map_values,
                 unique_domains_hashes,
+                strings,
+                filter_extras,
             }
         }
 
@@ -510,17 +685,16 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn filter_map_values(
-            &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
+        pub fn filter_map_values(&self) -> flatbuffers::Vector<'a, NetworkFilter> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter>>,
-                    >>(NetworkFilterList::VT_FILTER_MAP_VALUES, None)
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, NetworkFilter>>>(
+                        NetworkFilterList::VT_FILTER_MAP_VALUES,
+                        None,
+                    )
                     .unwrap()
             }
         }
@@ -538,6 +712,35 @@ pub mod fb {
                     .unwrap()
             }
         }
+        #[inline]
+        pub fn strings(&self) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(NetworkFilterList::VT_STRINGS, None)
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn filter_extras(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterExtras<'a>>>
+        {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterExtras>>,
+                    >>(NetworkFilterList::VT_FILTER_EXTRAS, None)
+                    .unwrap()
+            }
+        }
     }
 
     impl flatbuffers::Verifiable for NetworkFilterList<'_> {
@@ -548,31 +751,28 @@ pub mod fb {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
-                    "filter_map_index",
-                    Self::VT_FILTER_MAP_INDEX,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>,
-                >>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "unique_domains_hashes",
-                    Self::VT_UNIQUE_DOMAINS_HASHES,
-                    true,
-                )?
-                .finish();
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>("filter_map_index", Self::VT_FILTER_MAP_INDEX, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, NetworkFilter>>>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("unique_domains_hashes", Self::VT_UNIQUE_DOMAINS_HASHES, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>>>("strings", Self::VT_STRINGS, true)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilterExtras>>>>("filter_extras", Self::VT_FILTER_EXTRAS, true)?
+     .finish();
             Ok(())
         }
     }
     pub struct NetworkFilterListArgs<'a> {
         pub filter_map_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
-        pub filter_map_values: Option<
+        pub filter_map_values:
+            Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, NetworkFilter>>>,
+        pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+        pub strings: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub filter_extras: Option<
             flatbuffers::WIPOffset<
-                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterExtras<'a>>>,
             >,
         >,
-        pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
     }
     impl<'a> Default for NetworkFilterListArgs<'a> {
         #[inline]
@@ -581,6 +781,8 @@ pub mod fb {
                 filter_map_index: None,      // required field
                 filter_map_values: None,     // required field
                 unique_domains_hashes: None, // required field
+                strings: None,               // required field
+                filter_extras: None,         // required field
             }
         }
     }
@@ -603,9 +805,7 @@ pub mod fb {
         #[inline]
         pub fn add_filter_map_values(
             &mut self,
-            filter_map_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<NetworkFilter<'b>>>,
-            >,
+            filter_map_values: flatbuffers::WIPOffset<flatbuffers::Vector<'b, NetworkFilter>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilterList::VT_FILTER_MAP_VALUES,
@@ -620,6 +820,30 @@ pub mod fb {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
                 unique_domains_hashes,
+            );
+        }
+        #[inline]
+        pub fn add_strings(
+            &mut self,
+            strings: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_STRINGS,
+                strings,
+            );
+        }
+        #[inline]
+        pub fn add_filter_extras(
+            &mut self,
+            filter_extras: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<NetworkFilterExtras<'b>>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_FILTER_EXTRAS,
+                filter_extras,
             );
         }
         #[inline]
@@ -650,6 +874,10 @@ pub mod fb {
                 NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
                 "unique_domains_hashes",
             );
+            self.fbb_
+                .required(o, NetworkFilterList::VT_STRINGS, "strings");
+            self.fbb_
+                .required(o, NetworkFilterList::VT_FILTER_EXTRAS, "filter_extras");
             flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -660,6 +888,8 @@ pub mod fb {
             ds.field("filter_map_index", &self.filter_map_index());
             ds.field("filter_map_values", &self.filter_map_values());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
+            ds.field("strings", &self.strings());
+            ds.field("filter_extras", &self.filter_extras());
             ds.finish()
         }
     }
@@ -669,6 +899,8 @@ pub mod fb {
         pub filter_map_index: Vec<u32>,
         pub filter_map_values: Vec<NetworkFilterT>,
         pub unique_domains_hashes: Vec<u64>,
+        pub strings: Vec<String>,
+        pub filter_extras: Vec<NetworkFilterExtrasT>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
@@ -676,6 +908,8 @@ pub mod fb {
                 filter_map_index: Default::default(),
                 filter_map_values: Default::default(),
                 unique_domains_hashes: Default::default(),
+                strings: Default::default(),
+                filter_extras: Default::default(),
             }
         }
     }
@@ -690,12 +924,22 @@ pub mod fb {
             });
             let filter_map_values = Some({
                 let x = &self.filter_map_values;
-                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                let w: Vec<_> = x.iter().map(|t| t.pack()).collect();
                 _fbb.create_vector(&w)
             });
             let unique_domains_hashes = Some({
                 let x = &self.unique_domains_hashes;
                 _fbb.create_vector(x)
+            });
+            let strings = Some({
+                let x = &self.strings;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let filter_extras = Some({
+                let x = &self.filter_extras;
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
             });
             NetworkFilterList::create(
                 _fbb,
@@ -703,6 +947,8 @@ pub mod fb {
                     filter_map_index,
                     filter_map_values,
                     unique_domains_hashes,
+                    strings,
+                    filter_extras,
                 },
             )
         }

@@ -20,10 +20,14 @@ use flat::fb;
 
 pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
-    filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
+    filters: Vec<fb::NetworkFilter>,
 
     unique_domains_hashes: Vec<Hash>,
     unique_domains_hashes_map: HashMap<Hash, u32>,
+
+    // New: strings storage without deduplication
+    strings: Vec<String>,
+    filter_extras: Vec<WIPOffset<fb::NetworkFilterExtras<'a>>>,
 }
 
 impl FlatNetworkFiltersListBuilder<'_> {
@@ -33,6 +37,8 @@ impl FlatNetworkFiltersListBuilder<'_> {
             filters: vec![],
             unique_domains_hashes: vec![],
             unique_domains_hashes_map: HashMap::new(),
+            strings: vec![],
+            filter_extras: vec![],
         }
     }
 
@@ -46,70 +52,128 @@ impl FlatNetworkFiltersListBuilder<'_> {
         index
     }
 
+    fn add_string(&mut self, s: &str) -> u32 {
+        let index = self.strings.len() as u32;
+        self.strings.push(s.to_string());
+        index + 1  // Use 1-based indexing, 0 means no string
+    }
+
     pub fn add(&mut self, network_filter: &NetworkFilter) -> u32 {
-        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u32> = v
-                .iter()
-                .map(|x| self.get_or_insert_unique_domain_hash(x))
-                .collect();
-            o.sort_unstable();
-            o.dedup();
-            self.builder.create_vector(&o)
+        let opt_domains = network_filter.opt_domains.as_ref().and_then(|v| {
+            if v.is_empty() {
+                None  // Don't create extras for empty domain lists
+            } else {
+                let mut o: Vec<u32> = v
+                    .iter()
+                    .map(|x| self.get_or_insert_unique_domain_hash(x))
+                    .collect();
+                o.sort_unstable();
+                o.dedup();
+                Some(self.builder.create_vector(&o))
+            }
         });
 
-        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u32> = v
-                .iter()
-                .map(|x| self.get_or_insert_unique_domain_hash(x))
-                .collect();
-            o.sort_unstable();
-            o.dedup();
-            self.builder.create_vector(&o)
+        let opt_not_domains = network_filter.opt_not_domains.as_ref().and_then(|v| {
+            if v.is_empty() {
+                None  // Don't create extras for empty domain lists
+            } else {
+                let mut o: Vec<u32> = v
+                    .iter()
+                    .map(|x| self.get_or_insert_unique_domain_hash(x))
+                    .collect();
+                o.sort_unstable();
+                o.dedup();
+                Some(self.builder.create_vector(&o))
+            }
         });
 
-        let modifier_option = network_filter
-            .modifier_option
-            .as_ref()
-            .map(|s| self.builder.create_string(s));
-
-        let hostname = network_filter
-            .hostname
-            .as_ref()
-            .map(|s| self.builder.create_string(s));
-
-        let tag = network_filter
-            .tag
-            .as_ref()
-            .map(|s| self.builder.create_string(s));
-
-        let patterns = if network_filter.filter.iter().len() > 0 {
-            let offsets: Vec<WIPOffset<&str>> = network_filter
-                .filter
-                .iter()
-                .map(|s| self.builder.create_string(s))
-                .collect();
-            Some(self.builder.create_vector(&offsets))
+        // Handle any_of_pattern for FilterPart::AnyOf
+        let any_of_pattern = if network_filter.filter.iter().len() > 1 {
+            let patterns: Vec<String> = network_filter.filter.iter().map(|s| s.to_string()).collect();
+            if patterns.is_empty() {
+                None  // Don't create extras for empty pattern lists
+            } else {
+                Some(patterns)
+            }
         } else {
             None
         };
 
+        let any_of_pattern_fb = any_of_pattern.as_ref().map(|patterns| {
+            let offsets: Vec<WIPOffset<&str>> = patterns
+                .iter()
+                .map(|s| self.builder.create_string(s))
+                .collect();
+            self.builder.create_vector(&offsets)
+        });
+
         let raw_line = network_filter
             .raw_line
             .as_ref()
-            .map(|v| self.builder.create_string(v.as_str()));
+            .and_then(|v| if v.is_empty() { None } else { Some(self.builder.create_string(v.as_str())) });
 
-        let filter = fb::NetworkFilter::create(
-            &mut self.builder,
-            &fb::NetworkFilterArgs {
-                mask: network_filter.mask.bits(),
-                patterns,
-                modifier_option,
-                opt_domains,
-                opt_not_domains,
-                hostname,
-                tag,
-                raw_line,
-            },
+        let modifier_option = network_filter
+            .modifier_option
+            .as_ref()
+            .and_then(|s| if s.is_empty() { None } else { Some(self.builder.create_string(s)) });
+
+        let tag = network_filter
+            .tag
+            .as_ref()
+            .and_then(|s| if s.is_empty() { None } else { Some(self.builder.create_string(s)) });
+
+        // Determine hostname_idx
+        let hostname_idx = if let Some(ref hostname) = network_filter.hostname {
+            self.add_string(hostname)
+        } else {
+            0
+        };
+
+        // Determine single_pattern_idx
+        let single_pattern_idx = if network_filter.filter.iter().len() == 1 {
+            // FilterPart::Simple - store the single pattern
+            let pattern = network_filter.filter.iter().next().unwrap();
+            self.add_string(pattern)
+        } else if network_filter.filter.iter().len() == 0 {
+            // FilterPart::Empty
+            0
+        } else {
+            // FilterPart::AnyOf - use index >= strings.len() to indicate this
+            // We'll handle this after we know the final strings length
+            u32::MAX // Placeholder, will be updated later
+        };
+
+        // Create extras only if we really need them (save memory when possible)
+        let extra_idx = if opt_domains.is_some()
+            || opt_not_domains.is_some()
+            || any_of_pattern_fb.is_some()
+            || raw_line.is_some()
+            || modifier_option.is_some()
+            || tag.is_some() {
+
+            let extras = fb::NetworkFilterExtras::create(
+                &mut self.builder,
+                &fb::NetworkFilterExtrasArgs {
+                    opt_domains,
+                    opt_not_domains,
+                    any_of_pattern: any_of_pattern_fb,
+                    raw_line,
+                    modifier_option,
+                    tag,
+                },
+            );
+            self.filter_extras.push(extras);
+            self.filter_extras.len() as u32
+        } else {
+            0  // No extras needed, save memory
+        };
+
+        // Create the NetworkFilter struct
+        let filter = fb::NetworkFilter::new(
+            network_filter.mask.bits(),
+            hostname_idx,
+            single_pattern_idx,
+            extra_idx,
         );
 
         self.filters.push(filter);
@@ -120,7 +184,29 @@ impl FlatNetworkFiltersListBuilder<'_> {
         &mut self,
         mut filter_map: HashMap<ShortHash, Vec<u32>>,
     ) -> VerifiedFlatFilterListMemory {
+        println!("extras_count: {:?}", self.filter_extras.len());
+        println!("strings_count: {:?}", self.strings.len());
+        // Now handle any_of_pattern indices that need to be >= strings.len()
+        let strings_base_len = self.strings.len() as u32;
+        for (_i, filter) in self.filters.iter_mut().enumerate() {
+            if filter.single_pattern_idx() == u32::MAX {
+                // This was a placeholder for AnyOf pattern
+                // Set it to strings_base_len + index in any_of_pattern
+                filter.set_single_pattern_idx(strings_base_len);
+            }
+        }
+
         let unique_domains_hashes = self.builder.create_vector(&self.unique_domains_hashes);
+
+        // Create strings vector
+        let strings_offsets: Vec<WIPOffset<&str>> = self.strings
+            .iter()
+            .map(|s| self.builder.create_string(s))
+            .collect();
+        let strings = self.builder.create_vector(&strings_offsets);
+
+        // Create filter_extras vector
+        let filter_extras = self.builder.create_vector(&self.filter_extras);
 
         let len = filter_map.len();
 
@@ -147,6 +233,8 @@ impl FlatNetworkFiltersListBuilder<'_> {
                 filter_map_index: Some(filter_map_index),
                 filter_map_values: Some(filter_map_values),
                 unique_domains_hashes: Some(unique_domains_hashes),
+                strings: Some(strings),
+                filter_extras: Some(filter_extras),
             },
         );
         self.builder.finish(storage, None);
@@ -157,6 +245,7 @@ impl FlatNetworkFiltersListBuilder<'_> {
 }
 pub(crate) struct FlatPatterns<'a> {
     patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+    single_pattern: Option<&'a str>,
 }
 
 impl<'a> FlatPatterns<'a> {
@@ -164,14 +253,25 @@ impl<'a> FlatPatterns<'a> {
     pub fn new(
         patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
     ) -> Self {
-        Self { patterns }
+        Self { patterns, single_pattern: None }
+    }
+
+    #[inline(always)]
+    pub fn new_single(pattern: &'a str) -> Self {
+        Self { patterns: None, single_pattern: Some(pattern) }
     }
 
     #[inline(always)]
     pub fn iter(&self) -> FlatPatternsIterator {
         FlatPatternsIterator {
             patterns: self,
-            len: self.patterns.map_or(0, |d| d.len()),
+            len: if let Some(ref patterns) = self.patterns {
+                patterns.len()
+            } else if self.single_pattern.is_some() {
+                1
+            } else {
+                0
+            },
             index: 0,
         }
     }
@@ -188,14 +288,23 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.patterns.patterns.and_then(|fi| {
-            if self.index < self.len {
-                self.index += 1;
-                Some(fi.get(self.index - 1))
+        if self.index < self.len {
+            let result = if let Some(ref patterns) = self.patterns.patterns {
+                Some(patterns.get(self.index))
+            } else if let Some(single_pattern) = self.patterns.single_pattern {
+                if self.index == 0 {
+                    Some(single_pattern)
+                } else {
+                    None
+                }
             } else {
                 None
-            }
-        })
+            };
+            self.index += 1;
+            result
+        } else {
+            None
+        }
     }
 }
 
@@ -209,7 +318,7 @@ impl ExactSizeIterator for FlatPatternsIterator<'_> {
 pub(crate) struct FlatNetworkFilter<'a> {
     key: u64,
     owner: &'a NetworkFilterList,
-    fb_filter: &'a fb::NetworkFilter<'a>,
+    fb_filter: &'a fb::NetworkFilter,
 
     pub(crate) mask: NetworkFilterMask,
 }
@@ -217,7 +326,7 @@ pub(crate) struct FlatNetworkFilter<'a> {
 impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
     pub fn new(
-        filter: &'a fb::NetworkFilter<'a>,
+        filter: &'a fb::NetworkFilter,
         index: usize,
         owner: &'a NetworkFilterList,
     ) -> Self {
@@ -233,32 +342,53 @@ impl<'a> FlatNetworkFilter<'a> {
 
     #[inline(always)]
     pub fn tag(&self) -> Option<&'a str> {
-        self.fb_filter.tag()
+        if self.fb_filter.extra_idx() == 0 {
+            None
+        } else {
+            let extras_list = self.owner.memory.filter_list().filter_extras();
+            let extras = extras_list.get((self.fb_filter.extra_idx() - 1) as usize);
+            extras.tag()
+        }
     }
 
     #[inline(always)]
     pub fn modifier_option(&self) -> Option<String> {
-        self.fb_filter.modifier_option().map(|o| o.to_string())
+        if self.fb_filter.extra_idx() == 0 {
+            None
+        } else {
+            let extras_list = self.owner.memory.filter_list().filter_extras();
+            let extras = extras_list.get((self.fb_filter.extra_idx() - 1) as usize);
+            extras.modifier_option().map(|s| s.to_string())
+        }
     }
 
     #[inline(always)]
     pub fn include_domains(&self) -> Option<&[u32]> {
-        self.fb_filter
-            .opt_domains()
-            .map(|data| fb_vector_to_slice(data))
+        if self.fb_filter.extra_idx() == 0 {
+            None
+        } else {
+            let extras_list = self.owner.memory.filter_list().filter_extras();
+            let extras = extras_list.get((self.fb_filter.extra_idx() - 1) as usize);
+            extras.opt_domains().map(|data| fb_vector_to_slice(data))
+        }
     }
 
     #[inline(always)]
     pub fn exclude_domains(&self) -> Option<&[u32]> {
-        self.fb_filter
-            .opt_not_domains()
-            .map(|data| fb_vector_to_slice(data))
+        if self.fb_filter.extra_idx() == 0 {
+            None
+        } else {
+            let extras_list = self.owner.memory.filter_list().filter_extras();
+            let extras = extras_list.get((self.fb_filter.extra_idx() - 1) as usize);
+            extras.opt_not_domains().map(|data| fb_vector_to_slice(data))
+        }
     }
 
     #[inline(always)]
     pub fn hostname(&self) -> Option<&'a str> {
-        if self.mask.is_hostname_anchor() {
-            self.fb_filter.hostname()
+        if self.mask.is_hostname_anchor() && self.fb_filter.hostname_idx() > 0 {
+            let strings = self.owner.memory.filter_list().strings();
+            Some(strings.get((self.fb_filter.hostname_idx() - 1) as usize))
         } else {
             None
         }
@@ -266,12 +396,37 @@ impl<'a> FlatNetworkFilter<'a> {
 
     #[inline(always)]
     pub fn patterns(&self) -> FlatPatterns {
-        FlatPatterns::new(self.fb_filter.patterns())
+        let single_pattern_idx = self.fb_filter.single_pattern_idx();
+        let strings = self.owner.memory.filter_list().strings();
+
+        if single_pattern_idx == 0 {
+            // FilterPart::Empty
+            FlatPatterns::new(None)
+        } else if single_pattern_idx <= strings.len() as u32 {
+            // FilterPart::Simple - single pattern (1-based indexing)
+            let pattern = strings.get((single_pattern_idx - 1) as usize);
+            FlatPatterns::new_single(pattern)
+        } else {
+            // FilterPart::AnyOf - multiple patterns stored in extras
+            if self.fb_filter.extra_idx() == 0 {
+                FlatPatterns::new(None)
+            } else {
+                let extras_list = self.owner.memory.filter_list().filter_extras();
+                let extras = extras_list.get((self.fb_filter.extra_idx() - 1) as usize);
+                FlatPatterns::new(extras.any_of_pattern())
+            }
+        }
     }
 
     #[inline(always)]
     pub fn raw_line(&self) -> Option<String> {
-        self.fb_filter.raw_line().map(|v| v.to_string())
+        if self.fb_filter.extra_idx() == 0 {
+            None
+        } else {
+            let extras_list = self.owner.memory.filter_list().filter_extras();
+            let extras = extras_list.get((self.fb_filter.extra_idx() - 1) as usize);
+            extras.raw_line().map(|s| s.to_string())
+        }
     }
 }
 

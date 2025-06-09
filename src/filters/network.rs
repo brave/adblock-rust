@@ -380,7 +380,7 @@ pub struct NetworkFilter {
     /// supported per-rule.
     pub modifier_option: Option<String>,
     pub hostname: Option<String>,
-    pub(crate) tag: Option<String>,
+    pub tag: Option<String>,
 
     pub raw_line: Option<Box<String>>,
 

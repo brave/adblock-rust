@@ -6,28 +6,35 @@
 // 2. cargo fmt
 namespace fb;
 
-table NetworkFilter {
-  mask: uint32;  // NetworkFilterMask (network.rs)
-
+table NetworkFilterExtras {
   // These arrays contain sorted (ascending) indices in the |unique_domains_hashes|
   // instead of the hashes themselves. This approach saves memory, as there
   // typically aren’t many unique hashes
   opt_domains: [uint32];
   opt_not_domains: [uint32];
 
-  patterns: [string];
-  modifier_option: string;
-  hostname: string;
-
-  tag: string;
-
+  any_of_pattern: [string]; // FilterPart::AnyOf
   raw_line: string;
+  modifier_option: string;
+  tag: string;
+}
+
+struct NetworkFilter {
+  mask: uint32;  // NetworkFilterMask (network.rs)
+  hostname_idx: uint32;
+  // 0 = FilterPart::Empty,
+  // >0 = FilterPart::Simple,
+  // >= strings.len() = FilterPart::AnyOf, see any_of_pattern
+  single_pattern_idx: uint32;
+  extra_idx: uint32; // =0 if None, or filter_extras[extra_idx]
 }
 
 table NetworkFilterList {
   filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
   unique_domains_hashes: [uint64] (required);
+  strings: [string] (required); // to store something_idx. Indexes started with 256
+  filter_extras: [NetworkFilterExtras] (required);
 }
 
 root_type NetworkFilterList;

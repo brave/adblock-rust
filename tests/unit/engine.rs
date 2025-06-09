@@ -183,7 +183,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
         let data = engine.serialize().unwrap();
-        assert_eq!(hash(&data), 867372640370260034, "{}", HASH_MISSMATCH_MSG);
+        assert_eq!(hash(&data), 14246611181847233503, "{}", HASH_MISSMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
 
@@ -192,7 +192,7 @@ mod tests {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().unwrap();
-        assert_eq!(hash(&data), 13055424859571526788, "{}", HASH_MISSMATCH_MSG);
+        assert_eq!(hash(&data), 12555985342100188815, "{}", HASH_MISSMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
 
@@ -219,7 +219,7 @@ mod tests {
         let expected_hash = if cfg!(feature = "css-validation") {
             11273622377918966036
         } else {
-            3151397840865371565
+            13218605498428346351
         };
 
         assert_eq!(hash(&data), expected_hash, "{}", HASH_MISSMATCH_MSG);

@@ -2,7 +2,7 @@ use std::{collections::HashMap, collections::HashSet, fmt};
 
 use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
-use crate::filters::flat_filter_map::FlatFilterMap;
+use crate::filters::flat_filter_map::FlatStructFilterMap;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
@@ -101,9 +101,9 @@ impl NetworkFilterList {
         })
     }
 
-    pub fn get_filter_map(&self) -> FlatFilterMap<ShortHash, fb::NetworkFilter> {
+    pub fn get_filter_map(&self) -> FlatStructFilterMap<ShortHash, fb::NetworkFilter> {
         let filters_list = self.memory.filter_list();
-        FlatFilterMap::new(
+        FlatStructFilterMap::new(
             fb_vector_to_slice(filters_list.filter_map_index()),
             filters_list.filter_map_values(),
         )

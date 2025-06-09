@@ -1,4 +1,6 @@
-use adblock::filters::network::{NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable};
+use adblock::filters::network::{
+    FilterPart, NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable,
+};
 use adblock::regex_manager::RegexManager;
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
@@ -150,7 +152,7 @@ fn check_engine_matching() {
 }
 
 #[test]
-#[cfg(not(debug_assertions))] // This test is too slow to run in debug mode
+// #[cfg(not(debug_assertions))] // This test is too slow to run in debug mode
 fn check_rule_matching_browserlike() {
     #[path = "../tests/test_utils.rs"]
     mod test_utils;
@@ -182,24 +184,132 @@ fn check_rule_matching_browserlike() {
             .collect()
     }
 
-    fn bench_rule_matching_browserlike(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) {
-        let mut matches = 0;
-        let mut passes = 0;
+    fn bench_rule_matching_browserlike(
+        engine: &Engine,
+        requests: &[TestRequest],
+        rules: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> (u32, u32, f64, f64, f64, f64, f64, f64) {
+        use adblock::filters::network::NetworkFilter;
+        use adblock::lists::ParseOptions;
+
+        let mut matches_count = 0u32;
+        let mut passes_count = 0u32;
+
         for r in requests {
             let req: Request = r.into();
             if engine.check_network_request(&req).matched {
-                matches += 1;
+                matches_count += 1;
             } else {
-                passes += 1;
+                passes_count += 1;
             }
         }
-        (matches, passes)
+
+        let mut has_tag_count = 0usize;
+        let mut has_hostname_count = 0usize;
+        let mut has_modifier_option_count = 0usize;
+        let mut patterns_len_gt_one_count = 0usize;
+        let mut opt_domains_gt_zero_count = 0usize;
+        // let mut total_string_length = 0usize;
+        let mut total_filters = 0f64;
+
+        let opts = ParseOptions::default();
+        for rule in rules {
+            if let Ok(filter) = NetworkFilter::parse(rule.as_ref(), true, opts) {
+                if filter.hostname.is_none() {
+                    continue;
+                }
+                total_filters += 1.0;
+                // total_string_length += rule.len();
+
+                if filter.tag.is_some() {
+                    has_tag_count += 1;
+                }
+                if filter.hostname.is_some() {
+                    has_hostname_count += 1;
+                }
+                if filter.modifier_option.is_some() {
+                    has_modifier_option_count += 1;
+                }
+                match filter.filter {
+                    FilterPart::Empty => {}
+                    FilterPart::Simple(s) => {
+                      patterns_len_gt_one_count += 1;
+                    }
+                    FilterPart::AnyOf(s) => {
+                        patterns_len_gt_one_count += 1;
+                    }
+                }
+
+                if filter.opt_domains.unwrap_or_default().len()
+                    + filter.opt_not_domains.unwrap_or_default().len()
+                    > 0
+                {
+                    opt_domains_gt_zero_count += 1;
+                }
+            }
+        }
+
+        let tag_percentage = if total_filters > 0.0 {
+            (has_tag_count as f64 / total_filters) * 100.0
+        } else {
+            0.0
+        };
+        let hostname_percentage = if total_filters > 0.0 {
+            (has_hostname_count as f64 / total_filters) * 100.0
+        } else {
+            0.0
+        };
+        let modifier_option_percentage = if total_filters > 0.0 {
+            (has_modifier_option_count as f64 / total_filters) * 100.0
+        } else {
+            0.0
+        };
+        let patterns_gt_one_percentage = if total_filters > 0.0 {
+            (patterns_len_gt_one_count as f64 / total_filters) * 100.0
+        } else {
+            0.0
+        };
+        let opt_domains_gt_zero_percentage = if total_filters > 0.0 {
+            (opt_domains_gt_zero_count as f64 / total_filters) * 100.0
+        } else {
+            0.0
+        };
+
+        println!("total_filters: {}", total_filters);
+
+        (
+            matches_count,
+            passes_count,
+            tag_percentage,
+            hostname_percentage,
+            modifier_option_percentage,
+            patterns_gt_one_percentage,
+            opt_domains_gt_zero_percentage,
+            total_filters,
+        )
     }
 
     let requests = load_requests();
     let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+    let rules2 = rules_from_lists(&["data/brave/brave-main-list.txt"]);
     let engine = Engine::from_rules(rules, Default::default());
-    let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
+    let (
+        blocked,
+        passes,
+        tag_pct,
+        hostname_pct,
+        modifier_opt_pct,
+        patterns_pct,
+        opt_domains_pct,
+        total_filters,
+    ) = bench_rule_matching_browserlike(&engine, &requests, rules2);
+    println!("tag_pct: {}", tag_pct);
+    println!("hostname_pct: {}", hostname_pct);
+    println!("modifier_opt_pct: {}", modifier_opt_pct);
+    println!("patterns_pct: {}", patterns_pct);
+    println!("opt_domains_pct: {}", opt_domains_pct);
+    println!("total_filters: {}", total_filters);
+
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";
     assert_eq!((blocked, passes), (103973, 138972), "{}", msg);
