@@ -167,9 +167,7 @@ impl Optimization for UnionDomainGroup {
         if !domains.is_empty() {
             let mut domains = domains.into_iter().cloned().collect::<Vec<_>>();
             domains.sort_unstable();
-            let opt_domains_union = Some(domains.iter().fold(0, |acc, x| acc | x));
             filter.opt_domains = Some(domains);
-            filter.opt_domains_union = opt_domains_union;
         }
         if !not_domains.is_empty() {
             let mut domains = not_domains.into_iter().cloned().collect::<Vec<_>>();

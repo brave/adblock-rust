@@ -71,14 +71,13 @@ pub struct Blocker {
     pub(crate) importants: NetworkFilterList,
     pub(crate) redirects: NetworkFilterList,
     pub(crate) removeparam: NetworkFilterList,
-    pub(crate) filters_tagged: NetworkFilterList,
     pub(crate) filters: NetworkFilterList,
     pub(crate) generic_hide: NetworkFilterList,
 
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
     pub(crate) tags_enabled: HashSet<String>,
-    pub(crate) tagged_filters_all: Vec<NetworkFilter>,
+    pub(crate) tagged_filters_all: NetworkFilterList,
 
     pub(crate) enable_optimizations: bool,
 
@@ -144,7 +143,7 @@ impl Blocker {
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
-            self.filters_tagged
+            self.tagged_filters_all
                 .check(request, &self.tags_enabled, &mut regex_manager)
                 .or_else(|| self.filters.check(request, &NO_TAGS, &mut regex_manager))
         } else {
@@ -459,8 +458,6 @@ impl Blocker {
             }
         }
 
-        tagged_filters_all.shrink_to_fit();
-
         Self {
             csp: NetworkFilterList::new(csp, options.enable_optimizations),
             exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
@@ -469,12 +466,14 @@ impl Blocker {
             // Don't optimize removeparam, since it can fuse filters without respecting distinct
             // queryparam values
             removeparam: NetworkFilterList::new(removeparam, false),
-            filters_tagged: NetworkFilterList::new(Vec::new(), options.enable_optimizations),
             filters: NetworkFilterList::new(filters, options.enable_optimizations),
             generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
             // Tags special case for enabling/disabling them dynamically
             tags_enabled: HashSet::new(),
-            tagged_filters_all,
+            tagged_filters_all: NetworkFilterList::new(
+                tagged_filters_all,
+                options.enable_optimizations,
+            ),
             // Options
             enable_optimizations: options.enable_optimizations,
             regex_manager: Default::default(),
@@ -508,13 +507,6 @@ impl Blocker {
 
     fn tags_with_set(&mut self, tags_enabled: HashSet<String>) {
         self.tags_enabled = tags_enabled;
-        let filters: Vec<NetworkFilter> = self
-            .tagged_filters_all
-            .iter()
-            .filter(|n| n.tag.is_some() && self.tags_enabled.contains(n.tag.as_ref().unwrap()))
-            .cloned()
-            .collect();
-        self.filters_tagged = NetworkFilterList::new(filters, self.enable_optimizations);
     }
 
     pub fn tags_enabled(&self) -> Vec<String> {

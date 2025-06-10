@@ -196,8 +196,6 @@ struct NetworkFilterSerializeFmt<'a> {
     tag: &'a Option<String>,
     raw_line: Option<String>,
     id: &'a crate::utils::Hash,
-    opt_domains_union: &'a Option<crate::utils::Hash>,
-    opt_not_domains_union: &'a Option<crate::utils::Hash>,
 }
 
 /// Generic over `Borrow<NetworkFilter>` because `tagged_filters_all` requires `&'a NetworkFilter`
@@ -228,8 +226,6 @@ where
             tag: &v.tag,
             raw_line: v.raw_line.as_ref().map(|raw| *raw.clone()),
             id: &v.id,
-            opt_domains_union: &v.opt_domains_union,
-            opt_not_domains_union: &v.opt_not_domains_union,
         }
     }
 }
@@ -252,17 +248,6 @@ where
     storage_list.serialize(s)
 }
 
-/// Forces a `NetworkFilter` slice to be serialized by converting to
-/// an intermediate representation that is constructed with `NetworkFilterFmt` instead.
-fn serialize_storage_network_filter_vec<S>(vec: &[NetworkFilter], s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let storage_vec: Vec<_> = vec.iter().map(NetworkFilterSerializeFmt::from).collect();
-
-    storage_vec.serialize(s)
-}
-
 /// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
 /// serialization.
 #[derive(Serialize)]
@@ -276,14 +261,12 @@ pub(crate) struct SerializeFormat<'a> {
     #[serde(serialize_with = "serialize_network_filter_list")]
     redirects: &'a NetworkFilterList,
     #[serde(serialize_with = "serialize_network_filter_list")]
-    filters_tagged: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_network_filter_list")]
     filters: &'a NetworkFilterList,
     #[serde(serialize_with = "serialize_network_filter_list")]
     generic_hide: &'a NetworkFilterList,
 
-    #[serde(serialize_with = "serialize_storage_network_filter_vec")]
-    tagged_filters_all: &'a Vec<NetworkFilter>,
+    #[serde(serialize_with = "serialize_network_filter_list")]
+    tagged_filters_all: &'a NetworkFilterList,
 
     enable_optimizations: bool,
 
@@ -320,42 +303,6 @@ impl SerializeFormat<'_> {
     }
 }
 
-/// `_bug` is no longer used, and is cleaned up from future format versions.
-#[derive(Debug, Clone, Deserialize)]
-pub(crate) struct NetworkFilterDeserializeFmt {
-    pub mask: crate::filters::network::NetworkFilterMask,
-    pub filter: crate::filters::network::FilterPart,
-    pub opt_domains: Option<Vec<crate::utils::Hash>>,
-    pub opt_not_domains: Option<Vec<crate::utils::Hash>>,
-    pub redirect: Option<String>,
-    pub hostname: Option<String>,
-    pub csp: Option<String>,
-    _bug: Option<u32>,
-    pub tag: Option<String>,
-    pub raw_line: Option<String>,
-    pub id: crate::utils::Hash,
-    pub opt_domains_union: Option<crate::utils::Hash>,
-    pub opt_not_domains_union: Option<crate::utils::Hash>,
-}
-
-impl From<NetworkFilterDeserializeFmt> for NetworkFilter {
-    fn from(v: NetworkFilterDeserializeFmt) -> Self {
-        Self {
-            mask: v.mask,
-            filter: v.filter,
-            opt_domains: v.opt_domains,
-            opt_not_domains: v.opt_not_domains,
-            modifier_option: v.redirect.or(v.csp),
-            hostname: v.hostname,
-            tag: v.tag,
-            raw_line: v.raw_line.map(Box::new),
-            id: v.id,
-            opt_domains_union: v.opt_domains_union,
-            opt_not_domains_union: v.opt_not_domains_union,
-        }
-    }
-}
-
 #[derive(Debug, Deserialize, Default)]
 pub(crate) struct NetworkFilterListDeserializeFmt {
     pub flatbuffer_memory: Vec<u8>,
@@ -379,11 +326,10 @@ pub(crate) struct DeserializeFormat {
     exceptions: NetworkFilterListDeserializeFmt,
     importants: NetworkFilterListDeserializeFmt,
     redirects: NetworkFilterListDeserializeFmt,
-    filters_tagged: NetworkFilterListDeserializeFmt,
     filters: NetworkFilterListDeserializeFmt,
     generic_hide: NetworkFilterListDeserializeFmt,
 
-    tagged_filters_all: Vec<NetworkFilterDeserializeFmt>,
+    tagged_filters_all: NetworkFilterListDeserializeFmt,
 
     enable_optimizations: bool,
 
@@ -422,7 +368,6 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
             exceptions: &blocker.exceptions,
             importants: &blocker.importants,
             redirects: &blocker.redirects,
-            filters_tagged: &blocker.filters_tagged,
             filters: &blocker.filters,
             generic_hide: &blocker.generic_hide,
 
@@ -465,12 +410,11 @@ impl TryFrom<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
                 importants: v.importants.try_into()?,
                 redirects: v.redirects.try_into()?,
                 removeparam: NetworkFilterList::default(),
-                filters_tagged: v.filters_tagged.try_into()?,
                 filters: v.filters.try_into()?,
                 generic_hide: v.generic_hide.try_into()?,
 
                 tags_enabled: Default::default(),
-                tagged_filters_all: v.tagged_filters_all.into_iter().map(|f| f.into()).collect(),
+                tagged_filters_all: v.tagged_filters_all.try_into()?,
 
                 enable_optimizations: v.enable_optimizations,
                 regex_manager: Default::default(),
