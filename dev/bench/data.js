@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749508482369,
+  "lastUpdate": 1749541840114,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1642,6 +1642,84 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial/max",
             "value": 72875340,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604603,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68144,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "33cdf695a211acd413a473a64c016f5251c3fb78",
+          "message": "Store tagged filters into the flatbuffer (#481)",
+          "timestamp": "2025-06-10T11:46:18+04:00",
+          "tree_id": "2ee206e403013f2a5acaf4438342ca7c9e7c1e18",
+          "url": "https://github.com/brave/adblock-rust/commit/33cdf695a211acd413a473a64c016f5251c3fb78"
+        },
+        "date": 1749541838747,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2096370484,
+            "range": "± 26398808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 925077,
+            "range": "± 4897",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 145840353,
+            "range": "± 671254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 60781936,
+            "range": "± 516249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 65242636,
             "range": "± 3",
             "unit": "ns/iter"
           },
