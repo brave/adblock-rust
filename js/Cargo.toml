@@ -2,7 +2,7 @@
 name = "adblock-rs"
 version = "0.9.5"
 authors = ["Anton Lazarev <alazarev@brave.com>", "Andrius Aucinas"]
-edition = "2018"
+edition = "2021"
 license = "MPL-2.0"
 exclude = ["artifacts.json", "index.node"]
 

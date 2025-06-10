@@ -111,7 +111,7 @@ large-enum-variant = "allow"
 search-is-some = "allow"
 
 [workspace]
-members = ["js"]
+members = ["js", "fuzz"]
 
 [workspace.dependencies]
 serde = { version = "1.0.219", features = ["derive", "rc"] }

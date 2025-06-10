@@ -3,20 +3,14 @@ name = "adblock-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2018"
+edition = "2021"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-
-[dependencies.adblock]
-path = ".."
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
+adblock = { path = ".." }
 
 [[bin]]
 name = "parse_filter"
