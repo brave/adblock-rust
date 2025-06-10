@@ -50,7 +50,7 @@ impl NetworkFilterMaskHelper for CheckResult {
 }
 
 #[derive(Debug, Clone)]
-pub enum FlatBufferParsingError {
+pub enum NetworkFilterListParsingError {
     InvalidFlatbuffer(flatbuffers::InvalidFlatbuffer),
     UniqueDomainsOutOfBounds(usize),
 }
@@ -76,16 +76,16 @@ impl NetworkFilterList {
     /// Create a new [NetworkFilterList] from raw memory (includes verification).
     pub(crate) fn try_from_unverified_memory(
         flatbuffer_memory: Vec<u8>,
-    ) -> Result<NetworkFilterList, FlatBufferParsingError> {
+    ) -> Result<NetworkFilterList, NetworkFilterListParsingError> {
         let memory = VerifiedFlatFilterListMemory::from_raw(flatbuffer_memory)
-            .map_err(FlatBufferParsingError::InvalidFlatbuffer)?;
+            .map_err(NetworkFilterListParsingError::InvalidFlatbuffer)?;
 
         Self::try_from_verified_memory(memory)
     }
 
     pub(crate) fn try_from_verified_memory(
         memory: VerifiedFlatFilterListMemory,
-    ) -> Result<NetworkFilterList, FlatBufferParsingError> {
+    ) -> Result<NetworkFilterList, NetworkFilterListParsingError> {
         let root = memory.filter_list();
 
         // Reconstruct the unique_domains_hashes_map from the flatbuffer data
@@ -96,7 +96,7 @@ impl NetworkFilterList {
             unique_domains_hashes_map.insert(
                 hash,
                 u32::try_from(index)
-                    .map_err(|_| FlatBufferParsingError::UniqueDomainsOutOfBounds(index))?,
+                    .map_err(|_| NetworkFilterListParsingError::UniqueDomainsOutOfBounds(index))?,
             );
         }
 
