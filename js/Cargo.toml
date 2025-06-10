@@ -10,8 +10,8 @@ exclude = ["artifacts.json", "index.node"]
 crate-type = ["cdylib"]
 
 [dependencies]
-serde =  { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
 adblock = { path = "../", features = ["css-validation", "content-blocking", "resource-assembler"] }
 neon = { version = "^0.10.1", default-features = false, features = ["napi-1"] }
 
