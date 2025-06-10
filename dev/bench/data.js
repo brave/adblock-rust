@@ -48,12 +48,6 @@ window.BENCHMARK_DATA = {
             "value": 41409969,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44005995,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -100,12 +94,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44005995,
             "range": "± 3",
             "unit": "ns/iter"
           }
@@ -156,12 +144,6 @@ window.BENCHMARK_DATA = {
             "value": 41409969,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44005995,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -208,12 +190,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44005995,
             "range": "± 3",
             "unit": "ns/iter"
           }
@@ -264,12 +240,6 @@ window.BENCHMARK_DATA = {
             "value": 41409969,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44005995,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -316,12 +286,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44005995,
             "range": "± 3",
             "unit": "ns/iter"
           }
@@ -372,12 +336,6 @@ window.BENCHMARK_DATA = {
             "value": 41408849,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44004875,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -424,12 +382,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44004875,
             "range": "± 3",
             "unit": "ns/iter"
           }
@@ -480,12 +432,6 @@ window.BENCHMARK_DATA = {
             "value": 41408849,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44004875,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -532,12 +478,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44004875,
             "range": "± 3",
             "unit": "ns/iter"
           }
@@ -588,12 +528,6 @@ window.BENCHMARK_DATA = {
             "value": 41408849,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44004875,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -640,12 +574,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44004875,
             "range": "± 3",
             "unit": "ns/iter"
           }
@@ -696,12 +624,6 @@ window.BENCHMARK_DATA = {
             "value": 41762172,
             "range": "± 3",
             "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 44355700,
-            "range": "± 3",
-            "unit": "ns/iter"
           }
         ]
       },
@@ -748,12 +670,6 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage/brave-list-after-1000-requests",
-            "value": 24141128,
             "range": "± 3",
             "unit": "ns/iter"
           }
