@@ -22,6 +22,7 @@ pub(crate) const TOKENS_BUFFER_SIZE: usize = 200;
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
 static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
+#[non_exhaustive]
 #[derive(Debug, Error, PartialEq, Clone)]
 pub enum NetworkFilterError {
     #[error("failed to parse filter")]
