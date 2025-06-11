@@ -59,16 +59,13 @@ mod tests {
         for name in expected_resource_names {
             dbg!(&name);
             assert!(
-                resources
-                    .iter()
-                    .find(|resource| {
-                        if let ResourceType::Mime(_) = resource.kind {
-                            resource.name == name
-                        } else {
-                            false
-                        }
-                    })
-                    .is_some(),
+                resources.iter().any(|resource| {
+                    if let ResourceType::Mime(_) = resource.kind {
+                        resource.name == name
+                    } else {
+                        false
+                    }
+                }),
                 "{:?}",
                 name
             );
@@ -152,18 +149,15 @@ mod tests {
 
         for name in expected_resource_names {
             assert!(
-                resources
-                    .iter()
-                    .find(|resource| {
-                        match resource.kind {
-                            ResourceType::Template
-                            | ResourceType::Mime(MimeType::ApplicationJavascript) => {
-                                resource.name == name
-                            }
-                            _ => false,
+                resources.iter().any(|resource| {
+                    match resource.kind {
+                        ResourceType::Template
+                        | ResourceType::Mime(MimeType::ApplicationJavascript) => {
+                            resource.name == name
                         }
-                    })
-                    .is_some(),
+                        _ => false,
+                    }
+                }),
                 "failed to find {}",
                 name
             );
@@ -251,18 +245,15 @@ mod tests {
 
         for name in expected_resource_names {
             assert!(
-                resources
-                    .iter()
-                    .find(|resource| {
-                        match resource.kind {
-                            ResourceType::Template
-                            | ResourceType::Mime(MimeType::ApplicationJavascript) => {
-                                resource.name == name
-                            }
-                            _ => false,
+                resources.iter().any(|resource| {
+                    match resource.kind {
+                        ResourceType::Template
+                        | ResourceType::Mime(MimeType::ApplicationJavascript) => {
+                            resource.name == name
                         }
-                    })
-                    .is_some(),
+                        _ => false,
+                    }
+                }),
                 "failed to find {}",
                 name
             );

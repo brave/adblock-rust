@@ -260,7 +260,7 @@ pub enum CbRuleEquivalent {
     /// `Document`, and no load type is specified, then the rule should be split into two content
     /// blocking rules: the first has all original resource types except `Document`, and the second
     /// only specifies `Document` with a third-party load type.
-    SplitDocument(CbRule, CbRule),
+    SplitDocument(CbRule, Box<CbRule>),
 }
 
 impl IntoIterator for CbRuleEquivalent {
@@ -274,7 +274,7 @@ impl IntoIterator for CbRuleEquivalent {
                 index: 0,
             },
             Self::SplitDocument(r1, r2) => CbRuleEquivalentIterator {
-                rules: [Some(r1), Some(r2)],
+                rules: [Some(r1), Some(*r2)],
                 index: 0,
             },
         }
@@ -572,7 +572,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                         ..single_rule
                     };
 
-                    return Ok(Self::SplitDocument(non_doc_rule, just_doc_rule));
+                    return Ok(Self::SplitDocument(non_doc_rule, Box::new(just_doc_rule)));
                 }
             }
 

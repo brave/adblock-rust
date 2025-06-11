@@ -104,11 +104,6 @@ resource-assembler = []
 
 [lints.clippy]
 len_zero = "allow"
-# Temporary disabled until the code isn't fixed:
-sliced-string-as-bytes = "allow"
-or-then-unwrap = "allow"
-large-enum-variant = "allow"
-search-is-some = "allow"
 
 [workspace]
 members = ["js", "fuzz"]
