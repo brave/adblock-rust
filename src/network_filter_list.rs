@@ -1,3 +1,5 @@
+//! Holds the implementation of [NetworkFilterList] and related functionality.
+
 use std::{collections::HashMap, collections::HashSet, fmt};
 
 use crate::filters::fb_network::flat::fb;
@@ -12,6 +14,8 @@ use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, to_short_hash, Hash, ShortHash};
 
+/// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
+/// [NetworkFilterList] for a given request.
 pub struct CheckResult {
     pub filter_mask: NetworkFilterMask,
     pub modifier_option: Option<String>,
@@ -46,11 +50,12 @@ impl NetworkFilterMaskHelper for CheckResult {
 }
 
 #[derive(Debug, Clone)]
-pub enum FlatBufferParsingError {
+pub enum NetworkFilterListParsingError {
     InvalidFlatbuffer(flatbuffers::InvalidFlatbuffer),
     UniqueDomainsOutOfBounds(usize),
 }
 
+/// Internal structure to keep track of a collection of network filters.
 pub(crate) struct NetworkFilterList {
     pub(crate) memory: VerifiedFlatFilterListMemory,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
@@ -68,19 +73,19 @@ impl Default for NetworkFilterList {
 }
 
 impl NetworkFilterList {
-    /// Create a new NetworkFilterList from raw memory (includes verification).
+    /// Create a new [NetworkFilterList] from raw memory (includes verification).
     pub(crate) fn try_from_unverified_memory(
         flatbuffer_memory: Vec<u8>,
-    ) -> Result<NetworkFilterList, FlatBufferParsingError> {
+    ) -> Result<NetworkFilterList, NetworkFilterListParsingError> {
         let memory = VerifiedFlatFilterListMemory::from_raw(flatbuffer_memory)
-            .map_err(FlatBufferParsingError::InvalidFlatbuffer)?;
+            .map_err(NetworkFilterListParsingError::InvalidFlatbuffer)?;
 
         Self::try_from_verified_memory(memory)
     }
 
     pub(crate) fn try_from_verified_memory(
         memory: VerifiedFlatFilterListMemory,
-    ) -> Result<NetworkFilterList, FlatBufferParsingError> {
+    ) -> Result<NetworkFilterList, NetworkFilterListParsingError> {
         let root = memory.filter_list();
 
         // Reconstruct the unique_domains_hashes_map from the flatbuffer data
@@ -91,7 +96,7 @@ impl NetworkFilterList {
             unique_domains_hashes_map.insert(
                 hash,
                 u32::try_from(index)
-                    .map_err(|_| FlatBufferParsingError::UniqueDomainsOutOfBounds(index))?,
+                    .map_err(|_| NetworkFilterListParsingError::UniqueDomainsOutOfBounds(index))?,
             );
         }
 
@@ -185,6 +190,7 @@ impl NetworkFilterList {
 
         Self::try_from_verified_memory(memory).unwrap_or_default()
     }
+
     /// Returns the first found filter, if any, that matches the given request. The backing storage
     /// has a non-deterministic order, so this should be used for any category of filters where a
     /// match from each would be functionally equivalent. For example, if two different exception

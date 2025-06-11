@@ -1175,56 +1175,6 @@ mod parse_tests {
     }
 
     #[test]
-    fn binary_serialization_works() {
-        use rmp_serde::{Deserializer, Serializer};
-        {
-            let filter =
-                NetworkFilter::parse("||foo.com/bar/baz$important", true, Default::default())
-                    .unwrap();
-
-            let mut encoded = Vec::new();
-            filter
-                .serialize(&mut Serializer::new(&mut encoded))
-                .unwrap();
-            let mut de = Deserializer::new(&encoded[..]);
-            let decoded: NetworkFilter = Deserialize::deserialize(&mut de).unwrap();
-
-            let mut defaults = default_network_filter_breakdown();
-            defaults.hostname = Some(String::from("foo.com"));
-            defaults.filter = Some(String::from("/bar/baz"));
-            defaults.is_plain = true;
-            defaults.is_hostname_anchor = true;
-            defaults.is_important = true;
-            defaults.is_left_anchor = true;
-            assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded))
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com*bar^", true, Default::default()).unwrap();
-            let mut defaults = default_network_filter_breakdown();
-            defaults.hostname = Some(String::from("foo.com"));
-            defaults.filter = Some(String::from("bar^"));
-            defaults.is_hostname_anchor = true;
-            defaults.is_regex = true;
-            defaults.is_plain = false;
-
-            let mut encoded = Vec::new();
-            filter
-                .serialize(&mut Serializer::new(&mut encoded))
-                .unwrap();
-            let mut de = Deserializer::new(&encoded[..]);
-            let decoded: NetworkFilter = Deserialize::deserialize(&mut de).unwrap();
-
-            assert_eq!(defaults, NetworkFilterBreakdown::from(&decoded));
-            assert!(RegexManager::default().matches(
-                decoded.mask,
-                decoded.filter.iter(),
-                (&decoded as *const NetworkFilter) as u64,
-                "bar/"
-            ));
-        }
-    }
-
-    #[test]
     fn parse_empty_host_anchor_exception() {
         let filter_parsed =
             NetworkFilter::parse("@@||$domain=auth.wi-fi.ru", true, Default::default());

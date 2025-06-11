@@ -1,3 +1,5 @@
+//! Holds the implementation of [FlatFilterMap].
+
 use flatbuffers::{Follow, ForwardsUOffset, Vector};
 use std::cmp::PartialOrd;
 
@@ -8,7 +10,7 @@ pub(crate) struct FlatFilterMap<'a, I: PartialOrd + Copy, V> {
     values: Vector<'a, ForwardsUOffset<V>>,
 }
 
-/// Iterator over NetworkFilter objects from FlatFilterMap
+/// Iterator over NetworkFilter objects from [FlatFilterMap]
 pub(crate) struct FlatFilterMapIterator<'a, I: PartialOrd + Copy, V> {
     current_index: usize,
     key: I,
@@ -39,9 +41,9 @@ where
 }
 
 impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
-    // Construct FlatFilterMap from two vectors:
-    // - index: sorted array of keys
-    // - values: array of values, same length as index
+    /// Construct [FlatFilterMap] from two vectors:
+    /// - index: sorted array of keys
+    /// - values: array of values, same length as index
     pub fn new(index: &'a [I], values: Vector<'a, ForwardsUOffset<V>>) -> Self {
         // Sanity check the size are equal. Note: next() will handle |values| correctly.
         debug_assert!(index.len() == values.len());

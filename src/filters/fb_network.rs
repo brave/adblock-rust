@@ -1,3 +1,5 @@
+//! Flatbuffer-compatible versions of [NetworkFilter] and related functionality.
+
 use std::collections::HashMap;
 use std::vec;
 
@@ -18,6 +20,7 @@ use crate::utils::{Hash, ShortHash};
 pub mod flat;
 use flat::fb;
 
+/// Builder for [NetworkFilterList].
 pub(crate) struct FlatNetworkFiltersListBuilder<'a> {
     builder: flatbuffers::FlatBufferBuilder<'a>,
     filters: Vec<WIPOffset<fb::NetworkFilter<'a>>>,
@@ -155,6 +158,8 @@ impl FlatNetworkFiltersListBuilder<'_> {
         VerifiedFlatFilterListMemory::from_builder(&self.builder)
     }
 }
+
+/// A list of string parts that can be matched against a URL.
 pub(crate) struct FlatPatterns<'a> {
     patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
 }
@@ -177,6 +182,7 @@ impl<'a> FlatPatterns<'a> {
     }
 }
 
+/// Iterator over [FlatPatterns].
 pub(crate) struct FlatPatternsIterator<'a> {
     patterns: &'a FlatPatterns<'a>,
     len: usize,
@@ -206,6 +212,7 @@ impl ExactSizeIterator for FlatPatternsIterator<'_> {
     }
 }
 
+/// Internal implementation of [NetworkFilter] that is compatible with flatbuffers.
 pub(crate) struct FlatNetworkFilter<'a> {
     key: u64,
     owner: &'a NetworkFilterList,

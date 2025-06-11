@@ -173,17 +173,18 @@ mod tests {
         });
     }
 
-    const HASH_MISSMATCH_MSG: &str = r#"
-      Changed in the serialized format detected!
-      1. Update ADBLOCK_RUST_DAT_VERSION before updating the expectations
-      2. DON'T rely on an approach: it's backwards compatible with the old one
+    const HASH_MISMATCH_MSG: &str = r#"
+      A change has been detected in the serialized format! If the change is intentional:
+      1. Update ADBLOCK_RUST_DAT_VERSION before updating the expected hashes
+      2. DON'T rely on backwards compatibility with the old format
       Backwards compatibility isn't covered by the tests"#;
 
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
         let data = engine.serialize().unwrap();
-        assert_eq!(hash(&data), 5723845290597955159, "{}", HASH_MISSMATCH_MSG);
+        const EXPECTED_HASH: u64 = 5723845290597955159;
+        assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
 
@@ -192,7 +193,8 @@ mod tests {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().unwrap();
-        assert_eq!(hash(&data), 9626816743810307798, "{}", HASH_MISSMATCH_MSG);
+        const EXPECTED_HASH: u64 = 9626816743810307798;
+        assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
 
@@ -222,7 +224,7 @@ mod tests {
             6839468684492187294
         };
 
-        assert_eq!(hash(&data), expected_hash, "{}", HASH_MISSMATCH_MSG);
+        assert_eq!(hash(&data), expected_hash, "{}", HASH_MISMATCH_MSG);
 
         engine.deserialize(&data).unwrap();
     }
