@@ -6,13 +6,22 @@ use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FlatNetworkFilter, FlatNetworkFiltersListBuilder};
 use crate::filters::flat_filter_map::FlatFilterMap;
 use crate::filters::network::{
-    NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
+    NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable, TokenListType,
+    TOKENS_BUFFER_CAPACITY,
 };
 use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatFilterListMemory};
 use crate::optimizer;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, to_short_hash, Hash, ShortHash};
+
+/// Holds token data for all filters in a flat structure to minimize allocations
+struct FilterTokenData {
+    /// All tokens from all filters stored in a single flat vector
+    tokens: Vec<Hash>,
+    /// For each filter, stores (start_index, length, token_type) in the tokens vector
+    filter_ranges: Vec<(usize, usize, TokenListType)>,
+}
 
 /// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
 /// [NetworkFilterList] for a given request.
@@ -72,6 +81,76 @@ impl Default for NetworkFilterList {
     }
 }
 
+/// Extracts tokens from all filters into a flat structure
+fn extract_filter_tokens(filters: &[NetworkFilter]) -> FilterTokenData {
+    let mut tokens = Vec::new();
+    let mut filter_ranges = Vec::with_capacity(filters.len());
+    let mut temp_tokens = Vec::with_capacity(TOKENS_BUFFER_CAPACITY);
+
+    for filter in filters {
+        temp_tokens.clear();
+        let token_type = filter.get_tokens(&mut temp_tokens);
+
+        let start_index = tokens.len();
+        tokens.extend_from_slice(&temp_tokens);
+        let length = temp_tokens.len();
+
+        filter_ranges.push((start_index, length, token_type));
+    }
+
+    FilterTokenData {
+        tokens,
+        filter_ranges,
+    }
+}
+
+/// Builds a token frequency histogram from flat token data
+fn build_token_histogram(token_data: &FilterTokenData) -> (u32, HashMap<ShortHash, u32>) {
+    let mut tokens_histogram: HashMap<ShortHash, u32> = HashMap::new();
+    let mut total_number_of_tokens = 0u32;
+
+    for &(start_index, length, _) in &token_data.filter_ranges {
+        let filter_tokens = &token_data.tokens[start_index..start_index + length];
+        for &token in filter_tokens {
+            let short_token = to_short_hash(token);
+            *tokens_histogram.entry(short_token).or_insert(0) += 1;
+            total_number_of_tokens += 1;
+        }
+    }
+
+    // Add bad tokens with high frequency to discourage their use
+    for bad_token in ["http", "https", "www", "com"].iter() {
+        tokens_histogram.insert(to_short_hash(fast_hash(bad_token)), total_number_of_tokens);
+    }
+
+    (total_number_of_tokens, tokens_histogram)
+}
+
+/// Finds the best (least frequent) token from a group of tokens
+fn find_best_token(
+    filter_tokens: &[Hash],
+    tokens_histogram: &HashMap<ShortHash, u32>,
+    total_number_of_tokens: u32,
+) -> ShortHash {
+    let mut best_token: ShortHash = 0;
+    let mut min_count = total_number_of_tokens + 1;
+
+    for &token in filter_tokens {
+        let short_token = to_short_hash(token);
+        match tokens_histogram.get(&short_token) {
+            None => {
+                return short_token; // Can't get better than 0
+            }
+            Some(&count) if count < min_count => {
+                min_count = count;
+                best_token = short_token;
+            }
+            _ => {}
+        }
+    }
+    best_token
+}
+
 impl NetworkFilterList {
     /// Create a new [NetworkFilterList] from raw memory (includes verification).
     pub(crate) fn try_from_unverified_memory(
@@ -115,54 +194,54 @@ impl NetworkFilterList {
     }
 
     pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
-        // Compute tokens for all filters
-        let filter_tokens: Vec<_> = filters
-            .into_iter()
-            .map(|filter| {
-                let tokens = filter.get_tokens();
-                (filter, tokens)
-            })
-            .collect();
-        // compute the tokens' frequency histogram
-        let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
+        // Extract all tokens into a flat structure (single allocation)
+        let token_data = extract_filter_tokens(&filters);
+
+        // Build frequency histogram from flat token data
+        let (total_number_of_tokens, tokens_histogram) = build_token_histogram(&token_data);
 
         let mut flat_builder = FlatNetworkFiltersListBuilder::new();
         let mut filter_map = HashMap::<ShortHash, Vec<u32>>::new();
-
         let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
-        {
-            for (network_filter, multi_tokens) in filter_tokens {
-                let index = if !optimize
-                    || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
-                {
+
+        // Process each filter using the pre-computed token data
+        for (filter_index, network_filter) in filters.into_iter().enumerate() {
+            let index =
+                if !optimize || !optimizer::is_filter_optimizable_by_patterns(&network_filter) {
                     Some(flat_builder.add(&network_filter))
                 } else {
                     None
                 };
 
-                for tokens in multi_tokens {
-                    let mut best_token: ShortHash = 0;
-                    let mut min_count = total_number_of_tokens + 1;
-                    for token in tokens {
-                        let token = to_short_hash(token);
-                        match tokens_histogram.get(&token) {
-                            None => {
-                                min_count = 0;
-                                best_token = token
-                            }
-                            Some(&count) if count < min_count => {
-                                min_count = count;
-                                best_token = token
-                            }
-                            _ => {}
+            let (start_index, length, token_type) = {
+                let range = &token_data.filter_ranges[filter_index];
+                (range.0, range.1, range.2)
+            };
+            let filter_tokens = &token_data.tokens[start_index..start_index + length];
+
+            match token_type {
+                TokenListType::OptDomains => {
+                    // For domain-based tokens, each domain is a separate bucket (preserve original behavior)
+                    for &token in filter_tokens {
+                        let short_token = to_short_hash(token);
+                        if let Some(index) = index {
+                            insert_dup(&mut filter_map, short_token, index);
+                        } else {
+                            insert_dup(&mut optimizable, short_token, network_filter.clone());
                         }
                     }
+                }
+                TokenListType::AnyOf => {
+                    // Find the best token for this filter
+                    let best_token =
+                        find_best_token(filter_tokens, &tokens_histogram, total_number_of_tokens);
+
                     if let Some(index) = index {
                         insert_dup(&mut filter_map, best_token, index);
                     } else {
-                        insert_dup(&mut optimizable, best_token, network_filter.clone());
+                        insert_dup(&mut optimizable, best_token, network_filter);
                     }
-                } // tokens
+                }
             }
         }
 
@@ -287,25 +366,4 @@ pub(crate) fn insert_dup<K, V, H: std::hash::BuildHasher>(
         Ok(_pos) => (), // Can occur if the exact same rule is inserted twice. No reason to add anything.
         Err(slot) => entry.insert(slot, v),
     }
-}
-
-pub(crate) fn token_histogram<T>(
-    filter_tokens: &[(T, Vec<Vec<Hash>>)],
-) -> (u32, HashMap<ShortHash, u32>) {
-    let mut tokens_histogram: HashMap<ShortHash, u32> = HashMap::new();
-    let mut number_of_tokens = 0;
-    for (_, tokens) in filter_tokens.iter() {
-        for tg in tokens {
-            for t in tg {
-                *tokens_histogram.entry(to_short_hash(*t)).or_insert(0) += 1;
-                number_of_tokens += 1;
-            }
-        }
-    }
-
-    for bad_token in ["http", "https", "www", "com"].iter() {
-        tokens_histogram.insert(to_short_hash(fast_hash(bad_token)), number_of_tokens);
-    }
-
-    (number_of_tokens, tokens_histogram)
 }
