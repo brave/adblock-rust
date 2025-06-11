@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749541840114,
+  "lastUpdate": 1749663883307,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1625,6 +1625,84 @@ window.BENCHMARK_DATA = {
             "name": "blocker_new/brave-list-deserialize",
             "value": 60781936,
             "range": "± 516249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 65242636,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604603,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68144,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22821309+antonok-edm@users.noreply.github.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a70e4d8bd8b26f1230306d86dc7f785f3d25807",
+          "message": "Merge pull request #483 from brave/v0.10-cleanup\n\nv0.10 cleanup",
+          "timestamp": "2025-06-11T10:40:38-07:00",
+          "tree_id": "c3473d4001f92f24d8fec526f3909953290142f0",
+          "url": "https://github.com/brave/adblock-rust/commit/2a70e4d8bd8b26f1230306d86dc7f785f3d25807"
+        },
+        "date": 1749663882551,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2104555505,
+            "range": "± 4316709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 912098,
+            "range": "± 2459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 150377699,
+            "range": "± 701834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 60370703,
+            "range": "± 318164",
             "unit": "ns/iter"
           },
           {
