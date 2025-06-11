@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749667317981,
+  "lastUpdate": 1749669379208,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -1888,6 +1888,84 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-1000-requests/alloc-count",
             "value": 68128,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "distinct": true,
+          "id": "485ee0afea8f5338613ad3586e1b2e0992876297",
+          "message": "v0.10.0 - runtime memory improvements, changes to DAT compatibility\n\nAdded:\n- significant runtime memory improvements\n\nChanged:\n- `Engine::serialize_raw` has been renamed back to `Engine::serialize`,\n  following the previous removal of support for the legacy compressed\n  format in `v0.8.0`\n- DAT format version bumped (v1)\n- Updated to Rust 2021 edition\n\nRemoved:\n- Support for cross-version compatibility of the serialized binary\n  format. This format is now only intended as a cache optimization, to\n  avoid expensive re-parsing of the filter list text format. The format\n  may be unreadable across minor version bumps of adblock-rust; prepare\n  your code to re-parse from list text if necessary.",
+          "timestamp": "2025-06-11T11:45:49-07:00",
+          "tree_id": "6ae2e2f8c81e28023707426c5c6d7075134df3e6",
+          "url": "https://github.com/brave/adblock-rust/commit/485ee0afea8f5338613ad3586e1b2e0992876297"
+        },
+        "date": 1749669378375,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2118505170,
+            "range": "± 6366413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 912064,
+            "range": "± 6856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 141954278,
+            "range": "± 649106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 59787499,
+            "range": "± 787330",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 65242636,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604603,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68144,
             "range": "± 3",
             "unit": "ns/iter"
           }
