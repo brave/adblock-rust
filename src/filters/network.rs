@@ -17,7 +17,7 @@ use crate::regex_manager::RegexManager;
 use crate::request;
 use crate::utils::{self, Hash};
 
-pub(crate) const TOKENS_BUFFER_SIZE: usize = 200;
+pub(crate) const TOKENS_BUFFER_CAPACITY: usize = 200;
 
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
 static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
@@ -309,6 +309,12 @@ pub enum FilterPart {
     Empty,
     Simple(String),
     AnyOf(Vec<String>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TokenListType {
+    OptDomains,
+    AnyOf,
 }
 
 pub struct FilterPartIterator<'a> {
@@ -876,9 +882,7 @@ impl NetworkFilter {
         )
     }
 
-    pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
-        let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
-
+    pub fn get_tokens(&self, tokens: &mut Vec<Hash>) -> TokenListType {
         // If there is only one domain and no domain negation, we also use this
         // domain as a token.
         if self.opt_domains.is_some()
@@ -930,12 +934,8 @@ impl NetworkFilter {
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
         if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
-            self.opt_domains
-                .as_ref()
-                .unwrap_or(&vec![])
-                .iter()
-                .map(|&d| vec![d])
-                .collect()
+            tokens.extend_from_slice(self.opt_domains.as_ref().unwrap());
+            TokenListType::OptDomains
         } else {
             // Add optional token for protocol
             if self.for_http() && !self.for_https() {
@@ -944,7 +944,7 @@ impl NetworkFilter {
                 tokens.push(utils::fast_hash("https"));
             }
             tokens.shrink_to_fit();
-            vec![tokens]
+            TokenListType::AnyOf
         }
     }
 }
