@@ -194,25 +194,16 @@ impl NetworkFilterList {
     }
 
     pub fn new(filters: Vec<NetworkFilter>, optimize: bool) -> Self {
-        // Extract all tokens into a flat structure (single allocation)
+        // Stage 1: Extract all tokens into a flat structure (single allocation)
         let token_data = extract_filter_tokens(&filters);
 
-        // Build frequency histogram from flat token data
+        // Stage 2: Build frequency histogram from flat token data
         let (total_number_of_tokens, tokens_histogram) = build_token_histogram(&token_data);
 
-        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
-        let mut filter_map = HashMap::<ShortHash, Vec<u32>>::new();
-        let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
+                // Stage 3: Create a single vector of (filter_index, token) tuples
+        let mut filter_token_pairs = Vec::new();
 
-        // Process each filter using the pre-computed token data
-        for (filter_index, network_filter) in filters.into_iter().enumerate() {
-            let index =
-                if !optimize || !optimizer::is_filter_optimizable_by_patterns(&network_filter) {
-                    Some(flat_builder.add(&network_filter))
-                } else {
-                    None
-                };
-
+        for (filter_index, _) in filters.iter().enumerate() {
             let (start_index, length, token_type) = {
                 let range = &token_data.filter_ranges[filter_index];
                 (range.0, range.1, range.2)
@@ -221,50 +212,67 @@ impl NetworkFilterList {
 
             match token_type {
                 TokenListType::OptDomains => {
-                    // For domain-based tokens, each domain is a separate bucket (preserve original behavior)
+                    // For domain-based tokens, each domain is a separate bucket
                     for &token in filter_tokens {
                         let short_token = to_short_hash(token);
-                        if let Some(index) = index {
-                            insert_dup(&mut filter_map, short_token, index);
-                        } else {
-                            insert_dup(&mut optimizable, short_token, network_filter.clone());
-                        }
+                        filter_token_pairs.push((filter_index, short_token));
                     }
                 }
                 TokenListType::AnyOf => {
                     // Find the best token for this filter
                     let best_token =
                         find_best_token(filter_tokens, &tokens_histogram, total_number_of_tokens);
-
-                    if let Some(index) = index {
-                        insert_dup(&mut filter_map, best_token, index);
-                    } else {
-                        insert_dup(&mut optimizable, best_token, network_filter);
-                    }
+                    filter_token_pairs.push((filter_index, best_token));
                 }
             }
         }
 
-        if optimize {
-            // Sort the entries to ensure deterministic iteration order
-            let mut optimizable_entries: Vec<_> = optimizable.drain().collect();
-            optimizable_entries.sort_unstable_by_key(|(token, _)| *token);
+        // Stage 4: Sort by token to group filters by token
+        filter_token_pairs.sort_unstable_by_key(|(_, token)| *token);
 
-            for (token, v) in optimizable_entries {
-                let optimized = optimizer::optimize(v);
+        // Stage 5: Process filters - separate zero-token filters for optimization
+        let mut token_filter_indices: Vec<(ShortHash, usize)> = Vec::new();
+        let mut zero_token_indices: Vec<usize> = Vec::new();
 
-                for filter in optimized {
-                    let index = flat_builder.add(&filter);
-                    insert_dup(&mut filter_map, token, index);
-                }
+        for (filter_index, token) in filter_token_pairs.drain(..) {
+            if token != 0 {
+                // Stage 5a: Collect filters with good tokens (use index, no cloning)
+                token_filter_indices.push((token, filter_index));
+            } else if optimize && optimizer::is_filter_optimizable_by_patterns(&filters[filter_index]) {
+                // Stage 5b: Collect zero-token optimizable filter indices
+                zero_token_indices.push(filter_index);
+            } else {
+                // Stage 5c: Non-optimizable zero-token filters
+                token_filter_indices.push((0, filter_index));
             }
-        } else {
-            debug_assert!(
-                optimizable.is_empty(),
-                "Should be empty if optimization is off"
-            );
         }
 
+        // Stage 6: Process zero-token optimizable filters through optimizer (only clone here)
+        let mut optimized_filters = Vec::new();
+        if !zero_token_indices.is_empty() {
+            let zero_token_filters: Vec<NetworkFilter> = zero_token_indices.iter()
+                .map(|&idx| filters[idx].clone())
+                .collect();
+            optimized_filters = optimizer::optimize(zero_token_filters);
+        }
+
+                // Stage 7: Build final flatbuffer structure - create builder only at the end
+        let mut flat_builder = FlatNetworkFiltersListBuilder::new();
+        let mut filter_map = HashMap::<ShortHash, Vec<u32>>::new();
+
+        // Add all non-zero-token filters using indices (no cloning)
+        for (token, filter_index) in token_filter_indices.drain(..) {
+            let flat_index = flat_builder.add(&filters[filter_index]);
+            filter_map.entry(token).or_default().push(flat_index);
+        }
+
+        // Add optimized zero-token filters (these were cloned for optimization)
+        for filter in optimized_filters.drain(..) {
+            let flat_index = flat_builder.add(&filter);
+            filter_map.entry(0).or_default().push(flat_index);
+        }
+
+        // Stage 8: Finish building
         let memory = flat_builder.finish(filter_map);
 
         Self::try_from_verified_memory(memory).unwrap_or_default()
