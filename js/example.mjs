@@ -55,5 +55,5 @@ console.log(engine.check(
 ));
 
 // Serialize the engine to an ArrayBuffer
-const serializedArrayBuffer = engine.serializeRaw();
+const serializedArrayBuffer = engine.serialize();
 console.log(`Engine size: ${(serializedArrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB`);
