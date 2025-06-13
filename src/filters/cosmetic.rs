@@ -365,7 +365,7 @@ impl CosmeticFilter {
         if let Some(sharp_index) = find_char(b'#', line.as_bytes()) {
             let after_sharp_index = sharp_index + 1;
 
-            let second_sharp_index = match find_char(b'#', line[after_sharp_index..].as_bytes()) {
+            let second_sharp_index = match find_char(b'#', &line.as_bytes()[after_sharp_index..]) {
                 Some(i) => i + after_sharp_index,
                 None => return Err(CosmeticFilterError::UnsupportedSyntax),
             };
@@ -548,7 +548,7 @@ fn get_hashes_from_labels(hostname: &str, end: usize, start_of_domain: usize) ->
     }
     let mut dot_ptr = start_of_domain;
 
-    while let Some(dot_index) = find_char_reverse(b'.', hostname[..dot_ptr].as_bytes()) {
+    while let Some(dot_index) = find_char_reverse(b'.', &hostname.as_bytes()[..dot_ptr]) {
         dot_ptr = dot_index;
         hashes.push(crate::utils::fast_hash(&hostname[dot_ptr + 1..end]));
     }
