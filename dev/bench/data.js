@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749777384678,
+  "lastUpdate": 1749791211984,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -2044,6 +2044,84 @@ window.BENCHMARK_DATA = {
           {
             "name": "memory-usage/brave-list-1000-requests/alloc-count",
             "value": 68144,
+            "range": "± 3",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "distinct": true,
+          "id": "48ed2a47e24d8d97c74d6c33ed80cdb1aa11b9d5",
+          "message": "v0.10.1 - fix npm package build",
+          "timestamp": "2025-06-12T18:32:28-07:00",
+          "tree_id": "4666b3465a7a73c5cec6c5d42a829bfdbec62ca0",
+          "url": "https://github.com/brave/adblock-rust/commit/48ed2a47e24d8d97c74d6c33ed80cdb1aa11b9d5"
+        },
+        "date": 1749791211198,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2157767086,
+            "range": "± 24909909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 931452,
+            "range": "± 7051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 155504688,
+            "range": "± 2118425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 65648480,
+            "range": "± 1154781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 15931083,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 65242636,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1523457,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2604587,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 68112,
             "range": "± 3",
             "unit": "ns/iter"
           }
