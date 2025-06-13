@@ -1368,30 +1368,27 @@ mod legacy_rule_parsing_tests {
         }
     }
 
-    // number of expected EasyList cosmetic rules from old engine is 31144, but is incorrect as it skips a few particularly long rules that are nevertheless valid
-    // easyList = { 24478, 31144, 0, 5589 };
-    // not handling (and not including) filters with the following options:
-    // - $popup
-    // - $elemhide
-    // difference from original counts caused by not handling document/subdocument options and possibly miscounting on the blocker side.
-    // Printing all non-cosmetic, non-html, non-comment/-empty rules and ones with no unsupported options yields 29142 items
-    // This engine also handles 3 rules that old one does not
+    // The number of loaded rules differs from the text files due to:
+    // * not handling (and not including) filters with the following options:
+    //   - $popup
+    //   - $elemhide
+    // * not handling document/subdocument options;
+    // * the optimizer that merges multiple rules into one;
     const EASY_LIST: ListCounts = ListCounts {
-        filters: 35597, // 36259 - 662 exceptions
+        filters: 35043,
         cosmetic_filters: if cfg!(feature = "css-validation") {
-            23072
+            23668
         } else {
-            23080
+            23682
         },
-        exceptions: 662,
+        exceptions: 706,
         duplicates: 0,
     };
-    // easyPrivacy = { 11817, 0, 0, 1020 };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
     const EASY_PRIVACY: ListCounts = ListCounts {
-        filters: 52278, // 52998 - 720 exceptions
-        cosmetic_filters: 21,
-        exceptions: 720,
+        filters: 53029, // total - exceptions
+        cosmetic_filters: 28,
+        exceptions: 737,
         duplicates: 2,
     };
     // ublockUnbreak = { 4, 8, 0, 94 };
