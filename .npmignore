@@ -8,6 +8,7 @@ js/index.node
 *.code-workspace
 *.diff
 *.tgz
-fuzz/
+fuzz/**/*
+!fuzz/Cargo.toml
 tests/
 examples/
