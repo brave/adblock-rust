@@ -274,7 +274,7 @@ impl Blocker {
             // String indexing safety: indices come from `.len()` or `find_char` on individual ASCII
             // characters (1 byte each), some plus 1.
             let params_start = i + 1;
-            let hash_index = if let Some(j) = find_char(b'#', url[params_start..].as_bytes()) {
+            let hash_index = if let Some(j) = find_char(b'#', &url.as_bytes()[params_start..]) {
                 params_start + j
             } else {
                 url.len()
