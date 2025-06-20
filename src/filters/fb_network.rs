@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::filters::flat_builder::FlatBufferBuilder;
 use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable};
 use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatbufferMemory};
 
@@ -73,10 +74,19 @@ pub(crate) type SharedStateRef = std::rc::Rc<SharedState>;
 #[cfg(not(feature = "unsync-regex-caching"))]
 pub(crate) type SharedStateRef = std::rc::Arc<SharedState>;
 
-#[derive(Default)]
 pub(crate) struct SharedState {
     pub(crate) memory: VerifiedFlatbufferMemory,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
+}
+
+
+impl Default for SharedState {
+    fn default() -> Self {
+        Self {
+            memory: FlatBufferBuilder::make_flatbuffer(vec![], false),
+            unique_domains_hashes_map: HashMap::new(),
+        }
+    }
 }
 
 impl SharedState {

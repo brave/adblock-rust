@@ -66,7 +66,7 @@ impl Engine {
     pub fn new(_optimize: bool) -> Self {
         // TODO: remove _optimize?
 
-        let shared_state = SharedState::new(Default::default());
+        let shared_state = SharedStateRef::new(Default::default());
 
         Self {
             blocker: Blocker::from_shared_state(shared_state.clone()),
