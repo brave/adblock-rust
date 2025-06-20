@@ -27,7 +27,11 @@ table NetworkFilter {
 table NetworkFilterList {
   filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
+}
+
+table Engine {
+  lists: [NetworkFilterList] (required);
   unique_domains_hashes: [uint64] (required);
 }
 
-root_type NetworkFilterList;
+root_type Engine;

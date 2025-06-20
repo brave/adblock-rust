@@ -446,7 +446,6 @@ pub mod fb {
     impl<'a> NetworkFilterList<'a> {
         pub const VT_FILTER_MAP_INDEX: flatbuffers::VOffsetT = 4;
         pub const VT_FILTER_MAP_VALUES: flatbuffers::VOffsetT = 6;
-        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -463,9 +462,6 @@ pub mod fb {
             args: &'args NetworkFilterListArgs<'args>,
         ) -> flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
             let mut builder = NetworkFilterListBuilder::new(_fbb);
-            if let Some(x) = args.unique_domains_hashes {
-                builder.add_unique_domains_hashes(x);
-            }
             if let Some(x) = args.filter_map_values {
                 builder.add_filter_map_values(x);
             }
@@ -484,14 +480,9 @@ pub mod fb {
                 let x = self.filter_map_values();
                 x.iter().map(|t| t.unpack()).collect()
             };
-            let unique_domains_hashes = {
-                let x = self.unique_domains_hashes();
-                x.into_iter().collect()
-            };
             NetworkFilterListT {
                 filter_map_index,
                 filter_map_values,
-                unique_domains_hashes,
             }
         }
 
@@ -524,20 +515,6 @@ pub mod fb {
                     .unwrap()
             }
         }
-        #[inline]
-        pub fn unique_domains_hashes(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
     }
 
     impl flatbuffers::Verifiable for NetworkFilterList<'_> {
@@ -556,11 +533,6 @@ pub mod fb {
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>,
                 >>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "unique_domains_hashes",
-                    Self::VT_UNIQUE_DOMAINS_HASHES,
-                    true,
-                )?
                 .finish();
             Ok(())
         }
@@ -572,15 +544,13 @@ pub mod fb {
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
             >,
         >,
-        pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
     }
     impl<'a> Default for NetworkFilterListArgs<'a> {
         #[inline]
         fn default() -> Self {
             NetworkFilterListArgs {
-                filter_map_index: None,      // required field
-                filter_map_values: None,     // required field
-                unique_domains_hashes: None, // required field
+                filter_map_index: None,  // required field
+                filter_map_values: None, // required field
             }
         }
     }
@@ -613,16 +583,6 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_unique_domains_hashes(
-            &mut self,
-            unique_domains_hashes: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
-                unique_domains_hashes,
-            );
-        }
-        #[inline]
         pub fn new(
             _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterListBuilder<'a, 'b, A> {
@@ -645,11 +605,6 @@ pub mod fb {
                 NetworkFilterList::VT_FILTER_MAP_VALUES,
                 "filter_map_values",
             );
-            self.fbb_.required(
-                o,
-                NetworkFilterList::VT_UNIQUE_DOMAINS_HASHES,
-                "unique_domains_hashes",
-            );
             flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -659,7 +614,6 @@ pub mod fb {
             let mut ds = f.debug_struct("NetworkFilterList");
             ds.field("filter_map_index", &self.filter_map_index());
             ds.field("filter_map_values", &self.filter_map_values());
-            ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.finish()
         }
     }
@@ -668,14 +622,12 @@ pub mod fb {
     pub struct NetworkFilterListT {
         pub filter_map_index: Vec<u32>,
         pub filter_map_values: Vec<NetworkFilterT>,
-        pub unique_domains_hashes: Vec<u64>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
             Self {
                 filter_map_index: Default::default(),
                 filter_map_values: Default::default(),
-                unique_domains_hashes: Default::default(),
             }
         }
     }
@@ -693,102 +645,308 @@ pub mod fb {
                 let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
-            let unique_domains_hashes = Some({
-                let x = &self.unique_domains_hashes;
-                _fbb.create_vector(x)
-            });
             NetworkFilterList::create(
                 _fbb,
                 &NetworkFilterListArgs {
                     filter_map_index,
                     filter_map_values,
+                },
+            )
+        }
+    }
+    pub enum EngineOffset {}
+    #[derive(Copy, Clone, PartialEq)]
+
+    pub struct Engine<'a> {
+        pub _tab: flatbuffers::Table<'a>,
+    }
+
+    impl<'a> flatbuffers::Follow<'a> for Engine<'a> {
+        type Inner = Engine<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+            Self {
+                _tab: flatbuffers::Table::new(buf, loc),
+            }
+        }
+    }
+
+    impl<'a> Engine<'a> {
+        pub const VT_LISTS: flatbuffers::VOffsetT = 4;
+        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+            Engine { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+            'bldr: 'args,
+            'args: 'mut_bldr,
+            'mut_bldr,
+            A: flatbuffers::Allocator + 'bldr,
+        >(
+            _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+            args: &'args EngineArgs<'args>,
+        ) -> flatbuffers::WIPOffset<Engine<'bldr>> {
+            let mut builder = EngineBuilder::new(_fbb);
+            if let Some(x) = args.unique_domains_hashes {
+                builder.add_unique_domains_hashes(x);
+            }
+            if let Some(x) = args.lists {
+                builder.add_lists(x);
+            }
+            builder.finish()
+        }
+
+        pub fn unpack(&self) -> EngineT {
+            let lists = {
+                let x = self.lists();
+                x.iter().map(|t| t.unpack()).collect()
+            };
+            let unique_domains_hashes = {
+                let x = self.unique_domains_hashes();
+                x.into_iter().collect()
+            };
+            EngineT {
+                lists,
+                unique_domains_hashes,
+            }
+        }
+
+        #[inline]
+        pub fn lists(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterList<'a>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterList>>,
+                    >>(Engine::VT_LISTS, None)
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn unique_domains_hashes(&self) -> flatbuffers::Vector<'a, u64> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
+                        Engine::VT_UNIQUE_DOMAINS_HASHES,
+                        None,
+                    )
+                    .unwrap()
+            }
+        }
+    }
+
+    impl flatbuffers::Verifiable for Engine<'_> {
+        #[inline]
+        fn run_verifier(
+            v: &mut flatbuffers::Verifier,
+            pos: usize,
+        ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+            use self::flatbuffers::Verifiable;
+            v.visit_table(pos)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilterList>>,
+                >>("lists", Self::VT_LISTS, true)?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
+                    "unique_domains_hashes",
+                    Self::VT_UNIQUE_DOMAINS_HASHES,
+                    true,
+                )?
+                .finish();
+            Ok(())
+        }
+    }
+    pub struct EngineArgs<'a> {
+        pub lists: Option<
+            flatbuffers::WIPOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterList<'a>>>,
+            >,
+        >,
+        pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+    }
+    impl<'a> Default for EngineArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+            EngineArgs {
+                lists: None,                 // required field
+                unique_domains_hashes: None, // required field
+            }
+        }
+    }
+
+    pub struct EngineBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    }
+    impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> EngineBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_lists(
+            &mut self,
+            lists: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<NetworkFilterList<'b>>>,
+            >,
+        ) {
+            self.fbb_
+                .push_slot_always::<flatbuffers::WIPOffset<_>>(Engine::VT_LISTS, lists);
+        }
+        #[inline]
+        pub fn add_unique_domains_hashes(
+            &mut self,
+            unique_domains_hashes: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_UNIQUE_DOMAINS_HASHES,
+                unique_domains_hashes,
+            );
+        }
+        #[inline]
+        pub fn new(
+            _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> EngineBuilder<'a, 'b, A> {
+            let start = _fbb.start_table();
+            EngineBuilder {
+                fbb_: _fbb,
+                start_: start,
+            }
+        }
+        #[inline]
+        pub fn finish(self) -> flatbuffers::WIPOffset<Engine<'a>> {
+            let o = self.fbb_.end_table(self.start_);
+            self.fbb_.required(o, Engine::VT_LISTS, "lists");
+            self.fbb_
+                .required(o, Engine::VT_UNIQUE_DOMAINS_HASHES, "unique_domains_hashes");
+            flatbuffers::WIPOffset::new(o.value())
+        }
+    }
+
+    impl core::fmt::Debug for Engine<'_> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            let mut ds = f.debug_struct("Engine");
+            ds.field("lists", &self.lists());
+            ds.field("unique_domains_hashes", &self.unique_domains_hashes());
+            ds.finish()
+        }
+    }
+    #[non_exhaustive]
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct EngineT {
+        pub lists: Vec<NetworkFilterListT>,
+        pub unique_domains_hashes: Vec<u64>,
+    }
+    impl Default for EngineT {
+        fn default() -> Self {
+            Self {
+                lists: Default::default(),
+                unique_domains_hashes: Default::default(),
+            }
+        }
+    }
+    impl EngineT {
+        pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
+            &self,
+            _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
+        ) -> flatbuffers::WIPOffset<Engine<'b>> {
+            let lists = Some({
+                let x = &self.lists;
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
+            });
+            let unique_domains_hashes = Some({
+                let x = &self.unique_domains_hashes;
+                _fbb.create_vector(x)
+            });
+            Engine::create(
+                _fbb,
+                &EngineArgs {
+                    lists,
                     unique_domains_hashes,
                 },
             )
         }
     }
     #[inline]
-    /// Verifies that a buffer of bytes contains a `NetworkFilterList`
+    /// Verifies that a buffer of bytes contains a `Engine`
     /// and returns it.
     /// Note that verification is still experimental and may not
     /// catch every error, or be maximally performant. For the
     /// previous, unchecked, behavior use
-    /// `root_as_network_filter_list_unchecked`.
-    pub fn root_as_network_filter_list(
-        buf: &[u8],
-    ) -> Result<NetworkFilterList, flatbuffers::InvalidFlatbuffer> {
-        flatbuffers::root::<NetworkFilterList>(buf)
+    /// `root_as_engine_unchecked`.
+    pub fn root_as_engine(buf: &[u8]) -> Result<Engine, flatbuffers::InvalidFlatbuffer> {
+        flatbuffers::root::<Engine>(buf)
     }
     #[inline]
     /// Verifies that a buffer of bytes contains a size prefixed
-    /// `NetworkFilterList` and returns it.
+    /// `Engine` and returns it.
     /// Note that verification is still experimental and may not
     /// catch every error, or be maximally performant. For the
     /// previous, unchecked, behavior use
-    /// `size_prefixed_root_as_network_filter_list_unchecked`.
-    pub fn size_prefixed_root_as_network_filter_list(
+    /// `size_prefixed_root_as_engine_unchecked`.
+    pub fn size_prefixed_root_as_engine(
         buf: &[u8],
-    ) -> Result<NetworkFilterList, flatbuffers::InvalidFlatbuffer> {
-        flatbuffers::size_prefixed_root::<NetworkFilterList>(buf)
+    ) -> Result<Engine, flatbuffers::InvalidFlatbuffer> {
+        flatbuffers::size_prefixed_root::<Engine>(buf)
     }
     #[inline]
     /// Verifies, with the given options, that a buffer of bytes
-    /// contains a `NetworkFilterList` and returns it.
+    /// contains a `Engine` and returns it.
     /// Note that verification is still experimental and may not
     /// catch every error, or be maximally performant. For the
     /// previous, unchecked, behavior use
-    /// `root_as_network_filter_list_unchecked`.
-    pub fn root_as_network_filter_list_with_opts<'b, 'o>(
+    /// `root_as_engine_unchecked`.
+    pub fn root_as_engine_with_opts<'b, 'o>(
         opts: &'o flatbuffers::VerifierOptions,
         buf: &'b [u8],
-    ) -> Result<NetworkFilterList<'b>, flatbuffers::InvalidFlatbuffer> {
-        flatbuffers::root_with_opts::<NetworkFilterList<'b>>(opts, buf)
+    ) -> Result<Engine<'b>, flatbuffers::InvalidFlatbuffer> {
+        flatbuffers::root_with_opts::<Engine<'b>>(opts, buf)
     }
     #[inline]
     /// Verifies, with the given verifier options, that a buffer of
-    /// bytes contains a size prefixed `NetworkFilterList` and returns
+    /// bytes contains a size prefixed `Engine` and returns
     /// it. Note that verification is still experimental and may not
     /// catch every error, or be maximally performant. For the
     /// previous, unchecked, behavior use
-    /// `root_as_network_filter_list_unchecked`.
-    pub fn size_prefixed_root_as_network_filter_list_with_opts<'b, 'o>(
+    /// `root_as_engine_unchecked`.
+    pub fn size_prefixed_root_as_engine_with_opts<'b, 'o>(
         opts: &'o flatbuffers::VerifierOptions,
         buf: &'b [u8],
-    ) -> Result<NetworkFilterList<'b>, flatbuffers::InvalidFlatbuffer> {
-        flatbuffers::size_prefixed_root_with_opts::<NetworkFilterList<'b>>(opts, buf)
+    ) -> Result<Engine<'b>, flatbuffers::InvalidFlatbuffer> {
+        flatbuffers::size_prefixed_root_with_opts::<Engine<'b>>(opts, buf)
     }
     #[inline]
-    /// Assumes, without verification, that a buffer of bytes contains a NetworkFilterList and returns it.
+    /// Assumes, without verification, that a buffer of bytes contains a Engine and returns it.
     /// # Safety
-    /// Callers must trust the given bytes do indeed contain a valid `NetworkFilterList`.
-    pub unsafe fn root_as_network_filter_list_unchecked(buf: &[u8]) -> NetworkFilterList {
-        flatbuffers::root_unchecked::<NetworkFilterList>(buf)
+    /// Callers must trust the given bytes do indeed contain a valid `Engine`.
+    pub unsafe fn root_as_engine_unchecked(buf: &[u8]) -> Engine {
+        flatbuffers::root_unchecked::<Engine>(buf)
     }
     #[inline]
-    /// Assumes, without verification, that a buffer of bytes contains a size prefixed NetworkFilterList and returns it.
+    /// Assumes, without verification, that a buffer of bytes contains a size prefixed Engine and returns it.
     /// # Safety
-    /// Callers must trust the given bytes do indeed contain a valid size prefixed `NetworkFilterList`.
-    pub unsafe fn size_prefixed_root_as_network_filter_list_unchecked(
-        buf: &[u8],
-    ) -> NetworkFilterList {
-        flatbuffers::size_prefixed_root_unchecked::<NetworkFilterList>(buf)
+    /// Callers must trust the given bytes do indeed contain a valid size prefixed `Engine`.
+    pub unsafe fn size_prefixed_root_as_engine_unchecked(buf: &[u8]) -> Engine {
+        flatbuffers::size_prefixed_root_unchecked::<Engine>(buf)
     }
     #[inline]
-    pub fn finish_network_filter_list_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
+    pub fn finish_engine_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
         fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-        root: flatbuffers::WIPOffset<NetworkFilterList<'a>>,
+        root: flatbuffers::WIPOffset<Engine<'a>>,
     ) {
         fbb.finish(root, None);
     }
 
     #[inline]
-    pub fn finish_size_prefixed_network_filter_list_buffer<
-        'a,
-        'b,
-        A: flatbuffers::Allocator + 'a,
-    >(
+    pub fn finish_size_prefixed_engine_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(
         fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
-        root: flatbuffers::WIPOffset<NetworkFilterList<'a>>,
+        root: flatbuffers::WIPOffset<Engine<'a>>,
     ) {
         fbb.finish_size_prefixed(root, None);
     }
