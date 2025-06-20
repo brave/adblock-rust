@@ -79,7 +79,6 @@ pub(crate) struct SharedState {
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
-
 impl Default for SharedState {
     fn default() -> Self {
         Self {
