@@ -9,7 +9,6 @@ use std::collections::{HashMap, HashSet};
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
-use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
@@ -253,11 +252,11 @@ impl DeserializeFormat {
     }
 }
 
-impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
-    fn from(v: (&'a Blocker, &'a CosmeticFilterCache)) -> Self {
-        let (blocker, cfc) = v;
+impl<'a> From<(&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
+    fn from(v: (&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)) -> Self {
+        let (memory, cfc) = v;
         Self {
-            flatbuffer_memory: blocker.memory.data().to_vec(),
+            flatbuffer_memory: memory.data().to_vec(),
 
             resources: LegacyRedirectResourceStorage::default(),
 
@@ -278,7 +277,7 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
     }
 }
 
-impl TryFrom<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+impl TryFrom<DeserializeFormat> for (VerifiedFlatbufferMemory, CosmeticFilterCache) {
     fn try_from(v: DeserializeFormat) -> Result<Self, Self::Error> {
         use crate::cosmetic_filter_cache::HostnameFilterBin;
 
@@ -291,7 +290,7 @@ impl TryFrom<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
             .map_err(DeserializationError::FlatBufferParsingError)?;
 
         Ok((
-            Blocker::from_verified_memory(memory),
+            memory,
             CosmeticFilterCache {
                 simple_class_rules: v.simple_class_rules,
                 simple_id_rules: v.simple_id_rules,
