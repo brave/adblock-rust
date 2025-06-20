@@ -1,11 +1,12 @@
 //! Builder for creating flatbuffer-compatible Engine.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::vec;
 
 use flatbuffers::WIPOffset;
 
-use crate::filters::network::NetworkFilter;
+use crate::blocker::FilterId;
+use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
 use crate::optimizer;
@@ -260,5 +261,64 @@ impl FlatBufferBuilder {
                 filter_map_values: Some(filter_map_values),
             },
         )
+    }
+
+    pub fn make_flatbuffer(
+        mut network_filters: Vec<NetworkFilter>,
+        optimize: bool,
+    ) -> VerifiedFlatbufferMemory {
+        // Injections
+        // TODO: resource handling
+
+        let mut builder = FlatBufferBuilder::new(FilterId::Size as usize);
+
+        let mut badfilter_ids: HashSet<Hash> = HashSet::new();
+        for filter in network_filters.iter() {
+            if filter.is_badfilter() {
+                badfilter_ids.insert(filter.get_id_without_badfilter());
+            }
+        }
+        for filter in network_filters.drain(..) {
+            // skip any bad filters
+            let filter_id = filter.get_id();
+            if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
+                continue;
+            }
+
+            // Redirects are independent of blocking behavior.
+            if filter.is_redirect() {
+                builder.add_filter(filter.clone(), FilterId::Redirects as u32);
+            }
+
+            let list_id: FilterId = if filter.is_csp() {
+                FilterId::Csp
+            } else if filter.is_removeparam() {
+                FilterId::RemoveParam
+            } else if filter.is_generic_hide() {
+                FilterId::GenericHide
+            } else if filter.is_exception() {
+                FilterId::Exceptions
+            } else if filter.is_important() {
+                FilterId::Importants
+            } else if filter.tag.is_some() && !filter.is_redirect() {
+                // `tag` + `redirect` is unsupported for now.
+                FilterId::TaggedFiltersAll
+            } else if (filter.is_redirect() && filter.also_block_redirect())
+                || !filter.is_redirect()
+            {
+                FilterId::Filters
+            } else {
+                continue;
+            };
+
+            builder.add_filter(filter, list_id as u32);
+        }
+
+        builder.finish(if optimize {
+            // Don't optimize removeparam, since it can fuse filters without respecting distinct
+            |id: u32| id != FilterId::RemoveParam as u32
+        } else {
+            |_| false
+        })
     }
 }

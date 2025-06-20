@@ -3,18 +3,15 @@
 use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use once_cell::sync::Lazy;
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::ops::DerefMut;
 
-use crate::filters::fb_network::NetworkFilterSharedState;
-use crate::filters::flat_builder::FlatBufferBuilder;
-use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
-use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
+use crate::filters::fb_network::SharedStateRef;
+use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
-use crate::utils::Hash;
 
 /// Options used when constructing a [`Blocker`].
 pub struct BlockerOptions {
@@ -79,10 +76,9 @@ pub(crate) enum FilterId {
     TaggedFiltersAll = 7,
     Size = 8,
 }
+
 /// Stores network filters for efficient querying.
 pub struct Blocker {
-    pub(crate) memory: VerifiedFlatbufferMemory,
-
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
     pub(crate) tags_enabled: HashSet<String>,
@@ -92,7 +88,7 @@ pub struct Blocker {
     #[cfg(not(feature = "unsync-regex-caching"))]
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 
-    pub(crate) shared_state: NetworkFilterSharedState,
+    pub(crate) shared_state: SharedStateRef,
 }
 
 impl Blocker {
@@ -105,7 +101,7 @@ impl Blocker {
     pub(crate) fn get_list(&self, id: FilterId) -> NetworkFilterList {
         // TODO: verify lists() size and id is in range
         NetworkFilterList {
-            list: self.memory.root().lists().get(id as usize),
+            list: self.shared_state.memory.root().lists().get(id as usize),
             shared_state: &self.shared_state,
         }
     }
@@ -439,82 +435,26 @@ impl Blocker {
         Some(merged)
     }
 
-    pub(crate) fn from_verified_memory(memory: VerifiedFlatbufferMemory) -> Self {
-        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
-        let root = memory.root();
-        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u32> = HashMap::new();
-        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
-            unique_domains_hashes_map.insert(hash, index as u32);
-        }
-
-        let shared_state = NetworkFilterSharedState {
-            unique_domains_hashes_map,
-        };
-
+    pub(crate) fn from_shared_state(shared_state: SharedStateRef) -> Self {
         Self {
+            shared_state,
             tags_enabled: HashSet::new(),
             regex_manager: Default::default(),
-            memory,
-            shared_state,
         }
     }
 
-    pub fn new(mut network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Self {
-        // Injections
-        // TODO: resource handling
+    #[cfg(test)]
+    pub(crate) fn new(
+        network_filters: Vec<crate::filters::network::NetworkFilter>,
+        options: &BlockerOptions,
+    ) -> Self {
+        use crate::filters::fb_network::SharedState;
+        use crate::filters::flat_builder::FlatBufferBuilder;
 
-        let mut builder = FlatBufferBuilder::new(FilterId::Size as usize);
-
-        let mut badfilter_ids: HashSet<Hash> = HashSet::new();
-        for filter in network_filters.iter() {
-            if filter.is_badfilter() {
-                badfilter_ids.insert(filter.get_id_without_badfilter());
-            }
-        }
-        for filter in network_filters.drain(..) {
-            // skip any bad filters
-            let filter_id = filter.get_id();
-            if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
-                continue;
-            }
-
-            // Redirects are independent of blocking behavior.
-            if filter.is_redirect() {
-                builder.add_filter(filter.clone(), FilterId::Redirects as u32);
-            }
-
-            let list_id: FilterId = if filter.is_csp() {
-                FilterId::Csp
-            } else if filter.is_removeparam() {
-                FilterId::RemoveParam
-            } else if filter.is_generic_hide() {
-                FilterId::GenericHide
-            } else if filter.is_exception() {
-                FilterId::Exceptions
-            } else if filter.is_important() {
-                FilterId::Importants
-            } else if filter.tag.is_some() && !filter.is_redirect() {
-                // `tag` + `redirect` is unsupported for now.
-                FilterId::TaggedFiltersAll
-            } else if (filter.is_redirect() && filter.also_block_redirect())
-                || !filter.is_redirect()
-            {
-                FilterId::Filters
-            } else {
-                continue;
-            };
-
-            builder.add_filter(filter, list_id as u32);
-        }
-
-        let memory = builder.finish(if options.enable_optimizations {
-            // Don't optimize removeparam, since it can fuse filters without respecting distinct
-            |id: u32| id != FilterId::RemoveParam as u32
-        } else {
-            |_| false
-        });
-
-        Self::from_verified_memory(memory)
+        let memory =
+            FlatBufferBuilder::make_flatbuffer(network_filters, options.enable_optimizations);
+        let shared_state = SharedState::new(memory);
+        Self::from_shared_state(shared_state)
     }
 
     pub fn use_tags(&mut self, tags: &[&str]) {

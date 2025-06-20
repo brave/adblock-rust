@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable};
-use crate::filters::unsafe_tools::fb_vector_to_slice;
+use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatbufferMemory};
 
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
@@ -67,15 +67,37 @@ impl ExactSizeIterator for FlatPatternsIterator<'_> {
     }
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct NetworkFilterSharedState {
+// TODO: do we need another feature for this?
+#[cfg(feature = "unsync-regex-caching")]
+pub(crate) type SharedStateRef = std::rc::Rc<SharedState>;
+#[cfg(not(feature = "unsync-regex-caching"))]
+pub(crate) type SharedStateRef = std::rc::Arc<SharedState>;
+
+#[derive(Default)]
+pub(crate) struct SharedState {
+    pub(crate) memory: VerifiedFlatbufferMemory,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
+}
+
+impl SharedState {
+    pub(crate) fn new(memory: VerifiedFlatbufferMemory) -> SharedStateRef {
+        // Reconstruct the unique_domains_hashes_map from the flatbuffer data
+        let root = memory.root();
+        let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u32> = HashMap::new();
+        for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
+            unique_domains_hashes_map.insert(hash, index as u32);
+        }
+        SharedStateRef::new(Self {
+            memory,
+            unique_domains_hashes_map,
+        })
+    }
 }
 
 /// Internal implementation of [NetworkFilter] that is compatible with flatbuffers.
 pub(crate) struct FlatNetworkFilter<'a> {
     key: u64,
-    shared_state: &'a NetworkFilterSharedState,
+    shared_state: &'a SharedState,
     fb_filter: &'a fb::NetworkFilter<'a>,
 
     pub(crate) mask: NetworkFilterMask,
@@ -86,7 +108,7 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn new(
         filter: &'a fb::NetworkFilter<'a>,
         index: usize,
-        shared_state: &'a NetworkFilterSharedState,
+        shared_state: &'a SharedState,
     ) -> Self {
         Self {
             fb_filter: filter,

@@ -3,7 +3,7 @@
 use std::{collections::HashMap, collections::HashSet, fmt};
 
 use crate::filters::fb_network::flat::fb;
-use crate::filters::fb_network::{FlatNetworkFilter, NetworkFilterSharedState};
+use crate::filters::fb_network::{FlatNetworkFilter, SharedState};
 use crate::filters::flat_filter_map::FlatFilterMap;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
@@ -57,7 +57,7 @@ pub enum NetworkFilterListParsingError {
 /// Internal structure to keep track of a collection of network filters.
 pub(crate) struct NetworkFilterList<'a> {
     pub(crate) list: fb::NetworkFilterList<'a>,
-    pub(crate) shared_state: &'a NetworkFilterSharedState,
+    pub(crate) shared_state: &'a SharedState,
 }
 
 impl NetworkFilterList<'_> {

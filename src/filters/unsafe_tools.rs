@@ -48,6 +48,16 @@ pub(crate) struct VerifiedFlatbufferMemory {
     start: usize,
 }
 
+impl Default for VerifiedFlatbufferMemory {
+    fn default() -> Self {
+        // TODO: create an empty engine and get the memory from it
+        Self {
+            raw_data: vec![],
+            start: 0,
+        }
+    }
+}
+
 impl VerifiedFlatbufferMemory {
     pub(crate) fn from_raw(data: Vec<u8>) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
         let memory = Self::from_vec(data);
