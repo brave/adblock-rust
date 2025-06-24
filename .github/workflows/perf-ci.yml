@@ -22,20 +22,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout PR
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Bench network filter matching
-        run: cargo bench --bench bench_matching rule-match-browserlike/brave-list -- --output-format bencher | tee -a output.txt
-
-      - name: Bench first request matching delay
-        run: cargo bench --bench bench_matching rule-match-first-request -- --output-format bencher | tee -a output.txt
-
-      - name: Bench startup speed
-        run: cargo bench --bench bench_rules blocker_new/brave-list -- --output-format bencher | tee -a output.txt
-
-      - name: Bench memory usage
-        run: cargo bench --bench bench_memory -- --output-format bencher | tee -a output.txt
+      - name: Run benchmarks
+        run: |
+          ./.github/scripts/run-benchmarks.sh | tee -a output.txt
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@d48d326b4ca9ba73ca0cd0d59f108f9e02a381c7 # v1.20.4
@@ -44,7 +36,7 @@ jobs:
           tool: 'cargo'
           output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          alert-threshold: '130%' # fails on +30% regression
+          alert-threshold: '110%' # fails on +10% regression
           comment-on-alert: true
           fail-on-alert: true
           comment-always: true
