@@ -13,17 +13,16 @@ use crate::utils::{to_short_hash, Hash, ShortHash};
 
 use super::fb_network::flat::fb;
 
-
 pub(crate) enum NetworkFilterListId {
-  Csp = 0,
-  Exceptions = 1,
-  Importants = 2,
-  Redirects = 3,
-  RemoveParam = 4,
-  Filters = 5,
-  GenericHide = 6,
-  TaggedFiltersAll = 7,
-  Size = 8,
+    Csp = 0,
+    Exceptions = 1,
+    Importants = 2,
+    Redirects = 3,
+    RemoveParam = 4,
+    Filters = 5,
+    GenericHide = 6,
+    TaggedFiltersAll = 7,
+    Size = 8,
 }
 
 #[derive(Default, Clone)]
@@ -295,7 +294,6 @@ impl FlatBufferBuilder {
             if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
                 continue;
             }
-
 
             // Redirects are independent of blocking behavior.
             if filter.is_redirect() {
