@@ -129,8 +129,9 @@ impl FlatBufferBuilder {
     pub fn finish(&mut self, should_optimize: fn(u32) -> bool) -> VerifiedFlatbufferMemory {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let mut flat_lists = vec![];
-        let mut lists = self.lists.drain(..).collect::<Vec<_>>();
-        for (list_id, list) in lists.drain(..).enumerate() {
+
+        let lists = std::mem::take(&mut self.lists);
+        for (list_id, list) in lists.into_iter().enumerate() {
             let optimize = should_optimize(list_id as u32);
             flat_lists.push(self.write_filter_list(&mut builder, list.filters, optimize));
         }
@@ -264,7 +265,7 @@ impl FlatBufferBuilder {
     }
 
     pub fn make_flatbuffer(
-        mut network_filters: Vec<NetworkFilter>,
+        network_filters: Vec<NetworkFilter>,
         optimize: bool,
     ) -> VerifiedFlatbufferMemory {
         // Injections
@@ -278,7 +279,7 @@ impl FlatBufferBuilder {
                 badfilter_ids.insert(filter.get_id_without_badfilter());
             }
         }
-        for filter in network_filters.drain(..) {
+        for filter in network_filters.into_iter() {
             // skip any bad filters
             let filter_id = filter.get_id();
             if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
