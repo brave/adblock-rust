@@ -30,7 +30,7 @@ table NetworkFilterList {
 }
 
 table Engine {
-  lists: [NetworkFilterList] (required);
+  network_rules: [NetworkFilterList] (required);
   unique_domains_hashes: [uint64] (required);
 }
 

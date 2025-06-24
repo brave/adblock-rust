@@ -5,7 +5,6 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
-use crate::blocker::FilterId;
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
@@ -13,6 +12,19 @@ use crate::optimizer;
 use crate::utils::{to_short_hash, Hash, ShortHash};
 
 use super::fb_network::flat::fb;
+
+
+pub(crate) enum NetworkFilterListId {
+  Csp = 0,
+  Exceptions = 1,
+  Importants = 2,
+  Redirects = 3,
+  RemoveParam = 4,
+  Filters = 5,
+  GenericHide = 6,
+  TaggedFiltersAll = 7,
+  Size = 8,
+}
 
 #[derive(Default, Clone)]
 struct FilterListBuilder {
@@ -128,22 +140,22 @@ impl FlatBufferBuilder {
 
     pub fn finish(&mut self, should_optimize: fn(u32) -> bool) -> VerifiedFlatbufferMemory {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
-        let mut flat_lists = vec![];
+        let mut flat_network_rules = vec![];
 
         let lists = std::mem::take(&mut self.lists);
         for (list_id, list) in lists.into_iter().enumerate() {
             let optimize = should_optimize(list_id as u32);
-            flat_lists.push(self.write_filter_list(&mut builder, list.filters, optimize));
+            flat_network_rules.push(self.write_filter_list(&mut builder, list.filters, optimize));
         }
 
         // Create vectors first to avoid simultaneous mutable borrows of `builder`.
-        let lists_vec = builder.create_vector(&flat_lists);
+        let network_rules = builder.create_vector(&flat_network_rules);
         let unique_vec = builder.create_vector(&self.unique_domains_hashes);
 
         let root = fb::Engine::create(
             &mut builder,
             &fb::EngineArgs {
-                lists: Some(lists_vec),
+                network_rules: Some(network_rules),
                 unique_domains_hashes: Some(unique_vec),
             },
         );
@@ -268,9 +280,7 @@ impl FlatBufferBuilder {
         network_filters: Vec<NetworkFilter>,
         optimize: bool,
     ) -> VerifiedFlatbufferMemory {
-        // Injections
-        // TODO: resource handling
-
+        type FilterId = NetworkFilterListId;
         let mut builder = FlatBufferBuilder::new(FilterId::Size as usize);
 
         let mut badfilter_ids: HashSet<Hash> = HashSet::new();
@@ -285,6 +295,7 @@ impl FlatBufferBuilder {
             if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
                 continue;
             }
+
 
             // Redirects are independent of blocking behavior.
             if filter.is_redirect() {

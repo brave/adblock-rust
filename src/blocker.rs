@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::ops::DerefMut;
 
 use crate::filters::fb_network::SharedStateRef;
+use crate::filters::flat_builder::NetworkFilterListId;
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
@@ -64,19 +65,6 @@ pub struct BlockerResult {
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
-// TODO: move to a proper place
-pub(crate) enum FilterId {
-    Csp = 0,
-    Exceptions = 1,
-    Importants = 2,
-    Redirects = 3,
-    RemoveParam = 4,
-    Filters = 5,
-    GenericHide = 6,
-    TaggedFiltersAll = 7,
-    Size = 8,
-}
-
 /// Stores network filters for efficient querying.
 pub struct Blocker {
     // Enabled tags are not serialized - when deserializing, tags of the existing
@@ -98,44 +86,48 @@ impl Blocker {
         self.check_parameterised(request, resources, false, false)
     }
 
-    pub(crate) fn get_list(&self, id: FilterId) -> NetworkFilterList {
-        // TODO: verify lists() size and id is in range
+    pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList {
         NetworkFilterList {
-            list: self.shared_state.memory.root().lists().get(id as usize),
+            list: self
+                .shared_state
+                .memory
+                .root()
+                .network_rules()
+                .get(id as usize),
             shared_state: &self.shared_state,
         }
     }
 
     pub(crate) fn csp(&self) -> NetworkFilterList {
-        self.get_list(FilterId::Csp)
+        self.get_list(NetworkFilterListId::Csp)
     }
 
     pub(crate) fn exceptions(&self) -> NetworkFilterList {
-        self.get_list(FilterId::Exceptions)
+        self.get_list(NetworkFilterListId::Exceptions)
     }
 
     pub(crate) fn importants(&self) -> NetworkFilterList {
-        self.get_list(FilterId::Importants)
+        self.get_list(NetworkFilterListId::Importants)
     }
 
     pub(crate) fn redirects(&self) -> NetworkFilterList {
-        self.get_list(FilterId::Redirects)
+        self.get_list(NetworkFilterListId::Redirects)
     }
 
     pub(crate) fn removeparam(&self) -> NetworkFilterList {
-        self.get_list(FilterId::RemoveParam)
+        self.get_list(NetworkFilterListId::RemoveParam)
     }
 
     pub(crate) fn filters(&self) -> NetworkFilterList {
-        self.get_list(FilterId::Filters)
+        self.get_list(NetworkFilterListId::Filters)
     }
 
     pub(crate) fn generic_hide(&self) -> NetworkFilterList {
-        self.get_list(FilterId::GenericHide)
+        self.get_list(NetworkFilterListId::GenericHide)
     }
 
     pub(crate) fn tagged_filters_all(&self) -> NetworkFilterList {
-        self.get_list(FilterId::TaggedFiltersAll)
+        self.get_list(NetworkFilterListId::TaggedFiltersAll)
     }
 
     #[cfg(feature = "unsync-regex-caching")]
