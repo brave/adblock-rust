@@ -52,20 +52,7 @@ pub struct Engine {
 }
 
 impl Default for Engine {
-    /// Equivalent to `Engine::new(true)`.
     fn default() -> Self {
-        Self::new(true)
-    }
-}
-
-impl Engine {
-    /// Creates a new adblocking `Engine`. `Engine`s created without rules should generally only be
-    /// used with deserialization.
-    /// - `optimize` specifies whether or not to attempt to compress the internal representation by
-    ///   combining similar rules.
-    pub fn new(_optimize: bool) -> Self {
-        // TODO: remove _optimize?
-
         let shared_state = SharedStateRef::new(Default::default());
 
         Self {
@@ -75,7 +62,9 @@ impl Engine {
             shared_state,
         }
     }
+}
 
+impl Engine {
     /// Loads rules in a single format, enabling optimizations and discarding debug information.
     pub fn from_rules(
         rules: impl IntoIterator<Item = impl AsRef<str>>,

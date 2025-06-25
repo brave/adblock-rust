@@ -271,7 +271,7 @@ fn stable_serialization_through_load() {
     let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
     let ser1 = engine1.serialize().unwrap();
 
-    let mut engine2 = Engine::new(true);
+    let mut engine2 = Engine::default();
     engine2.deserialize(&ser1).unwrap();
     let ser2 = engine2.serialize().unwrap();
 
