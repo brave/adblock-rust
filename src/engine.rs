@@ -56,7 +56,7 @@ impl Default for Engine {
         let filter_data_context = FilterDataContextRef::new(Default::default());
 
         Self {
-            blocker: Blocker::from_shared_state(filter_data_context.clone()),
+            blocker: Blocker::from_context(filter_data_context.clone()),
             cosmetic_cache: CosmeticFilterCache::new(),
             resources: ResourceStorage::default(),
             filter_data_context,
@@ -108,7 +108,7 @@ impl Engine {
         let filter_data_context = FilterDataContext::new(memory);
 
         Self {
-            blocker: Blocker::from_shared_state(filter_data_context.clone()),
+            blocker: Blocker::from_context(filter_data_context.clone()),
             cosmetic_cache: CosmeticFilterCache::from_rules(cosmetic_filters),
             resources: ResourceStorage::default(),
             filter_data_context,
@@ -256,7 +256,7 @@ impl Engine {
         let current_tags = self.blocker.tags_enabled();
         let (memory, cosmetic_cache) = crate::data_format::deserialize_engine(serialized)?;
         self.filter_data_context = FilterDataContext::new(memory);
-        self.blocker = Blocker::from_shared_state(self.filter_data_context.clone());
+        self.blocker = Blocker::from_context(self.filter_data_context.clone());
         self.blocker
             .use_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
         self.cosmetic_cache = cosmetic_cache;

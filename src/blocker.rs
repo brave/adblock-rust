@@ -427,7 +427,7 @@ impl Blocker {
         Some(merged)
     }
 
-    pub(crate) fn from_shared_state(filter_data_context: FilterDataContextRef) -> Self {
+    pub(crate) fn from_context(filter_data_context: FilterDataContextRef) -> Self {
         Self {
             filter_data_context,
             tags_enabled: HashSet::new(),
@@ -447,7 +447,7 @@ impl Blocker {
         let memory =
             FlatBufferBuilder::make_flatbuffer(network_filters, options.enable_optimizations);
         let filter_data_context = FilterDataContext::new(memory);
-        Self::from_shared_state(filter_data_context)
+        Self::from_context(filter_data_context)
     }
 
     pub fn use_tags(&mut self, tags: &[&str]) {
