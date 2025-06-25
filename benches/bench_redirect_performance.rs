@@ -106,7 +106,7 @@ fn get_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Vec<
                 "data/test/fake-uBO-files/scriptlets.js",
             )),
         );
-        return resource_data;
+        resource_data
     }
 
     #[cfg(not(feature = "resource-assembler"))]
