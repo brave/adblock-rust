@@ -435,8 +435,7 @@ impl Blocker {
         }
     }
 
-    // TODO: only for tests and benchmarks
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(
         network_filters: Vec<crate::filters::network::NetworkFilter>,
         options: &BlockerOptions,

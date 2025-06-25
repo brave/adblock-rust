@@ -1,10 +1,10 @@
+use adblock::{Engine, FilterSet};
 use criterion::*;
 use tokio::runtime::Runtime;
 
-use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use adblock::request::Request;
-use adblock::resources::ResourceStorage;
+use adblock::resources::Resource;
 
 const DEFAULT_LISTS_URL: &str =
     "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
@@ -84,18 +84,13 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
         .collect()
 }
 
-/// Loads the supplied rules, and the test set of resources, into a Blocker
-fn get_preloaded_blocker(rules: Vec<NetworkFilter>) -> Blocker {
-    let blocker_options = BlockerOptions {
-        enable_optimizations: true,
-    };
-
-    Blocker::new(rules, &blocker_options)
+/// Loads the supplied rules, and the test set of resources, into a Engine
+fn get_preloaded_engine(rules: Vec<NetworkFilter>) -> Engine {
+    let filter_set = FilterSet::new_with_rules(rules, vec![], false);
+    Engine::from_filter_set(filter_set, true /* optimize */)
 }
 
-fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> ResourceStorage {
-    let mut resources = ResourceStorage::default();
-
+fn get_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Vec<Resource> {
     #[cfg(feature = "resource-assembler")]
     {
         use adblock::resources::resource_assembler::assemble_web_accessible_resources;
@@ -111,10 +106,7 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
                 "data/test/fake-uBO-files/scriptlets.js",
             )),
         );
-
-        resource_data.into_iter().for_each(|resource| {
-            let _res = resources.add_resource(resource);
-        });
+        return resource_data;
     }
 
     #[cfg(not(feature = "resource-assembler"))]
@@ -141,12 +133,8 @@ fn build_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Re
                     permission: Default::default(),
                 }
             })
-            .for_each(|resource| {
-                let _res = resources.add_resource(resource);
-            });
+            .collect()
     }
-
-    resources
 }
 
 /// Maps network filter rules into `Request`s that would trigger those rules
@@ -211,9 +199,9 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
         .collect::<Vec<_>>()
 }
 
-fn bench_fn(blocker: &Blocker, resources: &ResourceStorage, requests: &[Request]) {
+fn bench_fn(engine: &Engine, requests: &[Request]) {
     requests.iter().for_each(|request| {
-        let block_result = blocker.check(request, resources);
+        let block_result = engine.check_network_request(request);
         assert!(
             block_result.redirect.is_some(),
             "{:?}, {:?}",
@@ -228,8 +216,10 @@ fn redirect_performance(c: &mut Criterion) {
 
     let rules = get_redirect_rules();
 
-    let blocker = get_preloaded_blocker(rules.clone());
-    let resources = build_resources_for_filters(&rules);
+    let mut engine = get_preloaded_engine(rules.clone());
+    let resources = get_resources_for_filters(&rules);
+    engine.use_resources(resources);
+
     let requests = build_custom_requests(rules.clone());
     let requests_len = requests.len() as u64;
 
@@ -237,7 +227,7 @@ fn redirect_performance(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("without_alias_lookup", move |b| {
-        b.iter(|| bench_fn(&blocker, &resources, &requests))
+        b.iter(|| bench_fn(&engine, &requests))
     });
 
     group.finish();
