@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
 
-use crate::filters::fb_network::SharedStateRef;
+use crate::filters::fb_network::FilterDataContextRef;
 use crate::filters::flat_builder::NetworkFilterListId;
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
@@ -76,7 +76,7 @@ pub struct Blocker {
     #[cfg(not(feature = "single-thread"))]
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 
-    pub(crate) shared_state: SharedStateRef,
+    pub(crate) filter_data_context: FilterDataContextRef,
 }
 
 impl Blocker {
@@ -89,12 +89,12 @@ impl Blocker {
     pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList {
         NetworkFilterList {
             list: self
-                .shared_state
+                .filter_data_context
                 .memory
                 .root()
                 .network_rules()
                 .get(id as usize),
-            shared_state: &self.shared_state,
+            filter_data_context: &self.filter_data_context,
         }
     }
 
@@ -427,9 +427,9 @@ impl Blocker {
         Some(merged)
     }
 
-    pub(crate) fn from_shared_state(shared_state: SharedStateRef) -> Self {
+    pub(crate) fn from_shared_state(filter_data_context: FilterDataContextRef) -> Self {
         Self {
-            shared_state,
+            filter_data_context,
             tags_enabled: HashSet::new(),
             regex_manager: Default::default(),
         }
@@ -441,13 +441,13 @@ impl Blocker {
         network_filters: Vec<crate::filters::network::NetworkFilter>,
         options: &BlockerOptions,
     ) -> Self {
-        use crate::filters::fb_network::SharedState;
+        use crate::filters::fb_network::FilterDataContext;
         use crate::filters::flat_builder::FlatBufferBuilder;
 
         let memory =
             FlatBufferBuilder::make_flatbuffer(network_filters, options.enable_optimizations);
-        let shared_state = SharedState::new(memory);
-        Self::from_shared_state(shared_state)
+        let filter_data_context = FilterDataContext::new(memory);
+        Self::from_shared_state(filter_data_context)
     }
 
     pub fn use_tags(&mut self, tags: &[&str]) {

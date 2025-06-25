@@ -3,7 +3,7 @@
 use std::{collections::HashMap, collections::HashSet, fmt};
 
 use crate::filters::fb_network::flat::fb;
-use crate::filters::fb_network::{FlatNetworkFilter, SharedState};
+use crate::filters::fb_network::{FilterDataContext, FlatNetworkFilter};
 use crate::filters::flat_filter_map::FlatFilterMap;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
@@ -57,7 +57,7 @@ pub enum NetworkFilterListParsingError {
 /// Internal structure to keep track of a collection of network filters.
 pub(crate) struct NetworkFilterList<'a> {
     pub(crate) list: fb::NetworkFilterList<'a>,
-    pub(crate) shared_state: &'a SharedState,
+    pub(crate) filter_data_context: &'a FilterDataContext,
 }
 
 impl NetworkFilterList<'_> {
@@ -90,7 +90,7 @@ impl NetworkFilterList<'_> {
 
         for token in request.get_tokens_for_match() {
             for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index, self.shared_state);
+                let filter = FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
                 if filter.matches(request, regex_manager)
@@ -130,7 +130,7 @@ impl NetworkFilterList<'_> {
 
         for token in request.get_tokens_for_match() {
             for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index, self.shared_state);
+                let filter = FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
 
                 // if matched, also needs to be tagged with an active tag (or not tagged at all)
                 if filter.matches(request, regex_manager)

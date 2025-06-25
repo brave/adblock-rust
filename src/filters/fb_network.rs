@@ -69,16 +69,19 @@ impl ExactSizeIterator for FlatPatternsIterator<'_> {
 }
 
 #[cfg(feature = "single-thread")]
-pub(crate) type SharedStateRef = std::rc::Rc<SharedState>;
+pub(crate) type FilterDataContextRef = std::rc::Rc<FilterDataContext>;
 #[cfg(not(feature = "single-thread"))]
-pub(crate) type SharedStateRef = std::sync::Arc<SharedState>;
+pub(crate) type FilterDataContextRef = std::sync::Arc<FilterDataContext>;
 
-pub(crate) struct SharedState {
+// The struct is used to store the flatbuffer and supporting data
+// for both network filter and cosmetic filters.
+// Supposed to be stored via FilterDataContextRef to avoid copying the data.
+pub(crate) struct FilterDataContext {
     pub(crate) memory: VerifiedFlatbufferMemory,
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
-impl Default for SharedState {
+impl Default for FilterDataContext {
     fn default() -> Self {
         Self {
             memory: FlatBufferBuilder::make_flatbuffer(vec![], false),
@@ -87,15 +90,15 @@ impl Default for SharedState {
     }
 }
 
-impl SharedState {
-    pub(crate) fn new(memory: VerifiedFlatbufferMemory) -> SharedStateRef {
+impl FilterDataContext {
+    pub(crate) fn new(memory: VerifiedFlatbufferMemory) -> FilterDataContextRef {
         // Reconstruct the unique_domains_hashes_map from the flatbuffer data
         let root = memory.root();
         let mut unique_domains_hashes_map: HashMap<crate::utils::Hash, u32> = HashMap::new();
         for (index, hash) in root.unique_domains_hashes().iter().enumerate() {
             unique_domains_hashes_map.insert(hash, index as u32);
         }
-        SharedStateRef::new(Self {
+        FilterDataContextRef::new(Self {
             memory,
             unique_domains_hashes_map,
         })
@@ -105,7 +108,7 @@ impl SharedState {
 /// Internal implementation of [NetworkFilter] that is compatible with flatbuffers.
 pub(crate) struct FlatNetworkFilter<'a> {
     key: u64,
-    shared_state: &'a SharedState,
+    filter_data_context: &'a FilterDataContext,
     fb_filter: &'a fb::NetworkFilter<'a>,
 
     pub(crate) mask: NetworkFilterMask,
@@ -116,13 +119,13 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn new(
         filter: &'a fb::NetworkFilter<'a>,
         index: usize,
-        shared_state: &'a SharedState,
+        filter_data_context: &'a FilterDataContext,
     ) -> Self {
         Self {
             fb_filter: filter,
             key: index as u64,
             mask: NetworkFilterMask::from_bits_retain(filter.mask()),
-            shared_state,
+            filter_data_context,
         }
     }
 
@@ -189,14 +192,14 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
         if !check_included_domains_mapped(
             self.include_domains(),
             request,
-            &self.shared_state.unique_domains_hashes_map,
+            &self.filter_data_context.unique_domains_hashes_map,
         ) {
             return false;
         }
         if !check_excluded_domains_mapped(
             self.exclude_domains(),
             request,
-            &self.shared_state.unique_domains_hashes_map,
+            &self.filter_data_context.unique_domains_hashes_map,
         ) {
             return false;
         }
