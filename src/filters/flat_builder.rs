@@ -1,4 +1,7 @@
-//! Builder for creating flatbuffer-compatible Engine.
+//! Builder for creating flatbuffer with serialized engine.
+//! Currently the work in progress, therefore only some fields of Engine
+//! are serialized to flatbuffer.
+//! The entry point is `FlatBufferBuilder::make_flatbuffer`.
 
 use std::collections::{HashMap, HashSet};
 use std::vec;
