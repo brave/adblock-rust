@@ -68,11 +68,10 @@ impl ExactSizeIterator for FlatPatternsIterator<'_> {
     }
 }
 
-// TODO: do we need another feature for this?
-#[cfg(feature = "unsync-regex-caching")]
+#[cfg(feature = "single-thread")]
 pub(crate) type SharedStateRef = std::rc::Rc<SharedState>;
-#[cfg(not(feature = "unsync-regex-caching"))]
-pub(crate) type SharedStateRef = std::rc::Arc<SharedState>;
+#[cfg(not(feature = "single-thread"))]
+pub(crate) type SharedStateRef = std::sync::Arc<SharedState>;
 
 pub(crate) struct SharedState {
     pub(crate) memory: VerifiedFlatbufferMemory,

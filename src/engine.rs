@@ -265,7 +265,7 @@ impl Engine {
 }
 
 /// Static assertions for `Engine: Send + Sync` traits.
-#[cfg(not(feature = "unsync-regex-caching"))]
+#[cfg(not(feature = "single-thread"))]
 fn _assertions() {
     fn _assert_send<T: Send>() {}
     fn _assert_sync<T: Sync>() {}

@@ -71,9 +71,9 @@ pub struct Blocker {
     // instance (the one we are recreating lists into) are maintained
     pub(crate) tags_enabled: HashSet<String>,
     // Not serialized
-    #[cfg(feature = "unsync-regex-caching")]
+    #[cfg(feature = "single-thread")]
     pub(crate) regex_manager: std::cell::RefCell<RegexManager>,
-    #[cfg(not(feature = "unsync-regex-caching"))]
+    #[cfg(not(feature = "single-thread"))]
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
 
     pub(crate) shared_state: SharedStateRef,
@@ -130,7 +130,7 @@ impl Blocker {
         self.get_list(NetworkFilterListId::TaggedFiltersAll)
     }
 
-    #[cfg(feature = "unsync-regex-caching")]
+    #[cfg(feature = "single-thread")]
     fn borrow_regex_manager(&self) -> std::cell::RefMut<RegexManager> {
         #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
@@ -141,7 +141,7 @@ impl Blocker {
         manager
     }
 
-    #[cfg(not(feature = "unsync-regex-caching"))]
+    #[cfg(not(feature = "single-thread"))]
     fn borrow_regex_manager(&self) -> std::sync::MutexGuard<RegexManager> {
         let mut manager = self.regex_manager.lock().unwrap();
         manager.update_time();
