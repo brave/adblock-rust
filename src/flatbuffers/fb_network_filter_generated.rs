@@ -673,7 +673,8 @@ pub mod fb {
 
     impl<'a> Engine<'a> {
         pub const VT_NETWORK_RULES: flatbuffers::VOffsetT = 4;
-        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
+        pub const VT_SIMPLE_CLASS_RULES: flatbuffers::VOffsetT = 6;
+        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -693,6 +694,9 @@ pub mod fb {
             if let Some(x) = args.unique_domains_hashes {
                 builder.add_unique_domains_hashes(x);
             }
+            if let Some(x) = args.simple_class_rules {
+                builder.add_simple_class_rules(x);
+            }
             if let Some(x) = args.network_rules {
                 builder.add_network_rules(x);
             }
@@ -704,12 +708,17 @@ pub mod fb {
                 let x = self.network_rules();
                 x.iter().map(|t| t.unpack()).collect()
             };
+            let simple_class_rules = {
+                let x = self.simple_class_rules();
+                x.iter().map(|s| s.to_string()).collect()
+            };
             let unique_domains_hashes = {
                 let x = self.unique_domains_hashes();
                 x.into_iter().collect()
             };
             EngineT {
                 network_rules,
+                simple_class_rules,
                 unique_domains_hashes,
             }
         }
@@ -726,6 +735,21 @@ pub mod fb {
                     .get::<flatbuffers::ForwardsUOffset<
                         flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterList>>,
                     >>(Engine::VT_NETWORK_RULES, None)
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn simple_class_rules(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(Engine::VT_SIMPLE_CLASS_RULES, None)
                     .unwrap()
             }
         }
@@ -756,6 +780,9 @@ pub mod fb {
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilterList>>,
                 >>("network_rules", Self::VT_NETWORK_RULES, true)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("simple_class_rules", Self::VT_SIMPLE_CLASS_RULES, true)?
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
                     "unique_domains_hashes",
                     Self::VT_UNIQUE_DOMAINS_HASHES,
@@ -771,6 +798,9 @@ pub mod fb {
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterList<'a>>>,
             >,
         >,
+        pub simple_class_rules: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
         pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
     }
     impl<'a> Default for EngineArgs<'a> {
@@ -778,6 +808,7 @@ pub mod fb {
         fn default() -> Self {
             EngineArgs {
                 network_rules: None,         // required field
+                simple_class_rules: None,    // required field
                 unique_domains_hashes: None, // required field
             }
         }
@@ -798,6 +829,18 @@ pub mod fb {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 Engine::VT_NETWORK_RULES,
                 network_rules,
+            );
+        }
+        #[inline]
+        pub fn add_simple_class_rules(
+            &mut self,
+            simple_class_rules: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_SIMPLE_CLASS_RULES,
+                simple_class_rules,
             );
         }
         #[inline]
@@ -826,6 +869,8 @@ pub mod fb {
             self.fbb_
                 .required(o, Engine::VT_NETWORK_RULES, "network_rules");
             self.fbb_
+                .required(o, Engine::VT_SIMPLE_CLASS_RULES, "simple_class_rules");
+            self.fbb_
                 .required(o, Engine::VT_UNIQUE_DOMAINS_HASHES, "unique_domains_hashes");
             flatbuffers::WIPOffset::new(o.value())
         }
@@ -835,6 +880,7 @@ pub mod fb {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut ds = f.debug_struct("Engine");
             ds.field("network_rules", &self.network_rules());
+            ds.field("simple_class_rules", &self.simple_class_rules());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.finish()
         }
@@ -843,12 +889,14 @@ pub mod fb {
     #[derive(Debug, Clone, PartialEq)]
     pub struct EngineT {
         pub network_rules: Vec<NetworkFilterListT>,
+        pub simple_class_rules: Vec<String>,
         pub unique_domains_hashes: Vec<u64>,
     }
     impl Default for EngineT {
         fn default() -> Self {
             Self {
                 network_rules: Default::default(),
+                simple_class_rules: Default::default(),
                 unique_domains_hashes: Default::default(),
             }
         }
@@ -863,6 +911,11 @@ pub mod fb {
                 let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
+            let simple_class_rules = Some({
+                let x = &self.simple_class_rules;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
             let unique_domains_hashes = Some({
                 let x = &self.unique_domains_hashes;
                 _fbb.create_vector(x)
@@ -871,6 +924,7 @@ pub mod fb {
                 _fbb,
                 &EngineArgs {
                     network_rules,
+                    simple_class_rules,
                     unique_domains_hashes,
                 },
             )

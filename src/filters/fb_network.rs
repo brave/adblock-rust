@@ -1,6 +1,7 @@
 //! Flatbuffer-compatible versions of [NetworkFilter] and related functionality.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::filters::flat_builder::FlatBufferBuilder;
 use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable};
@@ -84,7 +85,7 @@ pub(crate) struct FilterDataContext {
 impl Default for FilterDataContext {
     fn default() -> Self {
         Self {
-            memory: FlatBufferBuilder::make_flatbuffer(vec![], false),
+            memory: FlatBufferBuilder::make_flatbuffer(vec![], HashSet::new(), false),
             unique_domains_hashes_map: HashMap::new(),
         }
     }

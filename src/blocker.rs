@@ -442,9 +442,13 @@ impl Blocker {
     ) -> Self {
         use crate::filters::fb_network::FilterDataContext;
         use crate::filters::flat_builder::FlatBufferBuilder;
+        use std::collections::HashSet;
 
-        let memory =
-            FlatBufferBuilder::make_flatbuffer(network_filters, options.enable_optimizations);
+        let memory = FlatBufferBuilder::make_flatbuffer(
+            network_filters,
+            HashSet::new(),
+            options.enable_optimizations,
+        );
         let filter_data_context = FilterDataContext::new(memory);
         Self::from_context(filter_data_context)
     }

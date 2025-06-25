@@ -11,6 +11,8 @@
 use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
+use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::flat_filter_map::FlatFilterSetView;
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
@@ -63,8 +65,7 @@ impl UrlSpecificResources {
 /// will be blocked on any particular page, although when used correctly, all provided rules and
 /// scriptlets should be safe to apply.
 pub(crate) struct CosmeticFilterCache {
-    /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
-    pub(crate) simple_class_rules: HashSet<String>,
+    filter_data_context: FilterDataContextRef,
     /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
     pub(crate) simple_id_rules: HashSet<String>,
     /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
@@ -82,9 +83,22 @@ pub(crate) struct CosmeticFilterCache {
 }
 
 impl CosmeticFilterCache {
-    pub fn new() -> Self {
+    pub fn new(filter_data_context: FilterDataContextRef) -> Self {
         Self {
-            simple_class_rules: HashSet::new(),
+            filter_data_context,
+            simple_id_rules: HashSet::new(),
+            complex_class_rules: HashMap::new(),
+            complex_id_rules: HashMap::new(),
+
+            specific_rules: HostnameRuleDb::default(),
+
+            misc_generic_selectors: HashSet::new(),
+        }
+    }
+
+    pub fn new_with_context(filter_data_context: FilterDataContextRef) -> Self {
+        Self {
+            filter_data_context,
             simple_id_rules: HashSet::new(),
             complex_class_rules: HashMap::new(),
             complex_id_rules: HashMap::new(),
@@ -96,8 +110,61 @@ impl CosmeticFilterCache {
     }
 
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
+        use crate::filters::fb_network::FilterDataContext;
+        use crate::filters::flat_builder::FlatBufferBuilder;
+
+        // Extract simple class rules from cosmetic filters to store in flatbuffer
+        // Only extract generic rules (no hostname constraints)
+        let mut simple_class_rules = HashSet::new();
+        let mut other_cosmetic_filters = Vec::new();
+
+        for rule in rules {
+            // Only extract simple class rules if they are generic (no hostname constraints)
+            if !rule.has_hostname_constraint() {
+                if let Some(selector) = rule.plain_css_selector() {
+                    if selector.starts_with('.') {
+                        if let Some(key) = key_from_selector(selector) {
+                            if key.starts_with('.') && key == selector {
+                                // This is a generic simple class rule
+                                let class = key[1..].to_string();
+                                simple_class_rules.insert(class);
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            other_cosmetic_filters.push(rule);
+        }
+
+        // Create flatbuffer with the simple class rules
+        let memory = FlatBufferBuilder::make_flatbuffer(vec![], simple_class_rules, false);
+        let filter_data_context = FilterDataContext::new(memory);
+
         let mut self_ = Self {
-            simple_class_rules: HashSet::with_capacity(rules.len() / 2),
+            filter_data_context,
+            simple_id_rules: HashSet::with_capacity(other_cosmetic_filters.len() / 2),
+            complex_class_rules: HashMap::with_capacity(other_cosmetic_filters.len() / 2),
+            complex_id_rules: HashMap::with_capacity(other_cosmetic_filters.len() / 2),
+
+            specific_rules: HostnameRuleDb::default(),
+
+            misc_generic_selectors: HashSet::with_capacity(other_cosmetic_filters.len() / 30),
+        };
+
+        for rule in other_cosmetic_filters {
+            self_.add_filter(rule)
+        }
+
+        self_
+    }
+
+    pub fn from_rules_with_context(
+        rules: Vec<CosmeticFilter>,
+        filter_data_context: FilterDataContextRef,
+    ) -> Self {
+        let mut self_ = Self {
+            filter_data_context,
             simple_id_rules: HashSet::with_capacity(rules.len() / 2),
             complex_class_rules: HashMap::with_capacity(rules.len() / 2),
             complex_id_rules: HashMap::with_capacity(rules.len() / 2),
@@ -112,6 +179,12 @@ impl CosmeticFilterCache {
         }
 
         self_
+    }
+
+    /// Check if a class is in the simple class rules
+    fn contains_simple_class_rule(&self, class: &str) -> bool {
+        let root = self.filter_data_context.memory.root();
+        FlatFilterSetView::new(root.simple_class_rules()).contains(class)
     }
 
     pub fn add_filter(&mut self, rule: CosmeticFilter) {
@@ -141,7 +214,8 @@ impl CosmeticFilterCache {
                 assert!(key.starts_with('.'));
                 let class = key[1..].to_string();
                 if key == selector {
-                    self.simple_class_rules.insert(class);
+                    // Simple class rules are stored in flatbuffer, so we skip them here
+                    // They should have been extracted during flatbuffer creation
                 } else if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
                     bucket.push(selector);
                 } else {
@@ -193,7 +267,7 @@ impl CosmeticFilterCache {
 
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if self.simple_class_rules.contains(class)
+            if self.contains_simple_class_rule(class)
                 && !exceptions.contains(&format!(".{}", class))
             {
                 selectors.push(format!(".{}", class));
@@ -339,6 +413,15 @@ impl CosmeticFilterCache {
                 .difference(&exceptions)
                 .cloned()
                 .collect::<HashSet<_>>();
+
+            // // Add simple class rules from flatbuffer when generichide is false
+            // for class_rule in self.simple_class_rules() {
+            //     let css_selector = format!(".{}", class_rule);
+            //     if !exceptions.contains(&css_selector) {
+            //         hide_selectors.insert(css_selector);
+            //     }
+            // }
+
             specific_hide_selectors.into_iter().for_each(|sel| {
                 hide_selectors.insert(sel);
             });
@@ -556,7 +639,7 @@ fn hostname_domain_hashes(hostname: &str, domain: &str) -> (Vec<Hash>, Vec<Hash>
 ///
 /// This should only be called once `selector` has been verified to start with either a "#" or "."
 /// character.
-fn key_from_selector(selector: &str) -> Option<String> {
+pub(crate) fn key_from_selector(selector: &str) -> Option<String> {
     use once_cell::sync::Lazy;
     use regex::Regex;
 

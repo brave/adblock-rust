@@ -38,6 +38,8 @@ table Engine {
   // The size must be NetworkFilterListId::Size.
   network_rules: [NetworkFilterList] (required);
 
+  simple_class_rules: [string] (required);
+
   // Contains hashes for opt_(not)_domains. See opt_domains for details.
   unique_domains_hashes: [uint64] (required);
 }
