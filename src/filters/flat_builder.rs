@@ -8,6 +8,7 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
+use crate::filters::flat_filter_map::{write_hash_multi_map, write_hash_set};
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
@@ -250,30 +251,14 @@ impl FlatBufferBuilder {
             );
         }
 
-        let len = filter_map.len();
 
-        // Convert filter_map keys to a sorted vector of (hash, filter_indices).
-        let mut entries: Vec<_> = filter_map.drain().collect();
-        entries.sort_unstable_by_key(|(k, _)| *k);
-
-        // Convert sorted_entries to two flatbuffers vectors.
-        let mut flat_index: Vec<ShortHash> = Vec::with_capacity(len);
-        let mut flat_values: Vec<_> = Vec::with_capacity(len);
-        for (key, filter_indices) in entries {
-            for &filter_index in &filter_indices {
-                flat_index.push(key);
-                flat_values.push(filter_index);
-            }
-        }
-
-        let filter_map_index = builder.create_vector(&flat_index);
-        let filter_map_values = builder.create_vector(&flat_values);
+        let serialized_filter_map = write_hash_multi_map(builder, filter_map);
 
         fb::NetworkFilterList::create(
             builder,
             &fb::NetworkFilterListArgs {
-                filter_map_index: Some(filter_map_index),
-                filter_map_values: Some(filter_map_values),
+                filter_map_index: Some(serialized_filter_map.indexes),
+                filter_map_values: Some(serialized_filter_map.values),
             },
         )
     }
