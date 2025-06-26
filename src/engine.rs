@@ -2,8 +2,8 @@
 
 use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
+use crate::filters::fb_builder::FlatBufferBuilder;
 use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
-use crate::filters::flat_builder::FlatBufferBuilder;
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;

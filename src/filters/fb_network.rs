@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::filters::flat_builder::FlatBufferBuilder;
+use crate::filters::fb_builder::FlatBufferBuilder;
 use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable};
 use crate::filters::unsafe_tools::{fb_vector_to_slice, VerifiedFlatbufferMemory};
 
