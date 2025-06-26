@@ -232,6 +232,7 @@ impl FilterSet {
     }
 
     // Used in benchmarks to avoid parsing the rules twice.
+    #[doc(hidden)]
     pub fn new_with_rules(
         network_filters: Vec<NetworkFilter>,
         cosmetic_filters: Vec<CosmeticFilter>,

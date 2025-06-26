@@ -56,7 +56,7 @@ impl Default for Engine {
         let filter_data_context = FilterDataContextRef::new(Default::default());
 
         Self {
-            blocker: Blocker::from_context(filter_data_context.clone()),
+            blocker: Blocker::from_context(FilterDataContextRef::clone(&filter_data_context)),
             cosmetic_cache: CosmeticFilterCache::new(),
             resources: ResourceStorage::default(),
             filter_data_context,

@@ -140,13 +140,15 @@ impl FlatBufferBuilder {
         filter
     }
 
-    pub fn finish(&mut self, should_optimize: fn(u32) -> bool) -> VerifiedFlatbufferMemory {
+    pub fn finish(&mut self, optimize: bool) -> VerifiedFlatbufferMemory {
         let mut builder = flatbuffers::FlatBufferBuilder::new();
         let mut flat_network_rules = vec![];
 
         let lists = std::mem::take(&mut self.lists);
         for (list_id, list) in lists.into_iter().enumerate() {
-            let optimize = should_optimize(list_id as u32);
+            // Don't optimize removeparam, since it can fuse filters without respecting distinct
+            let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
+
             flat_network_rules.push(self.write_filter_list(&mut builder, list.filters, optimize));
         }
 
@@ -327,11 +329,6 @@ impl FlatBufferBuilder {
             builder.add_filter(filter, list_id as u32);
         }
 
-        builder.finish(if optimize {
-            // Don't optimize removeparam, since it can fuse filters without respecting distinct
-            |id: u32| id != FilterId::RemoveParam as u32
-        } else {
-            |_| false
-        })
+        builder.finish(optimize)
     }
 }
