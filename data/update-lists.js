@@ -1,3 +1,6 @@
+// A script to update the test lists and resources.
+// Use: BRAVE_SERVICE_KEY=<key> node data/update-lists.js <brave_list_version> <resource_list_version>
+
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -7,17 +10,22 @@ const args = process.argv.slice(2);
 
 if (args.length < 2) {
   console.error(
-    "Usage: node update-lists.js <Brave Services Key> <target version for brave list (i.e. 1.0.10268)>\n" +
-      "The component name is 'Brave Ad Block Updater'"
+    "Usage: BRAVE_SERVICE_KEY=<key> node update-lists.js <brave_list_version> <resource_list_version>\n" +
+      "The component names are 'Brave Ad Block Updater' and 'Brave Ad Block Resources Library'"
   );
   process.exit(1);
 }
 
-const apiKey = args[0];
-const version = args[1];
+const apiKey = process.env["BRAVE_SERVICE_KEY"];
+if (!apiKey) {
+  console.error("Error: BRAVE_SERVICE_KEY is not set");
+  process.exit(1);
+}
+const braveVersionNumber = args[0].replace(/\./g, "_");
+const resourceVersionNumber = args[1].replace(/\./g, "_");
 
-const versionNumber = version.replace(/\./g, "_");
-const extensionId = "iodkpdagapdfkphljnddpjlldadblomo";
+const braveMainListId = "iodkpdagapdfkphljnddpjlldadblomo";
+const braveResourceListId = "mfddibmblmbccpadfndgakiopmmhebop";
 
 execSync(
   "curl -o data/easylist.to/easylist/easylist.txt https://easylist.to/easylist/easylist.txt"
@@ -31,7 +39,7 @@ execSync(
 
 const rootDir = path.join(__dirname, "..");
 const tempDir = path.resolve(
-  fs.mkdtempSync("temp-brave-list", {
+  fs.mkdtempSync("temp-list", {
     dir: rootDir,
   })
 );
@@ -40,21 +48,31 @@ try {
   process.chdir(tempDir);
 
   execSync(
-    `curl -o extension.zip -H "BraveServiceKey: ${apiKey}" ` +
-      `https://brave-core-ext.s3.brave.com/release/${extensionId}/extension_${versionNumber}.crx`
+    `curl -o main_list.zip -H "BraveServiceKey: ${apiKey}" ` +
+      `https://brave-core-ext.s3.brave.com/release/${braveMainListId}/extension_${braveVersionNumber}.crx`
   );
 
-  const listPath = path.join(tempDir, "list.txt");
-  try {
-    execSync("unzip extension.zip -d .");
-  } catch (e) {
-    // .crx is not a zip file, so we expect an error here.
-    if (!fs.existsSync(listPath)) {
-      throw new Error("Failed to find list.txt in extension.zip");
+  execSync(
+    `curl -o resources.zip -H "BraveServiceKey: ${apiKey}" ` +
+      `https://brave-core-ext.s3.brave.com/release/${braveResourceListId}/extension_${resourceVersionNumber}.crx`
+  );
+
+
+  const takeFile = (zipFile, fileName, outputFileName) => {
+    try {
+      execSync(`unzip ${zipFile} -d .`);
+    } catch (e) {
+      // .crx is not a zip file, so we expect an error here.
+      if (!fs.existsSync(fileName)) {
+        throw new Error(`Failed to find ${fileName} in ${zipFile}`);
+      }
     }
+    fs.renameSync(fileName, path.join(rootDir, "data/brave", outputFileName));
   }
 
-  fs.renameSync(listPath, path.join(rootDir, "data/brave/brave-main-list.txt"));
+  takeFile("main_list.zip", "list.txt", "brave-main-list.txt");
+  takeFile("resources.zip", "resources.json", "brave-resources.json");
+
 } finally {
-  fs.rmdirSync(tempDir, { recursive: true });
+  fs.rmSync(tempDir, { recursive: true });
 }
