@@ -2,11 +2,9 @@ use criterion::*;
 
 use serde::{Deserialize, Serialize};
 
-use adblock::blocker::{Blocker, BlockerOptions};
 use adblock::request::Request;
-use adblock::resources::ResourceStorage;
 use adblock::url_parser::parse_url;
-use adblock::Engine;
+use adblock::{Engine, FilterSet};
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
@@ -36,14 +34,13 @@ fn load_requests() -> Vec<TestRequest> {
     reqs
 }
 
-fn get_blocker(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Blocker {
+fn get_engine(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
-    let blocker_options = BlockerOptions {
-        enable_optimizations: true,
-    };
-
-    Blocker::new(network_filters, &blocker_options)
+    Engine::from_filter_set(
+        FilterSet::new_with_rules(network_filters, vec![], false),
+        true,
+    )
 }
 
 fn bench_rule_matching(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) {
@@ -61,15 +58,11 @@ fn bench_rule_matching(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) 
     (matches, passes)
 }
 
-fn bench_matching_only(
-    blocker: &Blocker,
-    resources: &ResourceStorage,
-    requests: &[Request],
-) -> (u32, u32) {
+fn bench_matching_only(engine: &Engine, requests: &[Request]) -> (u32, u32) {
     let mut matches = 0;
     let mut passes = 0;
     requests.iter().for_each(|parsed| {
-        let check = blocker.check(parsed, resources);
+        let check = engine.check_network_request(parsed);
         if check.matched {
             matches += 1;
         } else {
@@ -150,14 +143,13 @@ fn rule_match_parsed_el(c: &mut Criterion) {
         .filter_map(Result::ok)
         .collect();
     let requests_len = requests_parsed.len() as u64;
-    let blocker = get_blocker(rules);
-    let resources = ResourceStorage::default();
+    let engine = get_engine(rules);
 
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(10);
 
     group.bench_function("easylist", move |b| {
-        b.iter(|| bench_matching_only(&blocker, &resources, &requests_parsed))
+        b.iter(|| bench_matching_only(&engine, &requests_parsed))
     });
 
     group.finish();
@@ -170,8 +162,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
     ]);
-    let blocker = get_blocker(full_rules);
-    let resources = ResourceStorage::default();
+    let engine = get_engine(full_rules);
 
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
@@ -182,7 +173,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let requests_len = requests_parsed.len() as u64;
 
     let slim_rules = rules_from_lists(&["data/slim-list.txt"]);
-    let slim_blocker = get_blocker(slim_rules);
+    let slim_engine = get_engine(slim_rules);
 
     let requests_copy = load_requests();
     let requests_parsed_copy: Vec<_> = requests_copy
@@ -195,11 +186,10 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("el+ep", move |b| {
-        b.iter(|| bench_matching_only(&blocker, &resources, &requests_parsed))
+        b.iter(|| bench_matching_only(&engine, &requests_parsed))
     });
-    let resources = ResourceStorage::default();
     group.bench_function("slimlist", move |b| {
-        b.iter(|| bench_matching_only(&slim_blocker, &resources, &requests_parsed_copy))
+        b.iter(|| bench_matching_only(&slim_engine, &requests_parsed_copy))
     });
 
     group.finish();

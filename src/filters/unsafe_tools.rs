@@ -36,10 +36,10 @@ pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
 // It could be constructed from raw data (includes the flatbuffer verification)
 // or from a builder that have just been used to construct the flatbuffer
 // Invariants:
-// 1. self.data() is properly verified flatbuffer contains FilterList.
+// 1. self.data() is properly verified flatbuffer contains the root object.
 // 2. self.data() is aligned to MIN_ALIGNMENT bytes.
 //    This is necessary for fb_vector_to_slice.
-pub(crate) struct VerifiedFlatFilterListMemory {
+pub(crate) struct VerifiedFlatbufferMemory {
     // The buffer containing the flatbuffer data.
     raw_data: Vec<u8>,
 
@@ -48,17 +48,17 @@ pub(crate) struct VerifiedFlatFilterListMemory {
     start: usize,
 }
 
-impl VerifiedFlatFilterListMemory {
+impl VerifiedFlatbufferMemory {
     pub(crate) fn from_raw(data: Vec<u8>) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
         let memory = Self::from_vec(data);
 
         // Verify that the data is a valid flatbuffer.
-        let _ = fb::root_as_network_filter_list(memory.data())?;
+        let _ = fb::root_as_engine(memory.data())?;
 
         Ok(memory)
     }
 
-    // Creates a new VerifiedFlatFilterListMemory from a builder.
+    // Creates a new VerifiedFlatbufferMemory from a builder.
     // Skip the verification, the builder must contains a valid FilterList.
     pub(crate) fn from_builder(builder: &flatbuffers::FlatBufferBuilder<'_>) -> Self {
         let raw_data = builder.finished_data().to_vec();
@@ -86,8 +86,8 @@ impl VerifiedFlatFilterListMemory {
         memory
     }
 
-    pub(crate) fn filter_list(&self) -> fb::NetworkFilterList<'_> {
-        unsafe { fb::root_as_network_filter_list_unchecked(self.data()) }
+    pub(crate) fn root(&self) -> fb::Engine<'_> {
+        unsafe { fb::root_as_engine_unchecked(self.data()) }
     }
 
     pub fn data(&self) -> &[u8] {
