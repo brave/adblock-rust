@@ -899,7 +899,7 @@ mod legacy_misc_tests {
         ); // enable debugging and disable optimizations
 
         let serialized = engine.serialize().unwrap();
-        let mut engine2 = Engine::new(false);
+        let mut engine2 = Engine::default();
         engine2.deserialize(&serialized).unwrap();
 
         assert!(

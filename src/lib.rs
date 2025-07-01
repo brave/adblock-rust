@@ -51,7 +51,7 @@ mod sync_tests {
     }
 
     #[test]
-    #[cfg(not(feature = "unsync-regex-caching"))]
+    #[cfg(not(feature = "single-thread"))]
     fn assert_engine_sync() {
         static_assert_sync::<crate::engine::Engine>();
     }

@@ -1472,17 +1472,17 @@ mod legacy_rule_parsing_tests {
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
         assert!(
-            blocker.exceptions.get_filter_map().total_size()
-                + blocker.generic_hide.get_filter_map().total_size()
+            blocker.exceptions().get_filter_map().total_size()
+                + blocker.generic_hide().get_filter_map().total_size()
                 >= expectation.exceptions,
             "Number of collected exceptions does not match expectation"
         );
 
         assert!(
-            blocker.filters.get_filter_map().total_size()
-                + blocker.importants.get_filter_map().total_size()
-                + blocker.redirects.get_filter_map().total_size()
-                + blocker.csp.get_filter_map().total_size()
+            blocker.filters().get_filter_map().total_size()
+                + blocker.importants().get_filter_map().total_size()
+                + blocker.redirects().get_filter_map().total_size()
+                + blocker.csp().get_filter_map().total_size()
                 >= expectation.filters - expectation.duplicates,
             "Number of collected network filters does not match expectation"
         );

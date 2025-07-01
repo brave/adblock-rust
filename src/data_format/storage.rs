@@ -9,9 +9,8 @@ use std::collections::{HashMap, HashSet};
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
-use crate::blocker::Blocker;
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
-use crate::network_filter_list::NetworkFilterList;
+use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
@@ -181,45 +180,11 @@ pub(crate) struct LegacyScriptletResourceStorage {
     resources: HashMap<String, LegacyScriptletResource>,
 }
 
-/// Forces a `NetworkFilterList` to be serialized by converting to an
-/// intermediate representation that is constructed with `NetworkFilterFmt` instead.
-fn serialize_network_filter_list<S>(list: &NetworkFilterList, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    #[derive(Serialize, Default)]
-    struct NetworkFilterListSerializeFmt {
-        flatbuffer_memory: Vec<u8>,
-    }
-
-    let storage_list = NetworkFilterListSerializeFmt {
-        flatbuffer_memory: list.memory.data().to_vec(),
-    };
-
-    storage_list.serialize(s)
-}
-
 /// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
 /// serialization.
 #[derive(Serialize)]
 pub(crate) struct SerializeFormat<'a> {
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    csp: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    exceptions: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    importants: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    redirects: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    filters: &'a NetworkFilterList,
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    generic_hide: &'a NetworkFilterList,
-
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    tagged_filters_all: &'a NetworkFilterList,
-
-    enable_optimizations: bool,
+    flatbuffer_memory: Vec<u8>,
 
     resources: LegacyRedirectResourceStorage,
 
@@ -243,9 +208,6 @@ pub(crate) struct SerializeFormat<'a> {
     procedural_action: &'a HashMap<Hash, Vec<String>>,
     #[serde(serialize_with = "stabilize_hashmap_serialization")]
     procedural_action_exception: &'a HashMap<Hash, Vec<String>>,
-
-    #[serde(serialize_with = "serialize_network_filter_list")]
-    removeparam: &'a NetworkFilterList,
 }
 
 impl SerializeFormat<'_> {
@@ -257,35 +219,11 @@ impl SerializeFormat<'_> {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
-pub(crate) struct NetworkFilterListDeserializeFmt {
-    pub flatbuffer_memory: Vec<u8>,
-}
-
-impl TryFrom<NetworkFilterListDeserializeFmt> for NetworkFilterList {
-    fn try_from(v: NetworkFilterListDeserializeFmt) -> Result<Self, Self::Error> {
-        Ok(NetworkFilterList::try_from_unverified_memory(
-            v.flatbuffer_memory,
-        )?)
-    }
-
-    type Error = DeserializationError;
-}
-
 /// Structural representation of adblock engine data that can be built up from deserialization and
 /// used directly to construct new `Engine` components without unnecessary allocation.
 #[derive(Deserialize)]
 pub(crate) struct DeserializeFormat {
-    csp: NetworkFilterListDeserializeFmt,
-    exceptions: NetworkFilterListDeserializeFmt,
-    importants: NetworkFilterListDeserializeFmt,
-    redirects: NetworkFilterListDeserializeFmt,
-    filters: NetworkFilterListDeserializeFmt,
-    generic_hide: NetworkFilterListDeserializeFmt,
-
-    tagged_filters_all: NetworkFilterListDeserializeFmt,
-
-    enable_optimizations: bool,
+    flatbuffer_memory: Vec<u8>,
 
     _resources: LegacyRedirectResourceStorage,
 
@@ -304,9 +242,6 @@ pub(crate) struct DeserializeFormat {
     procedural_action: HashMap<Hash, Vec<String>>,
     #[serde(default)]
     procedural_action_exception: HashMap<Hash, Vec<String>>,
-
-    #[serde(default)]
-    removeparam: NetworkFilterListDeserializeFmt,
 }
 
 impl DeserializeFormat {
@@ -317,20 +252,11 @@ impl DeserializeFormat {
     }
 }
 
-impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
-    fn from(v: (&'a Blocker, &'a CosmeticFilterCache)) -> Self {
-        let (blocker, cfc) = v;
+impl<'a> From<(&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
+    fn from(v: (&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)) -> Self {
+        let (memory, cfc) = v;
         Self {
-            csp: &blocker.csp,
-            exceptions: &blocker.exceptions,
-            importants: &blocker.importants,
-            redirects: &blocker.redirects,
-            filters: &blocker.filters,
-            generic_hide: &blocker.generic_hide,
-
-            tagged_filters_all: &blocker.tagged_filters_all,
-
-            enable_optimizations: blocker.enable_optimizations,
+            flatbuffer_memory: memory.data().to_vec(),
 
             resources: LegacyRedirectResourceStorage::default(),
 
@@ -347,13 +273,11 @@ impl<'a> From<(&'a Blocker, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
 
             procedural_action: &cfc.specific_rules.procedural_action.0,
             procedural_action_exception: &cfc.specific_rules.procedural_action_exception.0,
-
-            removeparam: &blocker.removeparam,
         }
     }
 }
 
-impl TryFrom<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
+impl TryFrom<DeserializeFormat> for (VerifiedFlatbufferMemory, CosmeticFilterCache) {
     fn try_from(v: DeserializeFormat) -> Result<Self, Self::Error> {
         use crate::cosmetic_filter_cache::HostnameFilterBin;
 
@@ -362,22 +286,11 @@ impl TryFrom<DeserializeFormat> for (Blocker, CosmeticFilterCache) {
         specific_rules.procedural_action_exception =
             HostnameFilterBin(v.procedural_action_exception);
 
+        let memory = VerifiedFlatbufferMemory::from_raw(v.flatbuffer_memory)
+            .map_err(DeserializationError::FlatBufferParsingError)?;
+
         Ok((
-            Blocker {
-                csp: v.csp.try_into()?,
-                exceptions: v.exceptions.try_into()?,
-                importants: v.importants.try_into()?,
-                redirects: v.redirects.try_into()?,
-                removeparam: v.removeparam.try_into()?,
-                filters: v.filters.try_into()?,
-                generic_hide: v.generic_hide.try_into()?,
-
-                tags_enabled: Default::default(),
-                tagged_filters_all: v.tagged_filters_all.try_into()?,
-
-                enable_optimizations: v.enable_optimizations,
-                regex_manager: Default::default(),
-            },
+            memory,
             CosmeticFilterCache {
                 simple_class_rules: v.simple_class_rules,
                 simple_id_rules: v.simple_id_rules,

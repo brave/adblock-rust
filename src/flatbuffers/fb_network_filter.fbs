@@ -27,7 +27,19 @@ table NetworkFilter {
 table NetworkFilterList {
   filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
+}
+
+// A root type containing a serialized Engine.
+// Currently it contains only some of engine fields:
+// network filters and supporing struct.
+table Engine {
+  // Contains several NetworkFilterList matching to different kinds of lists.
+  // The indexes are matching NetworkFilterListId.
+  // The size must be NetworkFilterListId::Size.
+  network_rules: [NetworkFilterList] (required);
+
+  // Contains hashes for opt_(not)_domains. See opt_domains for details.
   unique_domains_hashes: [uint64] (required);
 }
 
-root_type NetworkFilterList;
+root_type Engine;

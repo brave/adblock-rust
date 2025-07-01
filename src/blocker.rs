@@ -6,12 +6,13 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
 
-use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
+use crate::filters::fb_builder::NetworkFilterListId;
+use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
-use crate::utils::Hash;
 
 /// Options used when constructing a [`Blocker`].
 pub struct BlockerOptions {
@@ -66,26 +67,16 @@ static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);
 
 /// Stores network filters for efficient querying.
 pub struct Blocker {
-    pub(crate) csp: NetworkFilterList,
-    pub(crate) exceptions: NetworkFilterList,
-    pub(crate) importants: NetworkFilterList,
-    pub(crate) redirects: NetworkFilterList,
-    pub(crate) removeparam: NetworkFilterList,
-    pub(crate) filters: NetworkFilterList,
-    pub(crate) generic_hide: NetworkFilterList,
-
     // Enabled tags are not serialized - when deserializing, tags of the existing
     // instance (the one we are recreating lists into) are maintained
     pub(crate) tags_enabled: HashSet<String>,
-    pub(crate) tagged_filters_all: NetworkFilterList,
-
-    pub(crate) enable_optimizations: bool,
-
     // Not serialized
-    #[cfg(feature = "unsync-regex-caching")]
+    #[cfg(feature = "single-thread")]
     pub(crate) regex_manager: std::cell::RefCell<RegexManager>,
-    #[cfg(not(feature = "unsync-regex-caching"))]
+    #[cfg(not(feature = "single-thread"))]
     pub(crate) regex_manager: std::sync::Mutex<RegexManager>,
+
+    pub(crate) filter_data_context: FilterDataContextRef,
 }
 
 impl Blocker {
@@ -95,8 +86,52 @@ impl Blocker {
         self.check_parameterised(request, resources, false, false)
     }
 
-    #[cfg(feature = "unsync-regex-caching")]
-    fn borrow_regex_manager(&self) -> std::cell::RefMut<'_, RegexManager> {
+    pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList {
+        NetworkFilterList {
+            list: self
+                .filter_data_context
+                .memory
+                .root()
+                .network_rules()
+                .get(id as usize),
+            filter_data_context: &self.filter_data_context,
+        }
+    }
+
+    pub(crate) fn csp(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::Csp)
+    }
+
+    pub(crate) fn exceptions(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::Exceptions)
+    }
+
+    pub(crate) fn importants(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::Importants)
+    }
+
+    pub(crate) fn redirects(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::Redirects)
+    }
+
+    pub(crate) fn removeparam(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::RemoveParam)
+    }
+
+    pub(crate) fn filters(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::Filters)
+    }
+
+    pub(crate) fn generic_hide(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::GenericHide)
+    }
+
+    pub(crate) fn tagged_filters_all(&self) -> NetworkFilterList {
+        self.get_list(NetworkFilterListId::TaggedFiltersAll)
+    }
+
+    #[cfg(feature = "single-thread")]
+    fn borrow_regex_manager(&self) -> std::cell::RefMut<RegexManager> {
         #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
 
@@ -106,7 +141,7 @@ impl Blocker {
         manager
     }
 
-    #[cfg(not(feature = "unsync-regex-caching"))]
+    #[cfg(not(feature = "single-thread"))]
     fn borrow_regex_manager(&self) -> std::sync::MutexGuard<'_, RegexManager> {
         let mut manager = self.regex_manager.lock().unwrap();
         manager.update_time();
@@ -115,7 +150,7 @@ impl Blocker {
 
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
-        self.generic_hide
+        self.generic_hide()
             .check(hostname_request, &HashSet::new(), &mut regex_manager)
             .is_some()
     }
@@ -139,13 +174,15 @@ impl Blocker {
         // 4. exceptions - if any non-important match of forced
 
         // Always check important filters
-        let important_filter = self.importants.check(request, &NO_TAGS, &mut regex_manager);
+        let important_filter = self
+            .importants()
+            .check(request, &NO_TAGS, &mut regex_manager);
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
-            self.tagged_filters_all
+            self.tagged_filters_all()
                 .check(request, &self.tags_enabled, &mut regex_manager)
-                .or_else(|| self.filters.check(request, &NO_TAGS, &mut regex_manager))
+                .or_else(|| self.filters().check(request, &NO_TAGS, &mut regex_manager))
         } else {
             important_filter
         };
@@ -153,19 +190,19 @@ impl Blocker {
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
             None if matched_rule || force_check_exceptions => {
-                self.exceptions
+                self.exceptions()
                     .check(request, &self.tags_enabled, &mut regex_manager)
             }
             None => None,
             // If matched an important filter, exceptions don't atter
             Some(f) if f.is_important() => None,
             Some(_) => self
-                .exceptions
+                .exceptions()
                 .check(request, &self.tags_enabled, &mut regex_manager),
         };
 
         let redirect_filters =
-            self.redirects
+            self.redirects()
                 .check_all(request, &NO_TAGS, regex_manager.deref_mut());
 
         // Extract the highest priority redirect directive.
@@ -231,7 +268,7 @@ impl Blocker {
         let rewritten_url = if important {
             None
         } else {
-            Self::apply_removeparam(&self.removeparam, request, regex_manager.deref_mut())
+            Self::apply_removeparam(&self.removeparam(), request, regex_manager.deref_mut())
         };
 
         // If something has already matched before but we don't know what, still return a match
@@ -346,7 +383,7 @@ impl Blocker {
 
         let mut regex_manager = self.borrow_regex_manager();
         let filters = self
-            .csp
+            .csp()
             .check_all(request, &self.tags_enabled, &mut regex_manager);
 
         if filters.is_empty() {
@@ -390,94 +427,26 @@ impl Blocker {
         Some(merged)
     }
 
-    pub fn new(network_filters: Vec<NetworkFilter>, options: &BlockerOptions) -> Self {
-        // Capacity of filter subsets estimated based on counts in EasyList and EasyPrivacy - if necessary
-        // the Vectors will grow beyond the pre-set capacity, but it is more efficient to allocate all at once
-        // $csp=
-        let mut csp = Vec::with_capacity(200);
-        // @@filter
-        let mut exceptions = Vec::with_capacity(network_filters.len() / 8);
-        // $important
-        let mut importants = Vec::with_capacity(200);
-        // $redirect, $redirect-rule
-        let mut redirects = Vec::with_capacity(200);
-        // $removeparam
-        let mut removeparam = Vec::with_capacity(60);
-        // $tag=
-        let mut tagged_filters_all = Vec::with_capacity(200);
-        // $badfilter
-        let mut badfilters = Vec::with_capacity(100);
-        // $generichide
-        let mut generic_hide = Vec::with_capacity(4000);
-        // All other filters
-        let mut filters = Vec::with_capacity(network_filters.len());
-
-        // Injections
-        // TODO: resource handling
-
-        if !network_filters.is_empty() {
-            for filter in network_filters.iter() {
-                if filter.is_badfilter() {
-                    badfilters.push(filter);
-                }
-            }
-            let badfilter_ids: HashSet<Hash> = badfilters
-                .iter()
-                .map(|f| f.get_id_without_badfilter())
-                .collect();
-            for filter in network_filters {
-                // skip any bad filters
-                let filter_id = filter.get_id();
-                if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
-                    continue;
-                }
-
-                // Redirects are independent of blocking behavior.
-                if filter.is_redirect() {
-                    redirects.push(filter.clone());
-                }
-
-                if filter.is_csp() {
-                    csp.push(filter);
-                } else if filter.is_removeparam() {
-                    removeparam.push(filter);
-                } else if filter.is_generic_hide() {
-                    generic_hide.push(filter);
-                } else if filter.is_exception() {
-                    exceptions.push(filter);
-                } else if filter.is_important() {
-                    importants.push(filter);
-                } else if filter.tag.is_some() && !filter.is_redirect() {
-                    // `tag` + `redirect` is unsupported for now.
-                    tagged_filters_all.push(filter);
-                } else if (filter.is_redirect() && filter.also_block_redirect())
-                    || !filter.is_redirect()
-                {
-                    filters.push(filter);
-                }
-            }
-        }
-
+    pub(crate) fn from_context(filter_data_context: FilterDataContextRef) -> Self {
         Self {
-            csp: NetworkFilterList::new(csp, options.enable_optimizations),
-            exceptions: NetworkFilterList::new(exceptions, options.enable_optimizations),
-            importants: NetworkFilterList::new(importants, options.enable_optimizations),
-            redirects: NetworkFilterList::new(redirects, options.enable_optimizations),
-            // Don't optimize removeparam, since it can fuse filters without respecting distinct
-            // queryparam values
-            removeparam: NetworkFilterList::new(removeparam, false),
-            filters: NetworkFilterList::new(filters, options.enable_optimizations),
-            generic_hide: NetworkFilterList::new(generic_hide, options.enable_optimizations),
-            // Tags special case for enabling/disabling them dynamically
+            filter_data_context,
             tags_enabled: HashSet::new(),
-            tagged_filters_all: NetworkFilterList::new(
-                tagged_filters_all,
-                options.enable_optimizations,
-            ),
-            // Options
-            enable_optimizations: options.enable_optimizations,
             regex_manager: Default::default(),
         }
+    }
+
+    #[cfg(test)]
+    pub fn new(
+        network_filters: Vec<crate::filters::network::NetworkFilter>,
+        options: &BlockerOptions,
+    ) -> Self {
+        use crate::filters::fb_builder::FlatBufferBuilder;
+        use crate::filters::fb_network::FilterDataContext;
+
+        let memory =
+            FlatBufferBuilder::make_flatbuffer(network_filters, options.enable_optimizations);
+        let filter_data_context = FilterDataContext::new(memory);
+        Self::from_context(filter_data_context)
     }
 
     pub fn use_tags(&mut self, tags: &[&str]) {
