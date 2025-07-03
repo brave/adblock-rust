@@ -29,7 +29,7 @@ mod tests {
             let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(
                     !matched_rule.matched,
@@ -63,7 +63,7 @@ mod tests {
             let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(
                     !matched_rule.matched,
@@ -93,7 +93,7 @@ mod tests {
             let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(
                     !matched_rule.matched,
@@ -124,7 +124,7 @@ mod tests {
             let request = Request::new(url, "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(
                     !matched_rule.matched,
@@ -162,7 +162,7 @@ mod tests {
             let request = Request::new(url, "", "").unwrap();
             let matched_rule = deserialized_engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", url);
+                assert!(matched_rule.matched, "Expected match for {url}");
             } else {
                 assert!(
                     !matched_rule.matched,
@@ -184,7 +184,7 @@ mod tests {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
         let data = engine.serialize().unwrap();
         const EXPECTED_HASH: u64 = 5723845290597955159;
-        assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
+        assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
 
@@ -194,7 +194,7 @@ mod tests {
         engine.use_tags(&["abc"]);
         let data = engine.serialize().unwrap();
         const EXPECTED_HASH: u64 = 9626816743810307798;
-        assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
+        assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
 
@@ -208,7 +208,7 @@ mod tests {
         ]);
 
         let serialized = engine.serialize().unwrap();
-        println!("Engine serialized: {:?}", serialized);
+        println!("Engine serialized: {serialized:?}");
         engine.deserialize(&serialized).unwrap();
     }
 
@@ -224,7 +224,7 @@ mod tests {
             4130628479730907288
         };
 
-        assert_eq!(hash(&data), expected_hash, "{}", HASH_MISMATCH_MSG);
+        assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
 
         engine.deserialize(&data).unwrap();
     }
@@ -252,7 +252,7 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(url, "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert!(matched_rule.matched, "Expected match for {url}");
         assert_eq!(
             matched_rule.redirect,
             Some("data:text/plain;base64,".to_owned()),
@@ -262,7 +262,7 @@ mod tests {
         let url = "http://example.com/script.js";
         let request = Request::new(url, "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {}", url);
+        assert!(matched_rule.matched, "Expected match for {url}");
         assert_eq!(
             matched_rule.redirect,
             Some(format!(
@@ -778,7 +778,7 @@ mod tests {
         engine.use_resources(resources);
 
         fn wrap_try(scriptlet_content: &str) -> String {
-            format!("try {{\n{}\n}} catch ( e ) {{ }}\n", scriptlet_content)
+            format!("try {{\n{scriptlet_content}\n}} catch ( e ) {{ }}\n")
         }
 
         assert_eq!(

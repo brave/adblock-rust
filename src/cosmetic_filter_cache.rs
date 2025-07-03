@@ -193,10 +193,9 @@ impl CosmeticFilterCache {
 
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if self.simple_class_rules.contains(class)
-                && !exceptions.contains(&format!(".{}", class))
+            if self.simple_class_rules.contains(class) && !exceptions.contains(&format!(".{class}"))
             {
-                selectors.push(format!(".{}", class));
+                selectors.push(format!(".{class}"));
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
                 selectors.extend(
@@ -209,8 +208,8 @@ impl CosmeticFilterCache {
         });
         ids.into_iter().for_each(|id| {
             let id = id.as_ref();
-            if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
-                selectors.push(format!("#{}", id));
+            if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{id}")) {
+                selectors.push(format!("#{id}"));
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
                 selectors.extend(
