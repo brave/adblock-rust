@@ -4,7 +4,7 @@
 //!
 //! Any new fields should be added to the _end_ of both `SerializeFormat` and `DeserializeFormat`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
-use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
+use super::utils::stabilize_hashmap_serialization;
 use super::{DeserializationError, SerializationError};
 
 /// Each variant describes a single rule that is specific to a particular hostname.
@@ -191,13 +191,7 @@ pub(crate) struct SerializeFormat<'a> {
 
     resources: LegacyRedirectResourceStorage,
 
-    #[serde(serialize_with = "stabilize_hashmap_serialization")]
-    complex_class_rules: &'a HashMap<String, Vec<String>>,
-    #[serde(serialize_with = "stabilize_hashmap_serialization")]
-    complex_id_rules: &'a HashMap<String, Vec<String>>,
-
     specific_rules: LegacyHostnameRuleDb,
-
 
     scriptlets: LegacyScriptletResourceStorage,
 
@@ -224,9 +218,6 @@ pub(crate) struct DeserializeFormat {
 
     _resources: LegacyRedirectResourceStorage,
 
-    complex_class_rules: HashMap<String, Vec<String>>,
-    complex_id_rules: HashMap<String, Vec<String>>,
-
     specific_rules: LegacyHostnameRuleDb,
 
     _scriptlets: LegacyScriptletResourceStorage,
@@ -252,8 +243,6 @@ impl<'a> From<(&'a FilterDataContext, &'a CosmeticFilterCache)> for SerializeFor
             flatbuffer_memory: context.memory.data().to_vec(),
 
             resources: LegacyRedirectResourceStorage::default(),
-            complex_class_rules: &cfc.complex_class_rules,
-            complex_id_rules: &cfc.complex_id_rules,
 
             specific_rules: (&cfc.specific_rules).into(),
 
@@ -282,11 +271,7 @@ impl TryFrom<DeserializeFormat> for (FilterDataContextRef, CosmeticFilterCache) 
 
         let cosmetic_cache = CosmeticFilterCache::from_context(
             filter_data_context.clone(),
-            CosmeticFilterNotProtoFields {
-                complex_class_rules: v.complex_class_rules,
-                complex_id_rules: v.complex_id_rules,
-                specific_rules,
-            },
+            CosmeticFilterNotProtoFields { specific_rules },
         );
 
         Ok((filter_data_context, cosmetic_cache))

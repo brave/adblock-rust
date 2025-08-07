@@ -11,7 +11,7 @@ const MIN_ALIGNMENT: usize = 4;
 /// This function uses unsafe code to convert flatbuffer vector bytes to a slice.
 /// It asserts the vector data is properly aligned and sized.
 #[inline(always)]
-pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
+pub fn fb_vector_to_slice<'a, T>(vector: &flatbuffers::Vector<'a, T>) -> &'a [T] {
     let bytes = vector.bytes();
 
     const fn static_assert_alignment<T>() {

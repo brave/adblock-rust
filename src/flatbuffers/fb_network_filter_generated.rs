@@ -676,7 +676,11 @@ pub mod fb {
         pub const VT_SIMPLE_CLASS_RULES: flatbuffers::VOffsetT = 6;
         pub const VT_SIMPLE_ID_RULES: flatbuffers::VOffsetT = 8;
         pub const VT_MISC_GENERIC_SELECTORS: flatbuffers::VOffsetT = 10;
-        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 12;
+        pub const VT_COMPLEX_CLASS_RULES_INDEX: flatbuffers::VOffsetT = 12;
+        pub const VT_COMPLEX_CLASS_RULES_VALUES: flatbuffers::VOffsetT = 14;
+        pub const VT_COMPLEX_ID_RULES_INDEX: flatbuffers::VOffsetT = 16;
+        pub const VT_COMPLEX_ID_RULES_VALUES: flatbuffers::VOffsetT = 18;
+        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 20;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -695,6 +699,18 @@ pub mod fb {
             let mut builder = EngineBuilder::new(_fbb);
             if let Some(x) = args.unique_domains_hashes {
                 builder.add_unique_domains_hashes(x);
+            }
+            if let Some(x) = args.complex_id_rules_values {
+                builder.add_complex_id_rules_values(x);
+            }
+            if let Some(x) = args.complex_id_rules_index {
+                builder.add_complex_id_rules_index(x);
+            }
+            if let Some(x) = args.complex_class_rules_values {
+                builder.add_complex_class_rules_values(x);
+            }
+            if let Some(x) = args.complex_class_rules_index {
+                builder.add_complex_class_rules_index(x);
             }
             if let Some(x) = args.misc_generic_selectors {
                 builder.add_misc_generic_selectors(x);
@@ -728,6 +744,22 @@ pub mod fb {
                 let x = self.misc_generic_selectors();
                 x.iter().map(|s| s.to_string()).collect()
             };
+            let complex_class_rules_index = {
+                let x = self.complex_class_rules_index();
+                x.iter().map(|s| s.to_string()).collect()
+            };
+            let complex_class_rules_values = {
+                let x = self.complex_class_rules_values();
+                x.iter().map(|s| s.to_string()).collect()
+            };
+            let complex_id_rules_index = {
+                let x = self.complex_id_rules_index();
+                x.iter().map(|s| s.to_string()).collect()
+            };
+            let complex_id_rules_values = {
+                let x = self.complex_id_rules_values();
+                x.iter().map(|s| s.to_string()).collect()
+            };
             let unique_domains_hashes = {
                 let x = self.unique_domains_hashes();
                 x.into_iter().collect()
@@ -737,6 +769,10 @@ pub mod fb {
                 simple_class_rules,
                 simple_id_rules,
                 misc_generic_selectors,
+                complex_class_rules_index,
+                complex_class_rules_values,
+                complex_id_rules_index,
+                complex_id_rules_values,
                 unique_domains_hashes,
             }
         }
@@ -805,6 +841,70 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// Complex class rules - CSS selectors starting with a class, e.g. `##.ad image`
+        /// These are stored as a multi-map from class name to list of selectors
+        #[inline]
+        pub fn complex_class_rules_index(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(Engine::VT_COMPLEX_CLASS_RULES_INDEX, None)
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn complex_class_rules_values(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(Engine::VT_COMPLEX_CLASS_RULES_VALUES, None)
+                    .unwrap()
+            }
+        }
+        /// Complex id rules - CSS selectors starting with an id, e.g. `###banner > .text a`
+        /// These are stored as a multi-map from id name to list of selectors
+        #[inline]
+        pub fn complex_id_rules_index(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(Engine::VT_COMPLEX_ID_RULES_INDEX, None)
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn complex_id_rules_values(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(Engine::VT_COMPLEX_ID_RULES_VALUES, None)
+                    .unwrap()
+            }
+        }
         #[inline]
         pub fn unique_domains_hashes(&self) -> flatbuffers::Vector<'a, u64> {
             // Safety:
@@ -845,6 +945,34 @@ pub mod fb {
                     Self::VT_MISC_GENERIC_SELECTORS,
                     true,
                 )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>(
+                    "complex_class_rules_index",
+                    Self::VT_COMPLEX_CLASS_RULES_INDEX,
+                    true,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>(
+                    "complex_class_rules_values",
+                    Self::VT_COMPLEX_CLASS_RULES_VALUES,
+                    true,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>(
+                    "complex_id_rules_index",
+                    Self::VT_COMPLEX_ID_RULES_INDEX,
+                    true,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>(
+                    "complex_id_rules_values",
+                    Self::VT_COMPLEX_ID_RULES_VALUES,
+                    true,
+                )?
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
                     "unique_domains_hashes",
                     Self::VT_UNIQUE_DOMAINS_HASHES,
@@ -869,17 +997,33 @@ pub mod fb {
         pub misc_generic_selectors: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
+        pub complex_class_rules_index: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub complex_class_rules_values: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub complex_id_rules_index: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub complex_id_rules_values: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
         pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
     }
     impl<'a> Default for EngineArgs<'a> {
         #[inline]
         fn default() -> Self {
             EngineArgs {
-                network_rules: None,          // required field
-                simple_class_rules: None,     // required field
-                simple_id_rules: None,        // required field
-                misc_generic_selectors: None, // required field
-                unique_domains_hashes: None,  // required field
+                network_rules: None,              // required field
+                simple_class_rules: None,         // required field
+                simple_id_rules: None,            // required field
+                misc_generic_selectors: None,     // required field
+                complex_class_rules_index: None,  // required field
+                complex_class_rules_values: None, // required field
+                complex_id_rules_index: None,     // required field
+                complex_id_rules_values: None,    // required field
+                unique_domains_hashes: None,      // required field
             }
         }
     }
@@ -938,6 +1082,54 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_complex_class_rules_index(
+            &mut self,
+            complex_class_rules_index: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_COMPLEX_CLASS_RULES_INDEX,
+                complex_class_rules_index,
+            );
+        }
+        #[inline]
+        pub fn add_complex_class_rules_values(
+            &mut self,
+            complex_class_rules_values: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_COMPLEX_CLASS_RULES_VALUES,
+                complex_class_rules_values,
+            );
+        }
+        #[inline]
+        pub fn add_complex_id_rules_index(
+            &mut self,
+            complex_id_rules_index: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_COMPLEX_ID_RULES_INDEX,
+                complex_id_rules_index,
+            );
+        }
+        #[inline]
+        pub fn add_complex_id_rules_values(
+            &mut self,
+            complex_id_rules_values: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_COMPLEX_ID_RULES_VALUES,
+                complex_id_rules_values,
+            );
+        }
+        #[inline]
         pub fn add_unique_domains_hashes(
             &mut self,
             unique_domains_hashes: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
@@ -971,6 +1163,26 @@ pub mod fb {
                 Engine::VT_MISC_GENERIC_SELECTORS,
                 "misc_generic_selectors",
             );
+            self.fbb_.required(
+                o,
+                Engine::VT_COMPLEX_CLASS_RULES_INDEX,
+                "complex_class_rules_index",
+            );
+            self.fbb_.required(
+                o,
+                Engine::VT_COMPLEX_CLASS_RULES_VALUES,
+                "complex_class_rules_values",
+            );
+            self.fbb_.required(
+                o,
+                Engine::VT_COMPLEX_ID_RULES_INDEX,
+                "complex_id_rules_index",
+            );
+            self.fbb_.required(
+                o,
+                Engine::VT_COMPLEX_ID_RULES_VALUES,
+                "complex_id_rules_values",
+            );
             self.fbb_
                 .required(o, Engine::VT_UNIQUE_DOMAINS_HASHES, "unique_domains_hashes");
             flatbuffers::WIPOffset::new(o.value())
@@ -984,6 +1196,16 @@ pub mod fb {
             ds.field("simple_class_rules", &self.simple_class_rules());
             ds.field("simple_id_rules", &self.simple_id_rules());
             ds.field("misc_generic_selectors", &self.misc_generic_selectors());
+            ds.field(
+                "complex_class_rules_index",
+                &self.complex_class_rules_index(),
+            );
+            ds.field(
+                "complex_class_rules_values",
+                &self.complex_class_rules_values(),
+            );
+            ds.field("complex_id_rules_index", &self.complex_id_rules_index());
+            ds.field("complex_id_rules_values", &self.complex_id_rules_values());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.finish()
         }
@@ -995,6 +1217,10 @@ pub mod fb {
         pub simple_class_rules: Vec<String>,
         pub simple_id_rules: Vec<String>,
         pub misc_generic_selectors: Vec<String>,
+        pub complex_class_rules_index: Vec<String>,
+        pub complex_class_rules_values: Vec<String>,
+        pub complex_id_rules_index: Vec<String>,
+        pub complex_id_rules_values: Vec<String>,
         pub unique_domains_hashes: Vec<u64>,
     }
     impl Default for EngineT {
@@ -1004,6 +1230,10 @@ pub mod fb {
                 simple_class_rules: Default::default(),
                 simple_id_rules: Default::default(),
                 misc_generic_selectors: Default::default(),
+                complex_class_rules_index: Default::default(),
+                complex_class_rules_values: Default::default(),
+                complex_id_rules_index: Default::default(),
+                complex_id_rules_values: Default::default(),
                 unique_domains_hashes: Default::default(),
             }
         }
@@ -1033,6 +1263,26 @@ pub mod fb {
                 let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
                 _fbb.create_vector(&w)
             });
+            let complex_class_rules_index = Some({
+                let x = &self.complex_class_rules_index;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let complex_class_rules_values = Some({
+                let x = &self.complex_class_rules_values;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let complex_id_rules_index = Some({
+                let x = &self.complex_id_rules_index;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let complex_id_rules_values = Some({
+                let x = &self.complex_id_rules_values;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
             let unique_domains_hashes = Some({
                 let x = &self.unique_domains_hashes;
                 _fbb.create_vector(x)
@@ -1044,6 +1294,10 @@ pub mod fb {
                     simple_class_rules,
                     simple_id_rules,
                     misc_generic_selectors,
+                    complex_class_rules_index,
+                    complex_class_rules_values,
+                    complex_id_rules_index,
+                    complex_id_rules_values,
                     unique_domains_hashes,
                 },
             )

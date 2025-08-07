@@ -1,84 +1,121 @@
-//! Holds the implementation of [FlatFilterMap].
-
-use flatbuffers::{Follow, ForwardsUOffset, Vector, WIPOffset};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-};
+//! Holds the implementation of [FlatMapView].
 
 use crate::filters::unsafe_tools::fb_vector_to_slice;
+use flatbuffers::{Follow, ForwardsUOffset, Vector, WIPOffset};
+use std::collections::{HashMap, HashSet};
 
-/// A map-like container that uses flatbuffer references.
-/// Provides O(log n) lookup time using binary search on the sorted index.
-pub(crate) struct FlatFilterMap<'a, I: PartialOrd + Copy, V> {
-    index: &'a [I],
-    values: Vector<'a, ForwardsUOffset<V>>,
+fn sort_and_store_keys<'a, I: FlatSerialize<'a> + Ord + std::hash::Hash>(
+    keys: impl Iterator<Item = I>,
+    builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+) -> WIPOffset<Vector<'a, <I::Output as flatbuffers::Push>::Output>> {
+    let mut keys = keys.collect::<Vec<_>>();
+    keys.sort_unstable();
+    // TODO: serialize in place, without collect::Vec<_>
+    let flat_keys = keys
+        .into_iter()
+        .map(|k| k.serialize(builder))
+        .collect::<Vec<_>>();
+    builder.create_vector(&flat_keys)
 }
 
-/// Iterator over NetworkFilter objects from [FlatFilterMap]
-pub(crate) struct FlatFilterMapIterator<'a, I: PartialOrd + Copy, V> {
-    current_index: usize,
-    key: I,
-    indexes: &'a [I],
-    values: Vector<'a, ForwardsUOffset<V>>,
-}
+// fn find_equal_range_pod_type<'a, I: Ord + Follow<'a>>(keys: &'a Vector<'a, I>, key: I) -> (usize, usize) {
+//   let slice = fb_vector_to_slice(keys);
+//   let start = slice.partition_point(|x| *x < key);
+//   let end = slice.partition_point(|x| *x <= key);
+//   (start, end)
+// }
 
-fn partition_point<T, P>(index: Vector<T>, pred: P) -> usize
+fn partition_point<'a, I: Follow<'a>>(
+    keys: &'a Vector<'a, I>,
+    pred: impl Fn(&I::Inner) -> bool,
+) -> usize
 where
-    P: FnMut(&T) -> bool,
+    I::Inner: Ord,
 {
-    let s = fb_vector_to_slice(index);
-    s.partition_point(pred)
+    let mut start = 0;
+    let mut end = keys.len();
+    while start < end {
+        let mid = (start + end) / 2;
+        let mid_key = keys.get(mid);
+        if pred(&mid_key) {
+            start = mid + 1;
+        } else {
+            end = mid;
+        }
+    }
+    end
 }
 
-impl<'a, I, V> Iterator for FlatFilterMapIterator<'a, I, V>
+fn find_equal_range<'a, I: Follow<'a>>(keys: &'a Vector<'a, I>, key: I::Inner) -> (usize, usize)
 where
-    I: PartialOrd + Copy,
-    V: Follow<'a>,
+    I::Inner: Ord,
 {
-    type Item = (usize, <V as Follow<'a>>::Inner);
+    let start = partition_point(keys, |x| *x < key);
+    let end = partition_point(keys, |x| *x <= key);
+    (start, end)
+}
+
+// Iterator over items in FlatMapView
+pub(crate) struct FlatMapViewIterator<'a, V: Follow<'a>> {
+    values: Vector<'a, ForwardsUOffset<V>>,
+    current_idx: usize,
+    end_idx: usize,
+}
+
+impl<'a, V: Follow<'a>> Iterator for FlatMapViewIterator<'a, V> {
+    type Item = (usize, V::Inner);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.indexes.len() {
-            if self.indexes[self.current_index] != self.key {
-                return None;
-            }
-            let index = self.current_index;
-            let filter = self.values.get(self.current_index);
-            self.current_index += 1;
-            Some((index, filter))
+        if self.current_idx < self.end_idx {
+            let idx = self.current_idx;
+            let value = self.values.get(self.current_idx);
+            self.current_idx += 1;
+            Some((idx, value))
         } else {
             None
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            self.end_idx - self.current_idx,
+            Some(self.end_idx - self.current_idx),
+        )
+    }
 }
 
-impl<'a, I: PartialOrd + Copy, V> FlatFilterMap<'a, I, V> {
-    /// Construct [FlatFilterMap] from two vectors:
-    /// - index: sorted array of keys
-    /// - values: array of values, same length as index
-    pub fn new(index: &'a [I], values: Vector<'a, ForwardsUOffset<V>>) -> Self {
-        // Sanity check the size are equal. Note: next() will handle |values| correctly.
+pub(crate) struct FlatMapView<'a, I: Follow<'a>, V: Follow<'a>>
+where
+    I::Inner: Ord,
+{
+    index: Vector<'a, I>,
+    values: Vector<'a, ForwardsUOffset<V>>,
+}
+
+impl<'a, I: Follow<'a>, V: Follow<'a>> FlatMapView<'a, I, V>
+where
+    I::Inner: Ord,
+{
+    pub fn new(index: Vector<'a, I>, values: Vector<'a, ForwardsUOffset<V>>) -> Self {
         debug_assert!(index.len() == values.len());
-
-        debug_assert!(index.is_sorted());
-
+        debug_assert!(index.iter().is_sorted());
         Self { index, values }
     }
 
-    /// Get an iterator over NetworkFilter objects with the given hash key.
-    pub fn get(&self, key: I) -> FlatFilterMapIterator<'a, I, V> {
-        let start = self.index.partition_point(|x| *x < key);
-        FlatFilterMapIterator {
-            current_index: start,
-            key,
-            indexes: self.index,
+    pub fn get(&'a self, key: I::Inner) -> FlatMapViewIterator<'a, V> {
+        let (start, end) = find_equal_range(&self.index, key);
+        FlatMapViewIterator {
             values: self.values,
+            current_idx: start,
+            end_idx: end,
         }
     }
 }
 
-impl<I: PartialOrd + Copy, V> FlatFilterMap<'_, I, V> {
+impl<'a, I: Follow<'a>, V: Follow<'a>> FlatMapView<'a, I, V>
+where
+    I::Inner: Ord,
+{
     #[cfg(test)]
     pub fn total_size(&self) -> usize {
         self.index.len()
@@ -125,13 +162,7 @@ impl<'a, I: FlatSerialize<'a> + Ord + std::hash::Hash> FlatFilterSetBuilder<I> {
         self,
         builder: &mut flatbuffers::FlatBufferBuilder<'a>,
     ) -> WIPOffset<Vector<'a, <I::Output as flatbuffers::Push>::Output>> {
-        let mut keys = self.keys.iter().collect::<Vec<_>>();
-        keys.sort_unstable();
-        let flat_keys = keys
-            .into_iter()
-            .map(|k| k.serialize(builder))
-            .collect::<Vec<_>>();
-        builder.create_vector(&flat_keys)
+        sort_and_store_keys(self.keys.into_iter(), builder)
     }
 }
 
@@ -158,7 +189,7 @@ pub struct FlatMultiMapBuilder<I, V> {
     map: HashMap<I, Vec<V>>,
 }
 
-impl<'a, I: Eq + Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
+impl<'a, I: Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
     FlatMultiMapBuilder<I, V>
 {
     pub fn new_from_map(map: HashMap<I, Vec<V>>) -> Self {
@@ -194,117 +225,4 @@ impl<'a, I: Eq + Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>
 
         (indexes, values)
     }
-
-    // pub fn finish2(self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) ->
-    //   (WIPOffset<Vector<'a, <I::Output as flatbuffers::Push>::Output>>, WIPOffset<Vector<'a, ForwardsUOffset<Vector<'a, <<V as FlatSerialize<'a>>::Output as flatbuffers::Push>::Output>>>>)
-    // {
-    //   let mut entries: Vec<_> = self.map.into_iter().collect();
-    //   entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
-    //   let mut indexes = Vec::with_capacity(entries.len());
-    //   let mut values = Vec::with_capacity(entries.len());
-
-    //   for (k, mv) in entries.into_iter() {
-    //       let flat_mv = mv.into_iter().map(|v| v.serialize(builder)).collect::<Vec<_>>();
-    //       indexes.push(k.serialize(builder));
-    //       values.push(builder.create_vector(&flat_mv));
-    //   }
-
-    //   let indexes = builder.create_vector(&indexes);
-    //   let values = builder.create_vector(&values);
-
-    //   return (indexes, values);
-    // }
-}
-
-pub(crate) struct FlatFilterMapView<'a, I: Ord + Copy + Follow<'a>, V> {
-    index: Vector<'a, I>,
-    values: Vector<'a, ForwardsUOffset<V>>,
-}
-
-/// Iterator over NetworkFilter objects from [FlatFilterMap]
-/// TODO: use partition_point to find the right index
-pub(crate) struct FlatFilterMapViewIterator<'a, 'b, I: Ord + Copy + Follow<'a>, V> {
-    current_index: usize,
-    key: &'b I::Inner,
-    indexes: Vector<'a, I>,
-    values: Vector<'a, ForwardsUOffset<V>>,
-}
-
-impl<'a, I, V> Iterator for FlatFilterMapViewIterator<'a, '_, I, V>
-where
-    I: Ord + Copy + Follow<'a>,
-    V: Follow<'a>,
-    I::Inner: Ord,
-{
-    type Item = (usize, <V as Follow<'a>>::Inner);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.indexes.len() {
-            let p = self.indexes.get(self.current_index);
-            if p.cmp(self.key) != Ordering::Equal {
-                return None;
-            }
-            let index = self.current_index;
-            let filter = self.values.get(self.current_index);
-            self.current_index += 1;
-            Some((index, filter))
-        } else {
-            None
-        }
-    }
-}
-
-impl<'a, I: Ord + Copy + Follow<'a>, V> FlatFilterMapView<'a, I, V>
-where
-    I::Inner: Ord,
-{
-    /// Construct [FlatFilterMap] from two vectors:
-    /// - index: sorted array of keys
-    /// - values: array of values, same length as index
-    pub fn new(index: Vector<'a, I>, values: Vector<'a, ForwardsUOffset<V>>) -> Self {
-        // Sanity check the size are equal. Note: next() will handle |values| correctly.
-        debug_assert!(index.len() == values.len());
-
-        // debug_assert!(index.iter().is_sorted());
-
-        Self { index, values }
-    }
-
-    //   fn partition_point<P>(&self, mut pred: P) -> Option<usize>
-    //   where
-    //     P: FnMut(&I::Inner) -> bool {
-    //     if self.index.is_empty() {
-    //         return None;
-    //     }
-
-    //     let mut left: usize = 0;
-    //     let mut right = self.index.len() - 1;
-
-    //     while left <= right {
-    //         let mid = (left + right) / 2;
-    //         let value = self.index.get(mid);
-    //         match pred(&value) {
-    //             false => left = mid + 1,
-    //             true => {
-    //               if mid == 0 {
-    //                 return None;
-    //               }
-    //               right = mid - 1;
-    //             },
-    //         }
-    //     }
-
-    //     None
-    // }
-
-    // /// Get an iterator over NetworkFilter objects with the given hash key.
-    // pub fn get(&self, key: &I::Inner) -> FlatFilterMapViewIterator<'a, '_, I, V> {
-    //     let start = partition_point(&self.index, |x: &I::Inner| x.cmp(key) == Ordering::Less);
-    //     FlatFilterMapViewIterator {
-    //         current_index: start,
-    //         key,
-    //         indexes: self.index,
-    //         values: self.values,
-    //     }
-    // }
 }

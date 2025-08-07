@@ -143,14 +143,14 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn include_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_domains()
-            .map(|data| fb_vector_to_slice(data))
+            .map(|data| fb_vector_to_slice(&data))
     }
 
     #[inline(always)]
     pub fn exclude_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_not_domains()
-            .map(|data| fb_vector_to_slice(data))
+            .map(|data| fb_vector_to_slice(&data))
     }
 
     #[inline(always)]

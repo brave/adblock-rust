@@ -12,7 +12,7 @@ use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
 use crate::filters::fb_network::FilterDataContextRef;
-use crate::filters::flat_filter_map::FlatFilterSetView;
+use crate::filters::flat_filter_map::{FlatFilterSetView, FlatMapView};
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
@@ -67,20 +67,12 @@ impl UrlSpecificResources {
 /// scriptlets should be safe to apply.
 pub(crate) struct CosmeticFilterCache {
     filter_data_context: FilterDataContextRef,
-    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
-    /// class, e.g. `##.ad image`.
-    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
-    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
-    /// id, e.g. `###banner > .text a`.
-    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
 
     pub(crate) specific_rules: HostnameRuleDb,
 }
 
 #[derive(Default)]
 pub(crate) struct CosmeticFilterNotProtoFields {
-    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
-    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
     pub(crate) specific_rules: HostnameRuleDb,
 }
 
@@ -97,8 +89,6 @@ pub(crate) struct CosmeticFilterCacheBuilder {
 impl CosmeticFilterCacheBuilder {
     pub fn take_non_proto_fields(&mut self) -> CosmeticFilterNotProtoFields {
         CosmeticFilterNotProtoFields {
-            complex_class_rules: mem::take(&mut self.complex_class_rules),
-            complex_id_rules: mem::take(&mut self.complex_id_rules),
             specific_rules: mem::take(&mut self.specific_rules),
         }
     }
@@ -181,8 +171,6 @@ impl CosmeticFilterCache {
     ) -> Self {
         Self {
             filter_data_context,
-            complex_class_rules: not_proto_fields.complex_class_rules,
-            complex_id_rules: not_proto_fields.complex_id_rules,
             specific_rules: not_proto_fields.specific_rules,
         }
     }
@@ -233,34 +221,38 @@ impl CosmeticFilterCache {
         let root = self.filter_data_context.memory.root();
         let simple_class_rules = FlatFilterSetView::new(root.simple_class_rules());
         let simple_id_rules = FlatFilterSetView::new(root.simple_id_rules());
+        let complex_class_rules = FlatMapView::new(
+            root.complex_class_rules_index(),
+            root.complex_class_rules_values(),
+        );
+        let complex_id_rules = FlatMapView::new(
+            root.complex_id_rules_index(),
+            root.complex_id_rules_values(),
+        );
 
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
             if simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
                 selectors.push(format!(".{}", class));
             }
-            if let Some(bucket) = self.complex_class_rules.get(class) {
-                selectors.extend(
-                    bucket
-                        .iter()
-                        .filter(|sel| !exceptions.contains(*sel))
-                        .map(|s| s.to_owned()),
-                );
-            }
+            let bucket = complex_class_rules.get(class);
+            selectors.extend(
+                bucket
+                    .filter(|(_, sel)| !exceptions.contains(*sel))
+                    .map(|(_, s)| s.to_string()),
+            );
         });
         ids.into_iter().for_each(|id| {
             let id = id.as_ref();
             if simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
                 selectors.push(format!("#{}", id));
             }
-            if let Some(bucket) = self.complex_id_rules.get(id) {
-                selectors.extend(
-                    bucket
-                        .iter()
-                        .filter(|sel| !exceptions.contains(*sel))
-                        .map(|s| s.to_owned()),
-                );
-            }
+            let bucket = complex_id_rules.get(id);
+            selectors.extend(
+                bucket
+                    .filter(|(_, sel)| !exceptions.contains(*sel))
+                    .map(|(_, s)| s.to_string()),
+            );
         });
 
         selectors

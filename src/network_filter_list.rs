@@ -4,11 +4,10 @@ use std::{collections::HashMap, collections::HashSet, fmt};
 
 use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FilterDataContext, FlatNetworkFilter};
-use crate::filters::flat_filter_map::FlatFilterMap;
+use crate::filters::flat_filter_map::FlatMapView;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
-use crate::filters::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, to_short_hash, Hash, ShortHash};
@@ -61,10 +60,10 @@ pub(crate) struct NetworkFilterList<'a> {
 }
 
 impl NetworkFilterList<'_> {
-    pub fn get_filter_map(&self) -> FlatFilterMap<ShortHash, fb::NetworkFilter> {
+    pub fn get_filter_map(&self) -> FlatMapView<ShortHash, fb::NetworkFilter> {
         let filters_list = &self.list;
-        FlatFilterMap::new(
-            fb_vector_to_slice(filters_list.filter_map_index()),
+        FlatMapView::new(
+            filters_list.filter_map_index(),
             filters_list.filter_map_values(),
         )
     }
