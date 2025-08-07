@@ -191,8 +191,6 @@ pub(crate) struct SerializeFormat<'a> {
 
     resources: LegacyRedirectResourceStorage,
 
-    #[serde(serialize_with = "stabilize_hashset_serialization")]
-    simple_id_rules: &'a HashSet<String>,
     #[serde(serialize_with = "stabilize_hashmap_serialization")]
     complex_class_rules: &'a HashMap<String, Vec<String>>,
     #[serde(serialize_with = "stabilize_hashmap_serialization")]
@@ -200,8 +198,6 @@ pub(crate) struct SerializeFormat<'a> {
 
     specific_rules: LegacyHostnameRuleDb,
 
-    #[serde(serialize_with = "stabilize_hashset_serialization")]
-    misc_generic_selectors: &'a HashSet<String>,
 
     scriptlets: LegacyScriptletResourceStorage,
 
@@ -228,13 +224,10 @@ pub(crate) struct DeserializeFormat {
 
     _resources: LegacyRedirectResourceStorage,
 
-    simple_id_rules: HashSet<String>,
     complex_class_rules: HashMap<String, Vec<String>>,
     complex_id_rules: HashMap<String, Vec<String>>,
 
     specific_rules: LegacyHostnameRuleDb,
-
-    misc_generic_selectors: HashSet<String>,
 
     _scriptlets: LegacyScriptletResourceStorage,
 
@@ -259,14 +252,10 @@ impl<'a> From<(&'a FilterDataContext, &'a CosmeticFilterCache)> for SerializeFor
             flatbuffer_memory: context.memory.data().to_vec(),
 
             resources: LegacyRedirectResourceStorage::default(),
-
-            simple_id_rules: &cfc.simple_id_rules,
             complex_class_rules: &cfc.complex_class_rules,
             complex_id_rules: &cfc.complex_id_rules,
 
             specific_rules: (&cfc.specific_rules).into(),
-
-            misc_generic_selectors: &cfc.misc_generic_selectors,
 
             scriptlets: LegacyScriptletResourceStorage::default(),
 
@@ -294,11 +283,9 @@ impl TryFrom<DeserializeFormat> for (FilterDataContextRef, CosmeticFilterCache) 
         let cosmetic_cache = CosmeticFilterCache::from_context(
             filter_data_context.clone(),
             CosmeticFilterNotProtoFields {
-                simple_id_rules: v.simple_id_rules,
                 complex_class_rules: v.complex_class_rules,
                 complex_id_rules: v.complex_id_rules,
                 specific_rules,
-                misc_generic_selectors: v.misc_generic_selectors,
             },
         );
 

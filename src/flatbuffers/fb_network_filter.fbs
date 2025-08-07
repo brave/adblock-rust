@@ -41,6 +41,13 @@ table Engine {
   /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
   simple_class_rules: [string] (required);
 
+  /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
+  simple_id_rules: [string] (required);
+
+  /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
+  /// into any of the class or id buckets, e.g. `##a[href="https://malware.com"]`
+  misc_generic_selectors: [string] (required);
+
   // Contains hashes for opt_(not)_domains. See opt_domains for details.
   unique_domains_hashes: [uint64] (required);
 }

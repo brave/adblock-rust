@@ -42,6 +42,8 @@ pub(crate) struct FlatBufferBuilder {
     unique_domains_hashes_map: HashMap<Hash, u32>,
     index: u32,
     simple_class_rules: FlatFilterSetBuilder<String>,
+    simple_id_rules: FlatFilterSetBuilder<String>,
+    misc_generic_selectors: FlatFilterSetBuilder<String>,
 }
 
 impl FlatBufferBuilder {
@@ -52,6 +54,8 @@ impl FlatBufferBuilder {
             unique_domains_hashes_map: HashMap::new(),
             index: 0,
             simple_class_rules: Default::default(),
+            simple_id_rules: Default::default(),
+            misc_generic_selectors: Default::default(),
         }
     }
 
@@ -71,6 +75,14 @@ impl FlatBufferBuilder {
 
     pub fn add_simple_class_rule(&mut self, class_rule: String) {
         self.simple_class_rules.insert(class_rule);
+    }
+
+    pub fn add_simple_id_rule(&mut self, id_rule: String) {
+        self.simple_id_rules.insert(id_rule);
+    }
+
+    pub fn add_misc_generic_selector(&mut self, selector: String) {
+        self.misc_generic_selectors.insert(selector);
     }
 
     fn write_filter<'a>(
@@ -164,14 +176,17 @@ impl FlatBufferBuilder {
         let network_rules = builder.create_vector(&flat_network_rules);
         let unique_vec = builder.create_vector(&self.unique_domains_hashes);
 
-        // Serialize simple_class_rules
         let simple_class_rules = std::mem::take(&mut self.simple_class_rules).finish(&mut builder);
+        let simple_id_rules = std::mem::take(&mut self.simple_id_rules).finish(&mut builder);
+        let misc_generic_selectors = std::mem::take(&mut self.misc_generic_selectors).finish(&mut builder);
 
         let root = fb::Engine::create(
             &mut builder,
             &fb::EngineArgs {
                 network_rules: Some(network_rules),
                 simple_class_rules: Some(simple_class_rules),
+                simple_id_rules: Some(simple_id_rules),
+                misc_generic_selectors: Some(misc_generic_selectors),
                 unique_domains_hashes: Some(unique_vec),
             },
         );
@@ -285,6 +300,14 @@ impl FlatBufferBuilder {
 
         for class_rule in cosmetic_cache_builder.simple_class_rules.drain() {
             builder.add_simple_class_rule(class_rule);
+        }
+
+        for id_rule in cosmetic_cache_builder.simple_id_rules.drain() {
+            builder.add_simple_id_rule(id_rule);
+        }
+
+        for selector in cosmetic_cache_builder.misc_generic_selectors.drain() {
+            builder.add_misc_generic_selector(selector);
         }
 
         let mut badfilter_ids: HashSet<Hash> = HashSet::new();

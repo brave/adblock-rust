@@ -67,8 +67,6 @@ impl UrlSpecificResources {
 /// scriptlets should be safe to apply.
 pub(crate) struct CosmeticFilterCache {
     filter_data_context: FilterDataContextRef,
-    /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
-    pub(crate) simple_id_rules: HashSet<String>,
     /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
     /// class, e.g. `##.ad image`.
     pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
@@ -77,19 +75,13 @@ pub(crate) struct CosmeticFilterCache {
     pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
 
     pub(crate) specific_rules: HostnameRuleDb,
-
-    /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
-    /// into any of the class or id buckets above, e.g. `##a[href="https://malware.com"]`
-    pub(crate) misc_generic_selectors: HashSet<String>,
 }
 
 #[derive(Default)]
 pub(crate) struct CosmeticFilterNotProtoFields {
-    pub(crate) simple_id_rules: HashSet<String>,
     pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
     pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
     pub(crate) specific_rules: HostnameRuleDb,
-    pub(crate) misc_generic_selectors: HashSet<String>,
 }
 
 #[derive(Default)]
@@ -105,11 +97,9 @@ pub(crate) struct CosmeticFilterCacheBuilder {
 impl CosmeticFilterCacheBuilder {
     pub fn take_non_proto_fields(&mut self) -> CosmeticFilterNotProtoFields {
         CosmeticFilterNotProtoFields {
-            simple_id_rules: mem::take(&mut self.simple_id_rules),
             complex_class_rules: mem::take(&mut self.complex_class_rules),
             complex_id_rules: mem::take(&mut self.complex_id_rules),
             specific_rules: mem::take(&mut self.specific_rules),
-            misc_generic_selectors: mem::take(&mut self.misc_generic_selectors),
         }
     }
 
@@ -191,11 +181,9 @@ impl CosmeticFilterCache {
     ) -> Self {
         Self {
             filter_data_context,
-            simple_id_rules: not_proto_fields.simple_id_rules,
             complex_class_rules: not_proto_fields.complex_class_rules,
             complex_id_rules: not_proto_fields.complex_id_rules,
             specific_rules: not_proto_fields.specific_rules,
-            misc_generic_selectors: not_proto_fields.misc_generic_selectors,
         }
     }
 
@@ -244,12 +232,11 @@ impl CosmeticFilterCache {
 
         let root = self.filter_data_context.memory.root();
         let simple_class_rules = FlatFilterSetView::new(root.simple_class_rules());
+        let simple_id_rules = FlatFilterSetView::new(root.simple_id_rules());
 
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if simple_class_rules.contains(class)
-                && !exceptions.contains(&format!(".{}", class))
-            {
+            if simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
                 selectors.push(format!(".{}", class));
             }
             if let Some(bucket) = self.complex_class_rules.get(class) {
@@ -263,7 +250,7 @@ impl CosmeticFilterCache {
         });
         ids.into_iter().for_each(|id| {
             let id = id.as_ref();
-            if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
+            if simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
                 selectors.push(format!("#{}", id));
             }
             if let Some(bucket) = self.complex_id_rules.get(id) {
@@ -388,11 +375,17 @@ impl CosmeticFilterCache {
         let hide_selectors = if generichide {
             specific_hide_selectors
         } else {
-            let mut hide_selectors = self
-                .misc_generic_selectors
-                .difference(&exceptions)
-                .cloned()
-                .collect::<HashSet<_>>();
+            let root = self.filter_data_context.memory.root();
+            let misc_generic_selectors_vector = root.misc_generic_selectors();
+
+            // TODO: check performance of this
+            let mut hide_selectors = HashSet::new();
+            for i in 0..misc_generic_selectors_vector.len() {
+                let selector = misc_generic_selectors_vector.get(i);
+                if !exceptions.contains(selector) {
+                    hide_selectors.insert(selector.to_string());
+                }
+            }
             specific_hide_selectors.into_iter().for_each(|sel| {
                 hide_selectors.insert(sel);
             });
