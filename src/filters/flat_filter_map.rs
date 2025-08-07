@@ -1,6 +1,6 @@
 //! Holds the implementation of [FlatMapView].
 
-use crate::filters::unsafe_tools::fb_vector_to_slice;
+//use crate::filters::unsafe_tools::fb_vector_to_slice;
 use flatbuffers::{Follow, ForwardsUOffset, Vector, WIPOffset};
 use std::collections::{HashMap, HashSet};
 
@@ -200,6 +200,7 @@ impl<'a, I: Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
         self.map.entry(key).or_default().push(value);
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn finish(
         self,
         builder: &mut flatbuffers::FlatBufferBuilder<'a>,
