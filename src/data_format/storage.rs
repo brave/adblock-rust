@@ -9,7 +9,10 @@ use std::collections::{HashMap, HashSet};
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
-use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
+use crate::cosmetic_filter_cache::{
+    CosmeticFilterCache, CosmeticFilterNotProtoFields, HostnameRuleDb, ProceduralOrActionFilter,
+};
+use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
@@ -189,8 +192,6 @@ pub(crate) struct SerializeFormat<'a> {
     resources: LegacyRedirectResourceStorage,
 
     #[serde(serialize_with = "stabilize_hashset_serialization")]
-    simple_class_rules: &'a HashSet<String>,
-    #[serde(serialize_with = "stabilize_hashset_serialization")]
     simple_id_rules: &'a HashSet<String>,
     #[serde(serialize_with = "stabilize_hashmap_serialization")]
     complex_class_rules: &'a HashMap<String, Vec<String>>,
@@ -227,7 +228,6 @@ pub(crate) struct DeserializeFormat {
 
     _resources: LegacyRedirectResourceStorage,
 
-    simple_class_rules: HashSet<String>,
     simple_id_rules: HashSet<String>,
     complex_class_rules: HashMap<String, Vec<String>>,
     complex_id_rules: HashMap<String, Vec<String>>,
@@ -252,15 +252,14 @@ impl DeserializeFormat {
     }
 }
 
-impl<'a> From<(&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
-    fn from(v: (&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)) -> Self {
-        let (memory, cfc) = v;
+impl<'a> From<(&'a FilterDataContext, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
+    fn from(v: (&'a FilterDataContext, &'a CosmeticFilterCache)) -> Self {
+        let (context, cfc) = v;
         Self {
-            flatbuffer_memory: memory.data().to_vec(),
+            flatbuffer_memory: context.memory.data().to_vec(),
 
             resources: LegacyRedirectResourceStorage::default(),
 
-            simple_class_rules: &cfc.simple_class_rules,
             simple_id_rules: &cfc.simple_id_rules,
             complex_class_rules: &cfc.complex_class_rules,
             complex_id_rules: &cfc.complex_id_rules,
@@ -277,9 +276,10 @@ impl<'a> From<(&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)> for Seria
     }
 }
 
-impl TryFrom<DeserializeFormat> for (VerifiedFlatbufferMemory, CosmeticFilterCache) {
+impl TryFrom<DeserializeFormat> for (FilterDataContextRef, CosmeticFilterCache) {
     fn try_from(v: DeserializeFormat) -> Result<Self, Self::Error> {
         use crate::cosmetic_filter_cache::HostnameFilterBin;
+        use crate::filters::fb_network::FilterDataContext;
 
         let mut specific_rules: HostnameRuleDb = v.specific_rules.into();
         specific_rules.procedural_action = HostnameFilterBin(v.procedural_action);
@@ -289,19 +289,20 @@ impl TryFrom<DeserializeFormat> for (VerifiedFlatbufferMemory, CosmeticFilterCac
         let memory = VerifiedFlatbufferMemory::from_raw(v.flatbuffer_memory)
             .map_err(DeserializationError::FlatBufferParsingError)?;
 
-        Ok((
-            memory,
-            CosmeticFilterCache {
-                simple_class_rules: v.simple_class_rules,
+        let filter_data_context = FilterDataContext::new(memory);
+
+        let cosmetic_cache = CosmeticFilterCache::from_context(
+            filter_data_context.clone(),
+            CosmeticFilterNotProtoFields {
                 simple_id_rules: v.simple_id_rules,
                 complex_class_rules: v.complex_class_rules,
                 complex_id_rules: v.complex_id_rules,
-
                 specific_rules,
-
                 misc_generic_selectors: v.misc_generic_selectors,
             },
-        ))
+        );
+
+        Ok((filter_data_context, cosmetic_cache))
     }
 
     type Error = DeserializationError;

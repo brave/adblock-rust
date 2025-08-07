@@ -11,10 +11,13 @@
 use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
+use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::flat_filter_map::FlatFilterSetView;
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
+use std::mem;
 
 use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
@@ -63,8 +66,7 @@ impl UrlSpecificResources {
 /// will be blocked on any particular page, although when used correctly, all provided rules and
 /// scriptlets should be safe to apply.
 pub(crate) struct CosmeticFilterCache {
-    /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
-    pub(crate) simple_class_rules: HashSet<String>,
+    filter_data_context: FilterDataContextRef,
     /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
     pub(crate) simple_id_rules: HashSet<String>,
     /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
@@ -81,17 +83,33 @@ pub(crate) struct CosmeticFilterCache {
     pub(crate) misc_generic_selectors: HashSet<String>,
 }
 
-impl CosmeticFilterCache {
-    pub fn new() -> Self {
-        Self {
-            simple_class_rules: HashSet::new(),
-            simple_id_rules: HashSet::new(),
-            complex_class_rules: HashMap::new(),
-            complex_id_rules: HashMap::new(),
+#[derive(Default)]
+pub(crate) struct CosmeticFilterNotProtoFields {
+    pub(crate) simple_id_rules: HashSet<String>,
+    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
+    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
+    pub(crate) specific_rules: HostnameRuleDb,
+    pub(crate) misc_generic_selectors: HashSet<String>,
+}
 
-            specific_rules: HostnameRuleDb::default(),
+#[derive(Default)]
+pub(crate) struct CosmeticFilterCacheBuilder {
+    pub(crate) simple_class_rules: HashSet<String>,
+    pub(crate) simple_id_rules: HashSet<String>,
+    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
+    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
+    pub(crate) specific_rules: HostnameRuleDb,
+    pub(crate) misc_generic_selectors: HashSet<String>,
+}
 
-            misc_generic_selectors: HashSet::new(),
+impl CosmeticFilterCacheBuilder {
+    pub fn take_non_proto_fields(&mut self) -> CosmeticFilterNotProtoFields {
+        CosmeticFilterNotProtoFields {
+            simple_id_rules: mem::take(&mut self.simple_id_rules),
+            complex_class_rules: mem::take(&mut self.complex_class_rules),
+            complex_id_rules: mem::take(&mut self.complex_id_rules),
+            specific_rules: mem::take(&mut self.specific_rules),
+            misc_generic_selectors: mem::take(&mut self.misc_generic_selectors),
         }
     }
 
@@ -164,6 +182,39 @@ impl CosmeticFilterCache {
             self.misc_generic_selectors.insert(selector);
         }
     }
+}
+
+impl CosmeticFilterCache {
+    pub fn from_context(
+        filter_data_context: FilterDataContextRef,
+        not_proto_fields: CosmeticFilterNotProtoFields,
+    ) -> Self {
+        Self {
+            filter_data_context,
+            simple_id_rules: not_proto_fields.simple_id_rules,
+            complex_class_rules: not_proto_fields.complex_class_rules,
+            complex_id_rules: not_proto_fields.complex_id_rules,
+            specific_rules: not_proto_fields.specific_rules,
+            misc_generic_selectors: not_proto_fields.misc_generic_selectors,
+        }
+    }
+
+    /// Check if a class is in the simple class rules
+    fn contains_simple_class_rule(&self, class: &str) -> bool {
+        let root = self.filter_data_context.memory.root();
+        FlatFilterSetView::new(root.simple_class_rules()).contains(class)
+    }
+
+    #[cfg(test)]
+    pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
+        use crate::filters::{fb_builder::FlatBufferBuilder, fb_network::FilterDataContext};
+
+        let mut builder = CosmeticFilterCacheBuilder::from_rules(rules);
+        let memory = FlatBufferBuilder::make_flatbuffer(vec![], &mut builder, true);
+
+        let filter_data_context = FilterDataContext::new(memory);
+        Self::from_context(filter_data_context, builder.take_non_proto_fields())
+    }
 
     /// Generic class/id rules are by far the most common type of cosmetic filtering rule, and they
     /// apply to all sites. Rather than injecting all of these rules onto every page, which would
@@ -193,7 +244,7 @@ impl CosmeticFilterCache {
 
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if self.simple_class_rules.contains(class)
+            if self.contains_simple_class_rule(class)
                 && !exceptions.contains(&format!(".{}", class))
             {
                 selectors.push(format!(".{}", class));

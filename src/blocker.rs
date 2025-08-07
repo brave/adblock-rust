@@ -443,8 +443,11 @@ impl Blocker {
         use crate::filters::fb_builder::FlatBufferBuilder;
         use crate::filters::fb_network::FilterDataContext;
 
-        let memory =
-            FlatBufferBuilder::make_flatbuffer(network_filters, options.enable_optimizations);
+        let memory = FlatBufferBuilder::make_flatbuffer(
+            network_filters,
+            &mut Default::default(),
+            options.enable_optimizations,
+        );
         let filter_data_context = FilterDataContext::new(memory);
         Self::from_context(filter_data_context)
     }

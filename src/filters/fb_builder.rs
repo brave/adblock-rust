@@ -8,6 +8,8 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
+use crate::cosmetic_filter_cache::CosmeticFilterCacheBuilder;
+use crate::filters::flat_filter_map::{FlatFilterSetBuilder, FlatMultiMapBuilder};
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
@@ -39,6 +41,7 @@ pub(crate) struct FlatBufferBuilder {
     unique_domains_hashes: Vec<Hash>,
     unique_domains_hashes_map: HashMap<Hash, u32>,
     index: u32,
+    simple_class_rules: FlatFilterSetBuilder<String>,
 }
 
 impl FlatBufferBuilder {
@@ -48,6 +51,7 @@ impl FlatBufferBuilder {
             unique_domains_hashes: vec![],
             unique_domains_hashes_map: HashMap::new(),
             index: 0,
+            simple_class_rules: Default::default(),
         }
     }
 
@@ -63,6 +67,10 @@ impl FlatBufferBuilder {
 
     pub fn add_filter(&mut self, network_filter: NetworkFilter, list_id: u32) {
         self.lists[list_id as usize].filters.push(network_filter);
+    }
+
+    pub fn add_simple_class_rule(&mut self, class_rule: String) {
+        self.simple_class_rules.insert(class_rule);
     }
 
     fn write_filter<'a>(
@@ -156,10 +164,14 @@ impl FlatBufferBuilder {
         let network_rules = builder.create_vector(&flat_network_rules);
         let unique_vec = builder.create_vector(&self.unique_domains_hashes);
 
+        // Serialize simple_class_rules
+        let simple_class_rules = std::mem::take(&mut self.simple_class_rules).finish(&mut builder);
+
         let root = fb::Engine::create(
             &mut builder,
             &fb::EngineArgs {
                 network_rules: Some(network_rules),
+                simple_class_rules: Some(simple_class_rules),
                 unique_domains_hashes: Some(unique_vec),
             },
         );
@@ -252,40 +264,28 @@ impl FlatBufferBuilder {
             );
         }
 
-        let len = filter_map.len();
-
-        // Convert filter_map keys to a sorted vector of (hash, filter_indices).
-        let mut entries: Vec<_> = filter_map.drain().collect();
-        entries.sort_unstable_by_key(|(k, _)| *k);
-
-        // Convert sorted_entries to two flatbuffers vectors.
-        let mut flat_index: Vec<ShortHash> = Vec::with_capacity(len);
-        let mut flat_values: Vec<_> = Vec::with_capacity(len);
-        for (key, filter_indices) in entries {
-            for &filter_index in &filter_indices {
-                flat_index.push(key);
-                flat_values.push(filter_index);
-            }
-        }
-
-        let filter_map_index = builder.create_vector(&flat_index);
-        let filter_map_values = builder.create_vector(&flat_values);
+        let (indexes, values) = FlatMultiMapBuilder::new_from_map(filter_map).finish(builder);
 
         fb::NetworkFilterList::create(
             builder,
             &fb::NetworkFilterListArgs {
-                filter_map_index: Some(filter_map_index),
-                filter_map_values: Some(filter_map_values),
+                filter_map_index: Some(indexes),
+                filter_map_values: Some(values),
             },
         )
     }
 
     pub fn make_flatbuffer(
         network_filters: Vec<NetworkFilter>,
+        cosmetic_cache_builder: &mut CosmeticFilterCacheBuilder,
         optimize: bool,
     ) -> VerifiedFlatbufferMemory {
         type FilterId = NetworkFilterListId;
         let mut builder = FlatBufferBuilder::new(FilterId::Size as usize);
+
+        for class_rule in cosmetic_cache_builder.simple_class_rules.drain() {
+            builder.add_simple_class_rule(class_rule);
+        }
 
         let mut badfilter_ids: HashSet<Hash> = HashSet::new();
         for filter in network_filters.iter() {
