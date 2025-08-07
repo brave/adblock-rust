@@ -199,11 +199,11 @@ impl CosmeticFilterCache {
         }
     }
 
-    /// Check if a class is in the simple class rules
-    fn contains_simple_class_rule(&self, class: &str) -> bool {
-        let root = self.filter_data_context.memory.root();
-        FlatFilterSetView::new(root.simple_class_rules()).contains(class)
-    }
+    // /// Check if a class is in the simple class rules
+    // fn contains_simple_class_rule(&self, class: &str) -> bool {
+    //     let root = self.filter_data_context.memory.root();
+    //     FlatFilterSetView::new(root.simple_class_rules()).contains(class)
+    // }
 
     #[cfg(test)]
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
@@ -242,9 +242,12 @@ impl CosmeticFilterCache {
     ) -> Vec<String> {
         let mut selectors = vec![];
 
+        let root = self.filter_data_context.memory.root();
+        let simple_class_rules = FlatFilterSetView::new(root.simple_class_rules());
+
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if self.contains_simple_class_rule(class)
+            if simple_class_rules.contains(class)
                 && !exceptions.contains(&format!(".{}", class))
             {
                 selectors.push(format!(".{}", class));
