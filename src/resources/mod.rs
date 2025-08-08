@@ -101,6 +101,10 @@ impl PermissionMask {
         Self(bits)
     }
 
+    pub fn to_bits(&self) -> u8 {
+        self.0
+    }
+
     /// Can `filter_mask` authorize injecting a resource requiring `self` permissions?
     pub fn is_injectable_by(&self, filter_mask: PermissionMask) -> bool {
         // For any particular bit index, the scriptlet is injectable if:
