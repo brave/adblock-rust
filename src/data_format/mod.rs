@@ -9,7 +9,6 @@ mod storage;
 
 pub(crate) mod utils;
 
-use crate::cosmetic_filter_cache::CosmeticFilterCache;
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::NetworkFilterListParsingError;
 
@@ -62,16 +61,15 @@ impl From<NetworkFilterListParsingError> for DeserializationError {
 }
 
 pub(crate) fn serialize_engine(
-    flatbuffer_memory: &VerifiedFlatbufferMemory,
-    cfc: &CosmeticFilterCache,
+    memory: &VerifiedFlatbufferMemory,
 ) -> Result<Vec<u8>, SerializationError> {
-    let serialize_format = storage::SerializeFormat::from((flatbuffer_memory, cfc));
+    let serialize_format = storage::SerializeFormat::from(memory);
     serialize_format.serialize()
 }
 
 pub(crate) fn deserialize_engine(
     serialized: &[u8],
-) -> Result<(VerifiedFlatbufferMemory, CosmeticFilterCache), DeserializationError> {
+) -> Result<VerifiedFlatbufferMemory, DeserializationError> {
     let deserialize_format = storage::DeserializeFormat::deserialize(serialized)?;
     deserialize_format.try_into()
 }

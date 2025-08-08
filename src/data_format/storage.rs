@@ -4,16 +4,16 @@
 //!
 //! Any new fields should be added to the _end_ of both `SerializeFormat` and `DeserializeFormat`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
-use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
+use crate::cosmetic_filter_cache::{HostnameRuleDb, ProceduralOrActionFilter};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
-use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
+use super::utils::stabilize_hashmap_serialization;
 use super::{DeserializationError, SerializationError};
 
 /// Each variant describes a single rule that is specific to a particular hostname.
@@ -183,34 +183,15 @@ pub(crate) struct LegacyScriptletResourceStorage {
 /// Provides structural aggregration of referenced adblock engine data to allow for allocation-free
 /// serialization.
 #[derive(Serialize)]
-pub(crate) struct SerializeFormat<'a> {
+pub(crate) struct SerializeFormat {
     flatbuffer_memory: Vec<u8>,
 
     resources: LegacyRedirectResourceStorage,
 
-    #[serde(serialize_with = "stabilize_hashset_serialization")]
-    simple_class_rules: &'a HashSet<String>,
-    #[serde(serialize_with = "stabilize_hashset_serialization")]
-    simple_id_rules: &'a HashSet<String>,
-    #[serde(serialize_with = "stabilize_hashmap_serialization")]
-    complex_class_rules: &'a HashMap<String, Vec<String>>,
-    #[serde(serialize_with = "stabilize_hashmap_serialization")]
-    complex_id_rules: &'a HashMap<String, Vec<String>>,
-
-    specific_rules: LegacyHostnameRuleDb,
-
-    #[serde(serialize_with = "stabilize_hashset_serialization")]
-    misc_generic_selectors: &'a HashSet<String>,
-
     scriptlets: LegacyScriptletResourceStorage,
-
-    #[serde(serialize_with = "stabilize_hashmap_serialization")]
-    procedural_action: &'a HashMap<Hash, Vec<String>>,
-    #[serde(serialize_with = "stabilize_hashmap_serialization")]
-    procedural_action_exception: &'a HashMap<Hash, Vec<String>>,
 }
 
-impl SerializeFormat<'_> {
+impl SerializeFormat {
     pub fn serialize(&self) -> Result<Vec<u8>, SerializationError> {
         let mut output = super::ADBLOCK_RUST_DAT_MAGIC.to_vec();
         output.push(super::ADBLOCK_RUST_DAT_VERSION);
@@ -227,21 +208,7 @@ pub(crate) struct DeserializeFormat {
 
     _resources: LegacyRedirectResourceStorage,
 
-    simple_class_rules: HashSet<String>,
-    simple_id_rules: HashSet<String>,
-    complex_class_rules: HashMap<String, Vec<String>>,
-    complex_id_rules: HashMap<String, Vec<String>>,
-
-    specific_rules: LegacyHostnameRuleDb,
-
-    misc_generic_selectors: HashSet<String>,
-
     _scriptlets: LegacyScriptletResourceStorage,
-
-    #[serde(default)]
-    procedural_action: HashMap<Hash, Vec<String>>,
-    #[serde(default)]
-    procedural_action_exception: HashMap<Hash, Vec<String>>,
 }
 
 impl DeserializeFormat {
@@ -252,56 +219,24 @@ impl DeserializeFormat {
     }
 }
 
-impl<'a> From<(&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)> for SerializeFormat<'a> {
-    fn from(v: (&'a VerifiedFlatbufferMemory, &'a CosmeticFilterCache)) -> Self {
-        let (memory, cfc) = v;
+impl From<&VerifiedFlatbufferMemory> for SerializeFormat {
+    fn from(v: &VerifiedFlatbufferMemory) -> Self {
         Self {
-            flatbuffer_memory: memory.data().to_vec(),
+            flatbuffer_memory: v.data().to_vec(),
 
             resources: LegacyRedirectResourceStorage::default(),
 
-            simple_class_rules: &cfc.simple_class_rules,
-            simple_id_rules: &cfc.simple_id_rules,
-            complex_class_rules: &cfc.complex_class_rules,
-            complex_id_rules: &cfc.complex_id_rules,
-
-            specific_rules: (&cfc.specific_rules).into(),
-
-            misc_generic_selectors: &cfc.misc_generic_selectors,
-
             scriptlets: LegacyScriptletResourceStorage::default(),
-
-            procedural_action: &cfc.specific_rules.procedural_action.0,
-            procedural_action_exception: &cfc.specific_rules.procedural_action_exception.0,
         }
     }
 }
 
-impl TryFrom<DeserializeFormat> for (VerifiedFlatbufferMemory, CosmeticFilterCache) {
+impl TryFrom<DeserializeFormat> for VerifiedFlatbufferMemory {
     fn try_from(v: DeserializeFormat) -> Result<Self, Self::Error> {
-        use crate::cosmetic_filter_cache::HostnameFilterBin;
-
-        let mut specific_rules: HostnameRuleDb = v.specific_rules.into();
-        specific_rules.procedural_action = HostnameFilterBin(v.procedural_action);
-        specific_rules.procedural_action_exception =
-            HostnameFilterBin(v.procedural_action_exception);
-
         let memory = VerifiedFlatbufferMemory::from_raw(v.flatbuffer_memory)
             .map_err(DeserializationError::FlatBufferParsingError)?;
 
-        Ok((
-            memory,
-            CosmeticFilterCache {
-                simple_class_rules: v.simple_class_rules,
-                simple_id_rules: v.simple_id_rules,
-                complex_class_rules: v.complex_class_rules,
-                complex_id_rules: v.complex_id_rules,
-
-                specific_rules,
-
-                misc_generic_selectors: v.misc_generic_selectors,
-            },
-        ))
+        Ok(memory)
     }
 
     type Error = DeserializationError;

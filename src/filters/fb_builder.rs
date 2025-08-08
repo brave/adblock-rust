@@ -8,10 +8,13 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
+use crate::cosmetic_filter_cache::CosmeticFilterCacheBuilder;
+use crate::filters::flat_filter_map::{FlatFilterSetBuilder, FlatMultiMapBuilder};
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
 use crate::optimizer;
+use crate::resources::PermissionMask;
 use crate::utils::{to_short_hash, Hash, ShortHash};
 
 use super::fb_network::flat::fb;
@@ -39,6 +42,20 @@ pub(crate) struct FlatBufferBuilder {
     unique_domains_hashes: Vec<Hash>,
     unique_domains_hashes_map: HashMap<Hash, u32>,
     index: u32,
+    simple_class_rules: FlatFilterSetBuilder<String>,
+    simple_id_rules: FlatFilterSetBuilder<String>,
+    misc_generic_selectors: FlatFilterSetBuilder<String>,
+    complex_class_rules: FlatMultiMapBuilder<String, String>,
+    complex_id_rules: FlatMultiMapBuilder<String, String>,
+
+    // Hostname-specific filters
+    hostname_hide: FlatMultiMapBuilder<Hash, String>,
+    hostname_unhide: FlatMultiMapBuilder<Hash, String>,
+    hostname_inject_script: FlatMultiMapBuilder<Hash, String>,
+    hostname_inject_script_permissions: Vec<u32>, // Parallel array for permissions
+    hostname_uninject_script: FlatMultiMapBuilder<Hash, String>,
+    hostname_procedural_action: FlatMultiMapBuilder<Hash, String>,
+    hostname_procedural_action_exception: FlatMultiMapBuilder<Hash, String>,
 }
 
 impl FlatBufferBuilder {
@@ -48,6 +65,19 @@ impl FlatBufferBuilder {
             unique_domains_hashes: vec![],
             unique_domains_hashes_map: HashMap::new(),
             index: 0,
+            simple_class_rules: Default::default(),
+            simple_id_rules: Default::default(),
+            misc_generic_selectors: Default::default(),
+            complex_class_rules: Default::default(),
+            complex_id_rules: Default::default(),
+
+            hostname_hide: Default::default(),
+            hostname_unhide: Default::default(),
+            hostname_inject_script: Default::default(),
+            hostname_inject_script_permissions: Default::default(),
+            hostname_uninject_script: Default::default(),
+            hostname_procedural_action: Default::default(),
+            hostname_procedural_action_exception: Default::default(),
         }
     }
 
@@ -63,6 +93,60 @@ impl FlatBufferBuilder {
 
     pub fn add_filter(&mut self, network_filter: NetworkFilter, list_id: u32) {
         self.lists[list_id as usize].filters.push(network_filter);
+    }
+
+    pub fn add_simple_class_rule(&mut self, class_rule: String) {
+        self.simple_class_rules.insert(class_rule);
+    }
+
+    pub fn add_simple_id_rule(&mut self, id_rule: String) {
+        self.simple_id_rules.insert(id_rule);
+    }
+
+    pub fn add_misc_generic_selector(&mut self, selector: String) {
+        self.misc_generic_selectors.insert(selector);
+    }
+
+    pub fn add_complex_class_rule(&mut self, class: String, selector: String) {
+        self.complex_class_rules.insert(class, selector);
+    }
+
+    pub fn add_complex_id_rule(&mut self, id: String, selector: String) {
+        self.complex_id_rules.insert(id, selector);
+    }
+
+    pub fn add_hostname_hide(&mut self, hash: Hash, selector: String) {
+        self.hostname_hide.insert(hash, selector);
+    }
+
+    pub fn add_hostname_unhide(&mut self, hash: Hash, selector: String) {
+        self.hostname_unhide.insert(hash, selector);
+    }
+
+    pub fn add_hostname_inject_script(
+        &mut self,
+        hash: Hash,
+        selector: String,
+        permission: PermissionMask,
+    ) {
+        self.hostname_inject_script.insert(hash, selector);
+        // Store as u32, converting the u8 permission mask to u32
+        let permission_bits = permission.0 as u32;
+        self.hostname_inject_script_permissions
+            .push(permission_bits);
+    }
+
+    pub fn add_hostname_uninject_script(&mut self, hash: Hash, selector: String) {
+        self.hostname_uninject_script.insert(hash, selector);
+    }
+
+    pub fn add_hostname_procedural_action(&mut self, hash: Hash, json_data: String) {
+        self.hostname_procedural_action.insert(hash, json_data);
+    }
+
+    pub fn add_hostname_procedural_action_exception(&mut self, hash: Hash, json_data: String) {
+        self.hostname_procedural_action_exception
+            .insert(hash, json_data);
     }
 
     fn write_filter<'a>(
@@ -156,11 +240,71 @@ impl FlatBufferBuilder {
         let network_rules = builder.create_vector(&flat_network_rules);
         let unique_vec = builder.create_vector(&self.unique_domains_hashes);
 
+        let simple_class_rules = std::mem::take(&mut self.simple_class_rules).finish(&mut builder);
+        let simple_id_rules = std::mem::take(&mut self.simple_id_rules).finish(&mut builder);
+        let misc_generic_selectors =
+            std::mem::take(&mut self.misc_generic_selectors).finish(&mut builder);
+
+        let (complex_class_rules_index, complex_class_rules_values) =
+            std::mem::take(&mut self.complex_class_rules).finish(&mut builder);
+        let (complex_id_rules_index, complex_id_rules_values) =
+            std::mem::take(&mut self.complex_id_rules).finish(&mut builder);
+
+        // Serialize hostname filters
+        let (hostname_hide_index, hostname_hide_values) =
+            std::mem::take(&mut self.hostname_hide).finish(&mut builder);
+        let (hostname_unhide_index, hostname_unhide_values) =
+            std::mem::take(&mut self.hostname_unhide).finish(&mut builder);
+        let (hostname_inject_script_index, hostname_inject_script_values) =
+            std::mem::take(&mut self.hostname_inject_script).finish(&mut builder);
+        let hostname_inject_script_permissions = builder.create_vector(&std::mem::take(
+            &mut self.hostname_inject_script_permissions,
+        ));
+        let (hostname_uninject_script_index, hostname_uninject_script_values) =
+            std::mem::take(&mut self.hostname_uninject_script).finish(&mut builder);
+        let (hostname_procedural_action_index, hostname_procedural_action_values) =
+            std::mem::take(&mut self.hostname_procedural_action).finish(&mut builder);
+        let (
+            hostname_procedural_action_exception_index,
+            hostname_procedural_action_exception_values,
+        ) = std::mem::take(&mut self.hostname_procedural_action_exception).finish(&mut builder);
+
+        let cosmetic_filters = fb::CosmeticFilters::create(
+            &mut builder,
+            &fb::CosmeticFiltersArgs {
+                simple_class_rules: Some(simple_class_rules),
+                simple_id_rules: Some(simple_id_rules),
+                misc_generic_selectors: Some(misc_generic_selectors),
+                complex_class_rules_index: Some(complex_class_rules_index),
+                complex_class_rules_values: Some(complex_class_rules_values),
+                complex_id_rules_index: Some(complex_id_rules_index),
+                complex_id_rules_values: Some(complex_id_rules_values),
+                hostname_hide_index: Some(hostname_hide_index),
+                hostname_hide_values: Some(hostname_hide_values),
+                hostname_unhide_index: Some(hostname_unhide_index),
+                hostname_unhide_values: Some(hostname_unhide_values),
+                hostname_inject_script_index: Some(hostname_inject_script_index),
+                hostname_inject_script_values: Some(hostname_inject_script_values),
+                hostname_inject_script_permissions: Some(hostname_inject_script_permissions),
+                hostname_uninject_script_index: Some(hostname_uninject_script_index),
+                hostname_uninject_script_values: Some(hostname_uninject_script_values),
+                hostname_procedural_action_index: Some(hostname_procedural_action_index),
+                hostname_procedural_action_values: Some(hostname_procedural_action_values),
+                hostname_procedural_action_exception_index: Some(
+                    hostname_procedural_action_exception_index,
+                ),
+                hostname_procedural_action_exception_values: Some(
+                    hostname_procedural_action_exception_values,
+                ),
+            },
+        );
+
         let root = fb::Engine::create(
             &mut builder,
             &fb::EngineArgs {
                 network_rules: Some(network_rules),
                 unique_domains_hashes: Some(unique_vec),
+                cosmetic_filters: Some(cosmetic_filters),
             },
         );
 
@@ -252,40 +396,87 @@ impl FlatBufferBuilder {
             );
         }
 
-        let len = filter_map.len();
-
-        // Convert filter_map keys to a sorted vector of (hash, filter_indices).
-        let mut entries: Vec<_> = filter_map.drain().collect();
-        entries.sort_unstable_by_key(|(k, _)| *k);
-
-        // Convert sorted_entries to two flatbuffers vectors.
-        let mut flat_index: Vec<ShortHash> = Vec::with_capacity(len);
-        let mut flat_values: Vec<_> = Vec::with_capacity(len);
-        for (key, filter_indices) in entries {
-            for &filter_index in &filter_indices {
-                flat_index.push(key);
-                flat_values.push(filter_index);
-            }
-        }
-
-        let filter_map_index = builder.create_vector(&flat_index);
-        let filter_map_values = builder.create_vector(&flat_values);
+        let (indexes, values) = FlatMultiMapBuilder::new_from_map(filter_map).finish(builder);
 
         fb::NetworkFilterList::create(
             builder,
             &fb::NetworkFilterListArgs {
-                filter_map_index: Some(filter_map_index),
-                filter_map_values: Some(filter_map_values),
+                filter_map_index: Some(indexes),
+                filter_map_values: Some(values),
             },
         )
     }
 
     pub fn make_flatbuffer(
         network_filters: Vec<NetworkFilter>,
+        cosmetic_cache_builder: &mut CosmeticFilterCacheBuilder,
         optimize: bool,
     ) -> VerifiedFlatbufferMemory {
         type FilterId = NetworkFilterListId;
         let mut builder = FlatBufferBuilder::new(FilterId::Size as usize);
+
+        for class_rule in cosmetic_cache_builder.simple_class_rules.drain() {
+            builder.add_simple_class_rule(class_rule);
+        }
+
+        for id_rule in cosmetic_cache_builder.simple_id_rules.drain() {
+            builder.add_simple_id_rule(id_rule);
+        }
+
+        for selector in cosmetic_cache_builder.misc_generic_selectors.drain() {
+            builder.add_misc_generic_selector(selector);
+        }
+
+        for (class, selectors) in cosmetic_cache_builder.complex_class_rules.drain() {
+            for selector in selectors {
+                builder.add_complex_class_rule(class.clone(), selector);
+            }
+        }
+
+        for (id, selectors) in cosmetic_cache_builder.complex_id_rules.drain() {
+            for selector in selectors {
+                builder.add_complex_id_rule(id.clone(), selector);
+            }
+        }
+
+        // Extract hostname filters from HostnameRuleDb
+        let hostname_rules = &mut cosmetic_cache_builder.specific_rules;
+
+        for (hash, selectors) in hostname_rules.hide.0.drain() {
+            for selector in selectors {
+                builder.add_hostname_hide(hash, selector);
+            }
+        }
+
+        for (hash, selectors) in hostname_rules.unhide.0.drain() {
+            for selector in selectors {
+                builder.add_hostname_unhide(hash, selector);
+            }
+        }
+
+        for (hash, script_data) in hostname_rules.inject_script.0.drain() {
+            for (script, permission) in script_data {
+                builder.add_hostname_inject_script(hash, script, permission);
+            }
+        }
+
+        for (hash, selectors) in hostname_rules.uninject_script.0.drain() {
+            for selector in selectors {
+                builder.add_hostname_uninject_script(hash, selector);
+            }
+        }
+
+        for (hash, json_data) in hostname_rules.procedural_action.0.drain() {
+            for json in json_data {
+                builder.add_hostname_procedural_action(hash, json);
+            }
+        }
+
+        for (hash, json_data) in hostname_rules.procedural_action_exception.0.drain() {
+            for json in json_data {
+                builder.add_hostname_procedural_action_exception(hash, json);
+            }
+        }
 
         let mut badfilter_ids: HashSet<Hash> = HashSet::new();
         for filter in network_filters.iter() {

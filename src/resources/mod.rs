@@ -71,7 +71,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Copy, Default)]
 #[repr(transparent)]
 #[serde(transparent)]
-pub struct PermissionMask(u8);
+pub struct PermissionMask(
+    // TODO: Consider keeping this field private and adding a public accessor method
+    pub u8,
+);
 
 impl std::fmt::Debug for PermissionMask {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

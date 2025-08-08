@@ -29,6 +29,55 @@ table NetworkFilterList {
   filter_map_values: [NetworkFilter] (required);
 }
 
+table CosmeticFilters {
+  /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
+  simple_class_rules: [string] (required);
+
+  /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
+  simple_id_rules: [string] (required);
+
+  /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
+  /// into any of the class or id buckets, e.g. `##a[href="https://malware.com"]`
+  misc_generic_selectors: [string] (required);
+
+  /// Complex class rules - CSS selectors starting with a class, e.g. `##.ad image`
+  /// These are stored as a multi-map from class name to list of selectors
+  complex_class_rules_index: [string] (required);
+  complex_class_rules_values: [string] (required);
+
+  /// Complex id rules - CSS selectors starting with an id, e.g. `###banner > .text a`
+  /// These are stored as a multi-map from id name to list of selectors
+  complex_id_rules_index: [string] (required);
+  complex_id_rules_values: [string] (required);
+
+  /// Hostname-specific hide filters - multi-map from hostname hash to CSS selectors
+  hostname_hide_index: [uint64] (required);
+  hostname_hide_values: [string] (required);
+
+  /// Hostname-specific unhide filters - multi-map from hostname hash to CSS selectors
+  hostname_unhide_index: [uint64] (required);
+  hostname_unhide_values: [string] (required);
+
+  /// Hostname-specific script injection filters - multi-map from hostname hash to script+permission data
+  hostname_inject_script_index: [uint64] (required);
+  hostname_inject_script_values: [string] (required);
+
+  // TODO: inspect this:
+  hostname_inject_script_permissions: [uint32] (required);
+
+  /// Hostname-specific script uninjection filters - multi-map from hostname hash to script data
+  hostname_uninject_script_index: [uint64] (required);
+  hostname_uninject_script_values: [string] (required);
+
+  /// Hostname-specific procedural/action filters - multi-map from hostname hash to JSON strings
+  hostname_procedural_action_index: [uint64] (required);
+  hostname_procedural_action_values: [string] (required);
+
+  /// Hostname-specific procedural/action exception filters - multi-map from hostname hash to JSON strings
+  hostname_procedural_action_exception_index: [uint64] (required);
+  hostname_procedural_action_exception_values: [string] (required);
+}
+
 // A root type containing a serialized Engine.
 // Currently it contains only some of engine fields:
 // network filters and supporing struct.
@@ -40,6 +89,8 @@ table Engine {
 
   // Contains hashes for opt_(not)_domains. See opt_domains for details.
   unique_domains_hashes: [uint64] (required);
+
+  cosmetic_filters: CosmeticFilters (required);
 }
 
 root_type Engine;

@@ -1,20 +1,9 @@
 //! Common utilities associated with serialization and deserialization of the `Engine` data into
 //! binary formats.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Serialize, Serializer};
-
-/// Forces a `HashSet` to be serialized with a stable ordering by temporarily representing it as a
-/// `BTreeSet`.
-pub fn stabilize_hashset_serialization<S, V>(set: &HashSet<V>, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-    V: Ord + serde::Serialize,
-{
-    let stabilized: BTreeSet<&V> = set.iter().collect();
-    stabilized.serialize(s)
-}
 
 /// Forces a `HashMap` to be serialized with a stable ordering by temporarily representing it as a
 /// `BTreeMap`.

@@ -11,6 +11,8 @@
 use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
+use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::flat_filter_map::{FlatFilterSetView, FlatMapView};
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
@@ -63,38 +65,20 @@ impl UrlSpecificResources {
 /// will be blocked on any particular page, although when used correctly, all provided rules and
 /// scriptlets should be safe to apply.
 pub(crate) struct CosmeticFilterCache {
-    /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
+    filter_data_context: FilterDataContextRef,
+}
+
+#[derive(Default)]
+pub(crate) struct CosmeticFilterCacheBuilder {
     pub(crate) simple_class_rules: HashSet<String>,
-    /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
     pub(crate) simple_id_rules: HashSet<String>,
-    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
-    /// class, e.g. `##.ad image`.
     pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
-    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
-    /// id, e.g. `###banner > .text a`.
     pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
-
     pub(crate) specific_rules: HostnameRuleDb,
-
-    /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
-    /// into any of the class or id buckets above, e.g. `##a[href="https://malware.com"]`
     pub(crate) misc_generic_selectors: HashSet<String>,
 }
 
-impl CosmeticFilterCache {
-    pub fn new() -> Self {
-        Self {
-            simple_class_rules: HashSet::new(),
-            simple_id_rules: HashSet::new(),
-            complex_class_rules: HashMap::new(),
-            complex_id_rules: HashMap::new(),
-
-            specific_rules: HostnameRuleDb::default(),
-
-            misc_generic_selectors: HashSet::new(),
-        }
-    }
-
+impl CosmeticFilterCacheBuilder {
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
         let mut self_ = Self {
             simple_class_rules: HashSet::with_capacity(rules.len() / 2),
@@ -164,6 +148,25 @@ impl CosmeticFilterCache {
             self.misc_generic_selectors.insert(selector);
         }
     }
+}
+
+impl CosmeticFilterCache {
+    pub fn from_context(filter_data_context: FilterDataContextRef) -> Self {
+        Self {
+            filter_data_context,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
+        use crate::filters::{fb_builder::FlatBufferBuilder, fb_network::FilterDataContext};
+
+        let mut builder = CosmeticFilterCacheBuilder::from_rules(rules);
+        let memory = FlatBufferBuilder::make_flatbuffer(vec![], &mut builder, true);
+
+        let filter_data_context = FilterDataContext::new(memory);
+        Self::from_context(filter_data_context)
+    }
 
     /// Generic class/id rules are by far the most common type of cosmetic filtering rule, and they
     /// apply to all sites. Rather than injecting all of these rules onto every page, which would
@@ -191,35 +194,39 @@ impl CosmeticFilterCache {
     ) -> Vec<String> {
         let mut selectors = vec![];
 
+        let cs = self.filter_data_context.memory.root().cosmetic_filters();
+        let simple_class_rules = FlatFilterSetView::new(cs.simple_class_rules());
+        let simple_id_rules = FlatFilterSetView::new(cs.simple_id_rules());
+        let complex_class_rules = FlatMapView::new(
+            cs.complex_class_rules_index(),
+            cs.complex_class_rules_values(),
+        );
+        let complex_id_rules =
+            FlatMapView::new(cs.complex_id_rules_index(), cs.complex_id_rules_values());
+
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if self.simple_class_rules.contains(class)
-                && !exceptions.contains(&format!(".{}", class))
-            {
+            if simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
                 selectors.push(format!(".{}", class));
             }
-            if let Some(bucket) = self.complex_class_rules.get(class) {
-                selectors.extend(
-                    bucket
-                        .iter()
-                        .filter(|sel| !exceptions.contains(*sel))
-                        .map(|s| s.to_owned()),
-                );
-            }
+            let bucket = complex_class_rules.get(class);
+            selectors.extend(
+                bucket
+                    .filter(|(_, sel)| !exceptions.contains(*sel))
+                    .map(|(_, s)| s.to_string()),
+            );
         });
         ids.into_iter().for_each(|id| {
             let id = id.as_ref();
-            if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
+            if simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
                 selectors.push(format!("#{}", id));
             }
-            if let Some(bucket) = self.complex_id_rules.get(id) {
-                selectors.extend(
-                    bucket
-                        .iter()
-                        .filter(|sel| !exceptions.contains(*sel))
-                        .map(|s| s.to_owned()),
-                );
-            }
+            let bucket = complex_id_rules.get(id);
+            selectors.extend(
+                bucket
+                    .filter(|(_, sel)| !exceptions.contains(*sel))
+                    .map(|(_, s)| s.to_string()),
+            );
         });
 
         selectors
@@ -258,87 +265,88 @@ impl CosmeticFilterCache {
             .chain(request_hostnames.iter())
             .collect();
 
-        fn populate_set(
-            hash: &Hash,
-            source_bin: &HostnameFilterBin<String>,
-            dest_set: &mut HashSet<String>,
-        ) {
-            if let Some(s) = source_bin.get(hash) {
-                s.iter().for_each(|s| {
-                    dest_set.insert(s.to_owned());
-                });
-            }
-        }
+        let cs = self.filter_data_context.memory.root().cosmetic_filters();
+        let hostname_hide_view =
+            FlatMapView::new(cs.hostname_hide_index(), cs.hostname_hide_values());
+        let hostname_procedural_view = FlatMapView::new(
+            cs.hostname_procedural_action_index(),
+            cs.hostname_procedural_action_values(),
+        );
+        let hostname_inject_script_view = FlatMapView::new(
+            cs.hostname_inject_script_index(),
+            cs.hostname_inject_script_values(),
+        );
+        let hostname_inject_script_permissions = cs.hostname_inject_script_permissions();
+
         for hash in hashes.iter() {
-            populate_set(
-                hash,
-                &self.specific_rules.hide,
-                &mut specific_hide_selectors,
-            );
-            populate_set(
-                hash,
-                &self.specific_rules.procedural_action,
-                &mut procedural_actions,
-            );
-            // special behavior: `script_injections` doesn't have to own the strings yet, since the
-            // scripts need to be fetched and templated later
-            if let Some(s) = self.specific_rules.inject_script.get(hash) {
-                s.iter().for_each(|(s, mask)| {
-                    script_injections
-                        .entry(s)
-                        .and_modify(|entry| *entry |= *mask)
-                        .or_insert(*mask);
-                });
+            for (_, selector) in hostname_hide_view.get(**hash) {
+                specific_hide_selectors.insert(selector.to_owned());
+            }
+
+            for (_, action) in hostname_procedural_view.get(**hash) {
+                procedural_actions.insert(action.to_owned());
+            }
+
+            // Handle script injections with permissions
+            for (idx, script) in hostname_inject_script_view.get(**hash) {
+                let permission_bits = hostname_inject_script_permissions.get(idx);
+                let permission = PermissionMask::from_bits(permission_bits as u8);
+                script_injections
+                    .entry(script)
+                    .and_modify(|entry| *entry |= permission)
+                    .or_insert(permission);
             }
         }
 
-        fn prune_set(
-            hash: &Hash,
-            source_bin: &HostnameFilterBin<String>,
-            dest_set: &mut HashSet<String>,
-        ) {
-            if let Some(s) = source_bin.get(hash) {
-                s.iter().for_each(|s| {
-                    dest_set.remove(s);
-                });
-            }
-        }
+        // Create views for unhide/exception filters
+        let hostname_unhide_view =
+            FlatMapView::new(cs.hostname_unhide_index(), cs.hostname_unhide_values());
+        let hostname_procedural_exception_view = FlatMapView::new(
+            cs.hostname_procedural_action_exception_index(),
+            cs.hostname_procedural_action_exception_values(),
+        );
+        let hostname_uninject_script_view = FlatMapView::new(
+            cs.hostname_uninject_script_index(),
+            cs.hostname_uninject_script_values(),
+        );
+
         for hash in hashes.iter() {
             // special behavior: unhide rules need to go in `exceptions` as well
-            if let Some(s) = self.specific_rules.unhide.get(hash) {
-                s.iter().for_each(|s| {
-                    specific_hide_selectors.remove(s);
-                    exceptions.insert(s.to_owned());
-                });
+            for (_, selector) in hostname_unhide_view.get(**hash) {
+                specific_hide_selectors.remove(selector);
+                exceptions.insert(selector.to_owned());
             }
-            prune_set(
-                hash,
-                &self.specific_rules.procedural_action_exception,
-                &mut procedural_actions,
-            );
-            // same logic but not using prune_set since strings are unowned, (see above)
-            if let Some(s) = self.specific_rules.uninject_script.get(hash) {
-                for s in s {
-                    if s.is_empty() {
-                        except_all_scripts = true;
-                        script_injections.clear();
-                    }
-                    if except_all_scripts {
-                        continue;
-                    }
-                    script_injections.remove(s.as_str());
+
+            for (_, action) in hostname_procedural_exception_view.get(**hash) {
+                procedural_actions.remove(action);
+            }
+
+            for (_, script) in hostname_uninject_script_view.get(**hash) {
+                if script.is_empty() {
+                    except_all_scripts = true;
+                    script_injections.clear();
                 }
+                if except_all_scripts {
+                    continue;
+                }
+                script_injections.remove(script);
             }
         }
 
         let hide_selectors = if generichide {
             specific_hide_selectors
         } else {
-            let mut hide_selectors = self
-                .misc_generic_selectors
-                .difference(&exceptions)
-                .cloned()
-                .collect::<HashSet<_>>();
+            let cs = self.filter_data_context.memory.root().cosmetic_filters();
+            let misc_generic_selectors_vector = cs.misc_generic_selectors();
+
+            // TODO: check performance of this
+            let mut hide_selectors = HashSet::new();
+            for i in 0..misc_generic_selectors_vector.len() {
+                let selector = misc_generic_selectors_vector.get(i);
+                if !exceptions.contains(selector) {
+                    hide_selectors.insert(selector.to_string());
+                }
+            }
             specific_hide_selectors.into_iter().for_each(|sel| {
                 hide_selectors.insert(sel);
             });
@@ -373,10 +381,6 @@ impl<T> HostnameFilterBin<T> {
         } else {
             self.0.insert(*token, vec![filter]);
         }
-    }
-
-    fn get(&self, token: &Hash) -> Option<&Vec<T>> {
-        self.0.get(token)
     }
 }
 

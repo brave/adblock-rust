@@ -84,7 +84,7 @@ pub(crate) struct FilterDataContext {
 impl Default for FilterDataContext {
     fn default() -> Self {
         Self {
-            memory: FlatBufferBuilder::make_flatbuffer(vec![], false),
+            memory: FlatBufferBuilder::make_flatbuffer(vec![], &mut Default::default(), false),
             unique_domains_hashes_map: HashMap::new(),
         }
     }
@@ -143,14 +143,14 @@ impl<'a> FlatNetworkFilter<'a> {
     pub fn include_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_domains()
-            .map(|data| fb_vector_to_slice(data))
+            .map(|data| fb_vector_to_slice(&data))
     }
 
     #[inline(always)]
     pub fn exclude_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_not_domains()
-            .map(|data| fb_vector_to_slice(data))
+            .map(|data| fb_vector_to_slice(&data))
     }
 
     #[inline(always)]
