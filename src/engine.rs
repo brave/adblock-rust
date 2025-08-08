@@ -1,10 +1,8 @@
 //! The adblock [`Engine`] is the primary interface for adblocking.
 
 use crate::blocker::{Blocker, BlockerResult};
-use crate::cosmetic_filter_cache::{
-    CosmeticFilterCache, CosmeticFilterCacheBuilder, UrlSpecificResources,
-};
-use crate::filters::fb_builder::FlatBufferBuilder;
+use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
+use crate::filters::fb_builder::make_flatbuffer_from_rules;
 use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
@@ -107,12 +105,7 @@ impl Engine {
             ..
         } = set;
 
-        let mut cosmetic_cache_builder = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters);
-        let memory = FlatBufferBuilder::make_flatbuffer(
-            network_filters,
-            &mut cosmetic_cache_builder,
-            optimize,
-        );
+        let memory = make_flatbuffer_from_rules(network_filters, cosmetic_filters, optimize);
 
         let filter_data_context = FilterDataContext::new(memory);
 

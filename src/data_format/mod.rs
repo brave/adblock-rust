@@ -7,8 +7,6 @@
 
 mod storage;
 
-pub(crate) mod utils;
-
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::NetworkFilterListParsingError;
 

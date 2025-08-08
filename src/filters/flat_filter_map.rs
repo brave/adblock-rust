@@ -13,7 +13,7 @@ fn sort_and_store_keys<'a, I: FlatSerialize<'a> + Ord + std::hash::Hash>(
     // TODO: serialize in place, without collect::Vec<_>
     let flat_keys = keys
         .into_iter()
-        .map(|k| k.serialize(builder))
+        .map(|mut k| k.serialize(builder))
         .collect::<Vec<_>>();
     builder.create_vector(&flat_keys)
 }
@@ -152,33 +152,33 @@ where
 
 pub trait FlatSerialize<'a>: Sized {
     type Output: Sized + flatbuffers::Push + Clone;
-    fn serialize(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output;
+    fn serialize(&mut self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output;
 }
 
 impl<'a> FlatSerialize<'a> for String {
     type Output = WIPOffset<&'a str>;
-    fn serialize(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
         builder.create_string(self)
     }
 }
 
 impl<'a> FlatSerialize<'a> for u32 {
     type Output = u32;
-    fn serialize(&self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
         *self
     }
 }
 
 impl<'a> FlatSerialize<'a> for u64 {
     type Output = u64;
-    fn serialize(&self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
         *self
     }
 }
 
 impl<'a, T> FlatSerialize<'a> for WIPOffset<T> {
     type Output = WIPOffset<T>;
-    fn serialize(&self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
         *self
     }
 }
@@ -249,9 +249,9 @@ impl<'a, I: Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
         let mut indexes = Vec::with_capacity(entries.len());
         let mut values = Vec::with_capacity(entries.len());
 
-        for (key, mv) in entries.iter() {
+        for (mut key, mv) in entries.into_iter() {
             let index = key.serialize(builder);
-            for value in mv.iter() {
+            for mut value in mv.into_iter() {
                 indexes.push(index.clone());
                 values.push(value.serialize(builder));
             }

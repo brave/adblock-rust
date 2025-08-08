@@ -11,13 +11,17 @@
 use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
+use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::FilterDataContextRef;
-use crate::filters::flat_filter_map::{FlatFilterSetView, FlatMapView};
+use crate::filters::flat_filter_map::{
+    FlatFilterSetBuilder, FlatFilterSetView, FlatMapView, FlatMultiMapBuilder, FlatSerialize,
+};
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
 
+use flatbuffers::{Vector, WIPOffset};
 use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
 
@@ -68,28 +72,75 @@ pub(crate) struct CosmeticFilterCache {
     filter_data_context: FilterDataContextRef,
 }
 
+/// Accumulates hostname-specific rules for a single domain before building HostnameSpecificRules
+#[derive(Default)]
+struct HostnameRule {
+    hide: Vec<String>,
+    unhide: Vec<String>,
+    inject_script: Vec<String>,
+    inject_script_permissions: Vec<u32>,
+    uninject_script: Vec<String>,
+    procedural_action: Vec<String>,
+    procedural_action_exception: Vec<String>,
+}
+
+impl<'a> FlatSerialize<'a> for HostnameRule {
+    type Output = WIPOffset<fb::HostnameSpecificRules<'a>>;
+
+    fn serialize(
+        &mut self,
+        mut builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> flatbuffers::WIPOffset<fb::HostnameSpecificRules<'a>> {
+        fn store_vec<'a>(
+            builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+            v: Vec<String>,
+        ) -> Option<flatbuffers::WIPOffset<Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>
+        {
+            let offsets: Vec<_> = v.into_iter().map(|s| builder.create_string(&s)).collect();
+            Some(builder.create_vector(&offsets))
+        }
+
+        let hide = store_vec(builder, std::mem::take(&mut self.hide));
+        let unhide = store_vec(builder, std::mem::take(&mut self.unhide));
+        let inject_script_vec = store_vec(builder, std::mem::take(&mut self.inject_script));
+        let inject_script_permissions_vec =
+            Some(builder.create_vector(&self.inject_script_permissions));
+        let uninject_script_vec = store_vec(builder, std::mem::take(&mut self.uninject_script));
+        let procedural_action_vec = store_vec(builder, std::mem::take(&mut self.procedural_action));
+        let procedural_action_exception_vec = store_vec(
+            builder,
+            std::mem::take(&mut self.procedural_action_exception),
+        );
+
+        fb::HostnameSpecificRules::create(
+            &mut builder,
+            &fb::HostnameSpecificRulesArgs {
+                hide,
+                unhide,
+                inject_script: inject_script_vec,
+                inject_script_permissions: inject_script_permissions_vec,
+                uninject_script: uninject_script_vec,
+                procedural_action: procedural_action_vec,
+                procedural_action_exception: procedural_action_exception_vec,
+            },
+        )
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct CosmeticFilterCacheBuilder {
-    pub(crate) simple_class_rules: HashSet<String>,
-    pub(crate) simple_id_rules: HashSet<String>,
-    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
-    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
-    pub(crate) specific_rules: HostnameRuleDb,
-    pub(crate) misc_generic_selectors: HashSet<String>,
+    simple_class_rules: FlatFilterSetBuilder<String>,
+    simple_id_rules: FlatFilterSetBuilder<String>,
+    misc_generic_selectors: FlatFilterSetBuilder<String>,
+    complex_class_rules: FlatMultiMapBuilder<String, String>,
+    complex_id_rules: FlatMultiMapBuilder<String, String>,
+
+    specific_rules: FlatMultiMapBuilder<Hash, HostnameRule>,
 }
 
 impl CosmeticFilterCacheBuilder {
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
-        let mut self_ = Self {
-            simple_class_rules: HashSet::with_capacity(rules.len() / 2),
-            simple_id_rules: HashSet::with_capacity(rules.len() / 2),
-            complex_class_rules: HashMap::with_capacity(rules.len() / 2),
-            complex_id_rules: HashMap::with_capacity(rules.len() / 2),
-
-            specific_rules: HostnameRuleDb::default(),
-
-            misc_generic_selectors: HashSet::with_capacity(rules.len() / 30),
-        };
+        let mut self_ = Self::default();
 
         for rule in rules {
             self_.add_filter(rule)
@@ -98,12 +149,44 @@ impl CosmeticFilterCacheBuilder {
         self_
     }
 
+    pub fn finish<'a>(
+        &mut self,
+        mut builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> WIPOffset<fb::CosmeticFilters<'a>> {
+        let (complex_class_rules_index, complex_class_rules_values) =
+            std::mem::take(&mut self.complex_class_rules).finish(builder);
+        let (complex_id_rules_index, complex_id_rules_values) =
+            std::mem::take(&mut self.complex_id_rules).finish(builder);
+        let (hostname_index, hostname_values) =
+            std::mem::take(&mut self.specific_rules).finish(builder);
+
+        let simple_class_rules = Some(std::mem::take(&mut self.simple_class_rules).finish(builder));
+        let simple_id_rules = Some(std::mem::take(&mut self.simple_id_rules).finish(builder));
+        let misc_generic_selectors =
+            Some(std::mem::take(&mut self.misc_generic_selectors).finish(builder));
+
+        fb::CosmeticFilters::create(
+            &mut builder,
+            &fb::CosmeticFiltersArgs {
+                simple_class_rules,
+                simple_id_rules,
+                misc_generic_selectors,
+                complex_class_rules_index: Some(complex_class_rules_index),
+                complex_class_rules_values: Some(complex_class_rules_values),
+                complex_id_rules_index: Some(complex_id_rules_index),
+                complex_id_rules_values: Some(complex_id_rules_values),
+                hostname_index: Some(hostname_index),
+                hostname_values: Some(hostname_values),
+            },
+        )
+    }
+
     pub fn add_filter(&mut self, rule: CosmeticFilter) {
         if rule.has_hostname_constraint() {
             if let Some(generic_rule) = rule.hidden_generic_rule() {
                 self.add_generic_filter(generic_rule);
             }
-            self.specific_rules.store_rule(rule);
+            self.store_hostname_rule(rule);
         } else {
             self.add_generic_filter(rule);
         }
@@ -126,10 +209,8 @@ impl CosmeticFilterCacheBuilder {
                 let class = key[1..].to_string();
                 if key == selector {
                     self.simple_class_rules.insert(class);
-                } else if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
-                    bucket.push(selector);
                 } else {
-                    self.complex_class_rules.insert(class, vec![selector]);
+                    self.complex_class_rules.insert(class, selector);
                 }
             }
         } else if selector.starts_with('#') {
@@ -138,15 +219,78 @@ impl CosmeticFilterCacheBuilder {
                 let id = key[1..].to_string();
                 if key == selector {
                     self.simple_id_rules.insert(id);
-                } else if let Some(bucket) = self.complex_id_rules.get_mut(&id) {
-                    bucket.push(selector);
                 } else {
-                    self.complex_id_rules.insert(id, vec![selector]);
+                    self.complex_id_rules.insert(id, selector);
                 }
             }
         } else {
             self.misc_generic_selectors.insert(selector);
         }
+    }
+
+    // TODO: review this
+    fn store_hostname_rule(&mut self, rule: CosmeticFilter) {
+        use SpecificFilterType::*;
+
+        let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
+        let script_inject = rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT);
+
+        let kind = match (
+            script_inject,
+            rule.plain_css_selector().map(|s| s.to_string()),
+            rule.action,
+        ) {
+            (false, Some(selector), None) => Hide(selector),
+            (true, Some(selector), None) => InjectScript((selector, rule.permission)),
+            (false, selector, action) => ProceduralOrAction(
+                serde_json::to_string(&ProceduralOrActionFilter {
+                    selector: selector
+                        .map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)])
+                        .unwrap_or(rule.selector),
+                    action,
+                })
+                .unwrap(),
+            ),
+            (true, _, Some(_)) => return, // script injection with action - shouldn't be possible
+            (true, None, _) => return, // script injection without plain CSS selector - shouldn't be possible
+        };
+
+        let kind = if unhide { kind.negated() } else { kind };
+
+        let tokens_to_insert = std::iter::empty()
+            .chain(rule.hostnames.unwrap_or_default())
+            .chain(rule.entities.unwrap_or_default());
+
+        tokens_to_insert.for_each(|t| self.store_hostname_filter(&t, kind.clone()));
+
+        let tokens_to_insert_negated = std::iter::empty()
+            .chain(rule.not_hostnames.unwrap_or_default())
+            .chain(rule.not_entities.unwrap_or_default());
+
+        let negated = kind.negated();
+
+        tokens_to_insert_negated.for_each(|t| self.store_hostname_filter(&t, negated.clone()));
+    }
+
+    fn store_hostname_filter(&mut self, token: &Hash, kind: SpecificFilterType) {
+        use SpecificFilterType::*;
+
+        // Create a HostnameRule with the appropriate field set
+        let mut rule = HostnameRule::default();
+
+        match kind {
+            Hide(s) => rule.hide.push(s),
+            Unhide(s) => rule.unhide.push(s),
+            InjectScript((s, permission)) => {
+                rule.inject_script.push(s);
+                rule.inject_script_permissions.push(permission.0 as u32);
+            }
+            UninjectScript((s, _)) => rule.uninject_script.push(s),
+            ProceduralOrAction(s) => rule.procedural_action.push(s),
+            ProceduralOrActionException(s) => rule.procedural_action_exception.push(s),
+        }
+
+        self.specific_rules.insert(*token, rule);
     }
 }
 
@@ -159,10 +303,11 @@ impl CosmeticFilterCache {
 
     #[cfg(test)]
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
-        use crate::filters::{fb_builder::FlatBufferBuilder, fb_network::FilterDataContext};
+        use crate::filters::{
+            fb_builder::make_flatbuffer_from_rules, fb_network::FilterDataContext,
+        };
 
-        let mut builder = CosmeticFilterCacheBuilder::from_rules(rules);
-        let memory = FlatBufferBuilder::make_flatbuffer(vec![], &mut builder, true);
+        let memory = make_flatbuffer_from_rules(vec![], rules, true);
 
         let filter_data_context = FilterDataContext::new(memory);
         Self::from_context(filter_data_context)
@@ -374,65 +519,6 @@ impl CosmeticFilterCache {
     }
 }
 
-/// Each hostname-specific filter can be pointed to by several different hostnames, and each
-/// hostname can correspond to several different filters. To effectively store and access those
-/// filters by hostname, all the non-hostname information for filters is stored in per-hostname
-/// "buckets" within a Vec, and each bucket is identified by its index. Hostname hashes are used as
-/// keys to get the indices of relevant buckets, which are in turn used to retrieve all the filters
-/// that apply.
-#[derive(Default)]
-pub(crate) struct HostnameFilterBin<T>(pub HashMap<Hash, Vec<T>>);
-
-impl<T> HostnameFilterBin<T> {
-    pub fn insert(&mut self, token: &Hash, filter: T) {
-        if let Some(bucket) = self.0.get_mut(token) {
-            bucket.push(filter);
-        } else {
-            self.0.insert(*token, vec![filter]);
-        }
-    }
-}
-
-impl HostnameFilterBin<String> {
-    /// Convenience method that serializes to JSON
-    pub fn insert_procedural_action_filter(&mut self, token: &Hash, f: &ProceduralOrActionFilter) {
-        self.insert(token, serde_json::to_string(f).unwrap());
-    }
-}
-
-/// Holds filter bins categorized by filter type.
-#[derive(Default)]
-pub(crate) struct HostnameRuleDb {
-    /// Simple hostname-specific hide rules, e.g. `example.com##.ad`.
-    ///
-    /// The parameter is the rule's CSS selector.
-    pub hide: HostnameFilterBin<String>,
-    /// Simple hostname-specific hide exception rules, e.g. `example.com#@#.ad`.
-    ///
-    /// The parameter is the rule's CSS selector.
-    pub unhide: HostnameFilterBin<String>,
-    /// Hostname-specific rules with a scriptlet to inject along with any arguments, e.g.
-    /// `example.com##+js(acis, Number.isNan)`.
-    ///
-    /// The parameter is the contents of the `+js(...)` syntax construct.
-    pub inject_script: HostnameFilterBin<(String, PermissionMask)>,
-    /// Hostname-specific rules to except a scriptlet to inject along with any arguments, e.g.
-    /// `example.com#@#+js(acis, Number.isNan)`.
-    ///
-    /// The parameter is the contents of the `+js(...)` syntax construct.
-    ///
-    /// In practice, these rules are extremely rare in filter lists.
-    pub uninject_script: HostnameFilterBin<String>,
-    /// Procedural filters and/or filters with a [`CosmeticFilterAction`].
-    ///
-    /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
-    pub procedural_action: HostnameFilterBin<String>,
-    /// Exceptions for procedural filters and/or filters with a [`CosmeticFilterAction`].
-    ///
-    /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
-    pub procedural_action_exception: HostnameFilterBin<String>,
-}
-
 /// Representations of filters with complex behavior that relies on in-page JS logic.
 ///
 /// These get stored in-memory as JSON and should be deserialized/acted on by a content script.
@@ -470,64 +556,6 @@ impl ProceduralOrActionFilter {
         Self {
             selector: vec![CosmeticFilterOperator::CssSelector(selector)],
             action: Some(CosmeticFilterAction::Style(style)),
-        }
-    }
-}
-
-impl HostnameRuleDb {
-    pub fn store_rule(&mut self, rule: CosmeticFilter) {
-        use SpecificFilterType::*;
-
-        let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
-        let script_inject = rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT);
-
-        let kind = match (
-            script_inject,
-            rule.plain_css_selector().map(|s| s.to_string()),
-            rule.action,
-        ) {
-            (false, Some(selector), None) => Hide(selector),
-            (true, Some(selector), None) => InjectScript((selector, rule.permission)),
-            (false, selector, action) => ProceduralOrAction(
-                serde_json::to_string(&ProceduralOrActionFilter {
-                    selector: selector
-                        .map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)])
-                        .unwrap_or(rule.selector),
-                    action,
-                })
-                .unwrap(),
-            ),
-            (true, _, Some(_)) => return, // script injection with action - shouldn't be possible
-            (true, None, _) => return, // script injection without plain CSS selector - shouldn't be possible
-        };
-
-        let kind = if unhide { kind.negated() } else { kind };
-
-        let tokens_to_insert = std::iter::empty()
-            .chain(rule.hostnames.unwrap_or_default())
-            .chain(rule.entities.unwrap_or_default());
-
-        tokens_to_insert.for_each(|t| self.store(&t, kind.clone()));
-
-        let tokens_to_insert_negated = std::iter::empty()
-            .chain(rule.not_hostnames.unwrap_or_default())
-            .chain(rule.not_entities.unwrap_or_default());
-
-        let negated = kind.negated();
-
-        tokens_to_insert_negated.for_each(|t| self.store(&t, negated.clone()));
-    }
-
-    fn store(&mut self, token: &Hash, kind: SpecificFilterType) {
-        use SpecificFilterType::*;
-
-        match kind {
-            Hide(s) => self.hide.insert(token, s),
-            Unhide(s) => self.unhide.insert(token, s),
-            InjectScript(s) => self.inject_script.insert(token, s),
-            UninjectScript((s, _)) => self.uninject_script.insert(token, s),
-            ProceduralOrAction(s) => self.procedural_action.insert(token, s),
-            ProceduralOrActionException(s) => self.procedural_action_exception.insert(token, s),
         }
     }
 }

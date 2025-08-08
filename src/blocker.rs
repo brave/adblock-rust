@@ -440,12 +440,12 @@ impl Blocker {
         network_filters: Vec<crate::filters::network::NetworkFilter>,
         options: &BlockerOptions,
     ) -> Self {
-        use crate::filters::fb_builder::FlatBufferBuilder;
+        use crate::filters::fb_builder::make_flatbuffer_from_rules;
         use crate::filters::fb_network::FilterDataContext;
 
-        let memory = FlatBufferBuilder::make_flatbuffer(
+        let memory = make_flatbuffer_from_rules(
             network_filters,
-            &mut Default::default(),
+            vec![], // no cosmetic filters for blocker test
             options.enable_optimizations,
         );
         let filter_data_context = FilterDataContext::new(memory);
