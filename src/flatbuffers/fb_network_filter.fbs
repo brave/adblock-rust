@@ -29,6 +29,18 @@ table NetworkFilterList {
   filter_map_values: [NetworkFilter] (required);
 }
 
+table HostnameSpecificRules {
+  hide: [string];
+  unhide: [string];
+
+  inject_script: [string];
+  inject_script_permissions: [uint32];
+
+  uninject_script: [string];
+  procedural_action: [string];
+  procedural_action_exception: [string];
+}
+
 table CosmeticFilters {
   /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
   simple_class_rules: [string] (required);
@@ -50,32 +62,11 @@ table CosmeticFilters {
   complex_id_rules_index: [string] (required);
   complex_id_rules_values: [string] (required);
 
-  /// Hostname-specific hide filters - multi-map from hostname hash to CSS selectors
-  hostname_hide_index: [uint64] (required);
-  hostname_hide_values: [string] (required);
 
-  /// Hostname-specific unhide filters - multi-map from hostname hash to CSS selectors
-  hostname_unhide_index: [uint64] (required);
-  hostname_unhide_values: [string] (required);
-
-  /// Hostname-specific script injection filters - multi-map from hostname hash to script+permission data
-  hostname_inject_script_index: [uint64] (required);
-  hostname_inject_script_values: [string] (required);
-
-  // TODO: inspect this:
-  hostname_inject_script_permissions: [uint32] (required);
-
-  /// Hostname-specific script uninjection filters - multi-map from hostname hash to script data
-  hostname_uninject_script_index: [uint64] (required);
-  hostname_uninject_script_values: [string] (required);
-
-  /// Hostname-specific procedural/action filters - multi-map from hostname hash to JSON strings
-  hostname_procedural_action_index: [uint64] (required);
-  hostname_procedural_action_values: [string] (required);
-
-  /// Hostname-specific procedural/action exception filters - multi-map from hostname hash to JSON strings
-  hostname_procedural_action_exception_index: [uint64] (required);
-  hostname_procedural_action_exception_values: [string] (required);
+  // Map from hostname(hash) => HostnameSpecificRules using FlatMultiMapBuilder
+  // Store only one item per domain using FlatMultiMapBuilder
+  hostname_index: [uint64] (required);
+  hostname_values: [HostnameSpecificRules] (required);
 }
 
 // A root type containing a serialized Engine.

@@ -36,6 +36,18 @@ struct FilterListBuilder {
     filters: Vec<NetworkFilter>,
 }
 
+/// Accumulates hostname-specific rules for a single domain before building HostnameSpecificRules
+#[derive(Default)]
+struct HostnameRuleAccumulator {
+    hide: Vec<String>,
+    unhide: Vec<String>,
+    inject_script: Vec<String>,
+    inject_script_permissions: Vec<u32>,
+    uninject_script: Vec<String>,
+    procedural_action: Vec<String>,
+    procedural_action_exception: Vec<String>,
+}
+
 pub(crate) struct FlatBufferBuilder {
     lists: Vec<FilterListBuilder>,
 
@@ -48,14 +60,8 @@ pub(crate) struct FlatBufferBuilder {
     complex_class_rules: FlatMultiMapBuilder<String, String>,
     complex_id_rules: FlatMultiMapBuilder<String, String>,
 
-    // Hostname-specific filters
-    hostname_hide: FlatMultiMapBuilder<Hash, String>,
-    hostname_unhide: FlatMultiMapBuilder<Hash, String>,
-    hostname_inject_script: FlatMultiMapBuilder<Hash, String>,
-    hostname_inject_script_permissions: Vec<u32>, // Parallel array for permissions
-    hostname_uninject_script: FlatMultiMapBuilder<Hash, String>,
-    hostname_procedural_action: FlatMultiMapBuilder<Hash, String>,
-    hostname_procedural_action_exception: FlatMultiMapBuilder<Hash, String>,
+    // Hostname-specific rules using FlatMultiMapBuilder, store only one item per domain
+    hostname_rules: HashMap<Hash, HostnameRuleAccumulator>,
 }
 
 impl FlatBufferBuilder {
@@ -71,13 +77,7 @@ impl FlatBufferBuilder {
             complex_class_rules: Default::default(),
             complex_id_rules: Default::default(),
 
-            hostname_hide: Default::default(),
-            hostname_unhide: Default::default(),
-            hostname_inject_script: Default::default(),
-            hostname_inject_script_permissions: Default::default(),
-            hostname_uninject_script: Default::default(),
-            hostname_procedural_action: Default::default(),
-            hostname_procedural_action_exception: Default::default(),
+            hostname_rules: HashMap::new(),
         }
     }
 
@@ -116,11 +116,11 @@ impl FlatBufferBuilder {
     }
 
     pub fn add_hostname_hide(&mut self, hash: Hash, selector: String) {
-        self.hostname_hide.insert(hash, selector);
+        self.hostname_rules.entry(hash).or_default().hide.push(selector);
     }
 
     pub fn add_hostname_unhide(&mut self, hash: Hash, selector: String) {
-        self.hostname_unhide.insert(hash, selector);
+        self.hostname_rules.entry(hash).or_default().unhide.push(selector);
     }
 
     pub fn add_hostname_inject_script(
@@ -129,24 +129,23 @@ impl FlatBufferBuilder {
         selector: String,
         permission: PermissionMask,
     ) {
-        self.hostname_inject_script.insert(hash, selector);
+        let rules = self.hostname_rules.entry(hash).or_default();
+        rules.inject_script.push(selector);
         // Store as u32, converting the u8 permission mask to u32
         let permission_bits = permission.0 as u32;
-        self.hostname_inject_script_permissions
-            .push(permission_bits);
+        rules.inject_script_permissions.push(permission_bits);
     }
 
     pub fn add_hostname_uninject_script(&mut self, hash: Hash, selector: String) {
-        self.hostname_uninject_script.insert(hash, selector);
+        self.hostname_rules.entry(hash).or_default().uninject_script.push(selector);
     }
 
     pub fn add_hostname_procedural_action(&mut self, hash: Hash, json_data: String) {
-        self.hostname_procedural_action.insert(hash, json_data);
+        self.hostname_rules.entry(hash).or_default().procedural_action.push(json_data);
     }
 
     pub fn add_hostname_procedural_action_exception(&mut self, hash: Hash, json_data: String) {
-        self.hostname_procedural_action_exception
-            .insert(hash, json_data);
+        self.hostname_rules.entry(hash).or_default().procedural_action_exception.push(json_data);
     }
 
     fn write_filter<'a>(
@@ -250,24 +249,64 @@ impl FlatBufferBuilder {
         let (complex_id_rules_index, complex_id_rules_values) =
             std::mem::take(&mut self.complex_id_rules).finish(&mut builder);
 
-        // Serialize hostname filters
-        let (hostname_hide_index, hostname_hide_values) =
-            std::mem::take(&mut self.hostname_hide).finish(&mut builder);
-        let (hostname_unhide_index, hostname_unhide_values) =
-            std::mem::take(&mut self.hostname_unhide).finish(&mut builder);
-        let (hostname_inject_script_index, hostname_inject_script_values) =
-            std::mem::take(&mut self.hostname_inject_script).finish(&mut builder);
-        let hostname_inject_script_permissions = builder.create_vector(&std::mem::take(
-            &mut self.hostname_inject_script_permissions,
-        ));
-        let (hostname_uninject_script_index, hostname_uninject_script_values) =
-            std::mem::take(&mut self.hostname_uninject_script).finish(&mut builder);
-        let (hostname_procedural_action_index, hostname_procedural_action_values) =
-            std::mem::take(&mut self.hostname_procedural_action).finish(&mut builder);
-        let (
-            hostname_procedural_action_exception_index,
-            hostname_procedural_action_exception_values,
-        ) = std::mem::take(&mut self.hostname_procedural_action_exception).finish(&mut builder);
+        // Build HostnameSpecificRules for each domain
+        let mut hostname_rules_map: HashMap<Hash, WIPOffset<fb::HostnameSpecificRules>> = HashMap::new();
+
+        for (hash, rules) in std::mem::take(&mut self.hostname_rules) {
+            // Create vectors for each rule type
+            let hide_vec = if !rules.hide.is_empty() {
+                let hide_offsets: Vec<_> = rules.hide.iter().map(|s| builder.create_string(s)).collect();
+                Some(builder.create_vector(&hide_offsets))
+            } else { None };
+
+            let unhide_vec = if !rules.unhide.is_empty() {
+                let unhide_offsets: Vec<_> = rules.unhide.iter().map(|s| builder.create_string(s)).collect();
+                Some(builder.create_vector(&unhide_offsets))
+            } else { None };
+
+            let inject_script_vec = if !rules.inject_script.is_empty() {
+                let script_offsets: Vec<_> = rules.inject_script.iter().map(|s| builder.create_string(s)).collect();
+                Some(builder.create_vector(&script_offsets))
+            } else { None };
+
+            let inject_script_permissions_vec = if !rules.inject_script_permissions.is_empty() {
+                Some(builder.create_vector(&rules.inject_script_permissions))
+            } else { None };
+
+            let uninject_script_vec = if !rules.uninject_script.is_empty() {
+                let uninject_offsets: Vec<_> = rules.uninject_script.iter().map(|s| builder.create_string(s)).collect();
+                Some(builder.create_vector(&uninject_offsets))
+            } else { None };
+
+            let procedural_action_vec = if !rules.procedural_action.is_empty() {
+                let action_offsets: Vec<_> = rules.procedural_action.iter().map(|s| builder.create_string(s)).collect();
+                Some(builder.create_vector(&action_offsets))
+            } else { None };
+
+            let procedural_action_exception_vec = if !rules.procedural_action_exception.is_empty() {
+                let exception_offsets: Vec<_> = rules.procedural_action_exception.iter().map(|s| builder.create_string(s)).collect();
+                Some(builder.create_vector(&exception_offsets))
+            } else { None };
+
+            // Create HostnameSpecificRules
+            let hostname_specific_rules = fb::HostnameSpecificRules::create(&mut builder, &fb::HostnameSpecificRulesArgs {
+                hide: hide_vec,
+                unhide: unhide_vec,
+                inject_script: inject_script_vec,
+                inject_script_permissions: inject_script_permissions_vec,
+                uninject_script: uninject_script_vec,
+                procedural_action: procedural_action_vec,
+                procedural_action_exception: procedural_action_exception_vec,
+            });
+
+            hostname_rules_map.insert(hash, hostname_specific_rules);
+        }
+
+        // Use FlatMultiMapBuilder to create the hostname index and values
+        let hostname_multimap = FlatMultiMapBuilder::new_from_map(
+            hostname_rules_map.into_iter().map(|(k, v)| (k, vec![v])).collect()
+        );
+        let (hostname_index, hostname_values) = hostname_multimap.finish(&mut builder);
 
         let cosmetic_filters = fb::CosmeticFilters::create(
             &mut builder,
@@ -279,23 +318,8 @@ impl FlatBufferBuilder {
                 complex_class_rules_values: Some(complex_class_rules_values),
                 complex_id_rules_index: Some(complex_id_rules_index),
                 complex_id_rules_values: Some(complex_id_rules_values),
-                hostname_hide_index: Some(hostname_hide_index),
-                hostname_hide_values: Some(hostname_hide_values),
-                hostname_unhide_index: Some(hostname_unhide_index),
-                hostname_unhide_values: Some(hostname_unhide_values),
-                hostname_inject_script_index: Some(hostname_inject_script_index),
-                hostname_inject_script_values: Some(hostname_inject_script_values),
-                hostname_inject_script_permissions: Some(hostname_inject_script_permissions),
-                hostname_uninject_script_index: Some(hostname_uninject_script_index),
-                hostname_uninject_script_values: Some(hostname_uninject_script_values),
-                hostname_procedural_action_index: Some(hostname_procedural_action_index),
-                hostname_procedural_action_values: Some(hostname_procedural_action_values),
-                hostname_procedural_action_exception_index: Some(
-                    hostname_procedural_action_exception_index,
-                ),
-                hostname_procedural_action_exception_values: Some(
-                    hostname_procedural_action_exception_values,
-                ),
+                hostname_index: Some(hostname_index),
+                hostname_values: Some(hostname_values),
             },
         );
 

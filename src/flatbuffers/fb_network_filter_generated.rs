@@ -654,6 +654,468 @@ pub mod fb {
             )
         }
     }
+    pub enum HostnameSpecificRulesOffset {}
+    #[derive(Copy, Clone, PartialEq)]
+
+    pub struct HostnameSpecificRules<'a> {
+        pub _tab: flatbuffers::Table<'a>,
+    }
+
+    impl<'a> flatbuffers::Follow<'a> for HostnameSpecificRules<'a> {
+        type Inner = HostnameSpecificRules<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+            Self {
+                _tab: flatbuffers::Table::new(buf, loc),
+            }
+        }
+    }
+
+    impl<'a> HostnameSpecificRules<'a> {
+        pub const VT_HIDE: flatbuffers::VOffsetT = 4;
+        pub const VT_UNHIDE: flatbuffers::VOffsetT = 6;
+        pub const VT_INJECT_SCRIPT: flatbuffers::VOffsetT = 8;
+        pub const VT_INJECT_SCRIPT_PERMISSIONS: flatbuffers::VOffsetT = 10;
+        pub const VT_UNINJECT_SCRIPT: flatbuffers::VOffsetT = 12;
+        pub const VT_PROCEDURAL_ACTION: flatbuffers::VOffsetT = 14;
+        pub const VT_PROCEDURAL_ACTION_EXCEPTION: flatbuffers::VOffsetT = 16;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+            HostnameSpecificRules { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+            'bldr: 'args,
+            'args: 'mut_bldr,
+            'mut_bldr,
+            A: flatbuffers::Allocator + 'bldr,
+        >(
+            _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+            args: &'args HostnameSpecificRulesArgs<'args>,
+        ) -> flatbuffers::WIPOffset<HostnameSpecificRules<'bldr>> {
+            let mut builder = HostnameSpecificRulesBuilder::new(_fbb);
+            if let Some(x) = args.procedural_action_exception {
+                builder.add_procedural_action_exception(x);
+            }
+            if let Some(x) = args.procedural_action {
+                builder.add_procedural_action(x);
+            }
+            if let Some(x) = args.uninject_script {
+                builder.add_uninject_script(x);
+            }
+            if let Some(x) = args.inject_script_permissions {
+                builder.add_inject_script_permissions(x);
+            }
+            if let Some(x) = args.inject_script {
+                builder.add_inject_script(x);
+            }
+            if let Some(x) = args.unhide {
+                builder.add_unhide(x);
+            }
+            if let Some(x) = args.hide {
+                builder.add_hide(x);
+            }
+            builder.finish()
+        }
+
+        pub fn unpack(&self) -> HostnameSpecificRulesT {
+            let hide = self
+                .hide()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            let unhide = self
+                .unhide()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            let inject_script = self
+                .inject_script()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            let inject_script_permissions = self
+                .inject_script_permissions()
+                .map(|x| x.into_iter().collect());
+            let uninject_script = self
+                .uninject_script()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            let procedural_action = self
+                .procedural_action()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            let procedural_action_exception = self
+                .procedural_action_exception()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            HostnameSpecificRulesT {
+                hide,
+                unhide,
+                inject_script,
+                inject_script_permissions,
+                uninject_script,
+                procedural_action,
+                procedural_action_exception,
+            }
+        }
+
+        #[inline]
+        pub fn hide(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(HostnameSpecificRules::VT_HIDE, None)
+            }
+        }
+        #[inline]
+        pub fn unhide(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(HostnameSpecificRules::VT_UNHIDE, None)
+            }
+        }
+        #[inline]
+        pub fn inject_script(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(HostnameSpecificRules::VT_INJECT_SCRIPT, None)
+            }
+        }
+        #[inline]
+        pub fn inject_script_permissions(&self) -> Option<flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
+                        HostnameSpecificRules::VT_INJECT_SCRIPT_PERMISSIONS,
+                        None,
+                    )
+            }
+        }
+        #[inline]
+        pub fn uninject_script(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(HostnameSpecificRules::VT_UNINJECT_SCRIPT, None)
+            }
+        }
+        #[inline]
+        pub fn procedural_action(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(HostnameSpecificRules::VT_PROCEDURAL_ACTION, None)
+            }
+        }
+        #[inline]
+        pub fn procedural_action_exception(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(
+                    HostnameSpecificRules::VT_PROCEDURAL_ACTION_EXCEPTION, None
+                )
+            }
+        }
+    }
+
+    impl flatbuffers::Verifiable for HostnameSpecificRules<'_> {
+        #[inline]
+        fn run_verifier(
+            v: &mut flatbuffers::Verifier,
+            pos: usize,
+        ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+            use self::flatbuffers::Verifiable;
+            v.visit_table(pos)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("hide", Self::VT_HIDE, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("unhide", Self::VT_UNHIDE, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("inject_script", Self::VT_INJECT_SCRIPT, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
+                    "inject_script_permissions",
+                    Self::VT_INJECT_SCRIPT_PERMISSIONS,
+                    false,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("uninject_script", Self::VT_UNINJECT_SCRIPT, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("procedural_action", Self::VT_PROCEDURAL_ACTION, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>(
+                    "procedural_action_exception",
+                    Self::VT_PROCEDURAL_ACTION_EXCEPTION,
+                    false,
+                )?
+                .finish();
+            Ok(())
+        }
+    }
+    pub struct HostnameSpecificRulesArgs<'a> {
+        pub hide: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub unhide: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub inject_script: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub inject_script_permissions: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub uninject_script: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub procedural_action: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+        pub procedural_action_exception: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+    }
+    impl<'a> Default for HostnameSpecificRulesArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+            HostnameSpecificRulesArgs {
+                hide: None,
+                unhide: None,
+                inject_script: None,
+                inject_script_permissions: None,
+                uninject_script: None,
+                procedural_action: None,
+                procedural_action_exception: None,
+            }
+        }
+    }
+
+    pub struct HostnameSpecificRulesBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    }
+    impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> HostnameSpecificRulesBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_hide(
+            &mut self,
+            hide: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_HIDE,
+                hide,
+            );
+        }
+        #[inline]
+        pub fn add_unhide(
+            &mut self,
+            unhide: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_UNHIDE,
+                unhide,
+            );
+        }
+        #[inline]
+        pub fn add_inject_script(
+            &mut self,
+            inject_script: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_INJECT_SCRIPT,
+                inject_script,
+            );
+        }
+        #[inline]
+        pub fn add_inject_script_permissions(
+            &mut self,
+            inject_script_permissions: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_INJECT_SCRIPT_PERMISSIONS,
+                inject_script_permissions,
+            );
+        }
+        #[inline]
+        pub fn add_uninject_script(
+            &mut self,
+            uninject_script: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_UNINJECT_SCRIPT,
+                uninject_script,
+            );
+        }
+        #[inline]
+        pub fn add_procedural_action(
+            &mut self,
+            procedural_action: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_PROCEDURAL_ACTION,
+                procedural_action,
+            );
+        }
+        #[inline]
+        pub fn add_procedural_action_exception(
+            &mut self,
+            procedural_action_exception: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                HostnameSpecificRules::VT_PROCEDURAL_ACTION_EXCEPTION,
+                procedural_action_exception,
+            );
+        }
+        #[inline]
+        pub fn new(
+            _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> HostnameSpecificRulesBuilder<'a, 'b, A> {
+            let start = _fbb.start_table();
+            HostnameSpecificRulesBuilder {
+                fbb_: _fbb,
+                start_: start,
+            }
+        }
+        #[inline]
+        pub fn finish(self) -> flatbuffers::WIPOffset<HostnameSpecificRules<'a>> {
+            let o = self.fbb_.end_table(self.start_);
+            flatbuffers::WIPOffset::new(o.value())
+        }
+    }
+
+    impl core::fmt::Debug for HostnameSpecificRules<'_> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            let mut ds = f.debug_struct("HostnameSpecificRules");
+            ds.field("hide", &self.hide());
+            ds.field("unhide", &self.unhide());
+            ds.field("inject_script", &self.inject_script());
+            ds.field(
+                "inject_script_permissions",
+                &self.inject_script_permissions(),
+            );
+            ds.field("uninject_script", &self.uninject_script());
+            ds.field("procedural_action", &self.procedural_action());
+            ds.field(
+                "procedural_action_exception",
+                &self.procedural_action_exception(),
+            );
+            ds.finish()
+        }
+    }
+    #[non_exhaustive]
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct HostnameSpecificRulesT {
+        pub hide: Option<Vec<String>>,
+        pub unhide: Option<Vec<String>>,
+        pub inject_script: Option<Vec<String>>,
+        pub inject_script_permissions: Option<Vec<u32>>,
+        pub uninject_script: Option<Vec<String>>,
+        pub procedural_action: Option<Vec<String>>,
+        pub procedural_action_exception: Option<Vec<String>>,
+    }
+    impl Default for HostnameSpecificRulesT {
+        fn default() -> Self {
+            Self {
+                hide: None,
+                unhide: None,
+                inject_script: None,
+                inject_script_permissions: None,
+                uninject_script: None,
+                procedural_action: None,
+                procedural_action_exception: None,
+            }
+        }
+    }
+    impl HostnameSpecificRulesT {
+        pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
+            &self,
+            _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
+        ) -> flatbuffers::WIPOffset<HostnameSpecificRules<'b>> {
+            let hide = self.hide.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let unhide = self.unhide.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let inject_script = self.inject_script.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let inject_script_permissions = self
+                .inject_script_permissions
+                .as_ref()
+                .map(|x| _fbb.create_vector(x));
+            let uninject_script = self.uninject_script.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let procedural_action = self.procedural_action.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            let procedural_action_exception = self.procedural_action_exception.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            HostnameSpecificRules::create(
+                _fbb,
+                &HostnameSpecificRulesArgs {
+                    hide,
+                    unhide,
+                    inject_script,
+                    inject_script_permissions,
+                    uninject_script,
+                    procedural_action,
+                    procedural_action_exception,
+                },
+            )
+        }
+    }
     pub enum CosmeticFiltersOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
@@ -679,19 +1141,8 @@ pub mod fb {
         pub const VT_COMPLEX_CLASS_RULES_VALUES: flatbuffers::VOffsetT = 12;
         pub const VT_COMPLEX_ID_RULES_INDEX: flatbuffers::VOffsetT = 14;
         pub const VT_COMPLEX_ID_RULES_VALUES: flatbuffers::VOffsetT = 16;
-        pub const VT_HOSTNAME_HIDE_INDEX: flatbuffers::VOffsetT = 18;
-        pub const VT_HOSTNAME_HIDE_VALUES: flatbuffers::VOffsetT = 20;
-        pub const VT_HOSTNAME_UNHIDE_INDEX: flatbuffers::VOffsetT = 22;
-        pub const VT_HOSTNAME_UNHIDE_VALUES: flatbuffers::VOffsetT = 24;
-        pub const VT_HOSTNAME_INJECT_SCRIPT_INDEX: flatbuffers::VOffsetT = 26;
-        pub const VT_HOSTNAME_INJECT_SCRIPT_VALUES: flatbuffers::VOffsetT = 28;
-        pub const VT_HOSTNAME_INJECT_SCRIPT_PERMISSIONS: flatbuffers::VOffsetT = 30;
-        pub const VT_HOSTNAME_UNINJECT_SCRIPT_INDEX: flatbuffers::VOffsetT = 32;
-        pub const VT_HOSTNAME_UNINJECT_SCRIPT_VALUES: flatbuffers::VOffsetT = 34;
-        pub const VT_HOSTNAME_PROCEDURAL_ACTION_INDEX: flatbuffers::VOffsetT = 36;
-        pub const VT_HOSTNAME_PROCEDURAL_ACTION_VALUES: flatbuffers::VOffsetT = 38;
-        pub const VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_INDEX: flatbuffers::VOffsetT = 40;
-        pub const VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_VALUES: flatbuffers::VOffsetT = 42;
+        pub const VT_HOSTNAME_INDEX: flatbuffers::VOffsetT = 18;
+        pub const VT_HOSTNAME_VALUES: flatbuffers::VOffsetT = 20;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -708,44 +1159,11 @@ pub mod fb {
             args: &'args CosmeticFiltersArgs<'args>,
         ) -> flatbuffers::WIPOffset<CosmeticFilters<'bldr>> {
             let mut builder = CosmeticFiltersBuilder::new(_fbb);
-            if let Some(x) = args.hostname_procedural_action_exception_values {
-                builder.add_hostname_procedural_action_exception_values(x);
+            if let Some(x) = args.hostname_values {
+                builder.add_hostname_values(x);
             }
-            if let Some(x) = args.hostname_procedural_action_exception_index {
-                builder.add_hostname_procedural_action_exception_index(x);
-            }
-            if let Some(x) = args.hostname_procedural_action_values {
-                builder.add_hostname_procedural_action_values(x);
-            }
-            if let Some(x) = args.hostname_procedural_action_index {
-                builder.add_hostname_procedural_action_index(x);
-            }
-            if let Some(x) = args.hostname_uninject_script_values {
-                builder.add_hostname_uninject_script_values(x);
-            }
-            if let Some(x) = args.hostname_uninject_script_index {
-                builder.add_hostname_uninject_script_index(x);
-            }
-            if let Some(x) = args.hostname_inject_script_permissions {
-                builder.add_hostname_inject_script_permissions(x);
-            }
-            if let Some(x) = args.hostname_inject_script_values {
-                builder.add_hostname_inject_script_values(x);
-            }
-            if let Some(x) = args.hostname_inject_script_index {
-                builder.add_hostname_inject_script_index(x);
-            }
-            if let Some(x) = args.hostname_unhide_values {
-                builder.add_hostname_unhide_values(x);
-            }
-            if let Some(x) = args.hostname_unhide_index {
-                builder.add_hostname_unhide_index(x);
-            }
-            if let Some(x) = args.hostname_hide_values {
-                builder.add_hostname_hide_values(x);
-            }
-            if let Some(x) = args.hostname_hide_index {
-                builder.add_hostname_hide_index(x);
+            if let Some(x) = args.hostname_index {
+                builder.add_hostname_index(x);
             }
             if let Some(x) = args.complex_id_rules_values {
                 builder.add_complex_id_rules_values(x);
@@ -800,57 +1218,13 @@ pub mod fb {
                 let x = self.complex_id_rules_values();
                 x.iter().map(|s| s.to_string()).collect()
             };
-            let hostname_hide_index = {
-                let x = self.hostname_hide_index();
+            let hostname_index = {
+                let x = self.hostname_index();
                 x.into_iter().collect()
             };
-            let hostname_hide_values = {
-                let x = self.hostname_hide_values();
-                x.iter().map(|s| s.to_string()).collect()
-            };
-            let hostname_unhide_index = {
-                let x = self.hostname_unhide_index();
-                x.into_iter().collect()
-            };
-            let hostname_unhide_values = {
-                let x = self.hostname_unhide_values();
-                x.iter().map(|s| s.to_string()).collect()
-            };
-            let hostname_inject_script_index = {
-                let x = self.hostname_inject_script_index();
-                x.into_iter().collect()
-            };
-            let hostname_inject_script_values = {
-                let x = self.hostname_inject_script_values();
-                x.iter().map(|s| s.to_string()).collect()
-            };
-            let hostname_inject_script_permissions = {
-                let x = self.hostname_inject_script_permissions();
-                x.into_iter().collect()
-            };
-            let hostname_uninject_script_index = {
-                let x = self.hostname_uninject_script_index();
-                x.into_iter().collect()
-            };
-            let hostname_uninject_script_values = {
-                let x = self.hostname_uninject_script_values();
-                x.iter().map(|s| s.to_string()).collect()
-            };
-            let hostname_procedural_action_index = {
-                let x = self.hostname_procedural_action_index();
-                x.into_iter().collect()
-            };
-            let hostname_procedural_action_values = {
-                let x = self.hostname_procedural_action_values();
-                x.iter().map(|s| s.to_string()).collect()
-            };
-            let hostname_procedural_action_exception_index = {
-                let x = self.hostname_procedural_action_exception_index();
-                x.into_iter().collect()
-            };
-            let hostname_procedural_action_exception_values = {
-                let x = self.hostname_procedural_action_exception_values();
-                x.iter().map(|s| s.to_string()).collect()
+            let hostname_values = {
+                let x = self.hostname_values();
+                x.iter().map(|t| t.unpack()).collect()
             };
             CosmeticFiltersT {
                 simple_class_rules,
@@ -860,19 +1234,8 @@ pub mod fb {
                 complex_class_rules_values,
                 complex_id_rules_index,
                 complex_id_rules_values,
-                hostname_hide_index,
-                hostname_hide_values,
-                hostname_unhide_index,
-                hostname_unhide_values,
-                hostname_inject_script_index,
-                hostname_inject_script_values,
-                hostname_inject_script_permissions,
-                hostname_uninject_script_index,
-                hostname_uninject_script_values,
-                hostname_procedural_action_index,
-                hostname_procedural_action_values,
-                hostname_procedural_action_exception_index,
-                hostname_procedural_action_exception_values,
+                hostname_index,
+                hostname_values,
             }
         }
 
@@ -989,202 +1352,36 @@ pub mod fb {
                     .unwrap()
             }
         }
-        /// Hostname-specific hide filters - multi-map from hostname hash to CSS selectors
         #[inline]
-        pub fn hostname_hide_index(&self) -> flatbuffers::Vector<'a, u64> {
+        pub fn hostname_index(&self) -> flatbuffers::Vector<'a, u64> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        CosmeticFilters::VT_HOSTNAME_HIDE_INDEX,
+                        CosmeticFilters::VT_HOSTNAME_INDEX,
                         None,
                     )
                     .unwrap()
             }
         }
         #[inline]
-        pub fn hostname_hide_values(
+        pub fn hostname_values(
             &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<HostnameSpecificRules<'a>>>
+        {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                    >>(CosmeticFilters::VT_HOSTNAME_HIDE_VALUES, None)
-                    .unwrap()
-            }
-        }
-        /// Hostname-specific unhide filters - multi-map from hostname hash to CSS selectors
-        #[inline]
-        pub fn hostname_unhide_index(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        CosmeticFilters::VT_HOSTNAME_UNHIDE_INDEX,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
-        #[inline]
-        pub fn hostname_unhide_values(
-            &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                    >>(CosmeticFilters::VT_HOSTNAME_UNHIDE_VALUES, None)
-                    .unwrap()
-            }
-        }
-        /// Hostname-specific script injection filters - multi-map from hostname hash to script+permission data
-        #[inline]
-        pub fn hostname_inject_script_index(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_INDEX,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
-        #[inline]
-        pub fn hostname_inject_script_values(
-            &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                    >>(CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_VALUES, None)
-                    .unwrap()
-            }
-        }
-        #[inline]
-        pub fn hostname_inject_script_permissions(&self) -> flatbuffers::Vector<'a, u32> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
-                        CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_PERMISSIONS,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
-        /// Hostname-specific script uninjection filters - multi-map from hostname hash to script data
-        #[inline]
-        pub fn hostname_uninject_script_index(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        CosmeticFilters::VT_HOSTNAME_UNINJECT_SCRIPT_INDEX,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
-        #[inline]
-        pub fn hostname_uninject_script_values(
-            &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                    >>(CosmeticFilters::VT_HOSTNAME_UNINJECT_SCRIPT_VALUES, None)
-                    .unwrap()
-            }
-        }
-        /// Hostname-specific procedural/action filters - multi-map from hostname hash to JSON strings
-        #[inline]
-        pub fn hostname_procedural_action_index(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_INDEX,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
-        #[inline]
-        pub fn hostname_procedural_action_values(
-            &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                    >>(
-                        CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_VALUES, None
-                    )
-                    .unwrap()
-            }
-        }
-        /// Hostname-specific procedural/action exception filters - multi-map from hostname hash to JSON strings
-        #[inline]
-        pub fn hostname_procedural_action_exception_index(&self) -> flatbuffers::Vector<'a, u64> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(
-                        CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_INDEX,
-                        None,
-                    )
-                    .unwrap()
-            }
-        }
-        #[inline]
-        pub fn hostname_procedural_action_exception_values(
-            &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                    >>(
-                        CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_VALUES,
-                        None,
-                    )
+                        flatbuffers::Vector<
+                            'a,
+                            flatbuffers::ForwardsUOffset<HostnameSpecificRules>,
+                        >,
+                    >>(CosmeticFilters::VT_HOSTNAME_VALUES, None)
                     .unwrap()
             }
         }
@@ -1240,78 +1437,13 @@ pub mod fb {
                     true,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "hostname_hide_index",
-                    Self::VT_HOSTNAME_HIDE_INDEX,
+                    "hostname_index",
+                    Self::VT_HOSTNAME_INDEX,
                     true,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>("hostname_hide_values", Self::VT_HOSTNAME_HIDE_VALUES, true)?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "hostname_unhide_index",
-                    Self::VT_HOSTNAME_UNHIDE_INDEX,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>(
-                    "hostname_unhide_values",
-                    Self::VT_HOSTNAME_UNHIDE_VALUES,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "hostname_inject_script_index",
-                    Self::VT_HOSTNAME_INJECT_SCRIPT_INDEX,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>(
-                    "hostname_inject_script_values",
-                    Self::VT_HOSTNAME_INJECT_SCRIPT_VALUES,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
-                    "hostname_inject_script_permissions",
-                    Self::VT_HOSTNAME_INJECT_SCRIPT_PERMISSIONS,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "hostname_uninject_script_index",
-                    Self::VT_HOSTNAME_UNINJECT_SCRIPT_INDEX,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>(
-                    "hostname_uninject_script_values",
-                    Self::VT_HOSTNAME_UNINJECT_SCRIPT_VALUES,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "hostname_procedural_action_index",
-                    Self::VT_HOSTNAME_PROCEDURAL_ACTION_INDEX,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>(
-                    "hostname_procedural_action_values",
-                    Self::VT_HOSTNAME_PROCEDURAL_ACTION_VALUES,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(
-                    "hostname_procedural_action_exception_index",
-                    Self::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_INDEX,
-                    true,
-                )?
-                .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>(
-                    "hostname_procedural_action_exception_values",
-                    Self::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_VALUES,
-                    true,
-                )?
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<HostnameSpecificRules>>,
+                >>("hostname_values", Self::VT_HOSTNAME_VALUES, true)?
                 .finish();
             Ok(())
         }
@@ -1338,61 +1470,26 @@ pub mod fb {
         pub complex_id_rules_values: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
-        pub hostname_hide_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
-        pub hostname_hide_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
-        >,
-        pub hostname_unhide_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
-        pub hostname_unhide_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
-        >,
-        pub hostname_inject_script_index:
-            Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
-        pub hostname_inject_script_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
-        >,
-        pub hostname_inject_script_permissions:
-            Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
-        pub hostname_uninject_script_index:
-            Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
-        pub hostname_uninject_script_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
-        >,
-        pub hostname_procedural_action_index:
-            Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
-        pub hostname_procedural_action_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
-        >,
-        pub hostname_procedural_action_exception_index:
-            Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
-        pub hostname_procedural_action_exception_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        pub hostname_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+        pub hostname_values: Option<
+            flatbuffers::WIPOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<HostnameSpecificRules<'a>>>,
+            >,
         >,
     }
     impl<'a> Default for CosmeticFiltersArgs<'a> {
         #[inline]
         fn default() -> Self {
             CosmeticFiltersArgs {
-                simple_class_rules: None,                          // required field
-                simple_id_rules: None,                             // required field
-                misc_generic_selectors: None,                      // required field
-                complex_class_rules_index: None,                   // required field
-                complex_class_rules_values: None,                  // required field
-                complex_id_rules_index: None,                      // required field
-                complex_id_rules_values: None,                     // required field
-                hostname_hide_index: None,                         // required field
-                hostname_hide_values: None,                        // required field
-                hostname_unhide_index: None,                       // required field
-                hostname_unhide_values: None,                      // required field
-                hostname_inject_script_index: None,                // required field
-                hostname_inject_script_values: None,               // required field
-                hostname_inject_script_permissions: None,          // required field
-                hostname_uninject_script_index: None,              // required field
-                hostname_uninject_script_values: None,             // required field
-                hostname_procedural_action_index: None,            // required field
-                hostname_procedural_action_values: None,           // required field
-                hostname_procedural_action_exception_index: None,  // required field
-                hostname_procedural_action_exception_values: None, // required field
+                simple_class_rules: None,         // required field
+                simple_id_rules: None,            // required field
+                misc_generic_selectors: None,     // required field
+                complex_class_rules_index: None,  // required field
+                complex_class_rules_values: None, // required field
+                complex_id_rules_index: None,     // required field
+                complex_id_rules_values: None,    // required field
+                hostname_index: None,             // required field
+                hostname_values: None,            // required field
             }
         }
     }
@@ -1487,149 +1584,25 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_hostname_hide_index(
+        pub fn add_hostname_index(
             &mut self,
-            hostname_hide_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
+            hostname_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_HIDE_INDEX,
-                hostname_hide_index,
+                CosmeticFilters::VT_HOSTNAME_INDEX,
+                hostname_index,
             );
         }
         #[inline]
-        pub fn add_hostname_hide_values(
+        pub fn add_hostname_values(
             &mut self,
-            hostname_hide_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            hostname_values: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<HostnameSpecificRules<'b>>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_HIDE_VALUES,
-                hostname_hide_values,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_unhide_index(
-            &mut self,
-            hostname_unhide_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_UNHIDE_INDEX,
-                hostname_unhide_index,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_unhide_values(
-            &mut self,
-            hostname_unhide_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_UNHIDE_VALUES,
-                hostname_unhide_values,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_inject_script_index(
-            &mut self,
-            hostname_inject_script_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_INDEX,
-                hostname_inject_script_index,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_inject_script_values(
-            &mut self,
-            hostname_inject_script_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_VALUES,
-                hostname_inject_script_values,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_inject_script_permissions(
-            &mut self,
-            hostname_inject_script_permissions: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, u32>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_PERMISSIONS,
-                hostname_inject_script_permissions,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_uninject_script_index(
-            &mut self,
-            hostname_uninject_script_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_UNINJECT_SCRIPT_INDEX,
-                hostname_uninject_script_index,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_uninject_script_values(
-            &mut self,
-            hostname_uninject_script_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_UNINJECT_SCRIPT_VALUES,
-                hostname_uninject_script_values,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_procedural_action_index(
-            &mut self,
-            hostname_procedural_action_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u64>>,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_INDEX,
-                hostname_procedural_action_index,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_procedural_action_values(
-            &mut self,
-            hostname_procedural_action_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_VALUES,
-                hostname_procedural_action_values,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_procedural_action_exception_index(
-            &mut self,
-            hostname_procedural_action_exception_index: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, u64>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_INDEX,
-                hostname_procedural_action_exception_index,
-            );
-        }
-        #[inline]
-        pub fn add_hostname_procedural_action_exception_values(
-            &mut self,
-            hostname_procedural_action_exception_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
-            >,
-        ) {
-            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_VALUES,
-                hostname_procedural_action_exception_values,
+                CosmeticFilters::VT_HOSTNAME_VALUES,
+                hostname_values,
             );
         }
         #[inline]
@@ -1677,71 +1650,10 @@ pub mod fb {
                 CosmeticFilters::VT_COMPLEX_ID_RULES_VALUES,
                 "complex_id_rules_values",
             );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_HIDE_INDEX,
-                "hostname_hide_index",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_HIDE_VALUES,
-                "hostname_hide_values",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_UNHIDE_INDEX,
-                "hostname_unhide_index",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_UNHIDE_VALUES,
-                "hostname_unhide_values",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_INDEX,
-                "hostname_inject_script_index",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_VALUES,
-                "hostname_inject_script_values",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_INJECT_SCRIPT_PERMISSIONS,
-                "hostname_inject_script_permissions",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_UNINJECT_SCRIPT_INDEX,
-                "hostname_uninject_script_index",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_UNINJECT_SCRIPT_VALUES,
-                "hostname_uninject_script_values",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_INDEX,
-                "hostname_procedural_action_index",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_VALUES,
-                "hostname_procedural_action_values",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_INDEX,
-                "hostname_procedural_action_exception_index",
-            );
-            self.fbb_.required(
-                o,
-                CosmeticFilters::VT_HOSTNAME_PROCEDURAL_ACTION_EXCEPTION_VALUES,
-                "hostname_procedural_action_exception_values",
-            );
+            self.fbb_
+                .required(o, CosmeticFilters::VT_HOSTNAME_INDEX, "hostname_index");
+            self.fbb_
+                .required(o, CosmeticFilters::VT_HOSTNAME_VALUES, "hostname_values");
             flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -1762,46 +1674,8 @@ pub mod fb {
             );
             ds.field("complex_id_rules_index", &self.complex_id_rules_index());
             ds.field("complex_id_rules_values", &self.complex_id_rules_values());
-            ds.field("hostname_hide_index", &self.hostname_hide_index());
-            ds.field("hostname_hide_values", &self.hostname_hide_values());
-            ds.field("hostname_unhide_index", &self.hostname_unhide_index());
-            ds.field("hostname_unhide_values", &self.hostname_unhide_values());
-            ds.field(
-                "hostname_inject_script_index",
-                &self.hostname_inject_script_index(),
-            );
-            ds.field(
-                "hostname_inject_script_values",
-                &self.hostname_inject_script_values(),
-            );
-            ds.field(
-                "hostname_inject_script_permissions",
-                &self.hostname_inject_script_permissions(),
-            );
-            ds.field(
-                "hostname_uninject_script_index",
-                &self.hostname_uninject_script_index(),
-            );
-            ds.field(
-                "hostname_uninject_script_values",
-                &self.hostname_uninject_script_values(),
-            );
-            ds.field(
-                "hostname_procedural_action_index",
-                &self.hostname_procedural_action_index(),
-            );
-            ds.field(
-                "hostname_procedural_action_values",
-                &self.hostname_procedural_action_values(),
-            );
-            ds.field(
-                "hostname_procedural_action_exception_index",
-                &self.hostname_procedural_action_exception_index(),
-            );
-            ds.field(
-                "hostname_procedural_action_exception_values",
-                &self.hostname_procedural_action_exception_values(),
-            );
+            ds.field("hostname_index", &self.hostname_index());
+            ds.field("hostname_values", &self.hostname_values());
             ds.finish()
         }
     }
@@ -1815,19 +1689,8 @@ pub mod fb {
         pub complex_class_rules_values: Vec<String>,
         pub complex_id_rules_index: Vec<String>,
         pub complex_id_rules_values: Vec<String>,
-        pub hostname_hide_index: Vec<u64>,
-        pub hostname_hide_values: Vec<String>,
-        pub hostname_unhide_index: Vec<u64>,
-        pub hostname_unhide_values: Vec<String>,
-        pub hostname_inject_script_index: Vec<u64>,
-        pub hostname_inject_script_values: Vec<String>,
-        pub hostname_inject_script_permissions: Vec<u32>,
-        pub hostname_uninject_script_index: Vec<u64>,
-        pub hostname_uninject_script_values: Vec<String>,
-        pub hostname_procedural_action_index: Vec<u64>,
-        pub hostname_procedural_action_values: Vec<String>,
-        pub hostname_procedural_action_exception_index: Vec<u64>,
-        pub hostname_procedural_action_exception_values: Vec<String>,
+        pub hostname_index: Vec<u64>,
+        pub hostname_values: Vec<HostnameSpecificRulesT>,
     }
     impl Default for CosmeticFiltersT {
         fn default() -> Self {
@@ -1839,19 +1702,8 @@ pub mod fb {
                 complex_class_rules_values: Default::default(),
                 complex_id_rules_index: Default::default(),
                 complex_id_rules_values: Default::default(),
-                hostname_hide_index: Default::default(),
-                hostname_hide_values: Default::default(),
-                hostname_unhide_index: Default::default(),
-                hostname_unhide_values: Default::default(),
-                hostname_inject_script_index: Default::default(),
-                hostname_inject_script_values: Default::default(),
-                hostname_inject_script_permissions: Default::default(),
-                hostname_uninject_script_index: Default::default(),
-                hostname_uninject_script_values: Default::default(),
-                hostname_procedural_action_index: Default::default(),
-                hostname_procedural_action_values: Default::default(),
-                hostname_procedural_action_exception_index: Default::default(),
-                hostname_procedural_action_exception_values: Default::default(),
+                hostname_index: Default::default(),
+                hostname_values: Default::default(),
             }
         }
     }
@@ -1895,62 +1747,13 @@ pub mod fb {
                 let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
                 _fbb.create_vector(&w)
             });
-            let hostname_hide_index = Some({
-                let x = &self.hostname_hide_index;
+            let hostname_index = Some({
+                let x = &self.hostname_index;
                 _fbb.create_vector(x)
             });
-            let hostname_hide_values = Some({
-                let x = &self.hostname_hide_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
-                _fbb.create_vector(&w)
-            });
-            let hostname_unhide_index = Some({
-                let x = &self.hostname_unhide_index;
-                _fbb.create_vector(x)
-            });
-            let hostname_unhide_values = Some({
-                let x = &self.hostname_unhide_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
-                _fbb.create_vector(&w)
-            });
-            let hostname_inject_script_index = Some({
-                let x = &self.hostname_inject_script_index;
-                _fbb.create_vector(x)
-            });
-            let hostname_inject_script_values = Some({
-                let x = &self.hostname_inject_script_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
-                _fbb.create_vector(&w)
-            });
-            let hostname_inject_script_permissions = Some({
-                let x = &self.hostname_inject_script_permissions;
-                _fbb.create_vector(x)
-            });
-            let hostname_uninject_script_index = Some({
-                let x = &self.hostname_uninject_script_index;
-                _fbb.create_vector(x)
-            });
-            let hostname_uninject_script_values = Some({
-                let x = &self.hostname_uninject_script_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
-                _fbb.create_vector(&w)
-            });
-            let hostname_procedural_action_index = Some({
-                let x = &self.hostname_procedural_action_index;
-                _fbb.create_vector(x)
-            });
-            let hostname_procedural_action_values = Some({
-                let x = &self.hostname_procedural_action_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
-                _fbb.create_vector(&w)
-            });
-            let hostname_procedural_action_exception_index = Some({
-                let x = &self.hostname_procedural_action_exception_index;
-                _fbb.create_vector(x)
-            });
-            let hostname_procedural_action_exception_values = Some({
-                let x = &self.hostname_procedural_action_exception_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+            let hostname_values = Some({
+                let x = &self.hostname_values;
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
             CosmeticFilters::create(
@@ -1963,19 +1766,8 @@ pub mod fb {
                     complex_class_rules_values,
                     complex_id_rules_index,
                     complex_id_rules_values,
-                    hostname_hide_index,
-                    hostname_hide_values,
-                    hostname_unhide_index,
-                    hostname_unhide_values,
-                    hostname_inject_script_index,
-                    hostname_inject_script_values,
-                    hostname_inject_script_permissions,
-                    hostname_uninject_script_index,
-                    hostname_uninject_script_values,
-                    hostname_procedural_action_index,
-                    hostname_procedural_action_values,
-                    hostname_procedural_action_exception_index,
-                    hostname_procedural_action_exception_values,
+                    hostname_index,
+                    hostname_values,
                 },
             )
         }

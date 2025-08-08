@@ -266,70 +266,79 @@ impl CosmeticFilterCache {
             .collect();
 
         let cs = self.filter_data_context.memory.root().cosmetic_filters();
-        let hostname_hide_view =
-            FlatMapView::new(cs.hostname_hide_index(), cs.hostname_hide_values());
-        let hostname_procedural_view = FlatMapView::new(
-            cs.hostname_procedural_action_index(),
-            cs.hostname_procedural_action_values(),
-        );
-        let hostname_inject_script_view = FlatMapView::new(
-            cs.hostname_inject_script_index(),
-            cs.hostname_inject_script_values(),
-        );
-        let hostname_inject_script_permissions = cs.hostname_inject_script_permissions();
+        let hostname_rules_view = FlatMapView::new(cs.hostname_index(), cs.hostname_values());
 
         for hash in hashes.iter() {
-            for (_, selector) in hostname_hide_view.get(**hash) {
-                specific_hide_selectors.insert(selector.to_owned());
-            }
+            for (_, hostname_rules) in hostname_rules_view.get(**hash) {
+                // Process hide selectors
+                if let Some(hide_rules) = hostname_rules.hide() {
+                    for hide_selector in hide_rules.iter() {
+                        specific_hide_selectors.insert(hide_selector.to_owned());
+                    }
+                }
 
-            for (_, action) in hostname_procedural_view.get(**hash) {
-                procedural_actions.insert(action.to_owned());
-            }
+                // Process procedural actions
+                if let Some(procedural_actions_rules) = hostname_rules.procedural_action() {
+                    for action in procedural_actions_rules.iter() {
+                        procedural_actions.insert(action.to_owned());
+                    }
+                }
 
-            // Handle script injections with permissions
-            for (idx, script) in hostname_inject_script_view.get(**hash) {
-                let permission_bits = hostname_inject_script_permissions.get(idx);
-                let permission = PermissionMask::from_bits(permission_bits as u8);
-                script_injections
-                    .entry(script)
-                    .and_modify(|entry| *entry |= permission)
-                    .or_insert(permission);
+                // Handle script injections with permissions
+                if let Some(inject_scripts) = hostname_rules.inject_script() {
+                    if let Some(inject_permissions) = hostname_rules.inject_script_permissions() {
+                        for (idx, script) in inject_scripts.iter().enumerate() {
+                            let permission_bits = inject_permissions.get(idx);
+                            let permission = PermissionMask::from_bits(permission_bits as u8);
+                            script_injections
+                                .entry(script)
+                                .and_modify(|entry| *entry |= permission)
+                                .or_insert(permission);
+                        }
+                    } else {
+                        // If no permissions array, use default permission
+                        for script in inject_scripts.iter() {
+                            script_injections
+                                .entry(script)
+                                .and_modify(|entry| *entry |= PermissionMask::default())
+                                .or_insert(PermissionMask::default());
+                        }
+                    }
+                }
             }
         }
 
-        // Create views for unhide/exception filters
-        let hostname_unhide_view =
-            FlatMapView::new(cs.hostname_unhide_index(), cs.hostname_unhide_values());
-        let hostname_procedural_exception_view = FlatMapView::new(
-            cs.hostname_procedural_action_exception_index(),
-            cs.hostname_procedural_action_exception_values(),
-        );
-        let hostname_uninject_script_view = FlatMapView::new(
-            cs.hostname_uninject_script_index(),
-            cs.hostname_uninject_script_values(),
-        );
-
+        // Process unhide/exception filters
         for hash in hashes.iter() {
-            // special behavior: unhide rules need to go in `exceptions` as well
-            for (_, selector) in hostname_unhide_view.get(**hash) {
-                specific_hide_selectors.remove(selector);
-                exceptions.insert(selector.to_owned());
-            }
-
-            for (_, action) in hostname_procedural_exception_view.get(**hash) {
-                procedural_actions.remove(action);
-            }
-
-            for (_, script) in hostname_uninject_script_view.get(**hash) {
-                if script.is_empty() {
-                    except_all_scripts = true;
-                    script_injections.clear();
+            for (_, hostname_rules) in hostname_rules_view.get(**hash) {
+                // Process unhide selectors (special behavior: they also go in exceptions)
+                if let Some(unhide_rules) = hostname_rules.unhide() {
+                    for selector in unhide_rules.iter() {
+                        specific_hide_selectors.remove(selector);
+                        exceptions.insert(selector.to_owned());
+                    }
                 }
-                if except_all_scripts {
-                    continue;
+
+                // Process procedural action exceptions
+                if let Some(procedural_exceptions) = hostname_rules.procedural_action_exception() {
+                    for action in procedural_exceptions.iter() {
+                        procedural_actions.remove(action);
+                    }
                 }
-                script_injections.remove(script);
+
+                // Process script uninjects
+                if let Some(uninject_scripts) = hostname_rules.uninject_script() {
+                    for script in uninject_scripts.iter() {
+                        if script.is_empty() {
+                            except_all_scripts = true;
+                            script_injections.clear();
+                        }
+                        if except_all_scripts {
+                            continue;
+                        }
+                        script_injections.remove(script);
+                    }
+                }
             }
         }
 
