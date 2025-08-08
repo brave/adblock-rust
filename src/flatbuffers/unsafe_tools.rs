@@ -3,24 +3,20 @@
 use crate::filters::fb_network::flat::fb;
 
 // Minimum alignment for the beginning of the flatbuffer data.
-// Should be 4 while we support armv7 and x86_32.
-const MIN_ALIGNMENT: usize = 4;
+const MIN_ALIGNMENT: usize = 8;
 
 /// Converts a flatbuffers Vector to a slice.
 /// # Safety
 /// This function uses unsafe code to convert flatbuffer vector bytes to a slice.
 /// It asserts the vector data is properly aligned and sized.
 #[inline(always)]
-pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
+pub fn fb_vector_to_slice<'a, T>(vector: &flatbuffers::Vector<'a, T>) -> &'a [T] {
     let bytes = vector.bytes();
 
-    const fn static_assert_alignment<T>() {
-        // We can't use T with the size more than MIN_ALIGNMENT.
-        // Since the beginning of flatbuffer data is aligned to that size,
-        // the alignment of the data must be a divisor of MIN_ALIGNMENT.
-        assert!(MIN_ALIGNMENT % std::mem::size_of::<T>() == 0);
-    }
-    let _ = static_assert_alignment::<T>;
+    // We can't use T with the size more than MIN_ALIGNMENT.
+    // Since the beginning of flatbuffer data is aligned to that size,
+    // the alignment of the data must be a divisor of MIN_ALIGNMENT.
+    assert!(MIN_ALIGNMENT % std::mem::size_of::<T>() == 0);
 
     assert!(bytes.len() % std::mem::size_of::<T>() == 0);
     assert!(bytes.as_ptr() as usize % std::mem::align_of::<T>() == 0);
