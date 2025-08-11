@@ -10,7 +10,7 @@ use flatbuffers::{ForwardsUOffset, Vector, WIPOffset};
 
 use crate::cosmetic_filter_cache::CosmeticFilterCacheBuilder;
 use crate::filters::cosmetic::CosmeticFilter;
-use crate::filters::flat_filter_map::FlatMultiMapBuilder;
+use crate::filters::flat_filter_map::{FlatMultiMapBuilder, FlatSerialize, MyFlatBufferBuilder};
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
@@ -38,12 +38,6 @@ struct NetworkFiltersBuilder {
 
 struct NetworkFilterListBuilder {
     lists: Vec<NetworkFiltersBuilder>,
-}
-
-#[derive(Default)]
-pub(crate) struct FlatBufferBuilderWrapper {
-    unique_domains_hashes: HashMap<Hash, u32>,
-    unique_domains_hashes_vec: Vec<Hash>,
 }
 
 impl Default for NetworkFilterListBuilder {
@@ -101,9 +95,8 @@ impl NetworkFilterListBuilder {
 
     fn finish<'a>(
         &mut self,
-        mut builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        builder: &mut MyFlatBufferBuilder<'a>,
         optimize: bool,
-        wrapper: &mut FlatBufferBuilderWrapper,
     ) -> WIPOffset<Vector<'a, ForwardsUOffset<fb::NetworkFilterList<'a>>>> {
         let mut flat_network_rules = vec![];
 
@@ -112,12 +105,7 @@ impl NetworkFilterListBuilder {
             // Don't optimize removeparam, since it can fuse filters without respecting distinct
             let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
 
-            flat_network_rules.push(self.write_filter_list(
-                &mut builder,
-                list.filters,
-                optimize,
-                wrapper,
-            ));
+            flat_network_rules.push(self.write_filter_list(builder, list.filters, optimize));
         }
         builder.create_vector(&flat_network_rules)
     }
@@ -128,14 +116,13 @@ impl NetworkFilterListBuilder {
 
     fn write_filter<'a>(
         &mut self,
-        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        builder: &mut MyFlatBufferBuilder<'a>,
         network_filter: &NetworkFilter,
-        wrapper: &mut FlatBufferBuilderWrapper,
     ) -> WIPOffset<fb::NetworkFilter<'a>> {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
-                .map(|x| wrapper.get_or_insert_unique_domain_hash(x))
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
                 .collect();
             o.sort_unstable();
             o.dedup();
@@ -145,7 +132,7 @@ impl NetworkFilterListBuilder {
         let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
-                .map(|x| wrapper.get_or_insert_unique_domain_hash(x))
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
                 .collect();
             o.sort_unstable();
             o.dedup();
@@ -184,7 +171,7 @@ impl NetworkFilterListBuilder {
             .map(|v| builder.create_string(v.as_str()));
 
         let filter = fb::NetworkFilter::create(
-            builder,
+            &mut builder.fb_builder,
             &fb::NetworkFilterArgs {
                 mask: network_filter.mask.bits(),
                 patterns,
@@ -203,10 +190,9 @@ impl NetworkFilterListBuilder {
     }
     pub fn write_filter_list<'a>(
         &mut self,
-        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        builder: &mut MyFlatBufferBuilder<'a>,
         filters: Vec<NetworkFilter>,
         optimize: bool,
-        wrapper: &mut FlatBufferBuilderWrapper,
     ) -> WIPOffset<fb::NetworkFilterList<'a>> {
         let mut filter_map = HashMap::<ShortHash, Vec<WIPOffset<fb::NetworkFilter<'a>>>>::new();
 
@@ -229,7 +215,7 @@ impl NetworkFilterListBuilder {
                 let flat_filter = if !optimize
                     || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
                 {
-                    Some(self.write_filter(builder, &network_filter, wrapper))
+                    Some(self.write_filter(builder, &network_filter))
                 } else {
                     None
                 };
@@ -273,7 +259,7 @@ impl NetworkFilterListBuilder {
                 let optimized = optimizer::optimize(v);
 
                 for filter in optimized {
-                    let flat_filter = self.write_filter(builder, &filter, wrapper);
+                    let flat_filter = self.write_filter(builder, &filter);
                     filter_map.entry(token).or_default().push(flat_filter);
                 }
             }
@@ -287,7 +273,7 @@ impl NetworkFilterListBuilder {
         let (indexes, values) = FlatMultiMapBuilder::new_from_map(filter_map).finish(builder);
 
         fb::NetworkFilterList::create(
-            builder,
+            &mut builder.fb_builder,
             &fb::NetworkFilterListArgs {
                 filter_map_index: Some(indexes),
                 filter_map_values: Some(values),
@@ -296,52 +282,24 @@ impl NetworkFilterListBuilder {
     }
 }
 
-impl FlatBufferBuilderWrapper {
-    // pub fn add_network_filter(&mut self, network_filters: Vec<NetworkFilter>) {
-    //     self.network_builder.add_filters(network_filters);
-    // }
-
-    // pub fn add_cosmetic_filter(&mut self, cosmetic_rules: Vec<CosmeticFilter>) {
-    //     self.cosmetic_builder.add_filters(cosmetic_rules);
-    // }
-
-    fn get_or_insert_unique_domain_hash(&mut self, hash: &Hash) -> u32 {
-        if let Some(&index) = self.unique_domains_hashes.get(hash) {
-            return index;
-        }
-        let index = self.unique_domains_hashes_vec.len() as u32;
-        self.unique_domains_hashes_vec.push(*hash);
-        self.unique_domains_hashes.insert(*hash, index as u32);
-        index
-    }
-
-    fn finish<'a>(
-        &mut self,
-        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> WIPOffset<Vector<'a, u64>> {
-        builder.create_vector(&self.unique_domains_hashes_vec)
-    }
-}
-
 pub fn make_flatbuffer_from_rules(
     network_filters: Vec<NetworkFilter>,
     cosmetic_rules: Vec<CosmeticFilter>,
     optimize: bool,
 ) -> VerifiedFlatbufferMemory {
-    let mut builder = flatbuffers::FlatBufferBuilder::new();
-    let mut wrapper = FlatBufferBuilderWrapper::default();
+    let mut builder = MyFlatBufferBuilder::default();
 
     let mut network_builder = NetworkFilterListBuilder::default();
     network_builder.add_filters(network_filters);
-    let flat_network_filters = network_builder.finish(&mut builder, optimize, &mut wrapper);
+    let flat_network_filters = network_builder.finish(&mut builder, optimize);
 
     let mut cosmetic_builder = CosmeticFilterCacheBuilder::from_rules(cosmetic_rules);
-    let flat_cosmetic_filters = cosmetic_builder.finish(&mut builder);
+    let flat_cosmetic_filters = cosmetic_builder.serialize(&mut builder);
 
-    let flat_unique_domains_hashes = wrapper.finish(&mut builder);
+    let flat_unique_domains_hashes = builder.write_unique_domains();
 
     let root = fb::Engine::create(
-        &mut builder,
+        &mut builder.fb_builder,
         &fb::EngineArgs {
             version: 1, // TODO
             network_rules: Some(flat_network_filters),
@@ -349,7 +307,7 @@ pub fn make_flatbuffer_from_rules(
             cosmetic_filters: Some(flat_cosmetic_filters),
         },
     );
-    builder.finish(root, None);
+    builder.fb_builder.finish(root, None);
     // TODO: consider using builder.collapse() to avoid reallocating memory.
-    VerifiedFlatbufferMemory::from_builder(&builder)
+    VerifiedFlatbufferMemory::from_builder(&builder.fb_builder)
 }

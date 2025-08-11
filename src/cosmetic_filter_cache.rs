@@ -15,6 +15,7 @@ use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::FilterDataContextRef;
 use crate::filters::flat_filter_map::{
     FlatFilterSetBuilder, FlatFilterSetView, FlatMapView, FlatMultiMapBuilder, FlatSerialize,
+    MyFlatBufferBuilder,
 };
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
@@ -89,10 +90,10 @@ impl<'a> FlatSerialize<'a> for HostnameRule {
 
     fn serialize(
         &mut self,
-        mut builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        builder: &mut MyFlatBufferBuilder<'a>,
     ) -> flatbuffers::WIPOffset<fb::HostnameSpecificRules<'a>> {
         fn store_vec<'a>(
-            builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+            builder: &mut MyFlatBufferBuilder<'a>,
             v: Vec<String>,
         ) -> Option<flatbuffers::WIPOffset<Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>
         {
@@ -113,7 +114,7 @@ impl<'a> FlatSerialize<'a> for HostnameRule {
         );
 
         fb::HostnameSpecificRules::create(
-            &mut builder,
+            &mut builder.fb_builder,
             &fb::HostnameSpecificRulesArgs {
                 hide,
                 unhide,
@@ -147,38 +148,6 @@ impl CosmeticFilterCacheBuilder {
         }
 
         self_
-    }
-
-    pub fn finish<'a>(
-        &mut self,
-        mut builder: &mut flatbuffers::FlatBufferBuilder<'a>,
-    ) -> WIPOffset<fb::CosmeticFilters<'a>> {
-        let (complex_class_rules_index, complex_class_rules_values) =
-            std::mem::take(&mut self.complex_class_rules).finish(builder);
-        let (complex_id_rules_index, complex_id_rules_values) =
-            std::mem::take(&mut self.complex_id_rules).finish(builder);
-        let (hostname_index, hostname_values) =
-            std::mem::take(&mut self.specific_rules).finish(builder);
-
-        let simple_class_rules = Some(std::mem::take(&mut self.simple_class_rules).finish(builder));
-        let simple_id_rules = Some(std::mem::take(&mut self.simple_id_rules).finish(builder));
-        let misc_generic_selectors =
-            Some(std::mem::take(&mut self.misc_generic_selectors).finish(builder));
-
-        fb::CosmeticFilters::create(
-            &mut builder,
-            &fb::CosmeticFiltersArgs {
-                simple_class_rules,
-                simple_id_rules,
-                misc_generic_selectors,
-                complex_class_rules_index: Some(complex_class_rules_index),
-                complex_class_rules_values: Some(complex_class_rules_values),
-                complex_id_rules_index: Some(complex_id_rules_index),
-                complex_id_rules_values: Some(complex_id_rules_values),
-                hostname_index: Some(hostname_index),
-                hostname_values: Some(hostname_values),
-            },
-        )
     }
 
     pub fn add_filter(&mut self, rule: CosmeticFilter) {
@@ -410,8 +379,8 @@ impl CosmeticFilterCache {
             .chain(request_hostnames.iter())
             .collect();
 
-        let cs = self.filter_data_context.memory.root().cosmetic_filters();
-        let hostname_rules_view = FlatMapView::new(cs.hostname_index(), cs.hostname_values());
+        let cf = self.filter_data_context.memory.root().cosmetic_filters();
+        let hostname_rules_view = FlatMapView::new(cf.hostname_index(), cf.hostname_values());
 
         for hash in hashes.iter() {
             for (_, hostname_rules) in hostname_rules_view.get(**hash) {
@@ -519,6 +488,55 @@ impl CosmeticFilterCache {
     }
 }
 
+impl<'a> FlatSerialize<'a> for CosmeticFilterCacheBuilder {
+    type Output = WIPOffset<fb::CosmeticFilters<'a>>;
+    fn serialize(
+        &mut self,
+        builder: &mut MyFlatBufferBuilder<'a>,
+    ) -> WIPOffset<fb::CosmeticFilters<'a>> {
+        let (complex_class_rules_index, complex_class_rules_values) = {
+            let complex_class_rules = std::mem::take(&mut self.complex_class_rules);
+            complex_class_rules.finish(builder)
+        };
+        let (complex_id_rules_index, complex_id_rules_values) = {
+            let complex_id_rules = std::mem::take(&mut self.complex_id_rules);
+            complex_id_rules.finish(builder)
+        };
+        let (hostname_index, hostname_values) = {
+            let specific_rules = std::mem::take(&mut self.specific_rules);
+            specific_rules.finish(builder)
+        };
+
+        let simple_class_rules = Some({
+            let simple_class_rules = std::mem::take(&mut self.simple_class_rules);
+            simple_class_rules.finish(builder)
+        });
+        let simple_id_rules = Some({
+            let simple_id_rules = std::mem::take(&mut self.simple_id_rules);
+            simple_id_rules.finish(builder)
+        });
+        let misc_generic_selectors = Some({
+            let misc_generic_selectors = std::mem::take(&mut self.misc_generic_selectors);
+            misc_generic_selectors.finish(builder)
+        });
+
+        fb::CosmeticFilters::create(
+            &mut builder.fb_builder,
+            &fb::CosmeticFiltersArgs {
+                simple_class_rules,
+                simple_id_rules,
+                misc_generic_selectors,
+                complex_class_rules_index: Some(complex_class_rules_index),
+                complex_class_rules_values: Some(complex_class_rules_values),
+                complex_id_rules_index: Some(complex_id_rules_index),
+                complex_id_rules_values: Some(complex_id_rules_values),
+                hostname_index: Some(hostname_index),
+                hostname_values: Some(hostname_values),
+            },
+        )
+    }
+}
+
 /// Representations of filters with complex behavior that relies on in-page JS logic.
 ///
 /// These get stored in-memory as JSON and should be deserialized/acted on by a content script.
@@ -552,6 +570,7 @@ impl ProceduralOrActionFilter {
     }
 
     /// Convenience constructor for pure CSS style filters.
+    #[cfg(test)]
     pub(crate) fn from_css(selector: String, style: String) -> Self {
         Self {
             selector: vec![CosmeticFilterOperator::CssSelector(selector)],

@@ -4,17 +4,31 @@ use crate::filters::unsafe_tools::fb_vector_to_slice;
 use flatbuffers::{Follow, ForwardsUOffset, Vector, WIPOffset};
 use std::collections::{HashMap, HashSet};
 
+use crate::utils::Hash;
+
+#[derive(Default)]
+pub struct MyFlatBufferBuilder<'a> {
+    pub(crate) fb_builder: flatbuffers::FlatBufferBuilder<'a>,
+    unique_domains_hashes: HashMap<Hash, u32>,
+    unique_domains_hashes_vec: Vec<Hash>,
+}
+
+pub trait FlatSerialize<'a>: Sized {
+    type Output: Sized + flatbuffers::Push + Clone;
+    fn serialize(&mut self, builder: &mut MyFlatBufferBuilder<'a>) -> Self::Output;
+}
+
 fn sort_and_store_keys<'a, I: FlatSerialize<'a> + Ord + std::hash::Hash>(
     keys: impl Iterator<Item = I>,
-    builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+    builder: &mut MyFlatBufferBuilder<'a>,
 ) -> WIPOffset<Vector<'a, <I::Output as flatbuffers::Push>::Output>> {
     let mut keys = keys.collect::<Vec<_>>();
     keys.sort_unstable();
-    // TODO: serialize in place, without collect::Vec<_>
-    let flat_keys = keys
-        .into_iter()
-        .map(|mut k| k.serialize(builder))
-        .collect::<Vec<_>>();
+    // Serialize keys manually to avoid lifetime issues
+    let mut flat_keys = Vec::with_capacity(keys.len());
+    for mut key in keys {
+        flat_keys.push(key.serialize(builder));
+    }
     builder.create_vector(&flat_keys)
 }
 
@@ -150,35 +164,58 @@ where
     }
 }
 
-pub trait FlatSerialize<'a>: Sized {
-    type Output: Sized + flatbuffers::Push + Clone;
-    fn serialize(&mut self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output;
+impl<'a> MyFlatBufferBuilder<'a> {
+    pub fn get_or_insert_unique_domain_hash(&mut self, hash: &Hash) -> u32 {
+        if let Some(&index) = self.unique_domains_hashes.get(hash) {
+            return index;
+        }
+        let index = self.unique_domains_hashes_vec.len() as u32;
+        self.unique_domains_hashes_vec.push(*hash);
+        self.unique_domains_hashes.insert(*hash, index as u32);
+        index
+    }
+
+    pub fn write_unique_domains(&mut self) -> WIPOffset<Vector<'a, u64>> {
+        self.fb_builder
+            .create_vector(&self.unique_domains_hashes_vec)
+    }
+
+    pub fn create_vector<T: flatbuffers::Push>(
+        &mut self,
+        v: &[T],
+    ) -> WIPOffset<Vector<'a, T::Output>> {
+        self.fb_builder.create_vector(v)
+    }
+
+    pub fn create_string(&mut self, s: &str) -> WIPOffset<&'a str> {
+        self.fb_builder.create_string(s)
+    }
 }
 
 impl<'a> FlatSerialize<'a> for String {
     type Output = WIPOffset<&'a str>;
-    fn serialize(&mut self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, builder: &mut MyFlatBufferBuilder<'a>) -> Self::Output {
         builder.create_string(self)
     }
 }
 
 impl<'a> FlatSerialize<'a> for u32 {
     type Output = u32;
-    fn serialize(&mut self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, _builder: &mut MyFlatBufferBuilder<'a>) -> Self::Output {
         *self
     }
 }
 
 impl<'a> FlatSerialize<'a> for u64 {
     type Output = u64;
-    fn serialize(&mut self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, _builder: &mut MyFlatBufferBuilder<'a>) -> Self::Output {
         *self
     }
 }
 
 impl<'a, T> FlatSerialize<'a> for WIPOffset<T> {
     type Output = WIPOffset<T>;
-    fn serialize(&mut self, _builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> Self::Output {
+    fn serialize(&mut self, _builder: &mut MyFlatBufferBuilder<'a>) -> Self::Output {
         *self
     }
 }
@@ -195,7 +232,7 @@ impl<'a, I: FlatSerialize<'a> + Ord + std::hash::Hash> FlatFilterSetBuilder<I> {
 
     pub fn finish(
         self,
-        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        builder: &mut MyFlatBufferBuilder<'a>,
     ) -> WIPOffset<Vector<'a, <I::Output as flatbuffers::Push>::Output>> {
         sort_and_store_keys(self.keys.into_iter(), builder)
     }
@@ -239,7 +276,7 @@ impl<'a, I: Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
     #[allow(clippy::type_complexity)]
     pub fn finish(
         self,
-        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+        builder: &mut MyFlatBufferBuilder<'a>,
     ) -> (
         WIPOffset<Vector<'a, <I::Output as flatbuffers::Push>::Output>>,
         WIPOffset<Vector<'a, <V::Output as flatbuffers::Push>::Output>>,

@@ -56,9 +56,9 @@ const ADBLOCK_FLATBUFFER_VERSION: u32 = 1;
 
 #[derive(Debug)]
 pub enum DeserializationError {
-  VersionMismatch(u32),
-  FlatBufferParsingError(flatbuffers::InvalidFlatbuffer),
-  ValidationError,
+    VersionMismatch(u32),
+    FlatBufferParsingError(flatbuffers::InvalidFlatbuffer),
+    ValidationError,
 }
 
 impl Default for Engine {
@@ -263,14 +263,14 @@ impl Engine {
     /// Note that the binary format has a built-in version number that may be incremented. There is
     /// no guarantee that later versions of the format will be deserializable across minor versions
     /// of adblock-rust; the format is provided only as a caching optimization.
-    pub fn deserialize(
-        &mut self,
-        serialized: &[u8],
-    ) -> Result<(), DeserializationError> {
+    pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), DeserializationError> {
         let current_tags = self.blocker.tags_enabled();
-        let memory = VerifiedFlatbufferMemory::from_raw(serialized.to_vec()).map_err(DeserializationError::FlatBufferParsingError)?;
+        let memory = VerifiedFlatbufferMemory::from_raw(serialized.to_vec())
+            .map_err(DeserializationError::FlatBufferParsingError)?;
         if memory.root().version() != ADBLOCK_FLATBUFFER_VERSION {
-            return Err(DeserializationError::VersionMismatch(memory.root().version()));
+            return Err(DeserializationError::VersionMismatch(
+                memory.root().version(),
+            ));
         }
         let context = FilterDataContext::new(memory);
         self.filter_data_context = context;
