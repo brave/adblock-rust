@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod unit_tests {
+mod tests {
     use super::super::*;
 
     #[test]

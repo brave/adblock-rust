@@ -1,14 +1,13 @@
 #[cfg(test)]
-mod unit_tests {
+mod tests {
     use super::super::*;
-    use flatbuffers;
 
     // Helper function to create a Vector from a slice
     fn create_vector_u32<'a>(
         builder: &'a mut flatbuffers::FlatBufferBuilder,
         data: &'a [u32],
     ) -> flatbuffers::Vector<'a, u32> {
-        let vec_offset = builder.create_vector(&data);
+        let vec_offset = builder.create_vector(data);
         builder.finish(vec_offset, None);
         let buf = builder.finished_data();
         flatbuffers::root::<flatbuffers::Vector<u32>>(buf).expect("OK")
