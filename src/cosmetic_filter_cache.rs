@@ -244,22 +244,28 @@ impl CosmeticFilterCacheBuilder {
     fn store_hostname_filter(&mut self, token: &Hash, kind: SpecificFilterType) {
         use SpecificFilterType::*;
 
-        // Create a HostnameRule with the appropriate field set
-        let mut rule = HostnameRule::default();
+        // Get the existing rule for this hostname, or create a new one if it doesn't exist
+        let rule = self.specific_rules.get_or_insert_default(*token);
 
-        match kind {
-            Hide(s) => rule.hide.push(s),
-            Unhide(s) => rule.unhide.push(s),
-            InjectScript((s, permission)) => {
-                rule.inject_script.push(s);
-                rule.inject_script_permissions.push(permission.0 as u32);
-            }
-            UninjectScript((s, _)) => rule.uninject_script.push(s),
-            ProceduralOrAction(s) => rule.procedural_action.push(s),
-            ProceduralOrActionException(s) => rule.procedural_action_exception.push(s),
+        // If the Vec is empty, create the first HostnameRule
+        if rule.is_empty() {
+            rule.push(HostnameRule::default());
         }
 
-        self.specific_rules.insert(*token, rule);
+        // Get the single HostnameRule for this hostname (there should only be one)
+        let hostname_rule = &mut rule[0];
+
+        match kind {
+            Hide(s) => hostname_rule.hide.push(s),
+            Unhide(s) => hostname_rule.unhide.push(s),
+            InjectScript((s, permission)) => {
+                hostname_rule.inject_script.push(s);
+                hostname_rule.inject_script_permissions.push(permission.0 as u32);
+            }
+            UninjectScript((s, _)) => hostname_rule.uninject_script.push(s),
+            ProceduralOrAction(s) => hostname_rule.procedural_action.push(s),
+            ProceduralOrActionException(s) => hostname_rule.procedural_action_exception.push(s),
+        }
     }
 }
 

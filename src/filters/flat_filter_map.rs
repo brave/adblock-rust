@@ -227,6 +227,12 @@ pub(crate) struct FlatFilterSetBuilder<I> {
     keys: HashSet<I>,
 }
 
+impl<I> FlatFilterSetBuilder<I> {
+    pub fn len(&self) -> usize {
+        self.keys.len()
+    }
+}
+
 impl<'a, I: FlatSerialize<'a> + Ord + std::hash::Hash> FlatFilterSetBuilder<I> {
     pub fn insert(&mut self, key: I) {
         self.keys.insert(key);
@@ -264,6 +270,16 @@ pub struct FlatMultiMapBuilder<I, V> {
     map: HashMap<I, Vec<V>>,
 }
 
+impl<I, V> FlatMultiMapBuilder<I, V> {
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    pub fn total_values(&self) -> usize {
+        self.map.values().map(|v| v.len()).sum()
+    }
+}
+
 impl<'a, I: Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
     FlatMultiMapBuilder<I, V>
 {
@@ -273,6 +289,14 @@ impl<'a, I: Ord + std::hash::Hash + FlatSerialize<'a>, V: FlatSerialize<'a>>
 
     pub fn insert(&mut self, key: I, value: V) {
         self.map.entry(key).or_default().push(value);
+    }
+
+    pub fn get_or_insert_default(&mut self, key: I) -> &mut Vec<V>
+    where
+        I: Clone,
+        V: Default,
+    {
+        self.map.entry(key).or_default()
     }
 
     #[allow(clippy::type_complexity)]
