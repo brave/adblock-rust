@@ -10,7 +10,7 @@ mod storage;
 pub(crate) mod utils;
 
 use crate::cosmetic_filter_cache::CosmeticFilterCache;
-use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
+use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::NetworkFilterListParsingError;
 
 /// Newer formats start with this magic byte sequence.
