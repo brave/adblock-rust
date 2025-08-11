@@ -30,12 +30,7 @@ table NetworkFilterList {
 }
 
 table HostnameSpecificRules {
-  hide: [string];
   unhide: [string];
-
-  inject_script: [string];
-  inject_script_permissions: [uint32];
-
   uninject_script: [string];
   procedural_action: [string];
   procedural_action_exception: [string];
@@ -62,9 +57,17 @@ table CosmeticFilters {
   complex_id_rules_index: [string] (required);
   complex_id_rules_values: [string] (required);
 
+  /// Hostname-specific hide filters - multi-map from hostname hash to CSS selectors
+  hostname_hide_index: [uint64] (required);
+  hostname_hide_values: [string] (required);
+
+  /// Hostname-specific script injection filters - multi-map from hostname hash to script data
+  /// First byte of each script encodes permission bits to avoid separate permissions array
+  hostname_inject_script_index: [uint64] (required);
+  hostname_inject_script_values: [string] (required);
 
   // Map from hostname(hash) => HostnameSpecificRules using FlatMultiMapBuilder
-  // Store only one item per domain using FlatMultiMapBuilder
+  // Store only one item per domain using FlatMultiMapBuilder (for remaining rule types)
   hostname_index: [uint64] (required);
   hostname_values: [HostnameSpecificRules] (required);
 }

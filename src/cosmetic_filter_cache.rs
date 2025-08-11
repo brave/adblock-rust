@@ -26,6 +26,30 @@ use flatbuffers::{Vector, WIPOffset};
 use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
 
+/// Encodes permission bits in the first byte of a script string
+/// Returns the script with permission byte prepended
+fn encode_script_with_permission(script: String, permission: PermissionMask) -> String {
+    let mut encoded = String::with_capacity(script.len() + 1);
+    // Access the inner bits via the .0 field since PermissionMask doesn't have bits() method
+    encoded.push(permission.0 as char);
+    encoded.push_str(&script);
+    encoded
+}
+
+/// Decodes permission bits from the first byte of a script string
+/// Returns (permission, script) tuple
+fn decode_script_with_permission(encoded_script: &str) -> (PermissionMask, &str) {
+    if encoded_script.is_empty() {
+        return (PermissionMask::default(), encoded_script);
+    }
+
+    let first_char = encoded_script.chars().next().unwrap();
+    let permission_bits = first_char as u8;
+    let permission = PermissionMask::from_bits(permission_bits);
+    let script = &encoded_script[first_char.len_utf8()..];
+    (permission, script)
+}
+
 /// Contains cosmetic filter information intended to be used on a particular URL.
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct UrlSpecificResources {
@@ -74,12 +98,10 @@ pub(crate) struct CosmeticFilterCache {
 }
 
 /// Accumulates hostname-specific rules for a single domain before building HostnameSpecificRules
+/// Note: hide and inject_script are now handled separately at the top level
 #[derive(Default)]
 struct HostnameRule {
-    hide: Vec<String>,
     unhide: Vec<String>,
-    inject_script: Vec<String>,
-    inject_script_permissions: Vec<u32>,
     uninject_script: Vec<String>,
     procedural_action: Vec<String>,
     procedural_action_exception: Vec<String>,
@@ -101,11 +123,7 @@ impl<'a> FlatSerialize<'a> for HostnameRule {
             Some(builder.create_vector(&offsets))
         }
 
-        let hide = store_vec(builder, std::mem::take(&mut self.hide));
         let unhide = store_vec(builder, std::mem::take(&mut self.unhide));
-        let inject_script_vec = store_vec(builder, std::mem::take(&mut self.inject_script));
-        let inject_script_permissions_vec =
-            Some(builder.create_vector(&self.inject_script_permissions));
         let uninject_script_vec = store_vec(builder, std::mem::take(&mut self.uninject_script));
         let procedural_action_vec = store_vec(builder, std::mem::take(&mut self.procedural_action));
         let procedural_action_exception_vec = store_vec(
@@ -116,10 +134,7 @@ impl<'a> FlatSerialize<'a> for HostnameRule {
         fb::HostnameSpecificRules::create(
             &mut builder.fb_builder,
             &fb::HostnameSpecificRulesArgs {
-                hide,
                 unhide,
-                inject_script: inject_script_vec,
-                inject_script_permissions: inject_script_permissions_vec,
                 uninject_script: uninject_script_vec,
                 procedural_action: procedural_action_vec,
                 procedural_action_exception: procedural_action_exception_vec,
@@ -135,6 +150,9 @@ pub(crate) struct CosmeticFilterCacheBuilder {
     misc_generic_selectors: FlatFilterSetBuilder<String>,
     complex_class_rules: FlatMultiMapBuilder<String, String>,
     complex_id_rules: FlatMultiMapBuilder<String, String>,
+
+    hostname_hide: FlatMultiMapBuilder<Hash, String>,
+    hostname_inject_script: FlatMultiMapBuilder<Hash, String>,
 
     specific_rules: FlatMultiMapBuilder<Hash, HostnameRule>,
 }
@@ -244,27 +262,49 @@ impl CosmeticFilterCacheBuilder {
     fn store_hostname_filter(&mut self, token: &Hash, kind: SpecificFilterType) {
         use SpecificFilterType::*;
 
-        // Get the existing rule for this hostname, or create a new one if it doesn't exist
-        let rule = self.specific_rules.get_or_insert_default(*token);
-
-        // If the Vec is empty, create the first HostnameRule
-        if rule.is_empty() {
-            rule.push(HostnameRule::default());
-        }
-
-        // Get the single HostnameRule for this hostname (there should only be one)
-        let hostname_rule = &mut rule[0];
-
         match kind {
-            Hide(s) => hostname_rule.hide.push(s),
-            Unhide(s) => hostname_rule.unhide.push(s),
-            InjectScript((s, permission)) => {
-                hostname_rule.inject_script.push(s);
-                hostname_rule.inject_script_permissions.push(permission.0 as u32);
+            // Handle hide and inject_script at top level for better deduplication
+            Hide(s) => {
+                self.hostname_hide.insert(*token, s);
             }
-            UninjectScript((s, _)) => hostname_rule.uninject_script.push(s),
-            ProceduralOrAction(s) => hostname_rule.procedural_action.push(s),
-            ProceduralOrActionException(s) => hostname_rule.procedural_action_exception.push(s),
+            InjectScript((s, permission)) => {
+                let encoded_script = encode_script_with_permission(s, permission);
+                self.hostname_inject_script.insert(*token, encoded_script);
+            }
+            // Handle remaining types through HostnameRule
+            Unhide(s) => {
+                // Get the existing rule for this hostname, or create a new one if it doesn't exist
+                let rule = self.specific_rules.get_or_insert_default(*token);
+                if rule.is_empty() {
+                    rule.push(HostnameRule::default());
+                }
+                let hostname_rule = &mut rule[0];
+                hostname_rule.unhide.push(s);
+            }
+            UninjectScript((s, _)) => {
+                let rule = self.specific_rules.get_or_insert_default(*token);
+                if rule.is_empty() {
+                    rule.push(HostnameRule::default());
+                }
+                let hostname_rule = &mut rule[0];
+                hostname_rule.uninject_script.push(s);
+            }
+            ProceduralOrAction(s) => {
+                let rule = self.specific_rules.get_or_insert_default(*token);
+                if rule.is_empty() {
+                    rule.push(HostnameRule::default());
+                }
+                let hostname_rule = &mut rule[0];
+                hostname_rule.procedural_action.push(s);
+            }
+            ProceduralOrActionException(s) => {
+                let rule = self.specific_rules.get_or_insert_default(*token);
+                if rule.is_empty() {
+                    rule.push(HostnameRule::default());
+                }
+                let hostname_rule = &mut rule[0];
+                hostname_rule.procedural_action_exception.push(s);
+            }
         }
     }
 }
@@ -387,42 +427,36 @@ impl CosmeticFilterCache {
 
         let cf = self.filter_data_context.memory.root().cosmetic_filters();
         let hostname_rules_view = FlatMapView::new(cf.hostname_index(), cf.hostname_values());
+        let hostname_hide_view =
+            FlatMapView::new(cf.hostname_hide_index(), cf.hostname_hide_values());
+        let hostname_inject_script_view = FlatMapView::new(
+            cf.hostname_inject_script_index(),
+            cf.hostname_inject_script_values(),
+        );
 
         for hash in hashes.iter() {
-            for (_, hostname_rules) in hostname_rules_view.get(**hash) {
-                // Process hide selectors
-                if let Some(hide_rules) = hostname_rules.hide() {
-                    for hide_selector in hide_rules.iter() {
-                        specific_hide_selectors.insert(hide_selector.to_owned());
-                    }
+            // Handle top-level hide selectors
+            for (_, hide_selector) in hostname_hide_view.get(**hash) {
+                if !exceptions.contains(hide_selector) {
+                    specific_hide_selectors.insert(hide_selector.to_owned());
                 }
+            }
 
+            // Handle top-level inject scripts with encoded permissions
+            for (_, encoded_script) in hostname_inject_script_view.get(**hash) {
+                let (permission, script) = decode_script_with_permission(encoded_script);
+                script_injections
+                    .entry(script)
+                    .and_modify(|entry| *entry |= permission)
+                    .or_insert(permission);
+            }
+
+            // Handle remaining rule types from HostnameSpecificRules
+            for (_, hostname_rules) in hostname_rules_view.get(**hash) {
                 // Process procedural actions
                 if let Some(procedural_actions_rules) = hostname_rules.procedural_action() {
                     for action in procedural_actions_rules.iter() {
                         procedural_actions.insert(action.to_owned());
-                    }
-                }
-
-                // Handle script injections with permissions
-                if let Some(inject_scripts) = hostname_rules.inject_script() {
-                    if let Some(inject_permissions) = hostname_rules.inject_script_permissions() {
-                        for (idx, script) in inject_scripts.iter().enumerate() {
-                            let permission_bits = inject_permissions.get(idx);
-                            let permission = PermissionMask::from_bits(permission_bits as u8);
-                            script_injections
-                                .entry(script)
-                                .and_modify(|entry| *entry |= permission)
-                                .or_insert(permission);
-                        }
-                    } else {
-                        // If no permissions array, use default permission
-                        for script in inject_scripts.iter() {
-                            script_injections
-                                .entry(script)
-                                .and_modify(|entry| *entry |= PermissionMask::default())
-                                .or_insert(PermissionMask::default());
-                        }
                     }
                 }
             }
@@ -508,6 +542,18 @@ impl<'a> FlatSerialize<'a> for CosmeticFilterCacheBuilder {
             let complex_id_rules = std::mem::take(&mut self.complex_id_rules);
             complex_id_rules.finish(builder)
         };
+
+        // Handle top-level hostname hide and inject_script for better deduplication
+        let (hostname_hide_index, hostname_hide_values) = {
+            let hostname_hide = std::mem::take(&mut self.hostname_hide);
+            hostname_hide.finish(builder)
+        };
+        let (hostname_inject_script_index, hostname_inject_script_values) = {
+            let hostname_inject_script = std::mem::take(&mut self.hostname_inject_script);
+            hostname_inject_script.finish(builder)
+        };
+
+        // Handle remaining rule types through HostnameSpecificRules
         let (hostname_index, hostname_values) = {
             let specific_rules = std::mem::take(&mut self.specific_rules);
             specific_rules.finish(builder)
@@ -536,6 +582,10 @@ impl<'a> FlatSerialize<'a> for CosmeticFilterCacheBuilder {
                 complex_class_rules_values: Some(complex_class_rules_values),
                 complex_id_rules_index: Some(complex_id_rules_index),
                 complex_id_rules_values: Some(complex_id_rules_values),
+                hostname_hide_index: Some(hostname_hide_index),
+                hostname_hide_values: Some(hostname_hide_values),
+                hostname_inject_script_index: Some(hostname_inject_script_index),
+                hostname_inject_script_values: Some(hostname_inject_script_values),
                 hostname_index: Some(hostname_index),
                 hostname_values: Some(hostname_values),
             },
