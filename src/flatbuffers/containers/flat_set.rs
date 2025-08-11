@@ -1,9 +1,12 @@
+#![warn(dead_code)]
+
 use std::marker::PhantomData;
 
 use crate::flatbuffers::containers::indexable::Indexable;
 
 /// A set-like container that uses flatbuffer references.
 /// Provides O(log n) lookup time using binary search on the sorted data.
+
 pub(crate) struct FlatSetView<I, Idx>
 where
     Idx: Indexable<I>,
@@ -39,3 +42,7 @@ where
         self.len() == 0
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/flatbuffers/containers/flat_set.rs"]
+mod unit_tests;
