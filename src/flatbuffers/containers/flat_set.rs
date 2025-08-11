@@ -1,4 +1,4 @@
-#![warn(dead_code)]
+#![allow(dead_code)]
 
 use std::marker::PhantomData;
 

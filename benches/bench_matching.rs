@@ -54,7 +54,7 @@ fn bench_rule_matching(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) 
             passes += 1;
         }
     });
-    println!("Got {} matches, {} passes", matches, passes);
+    // println!("Got {} matches, {} passes, {} errors", matches, passes, errors);
     (matches, passes)
 }
 
@@ -69,7 +69,7 @@ fn bench_matching_only(engine: &Engine, requests: &[Request]) -> (u32, u32) {
             passes += 1;
         }
     });
-    println!("Got {} matches, {} passes", matches, passes);
+    // println!("Got {} matches, {} passes", matches, passes);
     (matches, passes)
 }
 
@@ -94,7 +94,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &[ParsedRequest])
             }
         },
     );
-    println!("Got {} matches, {} passes", matches, passes);
+    // println!("Got {} matches, {} passes", matches, passes);
     (matches, passes)
 }
 
