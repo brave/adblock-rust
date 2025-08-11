@@ -82,3 +82,7 @@ where
         self.index.len()
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/flatbuffers/containers/flat_multimap.rs"]
+mod unit_tests;
