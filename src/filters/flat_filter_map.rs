@@ -190,6 +190,8 @@ impl<'a> MyFlatBufferBuilder<'a> {
     pub fn create_string(&mut self, s: &str) -> WIPOffset<&'a str> {
         self.fb_builder.create_string(s)
     }
+
+    // TODO: add finish()
 }
 
 impl<'a> FlatSerialize<'a> for String {

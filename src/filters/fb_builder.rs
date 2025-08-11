@@ -32,94 +32,23 @@ pub(crate) enum NetworkFilterListId {
 }
 
 #[derive(Default, Clone)]
-struct NetworkFiltersBuilder {
-    filters: Vec<NetworkFilter>,
-}
-
 struct NetworkFilterListBuilder {
-    lists: Vec<NetworkFiltersBuilder>,
+    filters: Vec<NetworkFilter>,
+    optimize: bool,
 }
 
-impl Default for NetworkFilterListBuilder {
-    fn default() -> Self {
-        Self {
-            lists: vec![NetworkFiltersBuilder::default(); NetworkFilterListId::Size as usize],
-        }
-    }
+struct NetworkRulesBuilder {
+    lists: Vec<NetworkFilterListBuilder>,
 }
 
-impl NetworkFilterListBuilder {
-    // TODO: remove and use from_rules()
-    pub fn add_filters(&mut self, network_filters: Vec<NetworkFilter>) {
-        let mut badfilter_ids: HashSet<Hash> = HashSet::new();
-        for filter in network_filters.into_iter() {
-            if filter.is_badfilter() {
-                badfilter_ids.insert(filter.get_id_without_badfilter());
-            }
+impl<'a> FlatSerialize<'a> for NetworkFilter {
+    type Output = WIPOffset<fb::NetworkFilter<'a>>;
 
-            let filter_id = filter.get_id();
-            if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
-                continue;
-            }
-
-            // Redirects are independent of blocking behavior.
-            if filter.is_redirect() {
-                self.add_filter(filter.clone(), NetworkFilterListId::Redirects);
-            }
-            type FilterId = NetworkFilterListId;
-
-            let list_id: FilterId = if filter.is_csp() {
-                FilterId::Csp
-            } else if filter.is_removeparam() {
-                FilterId::RemoveParam
-            } else if filter.is_generic_hide() {
-                FilterId::GenericHide
-            } else if filter.is_exception() {
-                FilterId::Exceptions
-            } else if filter.is_important() {
-                FilterId::Importants
-            } else if filter.tag.is_some() && !filter.is_redirect() {
-                // `tag` + `redirect` is unsupported for now.
-                FilterId::TaggedFiltersAll
-            } else if (filter.is_redirect() && filter.also_block_redirect())
-                || !filter.is_redirect()
-            {
-                FilterId::Filters
-            } else {
-                continue;
-            };
-
-            self.add_filter(filter, list_id);
-        }
-    }
-
-    fn finish<'a>(
+    fn serialize(
         &mut self,
         builder: &mut MyFlatBufferBuilder<'a>,
-        optimize: bool,
-    ) -> WIPOffset<Vector<'a, ForwardsUOffset<fb::NetworkFilterList<'a>>>> {
-        let mut flat_network_rules = vec![];
-
-        let lists = std::mem::take(&mut self.lists);
-        for (list_id, list) in lists.into_iter().enumerate() {
-            // Don't optimize removeparam, since it can fuse filters without respecting distinct
-            let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
-
-            flat_network_rules.push(self.write_filter_list(builder, list.filters, optimize));
-        }
-        builder.create_vector(&flat_network_rules)
-    }
-
-    fn add_filter(&mut self, network_filter: NetworkFilter, list_id: NetworkFilterListId) {
-        self.lists[list_id as usize].filters.push(network_filter);
-    }
-
-    fn write_filter<'a>(
-        &mut self,
-        builder: &mut MyFlatBufferBuilder<'a>,
-        network_filter: &NetworkFilter,
     ) -> WIPOffset<fb::NetworkFilter<'a>> {
-        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
+        let opt_domains = self.opt_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| builder.get_or_insert_unique_domain_hash(x))
@@ -129,7 +58,7 @@ impl NetworkFilterListBuilder {
             builder.create_vector(&o)
         });
 
-        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
+        let opt_not_domains = self.opt_not_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| builder.get_or_insert_unique_domain_hash(x))
@@ -139,23 +68,17 @@ impl NetworkFilterListBuilder {
             builder.create_vector(&o)
         });
 
-        let modifier_option = network_filter
+        let modifier_option = self
             .modifier_option
             .as_ref()
             .map(|s| builder.create_string(s));
 
-        let hostname = network_filter
-            .hostname
-            .as_ref()
-            .map(|s| builder.create_string(s));
+        let hostname = self.hostname.as_ref().map(|s| builder.create_string(s));
 
-        let tag = network_filter
-            .tag
-            .as_ref()
-            .map(|s| builder.create_string(s));
+        let tag = self.tag.as_ref().map(|s| builder.create_string(s));
 
-        let patterns = if network_filter.filter.iter().len() > 0 {
-            let offsets: Vec<WIPOffset<&str>> = network_filter
+        let patterns = if self.filter.iter().len() > 0 {
+            let offsets: Vec<WIPOffset<&str>> = self
                 .filter
                 .iter()
                 .map(|s| builder.create_string(s))
@@ -165,7 +88,7 @@ impl NetworkFilterListBuilder {
             None
         };
 
-        let raw_line = network_filter
+        let raw_line = self
             .raw_line
             .as_ref()
             .map(|v| builder.create_string(v.as_str()));
@@ -173,7 +96,7 @@ impl NetworkFilterListBuilder {
         let filter = fb::NetworkFilter::create(
             &mut builder.fb_builder,
             &fb::NetworkFilterArgs {
-                mask: network_filter.mask.bits(),
+                mask: self.mask.bits(),
                 patterns,
                 modifier_option,
                 opt_domains,
@@ -184,22 +107,31 @@ impl NetworkFilterListBuilder {
             },
         );
 
-        // self.index += 1;
-
         filter
     }
-    pub fn write_filter_list<'a>(
+}
+
+impl NetworkFilterListBuilder {
+    fn new(optimize: bool) -> Self {
+        Self {
+            filters: vec![],
+            optimize,
+        }
+    }
+}
+
+impl<'a> FlatSerialize<'a> for NetworkFilterListBuilder {
+    type Output = WIPOffset<fb::NetworkFilterList<'a>>;
+    fn serialize(
         &mut self,
         builder: &mut MyFlatBufferBuilder<'a>,
-        filters: Vec<NetworkFilter>,
-        optimize: bool,
     ) -> WIPOffset<fb::NetworkFilterList<'a>> {
         let mut filter_map = HashMap::<ShortHash, Vec<WIPOffset<fb::NetworkFilter<'a>>>>::new();
 
         let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
 
         // Compute tokens for all filters
-        let filter_tokens: Vec<_> = filters
+        let filter_tokens: Vec<_> = std::mem::take(&mut self.filters)
             .into_iter()
             .map(|filter| {
                 let tokens = filter.get_tokens();
@@ -211,11 +143,11 @@ impl NetworkFilterListBuilder {
         let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
 
         {
-            for (network_filter, multi_tokens) in filter_tokens {
-                let flat_filter = if !optimize
+            for (mut network_filter, multi_tokens) in filter_tokens.into_iter() {
+                let flat_filter = if !self.optimize
                     || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
                 {
-                    Some(self.write_filter(builder, &network_filter))
+                    Some(network_filter.serialize(builder))
                 } else {
                     None
                 };
@@ -250,7 +182,7 @@ impl NetworkFilterListBuilder {
             }
         }
 
-        if optimize {
+        if self.optimize {
             // Sort the entries to ensure deterministic iteration order
             let mut optimizable_entries: Vec<_> = optimizable.drain().collect();
             optimizable_entries.sort_unstable_by_key(|(token, _)| *token);
@@ -258,8 +190,8 @@ impl NetworkFilterListBuilder {
             for (token, v) in optimizable_entries {
                 let optimized = optimizer::optimize(v);
 
-                for filter in optimized {
-                    let flat_filter = self.write_filter(builder, &filter);
+                for mut filter in optimized {
+                    let flat_filter = filter.serialize(builder);
                     filter_map.entry(token).or_default().push(flat_filter);
                 }
             }
@@ -282,6 +214,77 @@ impl NetworkFilterListBuilder {
     }
 }
 
+impl NetworkRulesBuilder {
+    pub fn from_rules(network_filters: Vec<NetworkFilter>, optimize: bool) -> Self {
+        let mut lists = vec![];
+        for list_id in 0..NetworkFilterListId::Size as usize {
+            // Don't optimize removeparam, since it can fuse filters without respecting distinct
+            let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
+            lists.push(NetworkFilterListBuilder::new(optimize));
+        }
+        let mut self_ = Self { lists };
+
+        let mut badfilter_ids: HashSet<Hash> = HashSet::new();
+        for filter in network_filters.into_iter() {
+            if filter.is_badfilter() {
+                badfilter_ids.insert(filter.get_id_without_badfilter());
+            }
+
+            let filter_id = filter.get_id();
+            if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
+                continue;
+            }
+
+            // Redirects are independent of blocking behavior.
+            if filter.is_redirect() {
+                self_.add_filter(filter.clone(), NetworkFilterListId::Redirects);
+            }
+            type FilterId = NetworkFilterListId;
+
+            let list_id: FilterId = if filter.is_csp() {
+                FilterId::Csp
+            } else if filter.is_removeparam() {
+                FilterId::RemoveParam
+            } else if filter.is_generic_hide() {
+                FilterId::GenericHide
+            } else if filter.is_exception() {
+                FilterId::Exceptions
+            } else if filter.is_important() {
+                FilterId::Importants
+            } else if filter.tag.is_some() && !filter.is_redirect() {
+                // `tag` + `redirect` is unsupported for now.
+                FilterId::TaggedFiltersAll
+            } else if (filter.is_redirect() && filter.also_block_redirect())
+                || !filter.is_redirect()
+            {
+                FilterId::Filters
+            } else {
+                continue;
+            };
+
+            self_.add_filter(filter, list_id);
+        }
+
+        self_
+    }
+    fn add_filter(&mut self, network_filter: NetworkFilter, list_id: NetworkFilterListId) {
+        self.lists[list_id as usize].filters.push(network_filter);
+    }
+}
+
+impl<'a> FlatSerialize<'a> for NetworkRulesBuilder {
+    type Output = WIPOffset<Vector<'a, ForwardsUOffset<fb::NetworkFilterList<'a>>>>;
+    fn serialize(&mut self, builder: &mut MyFlatBufferBuilder<'a>) -> Self::Output {
+        let mut flat_network_rules = vec![];
+
+        let lists = std::mem::take(&mut self.lists);
+        for mut list in lists.into_iter() {
+            flat_network_rules.push(list.serialize(builder));
+        }
+        builder.create_vector(&flat_network_rules)
+    }
+}
+
 pub fn make_flatbuffer_from_rules(
     network_filters: Vec<NetworkFilter>,
     cosmetic_rules: Vec<CosmeticFilter>,
@@ -289,9 +292,8 @@ pub fn make_flatbuffer_from_rules(
 ) -> VerifiedFlatbufferMemory {
     let mut builder = MyFlatBufferBuilder::default();
 
-    let mut network_builder = NetworkFilterListBuilder::default();
-    network_builder.add_filters(network_filters);
-    let flat_network_filters = network_builder.finish(&mut builder, optimize);
+    let mut network_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
+    let flat_network_filters = network_builder.serialize(&mut builder);
 
     let mut cosmetic_builder = CosmeticFilterCacheBuilder::from_rules(cosmetic_rules);
     let flat_cosmetic_filters = cosmetic_builder.serialize(&mut builder);
