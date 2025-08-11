@@ -343,6 +343,7 @@ pub fn make_flatbuffer_from_rules(
     let root = fb::Engine::create(
         &mut builder,
         &fb::EngineArgs {
+            version: 1, // TODO
             network_rules: Some(flat_network_filters),
             unique_domains_hashes: Some(flat_unique_domains_hashes),
             cosmetic_filters: Some(flat_cosmetic_filters),

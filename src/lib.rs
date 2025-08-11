@@ -20,7 +20,6 @@ pub mod blocker;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
 pub mod cosmetic_filter_cache;
-mod data_format;
 mod engine;
 pub mod filters;
 pub mod lists;
