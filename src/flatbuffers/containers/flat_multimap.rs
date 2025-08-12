@@ -1,85 +1,78 @@
 use std::marker::PhantomData;
 
-use crate::flatbuffers::containers::indexable::Indexable;
+use crate::flatbuffers::containers::sorted_index::SortedIndex;
 use flatbuffers::{Follow, Vector};
 
 /// A map-like container that uses flatbuffer references.
 /// Provides O(log n) lookup time using binary search on the sorted index.
-pub(crate) struct FlatMultiMapView<'a, I: Ord + Copy, V, Idx>
+/// I is a key type, Keys is specific container of keys, &[I] for fast indexing (u32, u64)
+/// and flatbuffers::Vector<I> if there is no conversion from Vector (str) to slice.
+pub(crate) struct FlatMultiMapView<'a, I: Ord, V, Keys>
 where
-    Idx: Indexable<I>,
+    Keys: SortedIndex<I>,
     V: Follow<'a>,
 {
-    index: Idx,
+    keys: Keys,
     values: Vector<'a, V>,
     _phantom: PhantomData<I>,
 }
 
-pub(crate) struct FlatMultiMapViewIterator<'a, I: Ord + Copy, V, Idx>
+impl<'a, I: Ord + Copy, V, Keys> FlatMultiMapView<'a, I, V, Keys>
 where
-    Idx: Indexable<I>,
+    Keys: SortedIndex<I> + Clone,
     V: Follow<'a>,
 {
-    current_index: usize,
-    key: I,
-    indexes: Idx,
-    values: Vector<'a, V>,
-}
-
-impl<'a, I, V, Idx> Iterator for FlatMultiMapViewIterator<'a, I, V, Idx>
-where
-    I: Ord + Copy,
-    V: Follow<'a>,
-    Idx: Indexable<I>,
-{
-    type Item = (usize, <V as Follow<'a>>::Inner);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index < self.indexes.len() {
-            if self.indexes.get(self.current_index) != self.key {
-                return None;
-            }
-            let index = self.current_index;
-            let filter = self.values.get(self.current_index);
-            self.current_index += 1;
-            Some((index, filter))
-        } else {
-            None
-        }
-    }
-}
-
-impl<'a, I: Ord + Copy, V, Idx> FlatMultiMapView<'a, I, V, Idx>
-where
-    Idx: Indexable<I>,
-    V: Follow<'a>,
-{
-    pub fn new(index: Idx, values: Vector<'a, V>) -> Self {
-        debug_assert!(index.len() == values.len());
+    pub fn new(keys: Keys, values: Vector<'a, V>) -> Self {
+        debug_assert!(keys.len() == values.len());
 
         Self {
-            index,
+            keys,
             values,
             _phantom: PhantomData,
         }
     }
 
-    pub fn get(&self, key: I) -> FlatMultiMapViewIterator<'a, I, V, Idx>
-    where
-        Idx: Clone,
-    {
-        let start = self.index.partition_point(|x| *x < key);
+    pub fn get(&self, key: I) -> FlatMultiMapViewIterator<'a, I, V, Keys> {
         FlatMultiMapViewIterator {
-            current_index: start,
+            index: self.keys.partition_point(|x| *x < key),
             key,
-            indexes: self.index.clone(),
+            keys: self.keys.clone(), // Cloning is 3-4% faster than & in benchmarks
             values: self.values,
         }
     }
 
     #[cfg(test)]
     pub fn total_size(&self) -> usize {
-        self.index.len()
+        self.keys.len()
+    }
+}
+
+pub(crate) struct FlatMultiMapViewIterator<'a, I: Ord + Copy, V, Keys>
+where
+    Keys: SortedIndex<I>,
+    V: Follow<'a>,
+{
+    index: usize,
+    key: I,
+    keys: Keys,
+    values: Vector<'a, V>,
+}
+
+impl<'a, I, V, Keys> Iterator for FlatMultiMapViewIterator<'a, I, V, Keys>
+where
+    I: Ord + Copy,
+    V: Follow<'a>,
+    Keys: SortedIndex<I>,
+{
+    type Item = (usize, <V as Follow<'a>>::Inner);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.keys.len() && self.keys.get(self.index) == self.key {
+            self.index += 1;
+            Some((self.index - 1, self.values.get(self.index - 1)))
+        } else {
+            None
+        }
     }
 }
 

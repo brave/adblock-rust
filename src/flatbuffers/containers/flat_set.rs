@@ -2,38 +2,40 @@
 
 use std::marker::PhantomData;
 
-use crate::flatbuffers::containers::indexable::Indexable;
+use crate::flatbuffers::containers::sorted_index::SortedIndex;
 
 /// A set-like container that uses flatbuffer references.
 /// Provides O(log n) lookup time using binary search on the sorted data.
-pub(crate) struct FlatSetView<I, Idx>
+/// I is a key type, Keys is specific container of keys, &[I] for fast indexing (u32, u64)
+/// and flatbuffers::Vector<I> if there is no conversion from Vector (str) to slice.
+pub(crate) struct FlatSetView<I, Keys>
 where
-    Idx: Indexable<I>,
+    Keys: SortedIndex<I>,
 {
-    index: Idx,
+    keys: Keys,
     _phantom: PhantomData<I>,
 }
 
-impl<I, Idx> FlatSetView<I, Idx>
+impl<'a, I, Keys> FlatSetView<I, Keys>
 where
-    I: Ord + Copy,
-    Idx: Indexable<I>,
+    I: Ord,
+    Keys: SortedIndex<I>,
 {
-    pub fn new(index: Idx) -> Self {
+    pub fn new(keys: Keys) -> Self {
         Self {
-            index,
+            keys,
             _phantom: PhantomData,
         }
     }
 
-    pub fn contains(&self, value: I) -> bool {
-        let idx = self.index.partition_point(|x| *x < value);
-        idx < self.index.len() && self.index.get(idx) == value
+    pub fn contains(&self, key: I) -> bool {
+        let index = self.keys.partition_point(|x| *x < key);
+        index < self.keys.len() && self.keys.get(index) == key
     }
 
     #[inline(always)]
     pub fn len(&self) -> usize {
-        self.index.len()
+        self.keys.len()
     }
 
     #[inline(always)]

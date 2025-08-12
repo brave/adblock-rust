@@ -1,6 +1,7 @@
 use flatbuffers::{Follow, Vector};
 
-pub(crate) trait Indexable<I> {
+// Represents sorted sequence to perform the binary search.
+pub(crate) trait SortedIndex<I> {
     fn len(&self) -> usize;
     fn get(&self, index: usize) -> I;
     fn partition_point<F>(&self, predicate: F) -> usize
@@ -8,7 +9,10 @@ pub(crate) trait Indexable<I> {
         F: FnMut(&I) -> bool;
 }
 
-impl<I: Copy> Indexable<I> for &[I] {
+// Implementation for slices. Prefer using this with fb_vector_to_slice
+// if possible, because it faster than getting values with flatbuffer's
+// get method.
+impl<'a, I: Ord + Copy> SortedIndex<I> for &[I] {
     #[inline(always)]
     fn len(&self) -> usize {
         <[I]>::len(self)
@@ -24,11 +28,17 @@ impl<I: Copy> Indexable<I> for &[I] {
     where
         F: FnMut(&I) -> bool,
     {
+        debug_assert!(self.is_sorted());
         <[I]>::partition_point(self, predicate)
     }
 }
 
-impl<'a, T: Follow<'a>> Indexable<T::Inner> for Vector<'a, T> {
+// General implementation for flatbuffers::Vector, it uses get to
+// obtain values.
+impl<'a, T: Follow<'a>> SortedIndex<T::Inner> for Vector<'a, T>
+where
+    T::Inner: Ord,
+{
     #[inline(always)]
     fn len(&self) -> usize {
         Vector::len(self)
@@ -43,6 +53,8 @@ impl<'a, T: Follow<'a>> Indexable<T::Inner> for Vector<'a, T> {
     where
         F: FnMut(&T::Inner) -> bool,
     {
+        debug_assert!(self.iter().is_sorted());
+
         let mut left = 0;
         let mut right = self.len();
 
