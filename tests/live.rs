@@ -46,6 +46,10 @@ fn load_requests() -> Vec<RequestRuleMatch> {
 #[derive(serde::Deserialize, Debug)]
 pub struct RemoteFilterCatalogEntry {
     pub title: String,
+    #[serde(default)]
+    pub default_enabled: bool,
+    #[serde(default)]
+    pub platforms: Vec<String>,
     pub sources: Vec<RemoteFilterSource>,
 }
 
@@ -83,8 +87,17 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
             }
             .await;
 
-            // 0th entry is the main default lists
-            let default_lists = &default_catalog[0].sources;
+            let default_lists: Vec<_> = default_catalog
+                .iter()
+                .filter(|comp| comp.default_enabled)
+                .filter(|comp| {
+                    comp.platforms.is_empty()
+                        || comp.platforms.iter().any(|platform| {
+                            ["LINUX", "WINDOWS", "MAC"].contains(&platform.as_str())
+                        })
+                })
+                .flat_map(|comp| &comp.sources)
+                .collect();
 
             assert!(default_lists.len() > 10); // sanity check
 
