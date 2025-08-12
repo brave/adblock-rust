@@ -104,6 +104,8 @@ resource-assembler = []
 
 [lints.clippy]
 len_zero = "allow"
+# TODO: https://github.com/brave/adblock-rust/issues/501
+uninlined_format_args = "allow"
 
 [workspace]
 members = ["js", "fuzz"]
