@@ -94,18 +94,21 @@ impl NetworkFilterList<'_> {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
+            if let Some(iter) = filter_map.get(to_short_hash(*token)) {
+                for (index, fb_filter) in iter {
+                    let filter =
+                        FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
 
-                // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                if filter.matches(request, regex_manager)
-                    && filter.tag().is_none_or(|t| active_tags.contains(t))
-                {
-                    return Some(CheckResult {
-                        filter_mask: filter.mask,
-                        modifier_option: filter.modifier_option(),
-                        raw_line: filter.raw_line(),
-                    });
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().is_none_or(|t| active_tags.contains(t))
+                    {
+                        return Some(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                            raw_line: filter.raw_line(),
+                        });
+                    }
                 }
             }
         }
@@ -134,18 +137,21 @@ impl NetworkFilterList<'_> {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
+            if let Some(iter) = filter_map.get(to_short_hash(*token)) {
+                for (index, fb_filter) in iter {
+                    let filter =
+                        FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
 
-                // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                if filter.matches(request, regex_manager)
-                    && filter.tag().is_none_or(|t| active_tags.contains(t))
-                {
-                    filters.push(CheckResult {
-                        filter_mask: filter.mask,
-                        modifier_option: filter.modifier_option(),
-                        raw_line: filter.raw_line(),
-                    });
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().is_none_or(|t| active_tags.contains(t))
+                    {
+                        filters.push(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                            raw_line: filter.raw_line(),
+                        });
+                    }
                 }
             }
         }

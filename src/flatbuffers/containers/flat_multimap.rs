@@ -32,12 +32,17 @@ where
         }
     }
 
-    pub fn get(&self, key: I) -> FlatMultiMapViewIterator<'a, I, V, Keys> {
-        FlatMultiMapViewIterator {
-            index: self.keys.partition_point(|x| *x < key),
-            key,
-            keys: self.keys.clone(), // Cloning is 3-4% faster than & in benchmarks
-            values: self.values,
+    pub fn get(&self, key: I) -> Option<FlatMultiMapViewIterator<'a, I, V, Keys>> {
+        let index = self.keys.partition_point(|x| *x < key);
+        if index < self.keys.len() && self.keys.get(index) == key {
+            Some(FlatMultiMapViewIterator {
+                index,
+                key,
+                keys: self.keys.clone(), // Cloning is 3-4% faster than & in benchmarks
+                values: self.values,
+            })
+        } else {
+            None
         }
     }
 

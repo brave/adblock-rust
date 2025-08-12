@@ -21,7 +21,7 @@ mod tests {
         let map = FlatMultiMapView::new(index, values);
 
         assert_eq!(map.total_size(), 0);
-        assert_eq!(map.get(1).count(), 0);
+        assert!(map.get(1).is_none());
     }
 
     #[test]
@@ -34,12 +34,12 @@ mod tests {
         assert_eq!(map.total_size(), 1);
 
         // Test existing key
-        let mut iter = map.get(1);
+        let mut iter = map.get(1).unwrap();
         assert_eq!(iter.next(), Some((0, 100)));
         assert_eq!(iter.next(), None);
 
         // Test non-existing key
-        assert_eq!(map.get(2).count(), 0);
+        assert!(map.get(2).is_none());
     }
 
     #[test]
@@ -53,19 +53,19 @@ mod tests {
         assert_eq!(map.total_size(), 6);
 
         // Test key with single value
-        let mut iter = map.get(3);
+        let mut iter = map.get(3).unwrap();
         assert_eq!(iter.next(), Some((5, 60)));
         assert_eq!(iter.next(), None);
 
         // Test key with multiple values
-        let mut iter = map.get(2);
+        let mut iter = map.get(2).unwrap();
         assert_eq!(iter.next(), Some((2, 30)));
         assert_eq!(iter.next(), Some((3, 40)));
         assert_eq!(iter.next(), Some((4, 50)));
         assert_eq!(iter.next(), None);
 
         // Test non-existing key
-        assert_eq!(map.get(4).count(), 0);
+        assert!(map.get(4).is_none());
     }
 
     #[test]
@@ -77,7 +77,7 @@ mod tests {
 
         assert_eq!(map.total_size(), 3);
 
-        let mut iter = map.get(5);
+        let mut iter = map.get(5).unwrap();
         assert_eq!(iter.next(), Some((0, 100)));
         assert_eq!(iter.next(), Some((1, 200)));
         assert_eq!(iter.next(), Some((2, 300)));
@@ -93,10 +93,10 @@ mod tests {
 
         assert_eq!(map.total_size(), 3);
 
-        assert_eq!(map.get(1).next(), Some((0, 10)));
-        assert_eq!(map.get(3).next(), Some((1, 30)));
-        assert_eq!(map.get(5).next(), Some((2, 50)));
-        assert_eq!(map.get(2).count(), 0);
-        assert_eq!(map.get(4).count(), 0);
+        assert_eq!(map.get(1).unwrap().next(), Some((0, 10)));
+        assert_eq!(map.get(3).unwrap().next(), Some((1, 30)));
+        assert_eq!(map.get(5).unwrap().next(), Some((2, 50)));
+        assert!(map.get(2).is_none());
+        assert!(map.get(4).is_none());
     }
 }

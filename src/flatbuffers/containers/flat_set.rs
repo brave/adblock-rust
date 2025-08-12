@@ -16,7 +16,7 @@ where
     _phantom: PhantomData<I>,
 }
 
-impl<'a, I, Keys> FlatSetView<I, Keys>
+impl<I, Keys> FlatSetView<I, Keys>
 where
     I: Ord,
     Keys: SortedIndex<I>,

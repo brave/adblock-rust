@@ -12,7 +12,7 @@ pub(crate) trait SortedIndex<I> {
 // Implementation for slices. Prefer using this with fb_vector_to_slice
 // if possible, because it faster than getting values with flatbuffer's
 // get method.
-impl<'a, I: Ord + Copy> SortedIndex<I> for &[I] {
+impl<I: Ord + Copy> SortedIndex<I> for &[I] {
     #[inline(always)]
     fn len(&self) -> usize {
         <[I]>::len(self)
