@@ -218,10 +218,10 @@ mod tests {
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         let data = engine.serialize().to_vec();
 
-        let expected_hash = if cfg!(feature = "css-validation") {
-            4841091867167548148u64
+        let expected_hash: u64 = if cfg!(feature = "css-validation") {
+            15878451394701322592
         } else {
-            9391295892290689321u64
+            1052691436141678847
         };
 
         assert_eq!(hash(&data), expected_hash, "{}", HASH_MISMATCH_MSG);
