@@ -2,7 +2,9 @@
 
 use std::marker::PhantomData;
 
-use crate::flatbuffers::containers::sorted_index::SortedIndex;
+use crate::flatbuffers::containers;
+use containers::flat_serialize::{FlatBuilder, FlatSerialize, WIPFlatVec};
+use containers::sorted_index::SortedIndex;
 
 /// A set-like container that uses flatbuffer references.
 /// Provides O(log n) lookup time using binary search on the sorted data.
@@ -41,6 +43,23 @@ where
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl<'b, B: FlatBuilder<'b>, T: FlatSerialize<'b, B> + std::hash::Hash + Ord> FlatSerialize<'b, B>
+    for std::collections::HashSet<T>
+{
+    type Output = WIPFlatVec<'b, T, B>;
+
+    fn serialize(value: Self, builder: &mut B) -> Self::Output {
+        let mut items = value.into_iter().collect::<Vec<_>>();
+        items.sort_unstable();
+        let v = items
+            .into_iter()
+            .map(|x| FlatSerialize::serialize(x, builder))
+            .collect::<Vec<_>>();
+
+        builder.raw_builder().create_vector(&v)
     }
 }
 

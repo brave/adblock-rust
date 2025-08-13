@@ -3,8 +3,7 @@
 use crate::filters::fb_network::flat::fb;
 
 // Minimum alignment for the beginning of the flatbuffer data.
-// Should be 4 while we support armv7 and x86_32.
-const MIN_ALIGNMENT: usize = 4;
+const MIN_ALIGNMENT: usize = 8;
 
 /// Converts a flatbuffers Vector to a slice.
 /// # Safety
@@ -20,7 +19,7 @@ pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
         // the alignment of the data must be a divisor of MIN_ALIGNMENT.
         assert!(MIN_ALIGNMENT % std::mem::size_of::<T>() == 0);
     }
-    let _ = static_assert_alignment::<T>;
+    const { static_assert_alignment::<T>() };
 
     assert!(bytes.len() % std::mem::size_of::<T>() == 0);
     assert!(bytes.as_ptr() as usize % std::mem::align_of::<T>() == 0);

@@ -1,6 +1,8 @@
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 
-use crate::flatbuffers::containers::sorted_index::SortedIndex;
+use crate::flatbuffers::containers;
+use containers::flat_serialize::{FlatBuilder, FlatMapBuilderOutput, FlatSerialize};
+use containers::sorted_index::SortedIndex;
 use flatbuffers::{Follow, Vector};
 
 /// A map-like container that uses flatbuffer references.
@@ -77,6 +79,52 @@ where
             Some((self.index - 1, self.values.get(self.index - 1)))
         } else {
             None
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct FlatMultiMapBuilder<I, V> {
+    map: HashMap<I, Vec<V>>,
+}
+
+impl<I: Ord + std::hash::Hash, V> FlatMultiMapBuilder<I, V> {
+    pub fn from_filter_map(map: HashMap<I, Vec<V>>) -> Self {
+        Self { map }
+    }
+
+    #[allow(dead_code)] // Unused code is allowed during cosmetic filter migration
+    pub fn insert(&mut self, key: I, value: V) {
+        self.map.entry(key).or_default().push(value);
+    }
+
+    pub fn finish<'a, B: FlatBuilder<'a>>(
+        value: Self,
+        builder: &mut B,
+    ) -> FlatMapBuilderOutput<'a, I, V, B>
+    where
+        I: FlatSerialize<'a, B>,
+        V: FlatSerialize<'a, B>,
+    {
+        let mut entries: Vec<_> = value.map.into_iter().collect();
+        entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+        let mut indexes = Vec::with_capacity(entries.len());
+        let mut values = Vec::with_capacity(entries.len());
+
+        for (key, mv) in entries.into_iter() {
+            let index = FlatSerialize::serialize(key, builder);
+            for value in mv.into_iter() {
+                indexes.push(index.clone());
+                values.push(FlatSerialize::serialize(value, builder));
+            }
+        }
+
+        let indexes_vec = builder.raw_builder().create_vector(&indexes);
+        let values_vec = builder.raw_builder().create_vector(&values);
+
+        FlatMapBuilderOutput {
+            keys: indexes_vec,
+            values: values_vec,
         }
     }
 }
