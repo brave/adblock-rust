@@ -152,6 +152,7 @@ fn bench_memory_usage(c: &mut Criterion) {
                 let resource_json =
                     std::fs::read_to_string("data/brave/brave-resources.json").unwrap();
                 let resource_list: Vec<Resource> = serde_json::from_str(&resource_json).unwrap();
+                std::mem::drop(resource_json);
                 engine.use_resources(resource_list);
 
                 if run_requests {
