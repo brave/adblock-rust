@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::filters::fb_builder::FlatBufferBuilder;
+use crate::filters::fb_builder::make_flatbuffer;
 use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable};
 use crate::flatbuffers::unsafe_tools::{fb_vector_to_slice, VerifiedFlatbufferMemory};
 
@@ -91,7 +91,7 @@ pub(crate) struct FilterDataContext {
 impl Default for FilterDataContext {
     fn default() -> Self {
         Self {
-            memory: FlatBufferBuilder::make_flatbuffer(vec![], false),
+            memory: make_flatbuffer(vec![], false),
             unique_domains_hashes_map: HashMap::new(),
         }
     }
