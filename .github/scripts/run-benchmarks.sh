@@ -16,3 +16,6 @@ cargo bench --bench bench_rules blocker_new/brave-list -- --output-format benche
 
 echo "Running memory usage benchmark..."
 cargo bench --bench bench_memory memory-usage -- --output-format bencher
+
+echo "Running cosmetic matching benchmark..."
+cargo bench --bench bench_cosmetic_matching -- --output-format bencher

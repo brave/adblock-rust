@@ -84,11 +84,9 @@ harness = false
 name = "bench_serialization"
 harness = false
 
-# Currently disabled, as cosmetic filter internals
-# are no longer part of the crate's public API
-#[[bench]]
-#name = "bench_cosmetic_matching"
-#harness = false
+[[bench]]
+name = "bench_cosmetic_matching"
+harness = false
 
 [features]
 # If disabling default features, consider explicitly re-enabling the
