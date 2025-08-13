@@ -2,13 +2,15 @@
 
 use std::{collections::HashMap, collections::HashSet, fmt};
 
+use flatbuffers::ForwardsUOffset;
+
 use crate::filters::fb_network::flat::fb;
 use crate::filters::fb_network::{FilterDataContext, FlatNetworkFilter};
-use crate::filters::flat_filter_map::FlatFilterMap;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
-use crate::filters::unsafe_tools::fb_vector_to_slice;
+use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
+use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{fast_hash, to_short_hash, Hash, ShortHash};
@@ -60,10 +62,13 @@ pub(crate) struct NetworkFilterList<'a> {
     pub(crate) filter_data_context: &'a FilterDataContext,
 }
 
+type FlatNetworkFilterMap<'a> =
+    FlatMultiMapView<'a, ShortHash, ForwardsUOffset<fb::NetworkFilter<'a>>, &'a [ShortHash]>;
+
 impl NetworkFilterList<'_> {
-    pub fn get_filter_map(&self) -> FlatFilterMap<ShortHash, fb::NetworkFilter> {
+    pub fn get_filter_map(&self) -> FlatNetworkFilterMap {
         let filters_list = &self.list;
-        FlatFilterMap::new(
+        FlatNetworkFilterMap::new(
             fb_vector_to_slice(filters_list.filter_map_index()),
             filters_list.filter_map_values(),
         )
@@ -89,18 +94,21 @@ impl NetworkFilterList<'_> {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
+            if let Some(iter) = filter_map.get(to_short_hash(*token)) {
+                for (index, fb_filter) in iter {
+                    let filter =
+                        FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
 
-                // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                if filter.matches(request, regex_manager)
-                    && filter.tag().is_none_or(|t| active_tags.contains(t))
-                {
-                    return Some(CheckResult {
-                        filter_mask: filter.mask,
-                        modifier_option: filter.modifier_option(),
-                        raw_line: filter.raw_line(),
-                    });
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().is_none_or(|t| active_tags.contains(t))
+                    {
+                        return Some(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                            raw_line: filter.raw_line(),
+                        });
+                    }
                 }
             }
         }
@@ -129,18 +137,21 @@ impl NetworkFilterList<'_> {
         let filter_map = self.get_filter_map();
 
         for token in request.get_tokens_for_match() {
-            for (index, fb_filter) in filter_map.get(to_short_hash(*token)) {
-                let filter = FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
+            if let Some(iter) = filter_map.get(to_short_hash(*token)) {
+                for (index, fb_filter) in iter {
+                    let filter =
+                        FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
 
-                // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                if filter.matches(request, regex_manager)
-                    && filter.tag().is_none_or(|t| active_tags.contains(t))
-                {
-                    filters.push(CheckResult {
-                        filter_mask: filter.mask,
-                        modifier_option: filter.modifier_option(),
-                        raw_line: filter.raw_line(),
-                    });
+                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().is_none_or(|t| active_tags.contains(t))
+                    {
+                        filters.push(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                            raw_line: filter.raw_line(),
+                        });
+                    }
                 }
             }
         }

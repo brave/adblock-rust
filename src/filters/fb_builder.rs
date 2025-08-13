@@ -9,7 +9,7 @@ use std::vec;
 use flatbuffers::WIPOffset;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
-use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
+use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
 use crate::optimizer;
 use crate::utils::{to_short_hash, Hash, ShortHash};

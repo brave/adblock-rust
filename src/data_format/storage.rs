@@ -10,7 +10,7 @@ use rmp_serde as rmps;
 use serde::{Deserialize, Serialize};
 
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, HostnameRuleDb, ProceduralOrActionFilter};
-use crate::filters::unsafe_tools::VerifiedFlatbufferMemory;
+use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
 use super::utils::{stabilize_hashmap_serialization, stabilize_hashset_serialization};
