@@ -23,6 +23,7 @@ pub mod cosmetic_filter_cache;
 mod data_format;
 mod engine;
 pub mod filters;
+mod flatbuffers;
 pub mod lists;
 mod network_filter_list;
 mod optimizer;

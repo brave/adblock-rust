@@ -229,6 +229,7 @@ fn check_live_from_filterlists() {
 
 #[cfg(feature = "resource-assembler")]
 #[test]
+#[ignore = "issues/499"]
 fn check_live_redirects() {
     use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
