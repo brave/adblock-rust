@@ -11,7 +11,7 @@ const args = process.argv.slice(2);
 if (args.length < 2) {
   console.error(
     "Usage: BRAVE_SERVICE_KEY=<key> node update-lists.js <brave_list_version> <resource_list_version>\n" +
-      "The component names are 'Brave Ad Block Updater' and 'Brave Ad Block Resources Library'"
+      "The component names are 'Brave Default Adblock Filters' and 'Brave Ad Block Resources Library'"
   );
   process.exit(1);
 }
