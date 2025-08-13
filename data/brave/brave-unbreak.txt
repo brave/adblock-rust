@@ -146,10 +146,10 @@
 @@||developers.google.com/identity/$image,domain=mysms.com
 ! Fix page rendering due to issues with scorecardresaerch.com https://github.com/brave/brave-browser/issues/1580
 ||scorecardresearch.com^$domain=dailymotion.com
-! vresp.com (https://community.brave.com/t/cant-see-captcha-on-form/67187)
+! vresp.com (https://community.brave.app/t/cant-see-captcha-on-form/67187)
 ||captcha.vresp.com^$domain=lawfirmkpi.com
 @@||captcha.vresp.com^$domain=lawfirmkpi.com
-! https://community.brave.com/t/ad-not-bloked-properly/63628
+! https://community.brave.app/t/ad-not-bloked-properly/63628
 ||readthedocs.org/api/v2/sustainability/$script,domain=pyexcel.org
 ! Embedded video on engadget.com
 ||delivery.vidible.tv/jsonp/$script,domain=engadget.com
@@ -202,7 +202,7 @@
 @@||fncstatic.com/static/isa/app/lib/VisitorAPI.js$script,domain=foxbusiness.com|foxnews.com
 ! Adblock-Tracking: foxnews.com / foxbusiness.com
 @@||fncstatic.com/static/v/all/js/ads.js$script,domain=foxbusiness.com|foxnews.com
-! redditcommentsearch.com (https://community.brave.com/t/redditcommentsearch-doesnt-work-with-shields-on/66496)
+! redditcommentsearch.com (https://community.brave.app/t/redditcommentsearch-doesnt-work-with-shields-on/66496)
 ||pay.reddit.com/user/$script,domain=redditcommentsearch.com
 @@||pay.reddit.com/user/$script,domain=redditcommentsearch.com
 ! ebay.co.uk + ebay.com and other ebay regions (https://github.com/brave/brave-browser/issues/5019)
