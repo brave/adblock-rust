@@ -281,11 +281,16 @@ impl NetworkRulesBuilder {
         let mut self_ = Self { lists };
 
         let mut badfilter_ids: HashSet<Hash> = HashSet::new();
-        for filter in network_filters.into_iter() {
-            if filter.is_badfilter() {
-                badfilter_ids.insert(filter.get_id_without_badfilter());
-            }
 
+        // Collect badfilter ids in advance.
+        for filter in network_filters.iter() {
+          if filter.is_badfilter() {
+              badfilter_ids.insert(filter.get_id_without_badfilter());
+          }
+        }
+
+        for filter in network_filters.into_iter() {
+            // skip any bad filters
             let filter_id = filter.get_id();
             if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
                 continue;
