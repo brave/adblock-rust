@@ -36,20 +36,11 @@ struct NetworkFilterListBuilder {
     optimize: bool,
 }
 
+#[derive(Default)]
 struct EngineFlatBuilder<'a> {
     fb_builder: flatbuffers::FlatBufferBuilder<'a>,
     unique_domains_hashes: HashMap<Hash, u32>,
     unique_domains_hashes_vec: Vec<Hash>,
-}
-
-impl Default for EngineFlatBuilder<'_> {
-    fn default() -> Self {
-        Self {
-            fb_builder: flatbuffers::FlatBufferBuilder::new(),
-            unique_domains_hashes: HashMap::new(),
-            unique_domains_hashes_vec: Vec::new(),
-        }
-    }
 }
 
 impl<'a> EngineFlatBuilder<'a> {
@@ -63,9 +54,24 @@ impl<'a> EngineFlatBuilder<'a> {
         index
     }
 
-    pub fn write_unique_domains(&mut self) -> WIPOffset<Vector<'a, u64>> {
-        self.fb_builder
-            .create_vector(&self.unique_domains_hashes_vec)
+    pub fn finish(
+        &mut self,
+        network_rules: WIPFlatVec<'a, NetworkFilterListBuilder, EngineFlatBuilder<'a>>,
+    ) -> VerifiedFlatbufferMemory {
+        let unique_domains_hashes = Some(
+            self.fb_builder
+                .create_vector(&self.unique_domains_hashes_vec),
+        );
+        let network_rules = Some(network_rules);
+        let engine = fb::Engine::create(
+            self.raw_builder(),
+            &fb::EngineArgs {
+                network_rules,
+                unique_domains_hashes,
+            },
+        );
+        self.raw_builder().finish(engine, None);
+        VerifiedFlatbufferMemory::from_builder(self.raw_builder())
     }
 }
 
@@ -337,14 +343,5 @@ pub fn make_flatbuffer(
     let mut builder = EngineFlatBuilder::default();
     let network_rules_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
     let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
-    let unique_domains_hashes = Some(builder.write_unique_domains());
-    let engine = fb::Engine::create(
-        builder.raw_builder(),
-        &fb::EngineArgs {
-            network_rules: Some(network_rules),
-            unique_domains_hashes,
-        },
-    );
-    builder.raw_builder().finish(engine, None);
-    VerifiedFlatbufferMemory::from_builder(builder.raw_builder())
+    builder.finish(network_rules)
 }
