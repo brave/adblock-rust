@@ -363,7 +363,7 @@ impl FilterPart {
         }
     }
 
-    pub fn iter(&self) -> FilterPartIterator {
+    pub fn iter(&self) -> FilterPartIterator<'_> {
         FilterPartIterator {
             filter_part: self,
             index: 0,

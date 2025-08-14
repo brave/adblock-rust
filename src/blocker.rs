@@ -96,7 +96,7 @@ impl Blocker {
     }
 
     #[cfg(feature = "unsync-regex-caching")]
-    fn borrow_regex_manager(&self) -> std::cell::RefMut<RegexManager> {
+    fn borrow_regex_manager(&self) -> std::cell::RefMut<'_, RegexManager> {
         #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
 
@@ -107,7 +107,7 @@ impl Blocker {
     }
 
     #[cfg(not(feature = "unsync-regex-caching"))]
-    fn borrow_regex_manager(&self) -> std::sync::MutexGuard<RegexManager> {
+    fn borrow_regex_manager(&self) -> std::sync::MutexGuard<'_, RegexManager> {
         let mut manager = self.regex_manager.lock().unwrap();
         manager.update_time();
         manager
