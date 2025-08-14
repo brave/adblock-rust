@@ -6,11 +6,11 @@
 use std::collections::{HashMap, HashSet};
 use std::vec;
 
-use flatbuffers::{ForwardsUOffset, Vector, WIPOffset};
+use flatbuffers::{Vector, WIPOffset};
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
-use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize};
+use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize, WIPFlatVec};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::network_filter_list::token_histogram;
 use crate::optimizer;
@@ -324,17 +324,9 @@ impl NetworkRulesBuilder {
 }
 
 impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder {
-    type Output = WIPOffset<Vector<'a, ForwardsUOffset<fb::NetworkFilterList<'a>>>>;
-    fn serialize(
-        value: Self,
-        builder: &mut EngineFlatBuilder<'a>,
-    ) -> WIPOffset<Vector<'a, ForwardsUOffset<fb::NetworkFilterList<'a>>>> {
-        let flat_network_rules: Vec<_> = value
-            .lists
-            .into_iter()
-            .map(|list| FlatSerialize::serialize(list, builder))
-            .collect();
-        builder.raw_builder().create_vector(&flat_network_rules)
+    type Output = WIPFlatVec<'a, NetworkFilterListBuilder, EngineFlatBuilder<'a>>;
+    fn serialize(value: Self, builder: &mut EngineFlatBuilder<'a>) -> Self::Output {
+        FlatSerialize::serialize(value.lists, builder)
     }
 }
 
