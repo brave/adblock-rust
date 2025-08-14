@@ -33,9 +33,13 @@ mod tests {
         let set = FlatSerialize::serialize(set, &mut builder);
 
         // Serialize to the test flatbuffer.
-        let mut root_args = fb_test::TestRootArgs::default();
-        root_args.test_uint_set = Some(set);
-        let root = fb_test::TestRoot::create(&mut builder, &root_args);
+        let root = fb_test::TestRoot::create(
+            &mut builder,
+            &fb_test::TestRootArgs {
+                test_uint_set: Some(set),
+                ..Default::default()
+            },
+        );
         builder.finish(root, None);
 
         // Load from the serialized test flatbuffer.
@@ -61,9 +65,13 @@ mod tests {
         let set = FlatSerialize::serialize(set, &mut builder);
 
         // Serialize to the test flatbuffer.
-        let mut root_args = fb_test::TestRootArgs::default();
-        root_args.test_string_set = Some(set);
-        let root = fb_test::TestRoot::create(&mut builder, &root_args);
+        let root = fb_test::TestRoot::create(
+            &mut builder,
+            &fb_test::TestRootArgs {
+                test_string_set: Some(set),
+                ..Default::default()
+            },
+        );
         builder.finish(root, None);
 
         // Load from the serialized test flatbuffer.

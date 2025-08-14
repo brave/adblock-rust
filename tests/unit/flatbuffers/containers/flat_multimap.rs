@@ -121,9 +121,14 @@ mod tests {
                 values: Some(map.values),
             },
         );
-        let mut root_args = fb_test::TestRootArgs::default();
-        root_args.test_uint_map = Some(test_map);
-        let root = fb_test::TestRoot::create(&mut builder, &root_args);
+
+        let root = fb_test::TestRoot::create(
+            &mut builder,
+            &fb_test::TestRootArgs {
+                test_uint_map: Some(test_map),
+                ..Default::default()
+            },
+        );
         builder.finish(root, None);
 
         // Load from the serialized test flatbuffer.
@@ -163,9 +168,13 @@ mod tests {
                 values: Some(map.values),
             },
         );
-        let mut root_args = fb_test::TestRootArgs::default();
-        root_args.test_string_map = Some(test_map);
-        let root = fb_test::TestRoot::create(&mut builder, &root_args);
+        let root = fb_test::TestRoot::create(
+            &mut builder,
+            &fb_test::TestRootArgs {
+                test_string_map: Some(test_map),
+                ..Default::default()
+            },
+        );
         builder.finish(root, None);
 
         // Load from the serialized test flatbuffer.

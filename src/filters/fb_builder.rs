@@ -6,7 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::vec;
 
-use flatbuffers::{Vector, WIPOffset};
+use flatbuffers::WIPOffset;
 
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
