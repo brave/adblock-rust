@@ -24,9 +24,8 @@ fn load_requests() -> Vec<RequestRuleMatch> {
         .from_reader(reader);
 
     let mut reqs: Vec<RequestRuleMatch> = Vec::new();
-    for result in rdr.deserialize() {
-        if result.is_ok() {
-            let record: RequestRuleMatch = result.unwrap();
+    for result in rdr.deserialize::<RequestRuleMatch>() {
+        if let Ok(record) = result {
             reqs.push(RequestRuleMatch {
                 url: record.url.trim_matches('"').to_owned(),
                 sourceUrl: record.sourceUrl.trim_matches('"').to_owned(),
