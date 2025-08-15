@@ -100,7 +100,7 @@ fn blocker_new(c: &mut Criterion) {
     .collect();
     let brave_list_rules: Vec<_> = rules_from_lists(&["data/brave/brave-main-list.txt"]).collect();
     let engine = Engine::from_rules(&brave_list_rules, Default::default());
-    let engine_serialized = engine.serialize().unwrap();
+    let engine_serialized = engine.serialize().to_vec();
 
     group.bench_function("el+ep", move |b| b.iter(|| get_engine(&easylist_rules)));
     group.bench_function("brave-list", move |b| {

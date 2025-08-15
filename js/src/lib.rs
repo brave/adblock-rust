@@ -248,7 +248,7 @@ fn engine_url_cosmetic_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
 fn engine_serialize(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
     let serialized = if let Ok(engine) = this.0.lock() {
-        engine.serialize().unwrap()
+        engine.serialize().to_vec()
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
