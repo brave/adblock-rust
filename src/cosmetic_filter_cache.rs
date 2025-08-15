@@ -11,13 +11,49 @@
 use crate::filters::cosmetic::{
     CosmeticFilter, CosmeticFilterAction, CosmeticFilterMask, CosmeticFilterOperator,
 };
+use crate::filters::fb_network::flat::fb;
+use crate::filters::fb_network::FilterDataContextRef;
+use crate::flatbuffers::containers::flat_map::{FlatMapBuilder, FlatMapView};
+use crate::flatbuffers::containers::flat_multimap::{
+    FlatMapStringView, FlatMultiMapBuilder, FlatMultiMapView,
+};
+
+use crate::flatbuffers::containers::flat_serialize::{
+    serialize_vec_opt, FlatBuilder, FlatSerialize,
+};
+use crate::flatbuffers::containers::flat_set::FlatSetView;
+
 use crate::resources::{PermissionMask, ResourceStorage};
 use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
 
+use flatbuffers::WIPOffset;
 use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
+
+/// Encodes permission bits in the first byte of a script string
+/// Returns the script with permission byte prepended
+fn encode_script_with_permission(script: String, permission: PermissionMask) -> String {
+    let mut encoded = String::with_capacity(script.len() + 1);
+    encoded.push(permission.to_bits() as char);
+    encoded.push_str(&script);
+    encoded
+}
+
+/// Decodes permission bits from the first byte of a script string
+/// Returns (permission, script) tuple
+fn decode_script_with_permission(encoded_script: &str) -> (PermissionMask, &str) {
+    if encoded_script.is_empty() {
+        return (PermissionMask::default(), encoded_script);
+    }
+
+    let first_char = encoded_script.chars().next().unwrap();
+    let permission_bits = first_char as u8;
+    let permission = PermissionMask::from_bits(permission_bits);
+    let script = &encoded_script[first_char.len_utf8()..];
+    (permission, script)
+}
 
 /// Contains cosmetic filter information intended to be used on a particular URL.
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -63,49 +99,61 @@ impl UrlSpecificResources {
 /// will be blocked on any particular page, although when used correctly, all provided rules and
 /// scriptlets should be safe to apply.
 pub(crate) struct CosmeticFilterCache {
-    /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
-    pub(crate) simple_class_rules: HashSet<String>,
-    /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
-    pub(crate) simple_id_rules: HashSet<String>,
-    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
-    /// class, e.g. `##.ad image`.
-    pub(crate) complex_class_rules: HashMap<String, Vec<String>>,
-    /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
-    /// id, e.g. `###banner > .text a`.
-    pub(crate) complex_id_rules: HashMap<String, Vec<String>>,
-
-    pub(crate) specific_rules: HostnameRuleDb,
-
-    /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
-    /// into any of the class or id buckets above, e.g. `##a[href="https://malware.com"]`
-    pub(crate) misc_generic_selectors: HashSet<String>,
+    filter_data_context: FilterDataContextRef,
 }
 
-impl CosmeticFilterCache {
-    pub fn new() -> Self {
-        Self {
-            simple_class_rules: HashSet::new(),
-            simple_id_rules: HashSet::new(),
-            complex_class_rules: HashMap::new(),
-            complex_id_rules: HashMap::new(),
+/// Accumulates hostname-specific rules for a single domain before building HostnameSpecificRules
+/// Note: hide and inject_script are now handled separately at the top level
+#[derive(Default)]
+struct HostnameRule {
+    unhide: Vec<String>,
+    uninject_script: Vec<String>,
+    procedural_action: Vec<String>,
+    procedural_action_exception: Vec<String>,
+}
 
-            specific_rules: HostnameRuleDb::default(),
+impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for HostnameRule {
+    type Output = WIPOffset<fb::HostnameSpecificRules<'a>>;
 
-            misc_generic_selectors: HashSet::new(),
-        }
+    fn serialize(
+        value: Self,
+        builder: &mut B,
+    ) -> flatbuffers::WIPOffset<fb::HostnameSpecificRules<'a>> {
+        let unhide = serialize_vec_opt(value.unhide, builder);
+        let uninject_script = serialize_vec_opt(value.uninject_script, builder);
+        let procedural_action = serialize_vec_opt(value.procedural_action, builder);
+        let procedural_action_exception =
+            serialize_vec_opt(value.procedural_action_exception, builder);
+
+        fb::HostnameSpecificRules::create(
+            builder.raw_builder(),
+            &fb::HostnameSpecificRulesArgs {
+                unhide,
+                uninject_script,
+                procedural_action,
+                procedural_action_exception,
+            },
+        )
     }
+}
 
+#[derive(Default)]
+pub(crate) struct CosmeticFilterCacheBuilder {
+    simple_class_rules: HashSet<String>,
+    simple_id_rules: HashSet<String>,
+    misc_generic_selectors: HashSet<String>,
+    complex_class_rules: FlatMultiMapBuilder<String, String>,
+    complex_id_rules: FlatMultiMapBuilder<String, String>,
+
+    hostname_hide: FlatMultiMapBuilder<Hash, String>,
+    hostname_inject_script: FlatMultiMapBuilder<Hash, String>,
+
+    specific_rules: HashMap<Hash, HostnameRule>,
+}
+
+impl CosmeticFilterCacheBuilder {
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
-        let mut self_ = Self {
-            simple_class_rules: HashSet::with_capacity(rules.len() / 2),
-            simple_id_rules: HashSet::with_capacity(rules.len() / 2),
-            complex_class_rules: HashMap::with_capacity(rules.len() / 2),
-            complex_id_rules: HashMap::with_capacity(rules.len() / 2),
-
-            specific_rules: HostnameRuleDb::default(),
-
-            misc_generic_selectors: HashSet::with_capacity(rules.len() / 30),
-        };
+        let mut self_ = Self::default();
 
         for rule in rules {
             self_.add_filter(rule)
@@ -119,7 +167,7 @@ impl CosmeticFilterCache {
             if let Some(generic_rule) = rule.hidden_generic_rule() {
                 self.add_generic_filter(generic_rule);
             }
-            self.specific_rules.store_rule(rule);
+            self.store_hostname_rule(rule);
         } else {
             self.add_generic_filter(rule);
         }
@@ -142,10 +190,8 @@ impl CosmeticFilterCache {
                 let class = key[1..].to_string();
                 if key == selector {
                     self.simple_class_rules.insert(class);
-                } else if let Some(bucket) = self.complex_class_rules.get_mut(&class) {
-                    bucket.push(selector);
                 } else {
-                    self.complex_class_rules.insert(class, vec![selector]);
+                    self.complex_class_rules.insert(class, selector);
                 }
             }
         } else if selector.starts_with('#') {
@@ -154,15 +200,109 @@ impl CosmeticFilterCache {
                 let id = key[1..].to_string();
                 if key == selector {
                     self.simple_id_rules.insert(id);
-                } else if let Some(bucket) = self.complex_id_rules.get_mut(&id) {
-                    bucket.push(selector);
                 } else {
-                    self.complex_id_rules.insert(id, vec![selector]);
+                    self.complex_id_rules.insert(id, selector);
                 }
             }
         } else {
             self.misc_generic_selectors.insert(selector);
         }
+    }
+
+    // TODO: review this
+    fn store_hostname_rule(&mut self, rule: CosmeticFilter) {
+        use SpecificFilterType::*;
+
+        let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
+        let script_inject = rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT);
+
+        let kind = match (
+            script_inject,
+            rule.plain_css_selector().map(|s| s.to_string()),
+            rule.action,
+        ) {
+            (false, Some(selector), None) => Hide(selector),
+            (true, Some(selector), None) => InjectScript((selector, rule.permission)),
+            (false, selector, action) => ProceduralOrAction(
+                serde_json::to_string(&ProceduralOrActionFilter {
+                    selector: selector
+                        .map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)])
+                        .unwrap_or(rule.selector),
+                    action,
+                })
+                .unwrap(),
+            ),
+            (true, _, Some(_)) => return, // script injection with action - shouldn't be possible
+            (true, None, _) => return, // script injection without plain CSS selector - shouldn't be possible
+        };
+
+        let kind = if unhide { kind.negated() } else { kind };
+
+        let tokens_to_insert = std::iter::empty()
+            .chain(rule.hostnames.unwrap_or_default())
+            .chain(rule.entities.unwrap_or_default());
+
+        tokens_to_insert.for_each(|t| self.store_hostname_filter(&t, kind.clone()));
+
+        let tokens_to_insert_negated = std::iter::empty()
+            .chain(rule.not_hostnames.unwrap_or_default())
+            .chain(rule.not_entities.unwrap_or_default());
+
+        let negated = kind.negated();
+
+        tokens_to_insert_negated.for_each(|t| self.store_hostname_filter(&t, negated.clone()));
+    }
+
+    fn store_hostname_filter(&mut self, token: &Hash, kind: SpecificFilterType) {
+        use SpecificFilterType::*;
+
+        match kind {
+            // Handle hide and inject_script at top level for better deduplication
+            Hide(s) => {
+                self.hostname_hide.insert(*token, s);
+            }
+            InjectScript((s, permission)) => {
+                let encoded_script = encode_script_with_permission(s, permission);
+                self.hostname_inject_script.insert(*token, encoded_script);
+            }
+            // Handle remaining types through HostnameRule
+            Unhide(s) => {
+                let entry = self.specific_rules.entry(*token).or_default();
+                entry.unhide.push(s);
+            }
+            UninjectScript((s, _)) => {
+                let entry = self.specific_rules.entry(*token).or_default();
+                entry.uninject_script.push(s);
+            }
+            ProceduralOrAction(s) => {
+                let entry = self.specific_rules.entry(*token).or_default();
+                entry.procedural_action.push(s);
+            }
+            ProceduralOrActionException(s) => {
+                let entry = self.specific_rules.entry(*token).or_default();
+                entry.procedural_action_exception.push(s);
+            }
+        }
+    }
+}
+
+impl CosmeticFilterCache {
+    pub fn from_context(filter_data_context: FilterDataContextRef) -> Self {
+        Self {
+            filter_data_context,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
+        use crate::filters::{
+            fb_builder::make_flatbuffer_from_rules, fb_network::FilterDataContext,
+        };
+
+        let memory = make_flatbuffer_from_rules(vec![], rules, true, 0);
+
+        let filter_data_context = FilterDataContext::new(memory);
+        Self::from_context(filter_data_context)
     }
 
     /// Generic class/id rules are by far the most common type of cosmetic filtering rule, and they
@@ -191,34 +331,40 @@ impl CosmeticFilterCache {
     ) -> Vec<String> {
         let mut selectors = vec![];
 
+        let cs = self.filter_data_context.memory.root().cosmetic_filters();
+        let simple_class_rules = FlatSetView::new(cs.simple_class_rules());
+        let simple_id_rules = FlatSetView::new(cs.simple_id_rules());
+        let complex_class_rules = FlatMapStringView::new(
+            cs.complex_class_rules_index(),
+            cs.complex_class_rules_values(),
+        );
+        let complex_id_rules =
+            FlatMapStringView::new(cs.complex_id_rules_index(), cs.complex_id_rules_values());
+
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
-            if self.simple_class_rules.contains(class)
-                && !exceptions.contains(&format!(".{}", class))
-            {
+            if simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
                 selectors.push(format!(".{}", class));
             }
-            if let Some(bucket) = self.complex_class_rules.get(class) {
-                selectors.extend(
-                    bucket
-                        .iter()
-                        .filter(|sel| !exceptions.contains(*sel))
-                        .map(|s| s.to_owned()),
-                );
+            if let Some(bucket) = complex_class_rules.get(class) {
+                for (_, sel) in bucket {
+                    if !exceptions.contains(sel) {
+                        selectors.push(sel.to_string());
+                    }
+                }
             }
         });
         ids.into_iter().for_each(|id| {
             let id = id.as_ref();
-            if self.simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
+            if simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
                 selectors.push(format!("#{}", id));
             }
-            if let Some(bucket) = self.complex_id_rules.get(id) {
-                selectors.extend(
-                    bucket
-                        .iter()
-                        .filter(|sel| !exceptions.contains(*sel))
-                        .map(|s| s.to_owned()),
-                );
+            if let Some(bucket) = complex_id_rules.get(id) {
+                for (_, sel) in bucket {
+                    if !exceptions.contains(sel) {
+                        selectors.push(sel.to_string());
+                    }
+                }
             }
         });
 
@@ -258,75 +404,77 @@ impl CosmeticFilterCache {
             .chain(request_hostnames.iter())
             .collect();
 
-        fn populate_set(
-            hash: &Hash,
-            source_bin: &HostnameFilterBin<String>,
-            dest_set: &mut HashSet<String>,
-        ) {
-            if let Some(s) = source_bin.get(hash) {
-                s.iter().for_each(|s| {
-                    dest_set.insert(s.to_owned());
-                });
-            }
-        }
+        let cf = self.filter_data_context.memory.root().cosmetic_filters();
+        let hostname_rules_view = FlatMapView::new(cf.hostname_index(), cf.hostname_values());
+        let hostname_hide_view =
+            FlatMultiMapView::new(cf.hostname_hide_index(), cf.hostname_hide_values());
+        let hostname_inject_script_view = FlatMultiMapView::new(
+            cf.hostname_inject_script_index(),
+            cf.hostname_inject_script_values(),
+        );
+
         for hash in hashes.iter() {
-            populate_set(
-                hash,
-                &self.specific_rules.hide,
-                &mut specific_hide_selectors,
-            );
-            populate_set(
-                hash,
-                &self.specific_rules.procedural_action,
-                &mut procedural_actions,
-            );
-            // special behavior: `script_injections` doesn't have to own the strings yet, since the
-            // scripts need to be fetched and templated later
-            if let Some(s) = self.specific_rules.inject_script.get(hash) {
-                s.iter().for_each(|(s, mask)| {
+            // Handle top-level hide selectors
+            if let Some(hide_iterator) = hostname_hide_view.get(**hash) {
+                for (_, hide_selector) in hide_iterator {
+                    if !exceptions.contains(hide_selector) {
+                        specific_hide_selectors.insert(hide_selector.to_owned());
+                    }
+                }
+            }
+
+            // Handle top-level inject scripts with encoded permissions
+            if let Some(script_iterator) = hostname_inject_script_view.get(**hash) {
+                for (_, encoded_script) in script_iterator {
+                    let (permission, script) = decode_script_with_permission(encoded_script);
                     script_injections
-                        .entry(s)
-                        .and_modify(|entry| *entry |= *mask)
-                        .or_insert(*mask);
-                });
+                        .entry(script)
+                        .and_modify(|entry| *entry |= permission)
+                        .or_insert(permission);
+                }
+            }
+
+            // Handle remaining rule types from HostnameSpecificRules
+            if let Some(hostname_rules) = hostname_rules_view.get(**hash) {
+                // Process procedural actions
+                if let Some(procedural_actions_rules) = hostname_rules.procedural_action() {
+                    for action in procedural_actions_rules.iter() {
+                        procedural_actions.insert(action.to_owned());
+                    }
+                }
             }
         }
 
-        fn prune_set(
-            hash: &Hash,
-            source_bin: &HostnameFilterBin<String>,
-            dest_set: &mut HashSet<String>,
-        ) {
-            if let Some(s) = source_bin.get(hash) {
-                s.iter().for_each(|s| {
-                    dest_set.remove(s);
-                });
-            }
-        }
+        // Process unhide/exception filters
         for hash in hashes.iter() {
-            // special behavior: unhide rules need to go in `exceptions` as well
-            if let Some(s) = self.specific_rules.unhide.get(hash) {
-                s.iter().for_each(|s| {
-                    specific_hide_selectors.remove(s);
-                    exceptions.insert(s.to_owned());
-                });
-            }
-            prune_set(
-                hash,
-                &self.specific_rules.procedural_action_exception,
-                &mut procedural_actions,
-            );
-            // same logic but not using prune_set since strings are unowned, (see above)
-            if let Some(s) = self.specific_rules.uninject_script.get(hash) {
-                for s in s {
-                    if s.is_empty() {
-                        except_all_scripts = true;
-                        script_injections.clear();
+            if let Some(hostname_rules) = hostname_rules_view.get(**hash) {
+                // Process unhide selectors (special behavior: they also go in exceptions)
+                if let Some(unhide_rules) = hostname_rules.unhide() {
+                    for selector in unhide_rules.iter() {
+                        specific_hide_selectors.remove(selector);
+                        exceptions.insert(selector.to_owned());
                     }
-                    if except_all_scripts {
-                        continue;
+                }
+
+                // Process procedural action exceptions
+                if let Some(procedural_exceptions) = hostname_rules.procedural_action_exception() {
+                    for action in procedural_exceptions.iter() {
+                        procedural_actions.remove(action);
                     }
-                    script_injections.remove(s.as_str());
+                }
+
+                // Process script uninjects
+                if let Some(uninject_scripts) = hostname_rules.uninject_script() {
+                    for script in uninject_scripts.iter() {
+                        if script.is_empty() {
+                            except_all_scripts = true;
+                            script_injections.clear();
+                        }
+                        if except_all_scripts {
+                            continue;
+                        }
+                        script_injections.remove(script);
+                    }
                 }
             }
         }
@@ -334,11 +482,17 @@ impl CosmeticFilterCache {
         let hide_selectors = if generichide {
             specific_hide_selectors
         } else {
-            let mut hide_selectors = self
-                .misc_generic_selectors
-                .difference(&exceptions)
-                .cloned()
-                .collect::<HashSet<_>>();
+            let cs = self.filter_data_context.memory.root().cosmetic_filters();
+            let misc_generic_selectors_vector = cs.misc_generic_selectors();
+
+            // TODO: check performance of this
+            let mut hide_selectors = HashSet::new();
+            for i in 0..misc_generic_selectors_vector.len() {
+                let selector = misc_generic_selectors_vector.get(i);
+                if !exceptions.contains(selector) {
+                    hide_selectors.insert(selector.to_string());
+                }
+            }
             specific_hide_selectors.into_iter().for_each(|sel| {
                 hide_selectors.insert(sel);
             });
@@ -357,67 +511,46 @@ impl CosmeticFilterCache {
     }
 }
 
-/// Each hostname-specific filter can be pointed to by several different hostnames, and each
-/// hostname can correspond to several different filters. To effectively store and access those
-/// filters by hostname, all the non-hostname information for filters is stored in per-hostname
-/// "buckets" within a Vec, and each bucket is identified by its index. Hostname hashes are used as
-/// keys to get the indices of relevant buckets, which are in turn used to retrieve all the filters
-/// that apply.
-#[derive(Default)]
-pub(crate) struct HostnameFilterBin<T>(pub HashMap<Hash, Vec<T>>);
+impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for CosmeticFilterCacheBuilder {
+    type Output = WIPOffset<fb::CosmeticFilters<'a>>;
+    fn serialize(value: Self, builder: &mut B) -> WIPOffset<fb::CosmeticFilters<'a>> {
+        let complex_class_rules = FlatMultiMapBuilder::finish(value.complex_class_rules, builder);
+        let complex_id_rules = FlatMultiMapBuilder::finish(value.complex_id_rules, builder);
 
-impl<T> HostnameFilterBin<T> {
-    pub fn insert(&mut self, token: &Hash, filter: T) {
-        if let Some(bucket) = self.0.get_mut(token) {
-            bucket.push(filter);
-        } else {
-            self.0.insert(*token, vec![filter]);
-        }
+        // Handle top-level hostname hide and inject_script for better deduplication
+        let hostname_hide = FlatMultiMapBuilder::finish(value.hostname_hide, builder);
+        let hostname_inject_script =
+            FlatMultiMapBuilder::finish(value.hostname_inject_script, builder);
+
+        // Handle remaining rule types through HostnameSpecificRules
+        let hostname_specific_rules = FlatMapBuilder::finish(value.specific_rules, builder);
+
+        let simple_class_rules = Some(FlatSerialize::serialize(value.simple_class_rules, builder));
+        let simple_id_rules = Some(FlatSerialize::serialize(value.simple_id_rules, builder));
+        let misc_generic_selectors = Some(FlatSerialize::serialize(
+            value.misc_generic_selectors,
+            builder,
+        ));
+
+        fb::CosmeticFilters::create(
+            builder.raw_builder(),
+            &fb::CosmeticFiltersArgs {
+                simple_class_rules,
+                simple_id_rules,
+                misc_generic_selectors,
+                complex_class_rules_index: Some(complex_class_rules.keys),
+                complex_class_rules_values: Some(complex_class_rules.values),
+                complex_id_rules_index: Some(complex_id_rules.keys),
+                complex_id_rules_values: Some(complex_id_rules.values),
+                hostname_hide_index: Some(hostname_hide.keys),
+                hostname_hide_values: Some(hostname_hide.values),
+                hostname_inject_script_index: Some(hostname_inject_script.keys),
+                hostname_inject_script_values: Some(hostname_inject_script.values),
+                hostname_index: Some(hostname_specific_rules.keys),
+                hostname_values: Some(hostname_specific_rules.values),
+            },
+        )
     }
-
-    fn get(&self, token: &Hash) -> Option<&Vec<T>> {
-        self.0.get(token)
-    }
-}
-
-impl HostnameFilterBin<String> {
-    /// Convenience method that serializes to JSON
-    pub fn insert_procedural_action_filter(&mut self, token: &Hash, f: &ProceduralOrActionFilter) {
-        self.insert(token, serde_json::to_string(f).unwrap());
-    }
-}
-
-/// Holds filter bins categorized by filter type.
-#[derive(Default)]
-pub(crate) struct HostnameRuleDb {
-    /// Simple hostname-specific hide rules, e.g. `example.com##.ad`.
-    ///
-    /// The parameter is the rule's CSS selector.
-    pub hide: HostnameFilterBin<String>,
-    /// Simple hostname-specific hide exception rules, e.g. `example.com#@#.ad`.
-    ///
-    /// The parameter is the rule's CSS selector.
-    pub unhide: HostnameFilterBin<String>,
-    /// Hostname-specific rules with a scriptlet to inject along with any arguments, e.g.
-    /// `example.com##+js(acis, Number.isNan)`.
-    ///
-    /// The parameter is the contents of the `+js(...)` syntax construct.
-    pub inject_script: HostnameFilterBin<(String, PermissionMask)>,
-    /// Hostname-specific rules to except a scriptlet to inject along with any arguments, e.g.
-    /// `example.com#@#+js(acis, Number.isNan)`.
-    ///
-    /// The parameter is the contents of the `+js(...)` syntax construct.
-    ///
-    /// In practice, these rules are extremely rare in filter lists.
-    pub uninject_script: HostnameFilterBin<String>,
-    /// Procedural filters and/or filters with a [`CosmeticFilterAction`].
-    ///
-    /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
-    pub procedural_action: HostnameFilterBin<String>,
-    /// Exceptions for procedural filters and/or filters with a [`CosmeticFilterAction`].
-    ///
-    /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
-    pub procedural_action_exception: HostnameFilterBin<String>,
 }
 
 /// Representations of filters with complex behavior that relies on in-page JS logic.
@@ -453,68 +586,11 @@ impl ProceduralOrActionFilter {
     }
 
     /// Convenience constructor for pure CSS style filters.
+    #[cfg(test)]
     pub(crate) fn from_css(selector: String, style: String) -> Self {
         Self {
             selector: vec![CosmeticFilterOperator::CssSelector(selector)],
             action: Some(CosmeticFilterAction::Style(style)),
-        }
-    }
-}
-
-impl HostnameRuleDb {
-    pub fn store_rule(&mut self, rule: CosmeticFilter) {
-        use SpecificFilterType::*;
-
-        let unhide = rule.mask.contains(CosmeticFilterMask::UNHIDE);
-        let script_inject = rule.mask.contains(CosmeticFilterMask::SCRIPT_INJECT);
-
-        let kind = match (
-            script_inject,
-            rule.plain_css_selector().map(|s| s.to_string()),
-            rule.action,
-        ) {
-            (false, Some(selector), None) => Hide(selector),
-            (true, Some(selector), None) => InjectScript((selector, rule.permission)),
-            (false, selector, action) => ProceduralOrAction(
-                serde_json::to_string(&ProceduralOrActionFilter {
-                    selector: selector
-                        .map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)])
-                        .unwrap_or(rule.selector),
-                    action,
-                })
-                .unwrap(),
-            ),
-            (true, _, Some(_)) => return, // script injection with action - shouldn't be possible
-            (true, None, _) => return, // script injection without plain CSS selector - shouldn't be possible
-        };
-
-        let kind = if unhide { kind.negated() } else { kind };
-
-        let tokens_to_insert = std::iter::empty()
-            .chain(rule.hostnames.unwrap_or_default())
-            .chain(rule.entities.unwrap_or_default());
-
-        tokens_to_insert.for_each(|t| self.store(&t, kind.clone()));
-
-        let tokens_to_insert_negated = std::iter::empty()
-            .chain(rule.not_hostnames.unwrap_or_default())
-            .chain(rule.not_entities.unwrap_or_default());
-
-        let negated = kind.negated();
-
-        tokens_to_insert_negated.for_each(|t| self.store(&t, negated.clone()));
-    }
-
-    fn store(&mut self, token: &Hash, kind: SpecificFilterType) {
-        use SpecificFilterType::*;
-
-        match kind {
-            Hide(s) => self.hide.insert(token, s),
-            Unhide(s) => self.unhide.insert(token, s),
-            InjectScript(s) => self.inject_script.insert(token, s),
-            UninjectScript((s, _)) => self.uninject_script.insert(token, s),
-            ProceduralOrAction(s) => self.procedural_action.insert(token, s),
-            ProceduralOrActionException(s) => self.procedural_action_exception.insert(token, s),
         }
     }
 }

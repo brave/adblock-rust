@@ -50,12 +50,6 @@ impl NetworkFilterMaskHelper for CheckResult {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum NetworkFilterListParsingError {
-    InvalidFlatbuffer(flatbuffers::InvalidFlatbuffer),
-    UniqueDomainsOutOfBounds(usize),
-}
-
 /// Internal structure to keep track of a collection of network filters.
 pub(crate) struct NetworkFilterList<'a> {
     pub(crate) list: fb::NetworkFilterList<'a>,

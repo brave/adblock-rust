@@ -8,6 +8,8 @@ use std::vec;
 
 use flatbuffers::WIPOffset;
 
+use crate::cosmetic_filter_cache::CosmeticFilterCacheBuilder;
+use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize, WIPFlatVec};
@@ -57,15 +59,18 @@ impl<'a> EngineFlatBuilder<'a> {
     pub fn finish(
         &mut self,
         network_rules: WIPFlatVec<'a, NetworkFilterListBuilder, EngineFlatBuilder<'a>>,
+        cosmetic_rules: WIPOffset<fb::CosmeticFilters<'_>>,
+        version: u32,
     ) -> VerifiedFlatbufferMemory {
         let unique_domains_hashes =
             Some(self.fb_builder.create_vector(&self.unique_domains_hashes));
-        let network_rules = Some(network_rules);
         let engine = fb::Engine::create(
             self.raw_builder(),
             &fb::EngineArgs {
-                network_rules,
+                version,
+                network_rules:  Some(network_rules),
                 unique_domains_hashes,
+                cosmetic_filters: Some(cosmetic_rules),
             },
         );
         self.raw_builder().finish(engine, None);
@@ -339,12 +344,16 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder {
     }
 }
 
-pub fn make_flatbuffer(
+pub fn make_flatbuffer_from_rules(
     network_filters: Vec<NetworkFilter>,
+    cosmetic_filters: Vec<CosmeticFilter>,
     optimize: bool,
+    version: u32,
 ) -> VerifiedFlatbufferMemory {
     let mut builder = EngineFlatBuilder::default();
     let network_rules_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
     let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
-    builder.finish(network_rules)
+    let cosmetic_rules = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters);
+    let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut builder);
+    builder.finish(network_rules, cosmetic_rules, version)
 }
