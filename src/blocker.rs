@@ -86,7 +86,7 @@ impl Blocker {
         self.check_parameterised(request, resources, false, false)
     }
 
-    pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList {
+    pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList<'_> {
         NetworkFilterList {
             list: self
                 .filter_data_context
@@ -98,40 +98,40 @@ impl Blocker {
         }
     }
 
-    pub(crate) fn csp(&self) -> NetworkFilterList {
+    pub(crate) fn csp(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::Csp)
     }
 
-    pub(crate) fn exceptions(&self) -> NetworkFilterList {
+    pub(crate) fn exceptions(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::Exceptions)
     }
 
-    pub(crate) fn importants(&self) -> NetworkFilterList {
+    pub(crate) fn importants(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::Importants)
     }
 
-    pub(crate) fn redirects(&self) -> NetworkFilterList {
+    pub(crate) fn redirects(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::Redirects)
     }
 
-    pub(crate) fn removeparam(&self) -> NetworkFilterList {
+    pub(crate) fn removeparam(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::RemoveParam)
     }
 
-    pub(crate) fn filters(&self) -> NetworkFilterList {
+    pub(crate) fn filters(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::Filters)
     }
 
-    pub(crate) fn generic_hide(&self) -> NetworkFilterList {
+    pub(crate) fn generic_hide(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::GenericHide)
     }
 
-    pub(crate) fn tagged_filters_all(&self) -> NetworkFilterList {
+    pub(crate) fn tagged_filters_all(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::TaggedFiltersAll)
     }
 
     #[cfg(feature = "single-thread")]
-    fn borrow_regex_manager(&self) -> std::cell::RefMut<RegexManager> {
+    fn borrow_regex_manager(&self) -> std::cell::RefMut<'_, RegexManager> {
         #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
 
@@ -142,7 +142,7 @@ impl Blocker {
     }
 
     #[cfg(not(feature = "single-thread"))]
-    fn borrow_regex_manager(&self) -> std::sync::MutexGuard<RegexManager> {
+    fn borrow_regex_manager(&self) -> std::sync::MutexGuard<'_, RegexManager> {
         let mut manager = self.regex_manager.lock().unwrap();
         manager.update_time();
         manager

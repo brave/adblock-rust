@@ -66,7 +66,7 @@ type FlatNetworkFilterMap<'a> =
     FlatMultiMapView<'a, ShortHash, ForwardsUOffset<fb::NetworkFilter<'a>>, &'a [ShortHash]>;
 
 impl NetworkFilterList<'_> {
-    pub fn get_filter_map(&self) -> FlatNetworkFilterMap {
+    pub fn get_filter_map(&self) -> FlatNetworkFilterMap<'_> {
         let filters_list = &self.list;
         FlatNetworkFilterMap::new(
             fb_vector_to_slice(filters_list.filter_map_index()),
