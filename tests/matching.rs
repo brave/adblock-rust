@@ -74,8 +74,7 @@ fn check_filter_matching() {
 
             let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
-            if request_res.is_ok() {
-                let request = request_res.unwrap();
+            if let Ok(request) = request_res {
                 assert!(
                     network_filter.matches(&request, &mut RegexManager::default()),
                     "Expected {} to match {} at {}, typed {}",
@@ -104,8 +103,8 @@ fn check_engine_matching() {
         }
         for filter in req.filters {
             let opts = ParseOptions::default();
-            let mut engine = Engine::from_rules_debug(&[filter.clone()], opts);
-            let resources = build_resources_from_filters(&[filter.clone()]);
+            let mut engine = Engine::from_rules_debug(std::slice::from_ref(&filter), opts);
+            let resources = build_resources_from_filters(std::slice::from_ref(&filter));
             engine.use_resources(resources);
 
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
