@@ -68,7 +68,7 @@ fn stringify_arg<const QUOTED: bool>(arg: &str) -> String {
                 start = index + 1;
             }
             if escape == b'u' {
-                output.extend_from_slice(format!("{:04x}", ch).as_bytes());
+                output.extend_from_slice(format!("{ch:04x}").as_bytes());
             }
         }
         output.extend_from_slice(&string.as_bytes()[start..]);
@@ -121,7 +121,7 @@ impl ResourceStorage {
             #[allow(clippy::unnecessary_lazy_evaluations)]
             self_.add_resource(resource).unwrap_or_else(|_e| {
                 #[cfg(test)]
-                eprintln!("Failed to add resource: {:?}", _e)
+                eprintln!("Failed to add resource: {_e:?}")
             })
         });
 
@@ -388,7 +388,7 @@ static TEMPLATE_ARGUMENT_RE: [Lazy<Regex>; 9] = [
 ];
 
 fn template_argument_regex(i: usize) -> Regex {
-    Regex::new(&format!(r"\{{\{{{}\}}\}}", i)).unwrap()
+    Regex::new(&format!(r"\{{\{{{i}\}}\}}")).unwrap()
 }
 
 /// Omit the 0th element of `args` (the scriptlet name) when calling this method.
@@ -415,7 +415,7 @@ fn with_js_extension(scriptlet_name: &str) -> String {
     if scriptlet_name.ends_with(".js") {
         scriptlet_name.to_string()
     } else {
-        format!("{}.js", scriptlet_name)
+        format!("{scriptlet_name}.js")
     }
 }
 

@@ -66,8 +66,7 @@ mod tests {
                         false
                     }
                 }),
-                "{:?}",
-                name
+                "{name:?}"
             );
         }
 
@@ -158,8 +157,7 @@ mod tests {
                         _ => false,
                     }
                 }),
-                "failed to find {}",
-                name
+                "failed to find {name}"
             );
         }
 
@@ -254,8 +252,7 @@ mod tests {
                         _ => false,
                     }
                 }),
-                "failed to find {}",
-                name
+                "failed to find {name}"
             );
         }
 

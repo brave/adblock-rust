@@ -29,7 +29,7 @@ fn load_requests() -> Vec<RequestRuleMatch> {
         if let Ok(record) = result {
             reqs.push(record);
         } else {
-            println!("Could not parse {:?}", result);
+            println!("Could not parse {result:?}");
         }
     }
 
@@ -70,7 +70,7 @@ fn main() {
     let mut false_negative_exceptions: HashMap<String, (String, String, String)> = HashMap::new();
     for (reqs_processed, req) in requests.into_iter().enumerate() {
         if reqs_processed % 10000 == 0 {
-            println!("{} requests processed", reqs_processed);
+            println!("{reqs_processed} requests processed");
         }
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
         let checked = engine.check_network_request(&request);
@@ -106,7 +106,7 @@ fn main() {
 
     let mismatches = mismatch_expected_match + mismatch_expected_exception + mismatch_expected_pass;
     let ratio = mismatches as f32 / requests_len as f32;
-    assert!(ratio < 0.04, "Mismatch ratio was {}", ratio);
+    assert!(ratio < 0.04, "Mismatch ratio was {ratio}");
     assert!(
         false_positive_rules.len() < 3,
         "False positive rules higher than expected: {:?}",

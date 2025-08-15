@@ -906,7 +906,7 @@ mod blocker_tests {
             "igshid",
         ]
         .iter()
-        .map(|s| format!("*$removeparam={}", s))
+        .map(|s| format!("*$removeparam={s}"))
         .collect::<Vec<_>>();
 
         let (network_filters, _) = parse_filters(&filters, true, Default::default());
@@ -930,8 +930,7 @@ mod blocker_tests {
             };
             assert_eq!(
                 expected, result.rewritten_url,
-                "Filtering parameters on {} failed",
-                original
+                "Filtering parameters on {original} failed"
             );
         }
     }
