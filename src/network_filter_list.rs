@@ -35,7 +35,7 @@ impl From<&NetworkFilter> for CheckResult {
 impl fmt::Display for CheckResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if let Some(ref raw_line) = self.raw_line {
-            write!(f, "{}", raw_line)
+            write!(f, "{raw_line}")
         } else {
             write!(f, "{}", self.filter_mask)
         }

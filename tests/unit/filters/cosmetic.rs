@@ -652,7 +652,7 @@ mod parse_tests {
         /// tests, but procedural filters cannot be generic.
         fn check_procedural(raw: &str, expected_selectors: Vec<CosmeticFilterOperator>) {
             check_parse_result(
-                &format!("example.com##{}", raw),
+                &format!("example.com##{raw}"),
                 CosmeticFilterBreakdown {
                     selector: SelectorType::Procedural(expected_selectors),
                     hostnames: sort_hash_domains(vec!["example.com"]),

@@ -1015,7 +1015,7 @@ mod parse_tests {
 
         for option in options {
             let filter =
-                NetworkFilter::parse(&format!("||foo.com${}", option), true, Default::default());
+                NetworkFilter::parse(&format!("||foo.com${option}"), true, Default::default());
             assert!(filter.err().is_some());
         }
     }
@@ -1074,12 +1074,9 @@ mod parse_tests {
         for option in options {
             // positive
             {
-                let filter = NetworkFilter::parse(
-                    &format!("||foo.com${}", option),
-                    true,
-                    Default::default(),
-                )
-                .unwrap();
+                let filter =
+                    NetworkFilter::parse(&format!("||foo.com${option}"), true, Default::default())
+                        .unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
@@ -1092,7 +1089,7 @@ mod parse_tests {
 
             {
                 let filter = NetworkFilter::parse(
-                    &format!("||foo.com$object,{}", option),
+                    &format!("||foo.com$object,{option}"),
                     true,
                     Default::default(),
                 )
@@ -1110,7 +1107,7 @@ mod parse_tests {
 
             {
                 let filter = NetworkFilter::parse(
-                    &format!("||foo.com$domain=bar.com,{}", option),
+                    &format!("||foo.com$domain=bar.com,{option}"),
                     true,
                     Default::default(),
                 )
@@ -1128,12 +1125,9 @@ mod parse_tests {
 
             // negative
             {
-                let filter = NetworkFilter::parse(
-                    &format!("||foo.com$~{}", option),
-                    true,
-                    Default::default(),
-                )
-                .unwrap();
+                let filter =
+                    NetworkFilter::parse(&format!("||foo.com$~{option}"), true, Default::default())
+                        .unwrap();
                 let mut defaults = default_network_filter_breakdown();
                 defaults.hostname = Some(String::from("foo.com"));
                 defaults.is_hostname_anchor = true;
@@ -1146,7 +1140,7 @@ mod parse_tests {
 
             {
                 let filter = NetworkFilter::parse(
-                    &format!("||foo.com${},~{}", option, option),
+                    &format!("||foo.com${option},~{option}"),
                     true,
                     Default::default(),
                 )
