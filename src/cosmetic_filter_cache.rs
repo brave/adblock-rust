@@ -32,26 +32,24 @@ use flatbuffers::WIPOffset;
 use memchr::memchr as find_char;
 use serde::{Deserialize, Serialize};
 
-/// Encodes permission bits in the first byte of a script string
+/// Encodes permission bits in the last byte of a script string
 /// Returns the script with permission byte prepended
-fn encode_script_with_permission(script: String, permission: PermissionMask) -> String {
-    let mut encoded = String::with_capacity(script.len() + 1);
-    encoded.push(permission.to_bits() as char);
-    encoded.push_str(&script);
-    encoded
+fn encode_script_with_permission(mut script: String, permission: PermissionMask) -> String {
+    script.push(permission.to_bits() as char);
+    script
 }
 
-/// Decodes permission bits from the first byte of a script string
+/// Decodes permission bits from the last byte of a script string
 /// Returns (permission, script) tuple
 fn decode_script_with_permission(encoded_script: &str) -> (PermissionMask, &str) {
     if encoded_script.is_empty() {
         return (PermissionMask::default(), encoded_script);
     }
 
-    let first_char = encoded_script.chars().next().unwrap();
-    let permission_bits = first_char as u8;
+    let last_char = encoded_script.chars().last().unwrap();
+    let permission_bits = last_char as u8;
     let permission = PermissionMask::from_bits(permission_bits);
-    let script = &encoded_script[first_char.len_utf8()..];
+    let script = &encoded_script[..encoded_script.len() - 1];
     (permission, script)
 }
 
