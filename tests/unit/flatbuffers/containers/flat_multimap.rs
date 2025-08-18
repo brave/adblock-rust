@@ -1,4 +1,11 @@
-#[allow(dead_code, clippy::all, unused_imports, unsafe_code)]
+#[allow(unknown_lints)]
+#[allow(
+    dead_code,
+    clippy::all,
+    unused_imports,
+    unsafe_code,
+    mismatched_lifetime_syntaxes
+)]
 #[path = "./test_containers_generated.rs"]
 pub mod flat;
 #[cfg(test)]
