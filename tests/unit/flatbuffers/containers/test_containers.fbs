@@ -1,0 +1,25 @@
+// A test flatbuffer that is used in unit_tests.
+// To build *_generated.rs run:
+// 1. flatc --rust --gen-object-api -o tests/unit/flatbuffers/containers/ tests/unit/flatbuffers/containers/test_containers.fbs
+// 2. cargo fmt
+namespace fb_test;
+
+table TestUIntMap {
+  keys: [uint64] (required);
+  values: [uint32] (required);
+}
+
+table TestStringMap {
+  keys: [string] (required);
+  values: [string] (required);
+}
+
+table TestRoot {
+  test_uint_map: TestUIntMap;
+  test_string_map: TestStringMap;
+
+  test_uint_set: [uint64];
+  test_string_set: [string];
+}
+
+root_type TestRoot;

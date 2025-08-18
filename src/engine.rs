@@ -2,7 +2,7 @@
 
 use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::filters::fb_builder::FlatBufferBuilder;
+use crate::filters::fb_builder::make_flatbuffer;
 use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
@@ -103,7 +103,7 @@ impl Engine {
             ..
         } = set;
 
-        let memory = FlatBufferBuilder::make_flatbuffer(network_filters, optimize);
+        let memory = make_flatbuffer(network_filters, optimize);
 
         let filter_data_context = FilterDataContext::new(memory);
 
