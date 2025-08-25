@@ -2,7 +2,7 @@
 
 use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::filters::fb_builder::make_flatbuffer_from_rules;
+use crate::filters::fb_builder::make_flatbuffer;
 use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions};
@@ -115,7 +115,7 @@ impl Engine {
             ..
         } = set;
 
-        let memory = make_flatbuffer_from_rules(
+        let memory = make_flatbuffer(
             network_filters,
             cosmetic_filters,
             optimize,

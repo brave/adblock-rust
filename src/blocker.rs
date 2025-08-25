@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
 
-use crate::filters::fb_builder::NetworkFilterListId;
+use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::fb_network::FilterDataContextRef;
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
@@ -440,9 +440,9 @@ impl Blocker {
         network_filters: Vec<crate::filters::network::NetworkFilter>,
         options: &BlockerOptions,
     ) -> Self {
-        use crate::filters::{fb_builder::make_flatbuffer_from_rules, fb_network::FilterDataContext};
+        use crate::filters::{fb_builder::make_flatbuffer, fb_network::FilterDataContext};
 
-        let memory = make_flatbuffer_from_rules(
+        let memory = make_flatbuffer(
             network_filters,
             vec![], // no cosmetic filters for blocker test
             options.enable_optimizations,
