@@ -1,22 +1,18 @@
-
 use crate::cosmetic_filter_cache::ProceduralOrActionFilter;
 use crate::cosmetic_filter_utils::SpecificFilterType;
-use crate::filters::cosmetic::{
-  CosmeticFilter, CosmeticFilterMask, CosmeticFilterOperator};
 use crate::cosmetic_filter_utils::{encode_script_with_permission, key_from_selector};
+use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterMask, CosmeticFilterOperator};
 use crate::filters::fb_network::flat::fb;
 use crate::flatbuffers::containers::flat_map::FlatMapBuilder;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
 
 use crate::flatbuffers::containers::flat_serialize::{
-  serialize_vec_opt, FlatBuilder, FlatSerialize,
+    serialize_vec_opt, FlatBuilder, FlatSerialize,
 };
 
 use crate::utils::Hash;
 
 use std::collections::{HashMap, HashSet};
-
-
 
 use flatbuffers::WIPOffset;
 
@@ -185,19 +181,31 @@ impl CosmeticFilterCacheBuilder {
             }
             // Handle remaining types through HostnameRule
             Unhide(s) => {
-                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
+                let entry = self
+                    .specific_rules
+                    .entry(*token)
+                    .or_insert_with(HostnameRule::default);
                 entry.unhide.push(s);
             }
             UninjectScript((s, _)) => {
-                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
+                let entry = self
+                    .specific_rules
+                    .entry(*token)
+                    .or_insert_with(HostnameRule::default);
                 entry.uninject_script.push(s);
             }
             ProceduralOrAction(s) => {
-                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
+                let entry = self
+                    .specific_rules
+                    .entry(*token)
+                    .or_insert_with(HostnameRule::default);
                 entry.procedural_action.push(s);
             }
             ProceduralOrActionException(s) => {
-                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
+                let entry = self
+                    .specific_rules
+                    .entry(*token)
+                    .or_insert_with(HostnameRule::default);
                 entry.procedural_action_exception.push(s);
             }
         }

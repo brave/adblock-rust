@@ -6,8 +6,8 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
 
-use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};

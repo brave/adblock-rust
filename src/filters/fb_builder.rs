@@ -15,7 +15,6 @@ use crate::utils::Hash;
 
 use super::fb_network::flat::fb;
 
-
 #[derive(Default)]
 pub(crate) struct EngineFlatBuilder<'a> {
     fb_builder: flatbuffers::FlatBufferBuilder<'a>,
@@ -46,7 +45,7 @@ impl<'a> EngineFlatBuilder<'a> {
             self.raw_builder(),
             &fb::EngineArgs {
                 version,
-                network_rules:  Some(network_rules),
+                network_rules: Some(network_rules),
                 unique_domains_hashes,
                 cosmetic_filters: Some(cosmetic_rules),
             },
@@ -65,7 +64,6 @@ impl<'a> FlatBuilder<'a> for EngineFlatBuilder<'a> {
         &mut self.fb_builder
     }
 }
-
 
 pub fn make_flatbuffer(
     network_filters: Vec<NetworkFilter>,
