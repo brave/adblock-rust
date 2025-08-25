@@ -265,19 +265,19 @@ impl CosmeticFilterCacheBuilder {
             }
             // Handle remaining types through HostnameRule
             Unhide(s) => {
-                let entry = self.specific_rules.entry(*token).or_default();
+                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
                 entry.unhide.push(s);
             }
             UninjectScript((s, _)) => {
-                let entry = self.specific_rules.entry(*token).or_default();
+                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
                 entry.uninject_script.push(s);
             }
             ProceduralOrAction(s) => {
-                let entry = self.specific_rules.entry(*token).or_default();
+                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
                 entry.procedural_action.push(s);
             }
             ProceduralOrActionException(s) => {
-                let entry = self.specific_rules.entry(*token).or_default();
+                let entry = self.specific_rules.entry(*token).or_insert_with(HostnameRule::default);
                 entry.procedural_action_exception.push(s);
             }
         }
