@@ -90,7 +90,7 @@ pub(crate) struct FilterDataContext {
 impl Default for FilterDataContext {
     fn default() -> Self {
         Self {
-            memory: crate::filters::fb_builder::make_flatbuffer_from_rules(
+            memory: crate::filters::fb_builder::make_flatbuffer(
                 vec![],
                 vec![],
                 false,
