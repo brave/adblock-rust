@@ -1,3 +1,6 @@
+//! Some utility functions for manipulating cosmetic filter rules.
+//! Used by `CosmeticFilterCacheBuilder` and `CosmeticFilterCache`.
+
 use crate::resources::PermissionMask;
 use memchr::memchr as find_char;
 

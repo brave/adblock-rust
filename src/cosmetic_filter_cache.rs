@@ -7,6 +7,7 @@
 //! The primary API exposed by this module is the `CosmeticFilterCache` struct, which stores
 //! cosmetic filters and allows them to be queried efficiently at runtime for any which may be
 //! relevant to a particular page.
+//! To build `CosmeticFilterCache`, use `CosmeticFilterCacheBuilder`.
 
 use crate::cosmetic_filter_utils::decode_script_with_permission;
 #[cfg(test)]

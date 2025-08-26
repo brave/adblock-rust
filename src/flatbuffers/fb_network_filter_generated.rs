@@ -728,6 +728,8 @@ pub mod fb {
             }
         }
 
+        /// Simple hide exception rules, e.g. `example.com#@#.ad`.
+        /// The content is the rule's CSS selector.
         #[inline]
         pub fn unhide(
             &self,
@@ -741,6 +743,10 @@ pub mod fb {
                 >>(HostnameSpecificRules::VT_UNHIDE, None)
             }
         }
+        /// Rules to except a scriptlet to inject along with any arguments, e.g.
+        /// `example.com#@#+js(acis, Number.isNan)`.
+        /// The content is the contents of the `+js(...)` syntax construct.
+        /// In practice, these rules are extremely rare in filter lists.
         #[inline]
         pub fn uninject_script(
             &self,
@@ -754,6 +760,8 @@ pub mod fb {
                 >>(HostnameSpecificRules::VT_UNINJECT_SCRIPT, None)
             }
         }
+        /// Procedural filters and/or filters with a [`CosmeticFilterAction`].
+        /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
         #[inline]
         pub fn procedural_action(
             &self,
@@ -767,6 +775,8 @@ pub mod fb {
                 >>(HostnameSpecificRules::VT_PROCEDURAL_ACTION, None)
             }
         }
+        /// Exceptions for procedural filters and/or filters with a [`CosmeticFilterAction`].
+        /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
         #[inline]
         pub fn procedural_action_exception(
             &self,
@@ -1131,6 +1141,7 @@ pub mod fb {
         }
 
         /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
+        /// Stored as a flat_set.
         #[inline]
         pub fn simple_class_rules(
             &self,
@@ -1147,6 +1158,7 @@ pub mod fb {
             }
         }
         /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
+        /// Stored as a flat_set.
         #[inline]
         pub fn simple_id_rules(
             &self,
@@ -1164,6 +1176,7 @@ pub mod fb {
         }
         /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
         /// into any of the class or id buckets, e.g. `##a[href="https://malware.com"]`
+        /// Stored as a flat_set.
         #[inline]
         pub fn misc_generic_selectors(
             &self,
@@ -1179,8 +1192,9 @@ pub mod fb {
                     .unwrap()
             }
         }
-        /// Complex class rules - CSS selectors starting with a class, e.g. `##.ad image`
-        /// These are stored as a multi-map from class name to list of selectors
+        /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
+        /// class, e.g. `##.ad image`.
+        /// Stored as a multi-map `hostname_hash` => `selector`
         #[inline]
         pub fn complex_class_rules_index(
             &self,
@@ -1211,8 +1225,9 @@ pub mod fb {
                     .unwrap()
             }
         }
-        /// Complex id rules - CSS selectors starting with an id, e.g. `###banner > .text a`
-        /// These are stored as a multi-map from id name to list of selectors
+        /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
+        /// id, e.g. `###banner > .text a`.
+        /// Stored as a multi-map `hostname_hash` => `selector`
         #[inline]
         pub fn complex_id_rules_index(
             &self,
@@ -1243,7 +1258,9 @@ pub mod fb {
                     .unwrap()
             }
         }
-        /// Hostname-specific hide filters - multi-map from hostname hash to CSS selectors
+        /// Simple hostname-specific hide rules, e.g. `example.com##.ad`.
+        /// Stored as a multi-map `hostname_hash` => `selector`.
+        /// Doesn't belong to HostnameSpecificRules for performance reasons.
         #[inline]
         pub fn hostname_hide_index(&self) -> flatbuffers::Vector<'a, u64> {
             // Safety:
@@ -1273,8 +1290,12 @@ pub mod fb {
                     .unwrap()
             }
         }
-        /// Hostname-specific script injection filters - multi-map from hostname hash to script data
-        /// First byte of each script encodes permission bits to avoid separate permissions array
+        /// Rules with a scriptlet to inject along with any arguments, e.g.
+        /// `example.com##+js(acis, Number.isNan)`.
+        /// Stored as a multi-map `hostname_hash` => `script_plus_permission_byte`
+        /// The content is the contents of the `+js(...)` syntax construct plus
+        /// last byte stores permission to save memory.
+        /// Doesn't belong to HostnameSpecificRules for performance reasons.
         #[inline]
         pub fn hostname_inject_script_index(&self) -> flatbuffers::Vector<'a, u64> {
             // Safety:

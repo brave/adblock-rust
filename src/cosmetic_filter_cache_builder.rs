@@ -1,3 +1,7 @@
+//! Provides API to prepare and serialize cosmetic filter rules to a flatbuffer.
+//! To build the struct, use `CosmeticFilterCacheBuilder`.
+//! To use the serialized rules, use `CosmeticFilterCache`.
+
 use crate::cosmetic_filter_cache::ProceduralOrActionFilter;
 use crate::cosmetic_filter_utils::SpecificFilterType;
 use crate::cosmetic_filter_utils::{encode_script_with_permission, key_from_selector};
@@ -18,6 +22,7 @@ use flatbuffers::WIPOffset;
 
 /// Accumulates hostname-specific rules for a single domain before building HostnameSpecificRules
 /// Note: hide and inject_script are now handled separately at the top level
+/// See HostnameSpecificRules declaration for more details.
 #[derive(Default)]
 struct HostnameRule {
     unhide: Vec<String>,
@@ -123,7 +128,6 @@ impl CosmeticFilterCacheBuilder {
         }
     }
 
-    // TODO: review this
     fn store_hostname_rule(&mut self, rule: CosmeticFilter) {
         use SpecificFilterType::*;
 

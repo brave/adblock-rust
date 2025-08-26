@@ -29,54 +29,80 @@ table NetworkFilterList {
   filter_map_values: [NetworkFilter] (required);
 }
 
+// A table to store the most host-specific cosmetic rules.
+// Although, the most common kind of rule (see hostname_inject_script_*
+// and hostname_hide_*) are stored separately to save memory.
 table HostnameSpecificRules {
+  /// Simple hide exception rules, e.g. `example.com#@#.ad`.
+  /// The content is the rule's CSS selector.
   unhide: [string];
+
+  /// Rules to except a scriptlet to inject along with any arguments, e.g.
+  /// `example.com#@#+js(acis, Number.isNan)`.
+  /// The content is the contents of the `+js(...)` syntax construct.
+  /// In practice, these rules are extremely rare in filter lists.
   uninject_script: [string];
+
+  /// Procedural filters and/or filters with a [`CosmeticFilterAction`].
+  /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
   procedural_action: [string];
+
+  /// Exceptions for procedural filters and/or filters with a [`CosmeticFilterAction`].
+  /// Each is a [`ProceduralOrActionFilter`] struct serialized as JSON.
   procedural_action_exception: [string];
 }
 
+// A table to store cosmetic filter rules (including supported structures).
 table CosmeticFilters {
   /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
+  /// Stored as a flat_set.
   simple_class_rules: [string] (required);
 
   /// Rules that are just the CSS id of an element to be hidden on all sites, e.g. `###banner`.
+  /// Stored as a flat_set.
   simple_id_rules: [string] (required);
 
   /// Rules that are the CSS selector of an element to be hidden on all sites that do not fit
   /// into any of the class or id buckets, e.g. `##a[href="https://malware.com"]`
+  /// Stored as a flat_set.
   misc_generic_selectors: [string] (required);
 
-  /// Complex class rules - CSS selectors starting with a class, e.g. `##.ad image`
-  /// These are stored as a multi-map from class name to list of selectors
+  /// Rules that are the CSS selector of an element to be hidden on all sites, starting with a
+  /// class, e.g. `##.ad image`.
+  /// Stored as a multi-map `hostname_hash` => `selector`
   complex_class_rules_index: [string] (required);
   complex_class_rules_values: [string] (required);
 
-  /// Complex id rules - CSS selectors starting with an id, e.g. `###banner > .text a`
-  /// These are stored as a multi-map from id name to list of selectors
+  /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
+  /// id, e.g. `###banner > .text a`.
+  /// Stored as a multi-map `hostname_hash` => `selector`
   complex_id_rules_index: [string] (required);
   complex_id_rules_values: [string] (required);
 
-  /// Hostname-specific hide filters - multi-map from hostname hash to CSS selectors
+  /// Simple hostname-specific hide rules, e.g. `example.com##.ad`.
+  /// Stored as a multi-map `hostname_hash` => `selector`.
+  /// Doesn't belong to HostnameSpecificRules for performance reasons.
   hostname_hide_index: [uint64] (required);
   hostname_hide_values: [string] (required);
 
-  /// Hostname-specific script injection filters - multi-map from hostname hash to script data
-  /// First byte of each script encodes permission bits to avoid separate permissions array
+  /// Rules with a scriptlet to inject along with any arguments, e.g.
+  /// `example.com##+js(acis, Number.isNan)`.
+  /// Stored as a multi-map `hostname_hash` => `script_plus_permission_byte`
+  /// The content is the contents of the `+js(...)` syntax construct plus
+  /// last byte stores permission to save memory.
+  /// Doesn't belong to HostnameSpecificRules for performance reasons.
   hostname_inject_script_index: [uint64] (required);
   hostname_inject_script_values: [string] (required);
 
-  // Map from hostname(hash) => HostnameSpecificRules using FlatMultiMapBuilder
-  // Store only one item per domain using FlatMultiMapBuilder (for remaining rule types)
+  // A map to store the other host-specific cosmetic rules.
   hostname_index: [uint64] (required);
   hostname_values: [HostnameSpecificRules] (required);
 }
 
 // A root type containing a serialized Engine.
-// Currently it contains only some of engine fields:
-// network filters and supporing struct.
 table Engine {
-  // Format version. Should be increased when makeing non back-compatible changes.
+  // Format version. Should be equal to ADBLOCK_RUST_DAT_VERSION or the data
+  // is considered as incompatible.
   version: uint32;
 
   // Contains several NetworkFilterList matching to different kinds of lists.
