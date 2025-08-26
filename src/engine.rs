@@ -2,8 +2,13 @@
 
 use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
-use crate::filters::fb_builder::make_flatbuffer;
+use crate::cosmetic_filter_cache_builder::CosmeticFilterCacheBuilder;
+use crate::filters::cosmetic::CosmeticFilter;
+use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::fb_network::{FilterDataContext, FilterDataContextRef};
+use crate::filters::fb_network_builder::NetworkRulesBuilder;
+use crate::filters::network::NetworkFilter;
+use crate::flatbuffers::containers::flat_serialize::FlatSerialize;
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
@@ -63,16 +68,7 @@ pub enum DeserializationError {
 
 impl Default for Engine {
     fn default() -> Self {
-        let filter_data_context = FilterDataContextRef::new(Default::default());
-
-        Self {
-            blocker: Blocker::from_context(FilterDataContextRef::clone(&filter_data_context)),
-            cosmetic_cache: CosmeticFilterCache::from_context(FilterDataContextRef::clone(
-                &filter_data_context,
-            )),
-            resources: ResourceStorage::default(),
-            filter_data_context,
-        }
+        Self::from_filter_set(FilterSet::new(false), false)
     }
 }
 
@@ -106,6 +102,16 @@ impl Engine {
         Self::from_filter_set(filter_set, optimize)
     }
 
+    #[cfg(test)]
+    pub(crate) fn cosmetic_cache(self) -> CosmeticFilterCache {
+        self.cosmetic_cache
+    }
+
+    #[cfg(test)]
+    pub(crate) fn filter_data_context(self) -> FilterDataContextRef {
+        self.filter_data_context
+    }
+
     /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
     /// rules from multiple sources.
     pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
@@ -115,12 +121,7 @@ impl Engine {
             ..
         } = set;
 
-        let memory = make_flatbuffer(
-            network_filters,
-            cosmetic_filters,
-            optimize,
-            ADBLOCK_FLATBUFFER_VERSION,
-        );
+        let memory = make_flatbuffer(network_filters, cosmetic_filters, optimize);
 
         let filter_data_context = FilterDataContext::new(memory);
 
@@ -298,6 +299,19 @@ fn _assertions() {
 
     _assert_send::<Engine>();
     _assert_sync::<Engine>();
+}
+
+fn make_flatbuffer(
+    network_filters: Vec<NetworkFilter>,
+    cosmetic_filters: Vec<CosmeticFilter>,
+    optimize: bool,
+) -> VerifiedFlatbufferMemory {
+    let mut builder = EngineFlatBuilder::default();
+    let network_rules_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
+    let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
+    let cosmetic_rules = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters);
+    let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut builder);
+    builder.finish(network_rules, cosmetic_rules, ADBLOCK_FLATBUFFER_VERSION)
 }
 
 #[cfg(test)]

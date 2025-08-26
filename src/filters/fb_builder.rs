@@ -1,15 +1,11 @@
 //! Builder for creating flatbuffer with serialized engine.
-//! The entry point is `make_flatbuffer`.
 
 use std::collections::HashMap;
 
 use flatbuffers::WIPOffset;
 
-use crate::cosmetic_filter_cache_builder::CosmeticFilterCacheBuilder;
-use crate::filters::cosmetic::CosmeticFilter;
-use crate::filters::fb_network_builder::{NetworkFilterListBuilder, NetworkRulesBuilder};
-use crate::filters::network::NetworkFilter;
-use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize, WIPFlatVec};
+use crate::filters::fb_network_builder::NetworkFilterListBuilder;
+use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, WIPFlatVec};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
@@ -63,18 +59,4 @@ impl<'a> FlatBuilder<'a> for EngineFlatBuilder<'a> {
     fn raw_builder(&mut self) -> &mut flatbuffers::FlatBufferBuilder<'a> {
         &mut self.fb_builder
     }
-}
-
-pub fn make_flatbuffer(
-    network_filters: Vec<NetworkFilter>,
-    cosmetic_filters: Vec<CosmeticFilter>,
-    optimize: bool,
-    version: u32,
-) -> VerifiedFlatbufferMemory {
-    let mut builder = EngineFlatBuilder::default();
-    let network_rules_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
-    let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
-    let cosmetic_rules = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters);
-    let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut builder);
-    builder.finish(network_rules, cosmetic_rules, version)
 }

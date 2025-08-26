@@ -132,12 +132,13 @@ impl CosmeticFilterCache {
 
     #[cfg(test)]
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
-        use crate::filters::{fb_builder::make_flatbuffer, fb_network::FilterDataContext};
+        use crate::engine::Engine;
+        use crate::FilterSet;
 
-        let memory = make_flatbuffer(vec![], rules, true, 0);
-
-        let filter_data_context = FilterDataContext::new(memory);
-        Self::from_context(filter_data_context)
+        let mut filter_set = FilterSet::new(true);
+        filter_set.cosmetic_filters = rules;
+        let engine = Engine::from_filter_set(filter_set, true);
+        engine.cosmetic_cache()
     }
 
     /// Generic class/id rules are by far the most common type of cosmetic filtering rule, and they

@@ -87,15 +87,6 @@ pub(crate) struct FilterDataContext {
     pub(crate) unique_domains_hashes_map: HashMap<Hash, u32>,
 }
 
-impl Default for FilterDataContext {
-    fn default() -> Self {
-        Self {
-            memory: crate::filters::fb_builder::make_flatbuffer(vec![], vec![], false, 0),
-            unique_domains_hashes_map: HashMap::new(),
-        }
-    }
-}
-
 impl FilterDataContext {
     pub(crate) fn new(memory: VerifiedFlatbufferMemory) -> FilterDataContextRef {
         // Reconstruct the unique_domains_hashes_map from the flatbuffer data
