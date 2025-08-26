@@ -17,14 +17,14 @@ mod tests {
 
     // Helper function to create a Vector from a slice
     fn create_vector_u32<'a>(
-      builder: &'a mut flatbuffers::FlatBufferBuilder,
-      data: &'a [u32],
-  ) -> flatbuffers::Vector<'a, u32> {
-      let vec_offset = builder.create_vector(data);
-      builder.finish(vec_offset, None);
-      let buf = builder.finished_data();
-      flatbuffers::root::<flatbuffers::Vector<u32>>(buf).unwrap()
-  }
+        builder: &'a mut flatbuffers::FlatBufferBuilder,
+        data: &'a [u32],
+    ) -> flatbuffers::Vector<'a, u32> {
+        let vec_offset = builder.create_vector(data);
+        builder.finish(vec_offset, None);
+        let buf = builder.finished_data();
+        flatbuffers::root::<flatbuffers::Vector<u32>>(buf).unwrap()
+    }
 
     #[test]
     fn test_empty_map() {
@@ -39,21 +39,20 @@ mod tests {
 
     #[test]
     fn test_multiple_elements() {
-      let index: &[u32] = &[1, 2, 4, 6, 100, 102];
-      let mut builder = flatbuffers::FlatBufferBuilder::new();
-      let values = create_vector_u32(&mut builder, &[10, 20, 30, 40, 50, 60]);
+        let index: &[u32] = &[1, 2, 4, 6, 100, 102];
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let values = create_vector_u32(&mut builder, &[10, 20, 30, 40, 50, 60]);
 
-      let map = FlatMapView::new(index, values);
+        let map = FlatMapView::new(index, values);
 
-      assert_eq!(map.len(), 6);
+        assert_eq!(map.len(), 6);
 
-      assert_eq!(map.get(2), Some(20));
-      assert_eq!(map.get(4), Some(30));
-      assert_eq!(map.get(100), Some(50));
-      assert_eq!(map.get(102), Some(60));
-      assert!(map.get(103).is_none());
-  }
-
+        assert_eq!(map.get(2), Some(20));
+        assert_eq!(map.get(4), Some(30));
+        assert_eq!(map.get(100), Some(50));
+        assert_eq!(map.get(102), Some(60));
+        assert!(map.get(103).is_none());
+    }
 
     #[test]
     fn test_string_builder() {
