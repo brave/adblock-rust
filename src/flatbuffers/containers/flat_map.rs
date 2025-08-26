@@ -29,6 +29,11 @@ where
         }
     }
 
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.keys.len()
+    }
+
     pub fn get(&self, key: I) -> Option<<V as Follow<'a>>::Inner> {
         let index = self.keys.partition_point(|x| *x < key);
         if index < self.keys.len() && self.keys.get(index) == key {
@@ -67,3 +72,7 @@ impl FlatMapBuilder {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/flatbuffers/containers/flat_map.rs"]
+mod unit_tests;
