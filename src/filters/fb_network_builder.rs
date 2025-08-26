@@ -97,7 +97,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
             .map(|v| builder.create_string(v.as_str()));
 
         let network_filter = fb::NetworkFilter::create(
-            &mut builder.raw_builder(),
+            builder.raw_builder(),
             &fb::NetworkFilterArgs {
                 mask: network_filter.mask.bits(),
                 patterns,

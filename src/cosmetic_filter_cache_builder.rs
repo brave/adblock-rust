@@ -184,28 +184,28 @@ impl CosmeticFilterCacheBuilder {
                 let entry = self
                     .specific_rules
                     .entry(*token)
-                    .or_insert_with(HostnameRule::default);
+                    .or_default();
                 entry.unhide.push(s);
             }
             UninjectScript((s, _)) => {
                 let entry = self
                     .specific_rules
                     .entry(*token)
-                    .or_insert_with(HostnameRule::default);
+                    .or_default();
                 entry.uninject_script.push(s);
             }
             ProceduralOrAction(s) => {
                 let entry = self
                     .specific_rules
                     .entry(*token)
-                    .or_insert_with(HostnameRule::default);
+                    .or_default();
                 entry.procedural_action.push(s);
             }
             ProceduralOrActionException(s) => {
                 let entry = self
                     .specific_rules
                     .entry(*token)
-                    .or_insert_with(HostnameRule::default);
+                    .or_default();
                 entry.procedural_action_exception.push(s);
             }
         }
