@@ -166,15 +166,17 @@ impl CosmeticFilterCache {
     ) -> Vec<String> {
         let mut selectors = vec![];
 
-        let cs = self.filter_data_context.memory.root().cosmetic_filters();
-        let simple_class_rules = FlatSetView::new(cs.simple_class_rules());
-        let simple_id_rules = FlatSetView::new(cs.simple_id_rules());
+        let cosmetic_filters = self.filter_data_context.memory.root().cosmetic_filters();
+        let simple_class_rules = FlatSetView::new(cosmetic_filters.simple_class_rules());
+        let simple_id_rules = FlatSetView::new(cosmetic_filters.simple_id_rules());
         let complex_class_rules = FlatMapStringView::new(
-            cs.complex_class_rules_index(),
-            cs.complex_class_rules_values(),
+            cosmetic_filters.complex_class_rules_index(),
+            cosmetic_filters.complex_class_rules_values(),
         );
-        let complex_id_rules =
-            FlatMapStringView::new(cs.complex_id_rules_index(), cs.complex_id_rules_values());
+        let complex_id_rules = FlatMapStringView::new(
+            cosmetic_filters.complex_id_rules_index(),
+            cosmetic_filters.complex_id_rules_values(),
+        );
 
         classes.into_iter().for_each(|class| {
             let class = class.as_ref();
@@ -239,13 +241,18 @@ impl CosmeticFilterCache {
             .chain(request_hostnames.iter())
             .collect();
 
-        let cf = self.filter_data_context.memory.root().cosmetic_filters();
-        let hostname_rules_view = FlatMapView::new(cf.hostname_index(), cf.hostname_values());
-        let hostname_hide_view =
-            FlatMultiMapView::new(cf.hostname_hide_index(), cf.hostname_hide_values());
+        let cosmetic_filters = self.filter_data_context.memory.root().cosmetic_filters();
+        let hostname_rules_view = FlatMapView::new(
+            cosmetic_filters.hostname_index(),
+            cosmetic_filters.hostname_values(),
+        );
+        let hostname_hide_view = FlatMultiMapView::new(
+            cosmetic_filters.hostname_hide_index(),
+            cosmetic_filters.hostname_hide_values(),
+        );
         let hostname_inject_script_view = FlatMultiMapView::new(
-            cf.hostname_inject_script_index(),
-            cf.hostname_inject_script_values(),
+            cosmetic_filters.hostname_inject_script_index(),
+            cosmetic_filters.hostname_inject_script_values(),
         );
 
         for hash in hashes.iter() {
@@ -317,13 +324,12 @@ impl CosmeticFilterCache {
         let hide_selectors = if generichide {
             specific_hide_selectors
         } else {
-            let cs = self.filter_data_context.memory.root().cosmetic_filters();
-            let misc_generic_selectors_vector = cs.misc_generic_selectors();
+            let cosmetic_filters = self.filter_data_context.memory.root().cosmetic_filters();
+            let misc_generic_selectors_vector = cosmetic_filters.misc_generic_selectors();
 
-            // TODO: check performance of this
+            // Calculate the intersection of the two sets, O(n * log m) time
             let mut hide_selectors = HashSet::new();
-            for i in 0..misc_generic_selectors_vector.len() {
-                let selector = misc_generic_selectors_vector.get(i);
+            for selector in misc_generic_selectors_vector.iter() {
                 if !exceptions.contains(selector) {
                     hide_selectors.insert(selector.to_string());
                 }
