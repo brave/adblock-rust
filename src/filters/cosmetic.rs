@@ -636,12 +636,10 @@ mod css_validation {
         let mock_stylesheet = format!("{}{{mock-stylesheet-marker}}", selector);
         let mut pi = ParserInput::new(&mock_stylesheet);
         let mut parser = Parser::new(&mut pi);
-        let mut rule_list_parser = cssparser::RuleListParser::new_for_stylesheet(
-            &mut parser,
-            QualifiedRuleParserImpl {
-                accept_abp_selectors,
-            },
-        );
+        let mut parser_impl = QualifiedRuleParserImpl {
+            accept_abp_selectors,
+        };
+        let mut rule_list_parser = cssparser::StyleSheetParser::new(&mut parser, &mut parser_impl);
 
         let prelude = rule_list_parser.next().and_then(|r| r.ok());
 
@@ -792,6 +790,7 @@ mod css_validation {
                     accept_abp_selectors: self.accept_abp_selectors,
                 },
                 input,
+                selectors::parser::ParseRelative::No,
             )
             .map_err(|_| ParseError {
                 kind: cssparser::ParseErrorKind::Custom(()),
@@ -1004,7 +1003,7 @@ mod css_validation {
     struct SelectorImpl;
 
     impl selectors::parser::SelectorImpl for SelectorImpl {
-        type ExtraMatchingData = ();
+        type ExtraMatchingData<'a> = ();
         type AttrValue = CssString;
         type Identifier = CssIdent;
         type LocalName = CssString;
