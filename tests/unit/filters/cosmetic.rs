@@ -635,6 +635,60 @@ mod parse_tests {
         );
     }
 
+    #[test]
+    fn escaped_selectors() {
+        check_parse_result(
+            r#"temp-mail.io##.fixed.bottom-0.\[\@media\(max-width\:1350px\)\]\:hidden"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(
+                    r#".fixed.bottom-0.\[\@media\(max-width\:1350px\)\]\:hidden"#.to_string(),
+                ),
+                hostnames: Some(vec![2102614015710080174]),
+                ..Default::default()
+            },
+        );
+        check_parse_result(
+            r#"pinloker.com,sekilastekno.com###main:has(a[\@click="scroll"][target="_blank"]) .entry-content > figure, h3, h4, ol, p, ul"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#"#main:has(a[\@click="scroll"][target="_blank"]) .entry-content > figure, h3, h4, ol, p, ul"#.to_string()),
+                hostnames: Some(vec![6774884157174391526, 8625775575346486664]),
+                ..Default::default()
+            }
+        );
+
+        // NOTE: the following `selector` fields are actually invalid selectors, and should keep
+        // the `\` escape characters from the original rules.
+        check_parse_result(
+            r#"pinloker.com,sekilastekno.com##.separator > a[\@click="scroll"][target="_blank"]"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(
+                    r#".separator > a[@click="scroll"][target="_blank"]"#.to_string(),
+                ),
+                hostnames: Some(vec![6774884157174391526, 8625775575346486664]),
+                ..Default::default()
+            },
+        );
+        check_parse_result(
+            r#"senpai-stream.net##div[wire\:click="watching"]:style(display: flex !important;)"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#"div[wire:click="watching"]"#.to_string()),
+                action: Some(CosmeticFilterAction::Style(
+                    "display: flex !important;".to_string(),
+                )),
+                hostnames: Some(vec![12306889736704683473]),
+                ..Default::default()
+            },
+        );
+        check_parse_result(
+            r#"presearch.com##div[\:class*="AdClass"]"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#"div[:class*="AdClass"]"#.to_string()),
+                hostnames: Some(vec![15231640029204839219]),
+                ..Default::default()
+            },
+        );
+    }
+
     /// As of writing, these procedural filters with multiple comma-separated selectors aren't
     /// fully supported by uBO. Here, they are treated as parsing errors.
     #[test]
