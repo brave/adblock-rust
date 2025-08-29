@@ -37,8 +37,9 @@ seahash = "4.1.0"
 memchr = "2.4"
 base64 = "0.22"
 rmp-serde = "0.15"
-cssparser = { version = "0.31", optional = true }
-selectors = { version = "0.25", optional = true }
+cssparser = { version = "0.34", optional = true }
+selectors = { version = "0.26", optional = true }
+precomputed-hash = "0.1"
 thiserror = "1.0"
 flatbuffers = { version = "25.2.10" }
 

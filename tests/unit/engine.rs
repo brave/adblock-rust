@@ -219,7 +219,7 @@ mod tests {
         let data = engine.serialize().unwrap();
 
         let expected_hash = if cfg!(feature = "css-validation") {
-            7254547691107602751
+            6556399856993017327
         } else {
             4130628479730907288
         };

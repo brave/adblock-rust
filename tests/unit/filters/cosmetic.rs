@@ -655,14 +655,11 @@ mod parse_tests {
                 ..Default::default()
             }
         );
-
-        // NOTE: the following `selector` fields are actually invalid selectors, and should keep
-        // the `\` escape characters from the original rules.
         check_parse_result(
             r#"pinloker.com,sekilastekno.com##.separator > a[\@click="scroll"][target="_blank"]"#,
             CosmeticFilterBreakdown {
                 selector: SelectorType::PlainCss(
-                    r#".separator > a[@click="scroll"][target="_blank"]"#.to_string(),
+                    r#".separator > a[\@click="scroll"][target="_blank"]"#.to_string(),
                 ),
                 hostnames: Some(vec![6774884157174391526, 8625775575346486664]),
                 ..Default::default()
@@ -671,7 +668,7 @@ mod parse_tests {
         check_parse_result(
             r#"senpai-stream.net##div[wire\:click="watching"]:style(display: flex !important;)"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"div[wire:click="watching"]"#.to_string()),
+                selector: SelectorType::PlainCss(r#"div[wire\:click="watching"]"#.to_string()),
                 action: Some(CosmeticFilterAction::Style(
                     "display: flex !important;".to_string(),
                 )),
@@ -682,7 +679,7 @@ mod parse_tests {
         check_parse_result(
             r#"presearch.com##div[\:class*="AdClass"]"#,
             CosmeticFilterBreakdown {
-                selector: SelectorType::PlainCss(r#"div[:class*="AdClass"]"#.to_string()),
+                selector: SelectorType::PlainCss(r#"div[\:class*="AdClass"]"#.to_string()),
                 hostnames: Some(vec![15231640029204839219]),
                 ..Default::default()
             },
