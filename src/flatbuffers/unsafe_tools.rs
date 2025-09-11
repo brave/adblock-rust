@@ -48,8 +48,8 @@ pub(crate) struct VerifiedFlatbufferMemory {
 }
 
 impl VerifiedFlatbufferMemory {
-    pub(crate) fn from_raw(data: Vec<u8>) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
-        let memory = Self::from_vec(data);
+    pub(crate) fn from_raw(data: &[u8]) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
+        let memory = Self::from_slice(data);
 
         // Verify that the data is a valid flatbuffer.
         let _ = fb::root_as_engine(memory.data())?;
@@ -60,22 +60,26 @@ impl VerifiedFlatbufferMemory {
     // Creates a new VerifiedFlatbufferMemory from a builder.
     // Skip the verification, the builder must contains a valid FilterList.
     pub(crate) fn from_builder(builder: &flatbuffers::FlatBufferBuilder<'_>) -> Self {
-        let raw_data = builder.finished_data().to_vec();
-        Self::from_vec(raw_data)
+        Self::from_slice(builder.finished_data())
     }
 
     // Properly align the buffer to MIN_ALIGNMENT bytes.
-    pub(crate) fn from_vec(mut vec: Vec<u8>) -> Self {
+    pub(crate) fn from_slice(data: &[u8]) -> Self {
+        let mut vec = Vec::with_capacity(data.len() + MIN_ALIGNMENT);
         let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
+
         let start = if shift == 0 {
             0
         } else {
-            vec.reserve(vec.len() + MIN_ALIGNMENT); // vec.as_ptr() is changed
             let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
             let padding = MIN_ALIGNMENT - shift;
+            assert!(vec.capacity() >= padding);
             vec.splice(0..0, vec![0u8; padding]);
             padding
         };
+
+        vec.extend_from_slice(data);
+        assert!((vec.as_ptr() as usize + start) % MIN_ALIGNMENT == 0);
 
         let memory = Self {
             raw_data: vec,

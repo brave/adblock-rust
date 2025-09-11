@@ -156,7 +156,7 @@ mod tests {
         let serialized = engine.serialize();
         let mut deserialized_engine = Engine::default();
         deserialized_engine.enable_tags(&["stuff"]);
-        deserialized_engine.deserialize(serialized).unwrap();
+        deserialized_engine.deserialize(&serialized).unwrap();
 
         url_results.into_iter().for_each(|(url, expected_result)| {
             let request = Request::new(url, "", "").unwrap();
