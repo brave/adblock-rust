@@ -6,7 +6,7 @@ use crate::cosmetic_filter_cache::ProceduralOrActionFilter;
 use crate::cosmetic_filter_utils::SpecificFilterType;
 use crate::cosmetic_filter_utils::{encode_script_with_permission, key_from_selector};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterMask, CosmeticFilterOperator};
-use crate::filters::fb_network::flat::fb;
+use crate::filters::flatbuffer_generated::fb;
 use crate::flatbuffers::containers::flat_map::FlatMapBuilder;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
 

@@ -14,7 +14,7 @@ use crate::network_filter_list::token_histogram;
 use crate::optimizer;
 use crate::utils::{to_short_hash, Hash, ShortHash};
 
-use super::fb_network::flat::fb;
+use super::flat::fb;
 
 pub(crate) enum NetworkFilterListId {
     Csp = 0,

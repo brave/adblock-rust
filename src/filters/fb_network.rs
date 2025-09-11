@@ -7,18 +7,7 @@ use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 
-#[allow(unknown_lints)]
-#[allow(
-    dead_code,
-    clippy::all,
-    unused_imports,
-    unsafe_code,
-    mismatched_lifetime_syntaxes
-)]
-#[path = "../flatbuffers/fb_network_filter_generated.rs"]
-pub mod flat;
-use flat::fb;
-
+use crate::filters::flatbuffer_generated::fb;
 /// A list of string parts that can be matched against a URL.
 pub(crate) struct FlatPatterns<'a> {
     patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,

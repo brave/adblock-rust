@@ -1,6 +1,6 @@
 //! Unsafe utility functions for working with flatbuffers and other low-level operations.
 
-use crate::filters::fb_network::flat::fb;
+use crate::filters::flatbuffer_generated::fb;
 
 // Minimum alignment for the beginning of the flatbuffer data.
 const MIN_ALIGNMENT: usize = 8;

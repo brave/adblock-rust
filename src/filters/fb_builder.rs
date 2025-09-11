@@ -9,7 +9,7 @@ use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, WIPFlatVec};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
-use super::fb_network::flat::fb;
+use super::flat::fb;
 
 #[derive(Default)]
 pub(crate) struct EngineFlatBuilder<'a> {
