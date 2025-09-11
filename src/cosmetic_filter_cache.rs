@@ -13,7 +13,7 @@ use crate::cosmetic_filter_utils::decode_script_with_permission;
 #[cfg(test)]
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::cosmetic::{CosmeticFilterAction, CosmeticFilterOperator};
-use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::filter_data_context::FilterDataContextRef;
 
 use crate::flatbuffers::containers::flat_map::FlatMapView;
 use crate::flatbuffers::containers::flat_multimap::{FlatMapStringView, FlatMultiMapView};
