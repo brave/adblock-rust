@@ -6,8 +6,8 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
 
-use crate::filters::fb_builder::NetworkFilterListId;
-use crate::filters::fb_network::FilterDataContextRef;
+use crate::filters::fb_network_builder::NetworkFilterListId;
+use crate::filters::filter_data_context::FilterDataContextRef;
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
@@ -440,11 +440,13 @@ impl Blocker {
         network_filters: Vec<crate::filters::network::NetworkFilter>,
         options: &BlockerOptions,
     ) -> Self {
-        use crate::filters::{fb_builder::make_flatbuffer, fb_network::FilterDataContext};
+        use crate::engine::Engine;
+        use crate::FilterSet;
 
-        let memory = make_flatbuffer(network_filters, options.enable_optimizations);
-        let filter_data_context = FilterDataContext::new(memory);
-        Self::from_context(filter_data_context)
+        let mut filter_set = FilterSet::new(true);
+        filter_set.network_filters = network_filters;
+        let engine = Engine::from_filter_set(filter_set, options.enable_optimizations);
+        Self::from_context(engine.filter_data_context())
     }
 
     pub fn use_tags(&mut self, tags: &[&str]) {

@@ -129,6 +129,9 @@ impl<I: Ord + std::hash::Hash, V> FlatMultiMapBuilder<I, V> {
     }
 }
 
+pub(crate) type FlatMapStringView<'a, V> =
+    FlatMultiMapView<'a, &'a str, V, Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>;
+
 #[cfg(test)]
 #[path = "../../../tests/unit/flatbuffers/containers/flat_multimap.rs"]
 mod unit_tests;
