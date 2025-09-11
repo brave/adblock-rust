@@ -14,10 +14,7 @@ mod optimization_tests_pattern_group {
             let is_match = regex.is_match(pattern);
             assert!(
                 is_match == matches,
-                "Expected {} match {} = {}",
-                regex,
-                pattern,
-                matches
+                "Expected {regex} match {pattern} = {matches}"
             );
         }
 
@@ -38,10 +35,7 @@ mod optimization_tests_pattern_group {
             );
             assert!(
                 is_match == matches,
-                "Expected {} match {} = {}",
-                filter,
-                url_path,
-                matches
+                "Expected {filter} match {url_path} = {matches}"
             );
         }
 
@@ -342,10 +336,7 @@ mod optimization_tests_pattern_group {
         let is_match = regex.is_match(pattern);
         assert!(
             is_match == matches,
-            "Expected {} match {} = {}",
-            regex,
-            pattern,
-            matches
+            "Expected {regex} match {pattern} = {matches}"
         );
     }
 
@@ -366,10 +357,7 @@ mod optimization_tests_pattern_group {
         );
         assert!(
             is_match == matches,
-            "Expected {} match {} = {}",
-            filter,
-            url_path,
-            matches
+            "Expected {filter} match {url_path} = {matches}"
         );
     }
 

@@ -100,11 +100,7 @@ mod match_tests {
 
         assert!(
             network_filter.matches_test(&request) == matching,
-            "Expected match={} for {} {:?} on {}",
-            matching,
-            filter,
-            network_filter,
-            url
+            "Expected match={matching} for {filter} {network_filter:?} on {url}"
         );
     }
 
@@ -114,11 +110,7 @@ mod match_tests {
 
         assert!(
             network_filter.matches_test(&request) == matching,
-            "Expected match={} for {} {:?} on {}",
-            matching,
-            filter,
-            network_filter,
-            url
+            "Expected match={matching} for {filter} {network_filter:?} on {url}"
         );
     }
 
@@ -287,9 +279,7 @@ mod match_tests {
                     .unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -304,9 +294,7 @@ mod match_tests {
             .unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }
@@ -641,9 +629,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "").unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -655,9 +641,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "xmlhttprequest").unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         //
@@ -669,9 +653,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "stylesheet").unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }
@@ -708,9 +690,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "script").unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -721,9 +701,7 @@ mod match_tests {
             let request = request::Request::new(url, source, "script").unwrap();
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }
@@ -739,9 +717,7 @@ mod match_tests {
             assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
         {
@@ -753,9 +729,7 @@ mod match_tests {
             assert!(!request.is_third_party);
             assert!(
                 network_filter.matches_test(&request),
-                "Expected match for {} on {}",
-                filter,
-                url
+                "Expected match for {filter} on {url}"
             );
         }
     }

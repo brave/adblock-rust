@@ -71,7 +71,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
         .map(|(index, mut rule)| {
             rule.mask.insert(NetworkFilterMask::IS_LEFT_ANCHOR);
             rule.mask.insert(NetworkFilterMask::IS_RIGHT_ANCHOR);
-            rule.hostname = Some(format!("a{}.com/bad.js", index));
+            rule.hostname = Some(format!("a{index}.com/bad.js"));
 
             rule.filter = adblock::filters::network::FilterPart::Empty;
             rule.mask.remove(NetworkFilterMask::IS_HOSTNAME_ANCHOR);
@@ -204,7 +204,7 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
                 hostname
             };
 
-            let source_url = format!("https://{}", source_hostname);
+            let source_url = format!("https://{source_hostname}");
 
             Request::new(&url, &source_url, raw_type).unwrap()
         })
@@ -216,9 +216,7 @@ fn bench_fn(blocker: &Blocker, resources: &ResourceStorage, requests: &[Request]
         let block_result = blocker.check(request, resources);
         assert!(
             block_result.redirect.is_some(),
-            "{:?}, {:?}",
-            request,
-            block_result
+            "{request:?}, {block_result:?}"
         );
     });
 }
