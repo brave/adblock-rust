@@ -1375,20 +1375,20 @@ mod legacy_rule_parsing_tests {
     // * not handling document/subdocument options;
     // * the optimizer that merges multiple rules into one;
     const EASY_LIST: ListCounts = ListCounts {
-        filters: 35043,
+        filters: 45878 - 697,
         cosmetic_filters: if cfg!(feature = "css-validation") {
-            23668
+            23639
         } else {
-            23682
+            23655
         },
-        exceptions: 706,
+        exceptions: 697,
         duplicates: 0,
     };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
     const EASY_PRIVACY: ListCounts = ListCounts {
-        filters: 53029, // total - exceptions
-        cosmetic_filters: 28,
-        exceptions: 737,
+        filters: 54156 - 756, // total - exceptions
+        cosmetic_filters: 29,
+        exceptions: 756,
         duplicates: 2,
     };
     // ublockUnbreak = { 4, 8, 0, 94 };

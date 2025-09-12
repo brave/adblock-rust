@@ -10,8 +10,11 @@ const args = process.argv.slice(2);
 
 if (args.length < 2) {
   console.error(
-    "Usage: BRAVE_SERVICE_KEY=<key> node update-lists.js <brave_list_version> <resource_list_version>\n" +
-      "The component names are 'Brave Default Adblock Filters' and 'Brave Ad Block Resources Library'"
+    "Usage: BRAVE_SERVICE_KEY=<key> node update-lists.js <defalt_adblock_filters_version> <defalt_privacy_filters_version> <resource_list_version>\n" +
+      "The component names are: \n" +
+      "Brave Default Adblock Filters\n" +
+      "Brave Default Privacy Filters\n" +
+      "Brave Ad Block Resources Library\n"
   );
   process.exit(1);
 }
@@ -21,10 +24,12 @@ if (!apiKey) {
   console.error("Error: BRAVE_SERVICE_KEY is not set");
   process.exit(1);
 }
-const braveVersionNumber = args[0].replace(/\./g, "_");
-const resourceVersionNumber = args[1].replace(/\./g, "_");
+const braveDefaultAdblockFiltersVersionNumber = args[0].replace(/\./g, "_");
+const braveDefaultPrivacyFiltersVersionNumber = args[1].replace(/\./g, "_");
+const resourceVersionNumber = args[2].replace(/\./g, "_");
 
-const braveMainListId = "iodkpdagapdfkphljnddpjlldadblomo";
+const braveDefaultAdblockFiltersId = "iodkpdagapdfkphljnddpjlldadblomo";
+const braveDefaultPrivacyFiltersId = "kihnoaefogbkmblfimmibknnmkllbhlf";
 const braveResourceListId = "mfddibmblmbccpadfndgakiopmmhebop";
 
 execSync(
@@ -48,8 +53,13 @@ try {
   process.chdir(tempDir);
 
   execSync(
-    `curl -o main_list.zip -H "BraveServiceKey: ${apiKey}" ` +
-      `https://brave-core-ext.s3.brave.com/release/${braveMainListId}/extension_${braveVersionNumber}.crx`
+    `curl -o brave-default-adblock-filters.zip -H "BraveServiceKey: ${apiKey}" ` +
+      `https://brave-core-ext.s3.brave.com/release/${braveDefaultAdblockFiltersId}/extension_${braveDefaultAdblockFiltersVersionNumber}.crx`
+  );
+
+  execSync(
+    `curl -o brave-default-privacy-filters.zip -H "BraveServiceKey: ${apiKey}" ` +
+      `https://brave-core-ext.s3.brave.com/release/${braveDefaultPrivacyFiltersId}/extension_${braveDefaultPrivacyFiltersVersionNumber}.crx`
   );
 
   execSync(
@@ -70,7 +80,13 @@ try {
     fs.renameSync(fileName, path.join(rootDir, "data/brave", outputFileName));
   }
 
-  takeFile("main_list.zip", "list.txt", "brave-main-list.txt");
+  // Merge the two default lists into one
+  takeFile("brave-default-adblock-filters.zip", "list.txt", "default-1.txt");
+  takeFile("brave-default-privacy-filters.zip", "list.txt", "default-2.txt");
+  const defaultContent1 = fs.readFileSync(path.join(rootDir, "data/brave/default-1.txt"), { encoding: "utf-8" });
+  const defaultContent2 = fs.readFileSync(path.join(rootDir, "data/brave/default-2.txt"), { encoding: "utf-8" });
+  fs.writeFileSync(path.join(rootDir, "data/brave/brave-main-list.txt"), defaultContent1 + "\n" + defaultContent2);
+
   takeFile("resources.zip", "resources.json", "brave-resources.json");
 
 } finally {
