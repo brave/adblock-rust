@@ -34,7 +34,7 @@ impl ResourceContent {
 #[derive(Clone)]
 /// A internal representation of a Resource to store. Stores the content
 /// in the decoded form to use less memory.
-/// See Resource for details.
+/// See [Resource] for details
 struct ResourceImpl {
     name: String,
     kind: ResourceType,
