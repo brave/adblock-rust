@@ -153,7 +153,7 @@ mod tests {
         let mut engine = Engine::from_rules(filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
-        let serialized = engine.serialize().unwrap();
+        let serialized = engine.serialize();
         let mut deserialized_engine = Engine::default();
         deserialized_engine.enable_tags(&["stuff"]);
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -182,8 +182,8 @@ mod tests {
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
-        let data = engine.serialize().unwrap();
-        const EXPECTED_HASH: u64 = 14059407383857257100;
+        let data = engine.serialize().to_vec();
+        const EXPECTED_HASH: u64 = 15201305923211912617;
         assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
@@ -192,8 +192,8 @@ mod tests {
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
-        let data = engine.serialize().unwrap();
-        const EXPECTED_HASH: u64 = 1772924818985173219;
+        let data = engine.serialize().to_vec();
+        const EXPECTED_HASH: u64 = 5114301339390262037;
         assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
@@ -207,7 +207,7 @@ mod tests {
             Resource::simple("noopcss", MimeType::TextCss, ""),
         ]);
 
-        let serialized = engine.serialize().unwrap();
+        let serialized = engine.serialize().to_vec();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
     }
@@ -216,12 +216,12 @@ mod tests {
     fn deserialization_brave_list() {
         let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
-        let data = engine.serialize().unwrap();
+        let data = engine.serialize().to_vec();
 
-        let expected_hash = if cfg!(feature = "css-validation") {
-            12046041060659687422
+        let expected_hash: u64 = if cfg!(feature = "css-validation") {
+            2942520321544562177
         } else {
-            11420623023091203502
+            17713004238689548675
         };
 
         assert_eq!(hash(&data), expected_hash, "{}", HASH_MISMATCH_MSG);

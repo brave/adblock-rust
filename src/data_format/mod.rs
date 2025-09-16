@@ -4,92 +4,67 @@
 //! In order to support multiple format versions simultaneously, this module wraps around different
 //! serialization/deserialization implementations and can automatically dispatch to the appropriate
 //! one.
-
-mod storage;
-
-pub(crate) mod utils;
-
-use crate::cosmetic_filter_cache::CosmeticFilterCache;
-use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
-use crate::network_filter_list::NetworkFilterListParsingError;
+//!
+//! The current .dat file format:
+//! 1. magic (4 bytes)
+//! 2. version (1 byte)
+//! 3. seahash of the data (8 bytes)
+//! 4. data (the rest of the file)
 
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.
 const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
-const ADBLOCK_RUST_DAT_VERSION: u8 = 1;
 
-#[derive(Debug)]
-pub enum SerializationError {
-    RmpSerdeError(rmp_serde::encode::Error),
-}
+/// The version of the data format.
+/// If the data format version is incremented, the data is considered as incompatible.
+const ADBLOCK_FLATBUFFER_VERSION: u8 = 2;
 
-impl From<rmp_serde::encode::Error> for SerializationError {
-    fn from(e: rmp_serde::encode::Error) -> Self {
-        Self::RmpSerdeError(e)
-    }
-}
+/// The total length of the header prefix (magic + version + seahash)
+const HEADER_PREFIX_LENGTH: usize = 4 + 1 + 8;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DeserializationError {
-    RmpSerdeError(rmp_serde::decode::Error),
-    UnsupportedFormatVersion(u8),
-    NoHeaderFound,
+    BadHeader,
+    BadChecksum,
+    VersionMismatch(u8),
     FlatBufferParsingError(flatbuffers::InvalidFlatbuffer),
     ValidationError,
 }
 
-impl From<std::convert::Infallible> for DeserializationError {
-    fn from(x: std::convert::Infallible) -> Self {
-        match x {}
-    }
+pub(crate) fn serialize_dat_file(data: &[u8]) -> Vec<u8> {
+    let mut serialized = Vec::with_capacity(data.len() + HEADER_PREFIX_LENGTH);
+    let hash = seahash::hash(data).to_le_bytes();
+    serialized.extend_from_slice(&ADBLOCK_RUST_DAT_MAGIC);
+    serialized.push(ADBLOCK_FLATBUFFER_VERSION);
+    serialized.extend_from_slice(&hash);
+    assert_eq!(serialized.len(), HEADER_PREFIX_LENGTH);
+
+    serialized.extend_from_slice(data);
+    serialized
 }
 
-impl From<rmp_serde::decode::Error> for DeserializationError {
-    fn from(e: rmp_serde::decode::Error) -> Self {
-        Self::RmpSerdeError(e)
+pub(crate) fn deserialize_dat_file(serialized: &[u8]) -> Result<&[u8], DeserializationError> {
+    if serialized.len() < HEADER_PREFIX_LENGTH || !serialized.starts_with(&ADBLOCK_RUST_DAT_MAGIC) {
+        return Err(DeserializationError::BadHeader);
     }
-}
 
-impl From<NetworkFilterListParsingError> for DeserializationError {
-    fn from(e: NetworkFilterListParsingError) -> Self {
-        match e {
-            NetworkFilterListParsingError::InvalidFlatbuffer(invalid_flatbuffer) => {
-                Self::FlatBufferParsingError(invalid_flatbuffer)
-            }
-            NetworkFilterListParsingError::UniqueDomainsOutOfBounds(_) => Self::ValidationError,
-        }
-    }
-}
-
-pub(crate) fn serialize_engine(
-    flatbuffer_memory: &VerifiedFlatbufferMemory,
-    cfc: &CosmeticFilterCache,
-) -> Result<Vec<u8>, SerializationError> {
-    let serialize_format = storage::SerializeFormat::from((flatbuffer_memory, cfc));
-    serialize_format.serialize()
-}
-
-pub(crate) fn deserialize_engine(
-    serialized: &[u8],
-) -> Result<(VerifiedFlatbufferMemory, CosmeticFilterCache), DeserializationError> {
-    let deserialize_format = storage::DeserializeFormat::deserialize(serialized)?;
-    deserialize_format.try_into()
-}
-
-// Verify the header (MAGIC + VERSION) and return the data after the header.
-pub fn parse_dat_header(serialized: &[u8]) -> Result<&[u8], DeserializationError> {
-    if !serialized.starts_with(&ADBLOCK_RUST_DAT_MAGIC) {
-        return Err(DeserializationError::NoHeaderFound);
-    }
-    if serialized.len() < ADBLOCK_RUST_DAT_MAGIC.len() + 1 {
-        return Err(DeserializationError::NoHeaderFound);
-    }
     let version = serialized[ADBLOCK_RUST_DAT_MAGIC.len()];
-    if version != ADBLOCK_RUST_DAT_VERSION {
-        return Err(DeserializationError::UnsupportedFormatVersion(version));
+    if version != ADBLOCK_FLATBUFFER_VERSION {
+        return Err(DeserializationError::VersionMismatch(version));
     }
+    let data = &serialized[HEADER_PREFIX_LENGTH..];
 
-    Ok(&serialized[ADBLOCK_RUST_DAT_MAGIC.len() + 1..])
+    // Check the hash to ensure the data isn't corrupted.
+    let expected_hash = &serialized[(ADBLOCK_RUST_DAT_MAGIC.len() + 1)..HEADER_PREFIX_LENGTH];
+    if expected_hash != seahash::hash(data).to_le_bytes() {
+        println!(
+            "Expected hash: {:?}, actual hash: {:?}",
+            expected_hash,
+            seahash::hash(data).to_le_bytes()
+        );
+        return Err(DeserializationError::BadChecksum);
+    }
+    Ok(data)
 }
 
 #[cfg(test)]
@@ -107,5 +82,25 @@ mod tests {
         let result = hasher.finalize();
 
         assert!(result.starts_with(&ADBLOCK_RUST_DAT_MAGIC));
+    }
+
+    #[test]
+    fn serialize_deserialize_test() {
+        let data = b"test";
+        let serialized = serialize_dat_file(data);
+        let deserialized = deserialize_dat_file(&serialized).unwrap();
+        assert_eq!(data, deserialized);
+    }
+
+    #[test]
+    fn corrupted_data_test() {
+        let data = b"test";
+        let serialized = serialize_dat_file(data);
+        let mut corrupted_serialized = serialized.clone();
+        corrupted_serialized[HEADER_PREFIX_LENGTH] = 0;
+        assert_eq!(
+            Err(DeserializationError::BadChecksum),
+            deserialize_dat_file(&corrupted_serialized)
+        );
     }
 }

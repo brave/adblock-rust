@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod key_from_selector_tests {
-    use super::super::key_from_selector;
+    use crate::cosmetic_filter_utils::key_from_selector;
 
     #[test]
     fn no_escapes() {
