@@ -58,8 +58,6 @@ pub struct Engine {
     filter_data_context: FilterDataContextRef,
 }
 
-const ADBLOCK_FLATBUFFER_VERSION: u32 = 1;
-
 impl Default for Engine {
     fn default() -> Self {
         Self::from_filter_set(FilterSet::new(false), false)
@@ -271,11 +269,6 @@ impl Engine {
         let memory = VerifiedFlatbufferMemory::from_raw(data)
             .map_err(DeserializationError::FlatBufferParsingError)?;
 
-        if memory.root().version() != ADBLOCK_FLATBUFFER_VERSION {
-            return Err(DeserializationError::VersionMismatch(
-                memory.root().version(),
-            ));
-        }
         let context = FilterDataContext::new(memory);
         self.filter_data_context = context;
         self.blocker =
@@ -309,7 +302,7 @@ fn make_flatbuffer(
     let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
     let cosmetic_rules = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters);
     let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut builder);
-    builder.finish(network_rules, cosmetic_rules, ADBLOCK_FLATBUFFER_VERSION)
+    builder.finish(network_rules, cosmetic_rules)
 }
 
 #[cfg(test)]

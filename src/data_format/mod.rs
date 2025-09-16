@@ -7,20 +7,26 @@
 //!
 //! The current .dat file format:
 //! 1. magic (4 bytes)
-//! 2. seahash of the data (8 bytes)
-//! 3. data (the rest of the file)
+//! 2. version (1 byte)
+//! 3. seahash of the data (8 bytes)
+//! 4. data (the rest of the file)
 
 /// Newer formats start with this magic byte sequence.
 /// Calculated as the leading 4 bytes of `echo -n 'brave/adblock-rust' | sha512sum`.
 const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
 
-const HEADER_PREFIX_LENGTH: usize = 12;
+/// The version of the data format.
+/// If the data format version is incremented, the data is considered as incompatible.
+const ADBLOCK_FLATBUFFER_VERSION: u8 = 1;
+
+/// The total length of the header prefix (magic + version + seahash)
+const HEADER_PREFIX_LENGTH: usize = 4 + 1 + 8;
 
 #[derive(Debug, PartialEq)]
 pub enum DeserializationError {
     BadHeader,
     BadChecksum,
-    VersionMismatch(u32),
+    VersionMismatch(u8),
     FlatBufferParsingError(flatbuffers::InvalidFlatbuffer),
     ValidationError,
 }
@@ -29,6 +35,7 @@ pub(crate) fn serialize_dat_file(data: &[u8]) -> Vec<u8> {
     let mut serialized = Vec::with_capacity(data.len() + HEADER_PREFIX_LENGTH);
     let hash = seahash::hash(data).to_le_bytes();
     serialized.extend_from_slice(&ADBLOCK_RUST_DAT_MAGIC);
+    serialized.push(ADBLOCK_FLATBUFFER_VERSION);
     serialized.extend_from_slice(&hash);
     assert_eq!(serialized.len(), HEADER_PREFIX_LENGTH);
 
@@ -40,10 +47,15 @@ pub(crate) fn deserialize_dat_file(serialized: &[u8]) -> Result<&[u8], Deseriali
     if serialized.len() < HEADER_PREFIX_LENGTH || !serialized.starts_with(&ADBLOCK_RUST_DAT_MAGIC) {
         return Err(DeserializationError::BadHeader);
     }
+
+    let version = serialized[ADBLOCK_RUST_DAT_MAGIC.len()];
+    if version != ADBLOCK_FLATBUFFER_VERSION {
+        return Err(DeserializationError::VersionMismatch(version));
+    }
     let data = &serialized[HEADER_PREFIX_LENGTH..];
 
     // Check the hash to ensure the data isn't corrupted.
-    let expected_hash = &serialized[ADBLOCK_RUST_DAT_MAGIC.len()..HEADER_PREFIX_LENGTH];
+    let expected_hash = &serialized[(ADBLOCK_RUST_DAT_MAGIC.len() + 1)..HEADER_PREFIX_LENGTH];
     if expected_hash != seahash::hash(data).to_le_bytes() {
         println!(
             "Expected hash: {:?}, actual hash: {:?}",

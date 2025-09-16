@@ -101,10 +101,6 @@ table CosmeticFilters {
 
 /// A root type containing a serialized Engine.
 table Engine {
-  /// Format version. Should be equal to ADBLOCK_RUST_DAT_VERSION or the data
-  /// is considered as incompatible.
-  version: uint32;
-
   /// Contains several NetworkFilterList matching to different kinds of lists.
   /// The indexes are matching NetworkFilterListId.
   /// The size must be NetworkFilterListId::Size.

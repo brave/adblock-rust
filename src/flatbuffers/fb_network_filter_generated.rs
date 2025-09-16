@@ -118,6 +118,9 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// These arrays contain sorted (ascending) indices in the |unique_domains_hashes|
+        /// instead of the hashes themselves. This approach saves memory, as there
+        /// typically aren’t many unique hashes
         #[inline]
         pub fn opt_domains(&self) -> Option<flatbuffers::Vector<'a, u32>> {
             // Safety:
@@ -657,6 +660,9 @@ pub mod fb {
     pub enum HostnameSpecificRulesOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
+    /// A table to store the most host-specific cosmetic rules.
+    /// Although, the most common kind of rule (see hostname_inject_script_*
+    /// and hostname_hide_*) are stored separately to save memory.
     pub struct HostnameSpecificRules<'a> {
         pub _tab: flatbuffers::Table<'a>,
     }
@@ -984,6 +990,7 @@ pub mod fb {
     pub enum CosmeticFiltersOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
+    /// A table to store cosmetic filter rules (including supported structures).
     pub struct CosmeticFilters<'a> {
         pub _tab: flatbuffers::Table<'a>,
     }
@@ -1325,6 +1332,7 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// A map to store the other host-specific cosmetic rules.
         #[inline]
         pub fn hostname_index(&self) -> flatbuffers::Vector<'a, u64> {
             // Safety:
@@ -1885,6 +1893,7 @@ pub mod fb {
     pub enum EngineOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
+    /// A root type containing a serialized Engine.
     pub struct Engine<'a> {
         pub _tab: flatbuffers::Table<'a>,
     }
@@ -1900,10 +1909,9 @@ pub mod fb {
     }
 
     impl<'a> Engine<'a> {
-        pub const VT_VERSION: flatbuffers::VOffsetT = 4;
-        pub const VT_NETWORK_RULES: flatbuffers::VOffsetT = 6;
-        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 8;
-        pub const VT_COSMETIC_FILTERS: flatbuffers::VOffsetT = 10;
+        pub const VT_NETWORK_RULES: flatbuffers::VOffsetT = 4;
+        pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
+        pub const VT_COSMETIC_FILTERS: flatbuffers::VOffsetT = 8;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -1929,12 +1937,10 @@ pub mod fb {
             if let Some(x) = args.network_rules {
                 builder.add_network_rules(x);
             }
-            builder.add_version(args.version);
             builder.finish()
         }
 
         pub fn unpack(&self) -> EngineT {
-            let version = self.version();
             let network_rules = {
                 let x = self.network_rules();
                 x.iter().map(|t| t.unpack()).collect()
@@ -1948,20 +1954,15 @@ pub mod fb {
                 Box::new(x.unpack())
             };
             EngineT {
-                version,
                 network_rules,
                 unique_domains_hashes,
                 cosmetic_filters,
             }
         }
 
-        #[inline]
-        pub fn version(&self) -> u32 {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe { self._tab.get::<u32>(Engine::VT_VERSION, Some(0)).unwrap() }
-        }
+        /// Contains several NetworkFilterList matching to different kinds of lists.
+        /// The indexes are matching NetworkFilterListId.
+        /// The size must be NetworkFilterListId::Size.
         #[inline]
         pub fn network_rules(
             &self,
@@ -1977,6 +1978,7 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// Contains hashes for opt_(not)_domains. See opt_domains for details.
         #[inline]
         pub fn unique_domains_hashes(&self) -> flatbuffers::Vector<'a, u64> {
             // Safety:
@@ -2015,7 +2017,6 @@ pub mod fb {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
-                .visit_field::<u32>("version", Self::VT_VERSION, false)?
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilterList>>,
                 >>("network_rules", Self::VT_NETWORK_RULES, true)?
@@ -2034,7 +2035,6 @@ pub mod fb {
         }
     }
     pub struct EngineArgs<'a> {
-        pub version: u32,
         pub network_rules: Option<
             flatbuffers::WIPOffset<
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilterList<'a>>>,
@@ -2047,7 +2047,6 @@ pub mod fb {
         #[inline]
         fn default() -> Self {
             EngineArgs {
-                version: 0,
                 network_rules: None,         // required field
                 unique_domains_hashes: None, // required field
                 cosmetic_filters: None,      // required field
@@ -2060,10 +2059,6 @@ pub mod fb {
         start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
     }
     impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> EngineBuilder<'a, 'b, A> {
-        #[inline]
-        pub fn add_version(&mut self, version: u32) {
-            self.fbb_.push_slot::<u32>(Engine::VT_VERSION, version, 0);
-        }
         #[inline]
         pub fn add_network_rules(
             &mut self,
@@ -2123,7 +2118,6 @@ pub mod fb {
     impl core::fmt::Debug for Engine<'_> {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut ds = f.debug_struct("Engine");
-            ds.field("version", &self.version());
             ds.field("network_rules", &self.network_rules());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.field("cosmetic_filters", &self.cosmetic_filters());
@@ -2133,7 +2127,6 @@ pub mod fb {
     #[non_exhaustive]
     #[derive(Debug, Clone, PartialEq)]
     pub struct EngineT {
-        pub version: u32,
         pub network_rules: Vec<NetworkFilterListT>,
         pub unique_domains_hashes: Vec<u64>,
         pub cosmetic_filters: Box<CosmeticFiltersT>,
@@ -2141,7 +2134,6 @@ pub mod fb {
     impl Default for EngineT {
         fn default() -> Self {
             Self {
-                version: 0,
                 network_rules: Default::default(),
                 unique_domains_hashes: Default::default(),
                 cosmetic_filters: Default::default(),
@@ -2153,7 +2145,6 @@ pub mod fb {
             &self,
             _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
         ) -> flatbuffers::WIPOffset<Engine<'b>> {
-            let version = self.version;
             let network_rules = Some({
                 let x = &self.network_rules;
                 let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
@@ -2170,7 +2161,6 @@ pub mod fb {
             Engine::create(
                 _fbb,
                 &EngineArgs {
-                    version,
                     network_rules,
                     unique_domains_hashes,
                     cosmetic_filters,

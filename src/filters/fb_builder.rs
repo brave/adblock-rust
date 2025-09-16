@@ -33,14 +33,12 @@ impl<'a> EngineFlatBuilder<'a> {
         &mut self,
         network_rules: WIPFlatVec<'a, NetworkFilterListBuilder, EngineFlatBuilder<'a>>,
         cosmetic_rules: WIPOffset<fb::CosmeticFilters<'_>>,
-        version: u32,
     ) -> VerifiedFlatbufferMemory {
         let unique_domains_hashes =
             Some(self.fb_builder.create_vector(&self.unique_domains_hashes));
         let engine = fb::Engine::create(
             self.raw_builder(),
             &fb::EngineArgs {
-                version,
                 network_rules: Some(network_rules),
                 unique_domains_hashes,
                 cosmetic_filters: Some(cosmetic_rules),
