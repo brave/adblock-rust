@@ -1,3 +1,4 @@
+pub(crate) mod flat_map;
 pub(crate) mod flat_multimap;
 pub(crate) mod flat_serialize;
 pub(crate) mod flat_set;

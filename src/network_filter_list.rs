@@ -4,8 +4,9 @@ use std::{collections::HashMap, collections::HashSet, fmt};
 
 use flatbuffers::ForwardsUOffset;
 
-use crate::filters::fb_network::flat::fb;
-use crate::filters::fb_network::{FilterDataContext, FlatNetworkFilter};
+use crate::filters::fb_network::FlatNetworkFilter;
+use crate::filters::filter_data_context::FilterDataContext;
+use crate::filters::flatbuffer_generated::fb;
 use crate::filters::network::{
     NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
 };
@@ -48,12 +49,6 @@ impl NetworkFilterMaskHelper for CheckResult {
     fn has_flag(&self, v: NetworkFilterMask) -> bool {
         self.filter_mask.contains(v)
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum NetworkFilterListParsingError {
-    InvalidFlatbuffer(flatbuffers::InvalidFlatbuffer),
-    UniqueDomainsOutOfBounds(usize),
 }
 
 /// Internal structure to keep track of a collection of network filters.
