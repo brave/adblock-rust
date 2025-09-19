@@ -492,13 +492,11 @@ mod tests {
         ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
-        engine
-            .add_resource(Resource::simple(
-                "addthis.com/addthis_widget.js",
-                MimeType::ApplicationJavascript,
-                "window.addthis = undefined",
-            ))
-            .unwrap();
+        engine.use_resources([Resource::simple(
+            "addthis.com/addthis_widget.js",
+            MimeType::ApplicationJavascript,
+            "window.addthis = undefined",
+        )]);
 
         let request = Request::new("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script").unwrap();
         let result = engine.check_network_request(&request);

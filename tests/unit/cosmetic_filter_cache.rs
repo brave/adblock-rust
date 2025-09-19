@@ -203,7 +203,7 @@ mod cosmetic_cache_tests {
             "c.g.cosmetic.net#@#+js(nowebrtc.js)",
             "d.g.cosmetic.net#@#+js()",
         ]);
-        let resources = ResourceStorage::from_resources([
+        let resources = ResourceStorage::in_memory_from_resources([
             Resource {
                 name: "set-constant.js".into(),
                 aliases: vec![],
@@ -665,7 +665,7 @@ mod cosmetic_cache_tests {
                 .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
                 .collect::<Vec<_>>(),
         );
-        let resources = ResourceStorage::from_resources([Resource {
+        let resources = ResourceStorage::in_memory_from_resources([Resource {
             name: "abort-on-property-read.js".into(),
             aliases: vec!["aopr".to_string()],
             kind: ResourceType::Template,
