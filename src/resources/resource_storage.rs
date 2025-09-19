@@ -9,6 +9,14 @@ use thiserror::Error;
 
 use super::{PermissionMask, Resource, ResourceType};
 
+/// A ref-counted reference to a [`ResourceStorage`].
+#[cfg(feature = "single-thread")]
+pub type ResourceStorageRef = std::rc::Rc<ResourceStorage>;
+
+/// A ref-counted reference to a [`ResourceStorage`].
+#[cfg(not(feature = "single-thread"))]
+pub type ResourceStorageRef = std::sync::Arc<ResourceStorage>;
+
 /// Unified resource storage for both redirects and scriptlets.
 #[derive(Default)]
 pub struct ResourceStorage {
@@ -114,7 +122,7 @@ fn extract_function_name(fn_def: &str) -> Option<&str> {
 impl ResourceStorage {
     /// Convenience constructor that allows building storage for many resources at once. Errors are
     /// silently consumed.
-    pub fn from_resources(resources: impl IntoIterator<Item = Resource>) -> Self {
+    pub fn from_resources(resources: impl IntoIterator<Item = Resource>) -> ResourceStorageRef {
         let mut self_ = Self::default();
 
         resources.into_iter().for_each(|resource| {
@@ -125,7 +133,7 @@ impl ResourceStorage {
             })
         });
 
-        self_
+        ResourceStorageRef::new(self_)
     }
 
     /// Adds a resource to storage so that it can be retrieved later.
@@ -213,6 +221,10 @@ impl ResourceStorage {
         }
 
         Ok(())
+    }
+
+    pub fn resources_total_length(&self) -> usize {
+        self.resources.values().map(|r| r.content.len()).sum()
     }
 
     /// Given the contents of a single `+js(...)` filter part, return a scriptlet string
