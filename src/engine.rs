@@ -14,7 +14,7 @@ use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
-use crate::resources::{Resource, ResourceStorage};
+use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
 
 use std::collections::HashSet;
 
@@ -187,17 +187,22 @@ impl Engine {
         self.blocker.tags_enabled().contains(&tag.to_owned())
     }
 
-    /// Sets this engine's resources to be _only_ the ones provided in `resources`.
+    /// Sets this engine's [Resource]s to be _only_ the ones provided in `resources`.
+    ///
+    /// The resources will be held in-memory. If you have special caching, management, or sharing
+    /// requirements, consider [Engine::use_resource_storage] instead.
     pub fn use_resources(&mut self, resources: impl IntoIterator<Item = Resource>) {
-        self.resources = ResourceStorage::from_resources(resources);
+        let storage = crate::resources::InMemoryResourceStorage::from_resources(resources);
+        self.use_resource_storage(storage);
     }
 
-    /// Sets this engine's resources to additionally include `resource`.
-    pub fn add_resource(
-        &mut self,
-        resource: Resource,
-    ) -> Result<(), crate::resources::AddResourceError> {
-        self.resources.add_resource(resource)
+    /// Sets this engine's backend for [Resource] storage to a custom implementation of
+    /// [ResourceStorageBackend].
+    ///
+    /// If you're okay with the [Engine] holding these resources in-memory, use
+    /// [Engine::use_resources] instead.
+    pub fn use_resource_storage<R: ResourceStorageBackend + 'static>(&mut self, resources: R) {
+        self.resources = ResourceStorage::from_backend(resources);
     }
 
     // Cosmetic filter functionality
