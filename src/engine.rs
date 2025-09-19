@@ -14,7 +14,7 @@ use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
-use crate::resources::{Resource, ResourceStorage};
+use crate::resources::{Resource, ResourceStorage, ResourceStorageRef};
 
 use std::collections::HashSet;
 
@@ -54,8 +54,16 @@ use std::collections::HashSet;
 pub struct Engine {
     blocker: Blocker,
     cosmetic_cache: CosmeticFilterCache,
-    resources: ResourceStorage,
+    resources: ResourceStorageRef,
     filter_data_context: FilterDataContextRef,
+}
+
+pub struct EngineDebugInfo {
+    #[cfg(feature = "regex-debug-info")]
+    pub regex_debug_info: crate::regex_manager::RegexDebugInfo,
+
+    pub flatbuffer_size: usize,
+    pub resources_total_length: usize,
 }
 
 impl Default for Engine {
@@ -122,7 +130,7 @@ impl Engine {
             cosmetic_cache: CosmeticFilterCache::from_context(FilterDataContextRef::clone(
                 &filter_data_context,
             )),
-            resources: ResourceStorage::default(),
+            resources: ResourceStorage::from_resources(vec![]),
             filter_data_context,
         }
     }
@@ -188,16 +196,20 @@ impl Engine {
     }
 
     /// Sets this engine's resources to be _only_ the ones provided in `resources`.
+    /// Avoid using this method if you have multiple engines. Use `use_resource_storage` instead.
     pub fn use_resources(&mut self, resources: impl IntoIterator<Item = Resource>) {
         self.resources = ResourceStorage::from_resources(resources);
     }
 
-    /// Sets this engine's resources to additionally include `resource`.
-    pub fn add_resource(
-        &mut self,
-        resource: Resource,
-    ) -> Result<(), crate::resources::AddResourceError> {
-        self.resources.add_resource(resource)
+    /// Sets this engine's resources storage.
+    /// Use this method to share resources between multiple engines.
+    pub fn use_resource_storage(&mut self, resources: ResourceStorageRef) {
+        self.resources = resources;
+    }
+
+    #[cfg(test)]
+    pub fn use_resources_list(&mut self, resources: impl IntoIterator<Item = Resource>) {
+        self.use_resource_storage(ResourceStorage::from_resources(resources));
     }
 
     // Cosmetic filter functionality
@@ -246,9 +258,13 @@ impl Engine {
         self.blocker.discard_regex(regex_id);
     }
 
-    #[cfg(feature = "regex-debug-info")]
-    pub fn get_regex_debug_info(&self) -> crate::regex_manager::RegexDebugInfo {
-        self.blocker.get_regex_debug_info()
+    pub fn get_debug_info(&self) -> EngineDebugInfo {
+        EngineDebugInfo {
+            #[cfg(feature = "regex-debug-info")]
+            regex_debug_info: self.blocker.get_regex_debug_info(),
+            flatbuffer_size: self.filter_data_context.memory.data().len(),
+            resources_total_length: self.resources.resources_total_length(),
+        }
     }
 
     /// Serializes the `Engine` into a binary format so that it can be quickly reloaded later.
