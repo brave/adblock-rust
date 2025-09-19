@@ -323,20 +323,6 @@ fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
     Ok(JsNull::new(&mut cx))
 }
 
-fn engine_add_resource(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let resource_arg = cx.argument::<JsValue>(1)?;
-    let resource: Resource = json_ffi::from_js(&mut cx, resource_arg)?;
-
-    let success = if let Ok(mut engine) = this.0.lock() {
-        engine.add_resource(resource).is_ok()
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(cx.boolean(success))
-}
-
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let url: String = cx.argument::<JsString>(0)?.value(&mut cx);
     let source_url: String = cx.argument::<JsString>(1)?.value(&mut cx);
@@ -424,7 +410,6 @@ register_module!(mut m, {
     m.export_function("Engine_useResources", engine_use_resources)?;
     m.export_function("Engine_tagExists", engine_tag_exists)?;
     m.export_function("Engine_clearTags", engine_clear_tags)?;
-    m.export_function("Engine_addResource", engine_add_resource)?;
 
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;
