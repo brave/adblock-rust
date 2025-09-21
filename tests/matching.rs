@@ -67,8 +67,7 @@ fn check_filter_matching() {
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
             assert!(
                 network_filter_res.is_ok(),
-                "Could not parse filter {}",
-                filter
+                "Could not parse filter {filter}"
             );
             let network_filter = network_filter_res.unwrap();
 
@@ -110,8 +109,7 @@ fn check_engine_matching() {
             let network_filter_res = NetworkFilter::parse(&filter, true, opts);
             assert!(
                 network_filter_res.is_ok(),
-                "Could not parse filter {}",
-                filter
+                "Could not parse filter {filter}"
             );
             let network_filter = network_filter_res.unwrap();
 
