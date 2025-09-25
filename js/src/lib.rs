@@ -323,18 +323,17 @@ fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
     Ok(JsNull::new(&mut cx))
 }
 
-fn engine_add_resource(mut cx: FunctionContext) -> JsResult<JsBoolean> {
+fn engine_use_resources_list(mut cx: FunctionContext) -> JsResult<JsNull> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let resource_arg = cx.argument::<JsValue>(1)?;
-    let resource: Resource = json_ffi::from_js(&mut cx, resource_arg)?;
-
-    let success = if let Ok(mut engine) = this.0.lock() {
-        engine.add_resource(resource).is_ok()
+    let resources_arg = cx.argument::<JsValue>(1)?;
+    let resources: Vec<Resource> = json_ffi::from_js(&mut cx, resources_arg)?;
+    if let Ok(mut engine) = this.0.lock() {
+        let resource_storage = adblock::resources::ResourceStorage::from_resources(resources);
+        engine.use_resource_storage(resource_storage)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
-    Ok(cx.boolean(success))
+    Ok(JsNull::new(&mut cx))
 }
 
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
@@ -424,7 +423,7 @@ register_module!(mut m, {
     m.export_function("Engine_useResources", engine_use_resources)?;
     m.export_function("Engine_tagExists", engine_tag_exists)?;
     m.export_function("Engine_clearTags", engine_clear_tags)?;
-    m.export_function("Engine_addResource", engine_add_resource)?;
+    m.export_function("Engine_useResourcesList", engine_use_resources_list)?;
 
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;
