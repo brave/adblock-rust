@@ -58,8 +58,8 @@ pub struct Engine {
     filter_data_context: FilterDataContextRef,
 }
 
+#[cfg(feature = "debug-info")]
 pub struct EngineDebugInfo {
-    #[cfg(feature = "regex-debug-info")]
     pub regex_debug_info: crate::regex_manager::RegexDebugInfo,
 
     pub flatbuffer_size: usize,
@@ -253,14 +253,14 @@ impl Engine {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.blocker.discard_regex(regex_id);
     }
 
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_info(&self) -> EngineDebugInfo {
         EngineDebugInfo {
-            #[cfg(feature = "regex-debug-info")]
             regex_debug_info: self.blocker.get_regex_debug_info(),
             flatbuffer_size: self.filter_data_context.memory.data().len(),
             resources_total_length: self.resources.resources_total_length(),

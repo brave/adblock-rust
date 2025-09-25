@@ -39,7 +39,7 @@ const DEFAULT_DISCARD_UNUSED_TIME: Duration = Duration::from_secs(180);
 
 /// Reports [`RegexManager`] metrics that may be useful for creating an optimized
 /// [`RegexManagerDiscardPolicy`].
-#[cfg(feature = "regex-debug-info")]
+#[cfg(feature = "debug-info")]
 pub struct RegexDebugInfo {
     /// Information about each regex contained in the [`RegexManager`].
     pub regex_data: Vec<RegexDebugEntry>,
@@ -48,7 +48,7 @@ pub struct RegexDebugInfo {
 }
 
 /// Describes metrics about a single regex from the [`RegexManager`].
-#[cfg(feature = "regex-debug-info")]
+#[cfg(feature = "debug-info")]
 pub struct RegexDebugEntry {
     /// Id for this particular regex, which is constant and unique for its lifetime.
     ///
@@ -312,7 +312,7 @@ impl RegexManager {
     }
 
     /// Discard one regex, identified by its id from a [`RegexDebugEntry`].
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.map
             .iter_mut()
@@ -322,7 +322,7 @@ impl RegexManager {
             });
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub(crate) fn get_debug_regex_data(&self) -> Vec<RegexDebugEntry> {
         use itertools::Itertools;
         self.map
@@ -336,13 +336,13 @@ impl RegexManager {
             .collect_vec()
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub(crate) fn get_compiled_regex_count(&self) -> usize {
         self.compiled_regex_count
     }
 
     /// Collect metrics that may be useful for creating an optimized [`RegexManagerDiscardPolicy`].
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn get_debug_info(&self) -> RegexDebugInfo {
         RegexDebugInfo {
             regex_data: self.get_debug_regex_data(),

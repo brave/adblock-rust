@@ -487,13 +487,13 @@ impl Blocker {
         regex_manager.set_discard_policy(new_discard_policy);
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn discard_regex(&self, regex_id: u64) {
         let mut regex_manager = self.borrow_regex_manager();
         regex_manager.discard_regex(regex_id);
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn get_regex_debug_info(&self) -> crate::regex_manager::RegexDebugInfo {
         let regex_manager = self.borrow_regex_manager();
         regex_manager.get_debug_info()
