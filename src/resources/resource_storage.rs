@@ -48,6 +48,9 @@ pub struct ResourceImpl {
 /// By default, this uses an in-memory storage implementation, however this can be changed using
 /// a custom [ResourceStorageBackend] if desired.
 pub struct ResourceStorage {
+    #[cfg(not(feature = "single-thread"))]
+    backend: Box<dyn ResourceStorageBackend + Sync + Send>,
+    #[cfg(feature = "single-thread")]
     backend: Box<dyn ResourceStorageBackend>,
 }
 
@@ -61,6 +64,14 @@ impl Default for ResourceStorage {
 }
 
 impl ResourceStorage {
+    #[cfg(not(feature = "single-thread"))]
+    pub fn from_backend<S: ResourceStorageBackend + 'static + Sync + Send>(backend: S) -> Self {
+        Self {
+            backend: Box::new(backend),
+        }
+    }
+
+    #[cfg(feature = "single-thread")]
     pub fn from_backend<S: ResourceStorageBackend + 'static>(backend: S) -> Self {
         Self {
             backend: Box::new(backend),

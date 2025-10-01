@@ -201,6 +201,20 @@ impl Engine {
     ///
     /// If you're okay with the [Engine] holding these resources in-memory, use
     /// [Engine::use_resources] instead.
+    #[cfg(not(feature = "single-thread"))]
+    pub fn use_resource_storage<R: ResourceStorageBackend + 'static + Sync + Send>(
+        &mut self,
+        resources: R,
+    ) {
+        self.resources = ResourceStorage::from_backend(resources);
+    }
+
+    /// Sets this engine's backend for [Resource] storage to a custom implementation of
+    /// [ResourceStorageBackend].
+    ///
+    /// If you're okay with the [Engine] holding these resources in-memory, use
+    /// [Engine::use_resources] instead.
+    #[cfg(feature = "single-thread")]
     pub fn use_resource_storage<R: ResourceStorageBackend + 'static>(&mut self, resources: R) {
         self.resources = ResourceStorage::from_backend(resources);
     }
