@@ -218,6 +218,14 @@ mod tests {
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
         let data = engine.serialize().to_vec();
 
+        #[cfg(feature = "debug-info")]
+        {
+            let debug_info = engine.get_debug_info();
+            let expected_size = 8_527_344_f32;
+            assert!(debug_info.flatbuffer_size >= (expected_size * 0.99) as usize);
+            assert!(debug_info.flatbuffer_size <= (expected_size * 1.01) as usize);
+        }
+
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
             2942520321544562177
         } else {
@@ -492,13 +500,11 @@ mod tests {
         ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
-        engine
-            .add_resource(Resource::simple(
-                "addthis.com/addthis_widget.js",
-                MimeType::ApplicationJavascript,
-                "window.addthis = undefined",
-            ))
-            .unwrap();
+        engine.use_resources([Resource::simple(
+            "addthis.com/addthis_widget.js",
+            MimeType::ApplicationJavascript,
+            "window.addthis = undefined",
+        )]);
 
         let request = Request::new("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script").unwrap();
         let result = engine.check_network_request(&request);

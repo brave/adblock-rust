@@ -79,7 +79,7 @@ impl VerifiedFlatbufferMemory {
         };
 
         vec.extend_from_slice(data);
-        assert!((vec.as_ptr() as usize + start) % MIN_ALIGNMENT == 0);
+        assert!((vec.as_ptr() as usize + start).is_multiple_of(MIN_ALIGNMENT));
 
         let memory = Self {
             raw_data: vec,

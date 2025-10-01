@@ -14,7 +14,7 @@ use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
-use crate::resources::{Resource, ResourceStorage};
+use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
 
 use std::collections::HashSet;
 
@@ -56,6 +56,12 @@ pub struct Engine {
     cosmetic_cache: CosmeticFilterCache,
     resources: ResourceStorage,
     filter_data_context: FilterDataContextRef,
+}
+
+#[cfg(feature = "debug-info")]
+pub struct EngineDebugInfo {
+    pub regex_debug_info: crate::regex_manager::RegexDebugInfo,
+    pub flatbuffer_size: usize,
 }
 
 impl Default for Engine {
@@ -187,17 +193,36 @@ impl Engine {
         self.blocker.tags_enabled().contains(&tag.to_owned())
     }
 
-    /// Sets this engine's resources to be _only_ the ones provided in `resources`.
+    /// Sets this engine's [Resource]s to be _only_ the ones provided in `resources`.
+    ///
+    /// The resources will be held in-memory. If you have special caching, management, or sharing
+    /// requirements, consider [Engine::use_resource_storage] instead.
     pub fn use_resources(&mut self, resources: impl IntoIterator<Item = Resource>) {
-        self.resources = ResourceStorage::from_resources(resources);
+        let storage = crate::resources::InMemoryResourceStorage::from_resources(resources);
+        self.use_resource_storage(storage);
     }
 
-    /// Sets this engine's resources to additionally include `resource`.
-    pub fn add_resource(
+    /// Sets this engine's backend for [Resource] storage to a custom implementation of
+    /// [ResourceStorageBackend].
+    ///
+    /// If you're okay with the [Engine] holding these resources in-memory, use
+    /// [Engine::use_resources] instead.
+    #[cfg(not(feature = "single-thread"))]
+    pub fn use_resource_storage<R: ResourceStorageBackend + 'static + Sync + Send>(
         &mut self,
-        resource: Resource,
-    ) -> Result<(), crate::resources::AddResourceError> {
-        self.resources.add_resource(resource)
+        resources: R,
+    ) {
+        self.resources = ResourceStorage::from_backend(resources);
+    }
+
+    /// Sets this engine's backend for [Resource] storage to a custom implementation of
+    /// [ResourceStorageBackend].
+    ///
+    /// If you're okay with the [Engine] holding these resources in-memory, use
+    /// [Engine::use_resources] instead.
+    #[cfg(feature = "single-thread")]
+    pub fn use_resource_storage<R: ResourceStorageBackend + 'static>(&mut self, resources: R) {
+        self.resources = ResourceStorage::from_backend(resources);
     }
 
     // Cosmetic filter functionality
@@ -241,14 +266,17 @@ impl Engine {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.blocker.discard_regex(regex_id);
     }
 
-    #[cfg(feature = "regex-debug-info")]
-    pub fn get_regex_debug_info(&self) -> crate::regex_manager::RegexDebugInfo {
-        self.blocker.get_regex_debug_info()
+    #[cfg(feature = "debug-info")]
+    pub fn get_debug_info(&self) -> EngineDebugInfo {
+        EngineDebugInfo {
+            regex_debug_info: self.blocker.get_regex_debug_info(),
+            flatbuffer_size: self.filter_data_context.memory.data().len(),
+        }
     }
 
     /// Serializes the `Engine` into a binary format so that it can be quickly reloaded later.
