@@ -1,4 +1,4 @@
-#[cfg(all(test, feature = "regex-debug-info"))]
+#[cfg(all(test, feature = "debug-info"))]
 mod tests {
     use super::super::*;
 
