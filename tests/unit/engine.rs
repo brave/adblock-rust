@@ -238,6 +238,38 @@ mod tests {
     }
 
     #[test]
+    fn resource_storage_sharing() {
+        let resources = ResourceStorage::from_resources([Resource::simple(
+            "refresh-defuser.js",
+            MimeType::ApplicationJavascript,
+            "refresh-defuser",
+        )]);
+        let mut engine1 =
+            Engine::from_rules(["domain1.com##+js(refresh-defuser)"], Default::default());
+        let mut engine2 =
+            Engine::from_rules(["domain2.com##+js(refresh-defuser)"], Default::default());
+        engine1.use_resource_storage(ResourceStorageRef::clone(&resources));
+        engine2.use_resource_storage(ResourceStorageRef::clone(&resources));
+
+        fn wrap_try(scriptlet_content: &str) -> String {
+            format!("try {{\n{}\n}} catch ( e ) {{ }}\n", scriptlet_content)
+        }
+
+        assert_eq!(
+            engine1
+                .url_cosmetic_resources("https://domain1.com")
+                .injected_script,
+            wrap_try("refresh-defuser")
+        );
+        assert_eq!(
+            engine2
+                .url_cosmetic_resources("https://domain2.com")
+                .injected_script,
+            wrap_try("refresh-defuser")
+        );
+    }
+
+    #[test]
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(
             ["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],
