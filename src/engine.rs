@@ -58,6 +58,13 @@ pub struct Engine {
     filter_data_context: FilterDataContextRef,
 }
 
+#[cfg(feature = "debug-info")]
+pub struct EngineDebugInfo {
+    pub regex_debug_info: crate::regex_manager::RegexDebugInfo,
+
+    pub flatbuffer_size: usize,
+}
+
 impl Default for Engine {
     fn default() -> Self {
         Self::from_filter_set(FilterSet::new(false), false)
@@ -241,14 +248,17 @@ impl Engine {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
-    #[cfg(feature = "regex-debug-info")]
+    #[cfg(feature = "debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.blocker.discard_regex(regex_id);
     }
 
-    #[cfg(feature = "regex-debug-info")]
-    pub fn get_regex_debug_info(&self) -> crate::regex_manager::RegexDebugInfo {
-        self.blocker.get_regex_debug_info()
+    #[cfg(feature = "debug-info")]
+    pub fn get_debug_info(&self) -> EngineDebugInfo {
+        EngineDebugInfo {
+            regex_debug_info: self.blocker.get_regex_debug_info(),
+            flatbuffer_size: self.filter_data_context.memory.data().len(),
+        }
     }
 
     /// Serializes the `Engine` into a binary format so that it can be quickly reloaded later.
