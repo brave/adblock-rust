@@ -805,3 +805,71 @@ mod scriptlet_storage_tests {
         assert_eq!(resources.get_scriptlet_resources([("test, 1", PERM01), ("test-wrapper, 2", PERM01), ("shared, 3", Default::default())]), "permissioned\na\ncommon\nb\nfunction test() {}\nfunction testWrapper() { test(arguments) }\nfunction shared() { }\ntry {\ntest(\"1\")\n} catch ( e ) { }\ntry {\ntestWrapper(\"2\")\n} catch ( e ) { }\ntry {\nshared(\"3\")\n} catch ( e ) { }\n");
     }
 }
+
+#[cfg(all(test, feature = "single-thread"))]
+mod shared_storage_tests {
+    use super::super::*;
+    use crate::resources::MimeType;
+
+    use std::rc::Rc;
+
+    /// To be wrapped in [Rc] for shared access across engines.
+    struct BraveCoreResourceStorageInner {
+        /// Stores each resource by its canonical name
+        resources: HashMap<String, Resource>,
+    }
+
+    #[derive(Clone)]
+    struct BraveCoreResourceStorage {
+        shared_storage: Rc<BraveCoreResourceStorageInner>,
+    }
+
+    impl ResourceStorageBackend for BraveCoreResourceStorage {
+        fn get_resource(&self, resource_ident: &str) -> Option<Resource> {
+            self.shared_storage.resources.get(resource_ident).cloned()
+        }
+    }
+
+    #[test]
+    fn share_resources() {
+        let shared_storage = Rc::new(BraveCoreResourceStorageInner {
+            resources: HashMap::from_iter([(
+                "test-scriptlet.js".to_string(),
+                Resource::simple(
+                    "test-scriptlet",
+                    MimeType::ApplicationJavascript,
+                    "success!",
+                ),
+            )]),
+        });
+
+        let mut engine1 =
+            crate::Engine::from_rules(["example1.com##+js(test-scriptlet)"], Default::default());
+        engine1.use_resource_storage(BraveCoreResourceStorage {
+            shared_storage: Rc::clone(&shared_storage),
+        });
+
+        let mut engine2 =
+            crate::Engine::from_rules(["example2.com##+js(test-scriptlet)"], Default::default());
+        engine2.use_resource_storage(BraveCoreResourceStorage {
+            shared_storage: Rc::clone(&shared_storage),
+        });
+
+        assert!(engine1
+            .url_cosmetic_resources("https://example1.com")
+            .injected_script
+            .contains("success!"));
+        assert!(!engine1
+            .url_cosmetic_resources("https://example2.com")
+            .injected_script
+            .contains("success!"));
+        assert!(!engine2
+            .url_cosmetic_resources("https://example1.com")
+            .injected_script
+            .contains("success!"));
+        assert!(engine2
+            .url_cosmetic_resources("https://example2.com")
+            .injected_script
+            .contains("success!"));
+    }
+}
