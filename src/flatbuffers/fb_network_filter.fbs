@@ -52,6 +52,10 @@ table HostnameSpecificRules {
   procedural_action_exception: [string];
 }
 
+table StringVector {
+  data: [string] (required);
+}
+
 /// A table to store cosmetic filter rules (including supported structures).
 table CosmeticFilters {
   /// Rules that are just the CSS class of an element to be hidden on all sites, e.g. `##.ad`.
@@ -71,13 +75,13 @@ table CosmeticFilters {
   /// class, e.g. `##.ad image`.
   /// Stored as a multi-map `hostname_hash` => `selector`
   complex_class_rules_index: [string] (required);
-  complex_class_rules_values: [string] (required);
+  complex_class_rules_values: [StringVector] (required);
 
   /// Rules that are the CSS selector of an element to be hidden on all sites, starting with an
   /// id, e.g. `###banner > .text a`.
   /// Stored as a multi-map `hostname_hash` => `selector`
   complex_id_rules_index: [string] (required);
-  complex_id_rules_values: [string] (required);
+  complex_id_rules_values: [StringVector] (required);
 
   /// Simple hostname-specific hide rules, e.g. `example.com##.ad`.
   /// Stored as a multi-map `hostname_hash` => `selector`.
