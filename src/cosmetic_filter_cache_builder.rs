@@ -9,6 +9,8 @@ use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterMask, CosmeticFilte
 use crate::filters::flatbuffer_generated::fb;
 use crate::flatbuffers::containers::flat_map::FlatMapBuilder;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
+use crate::flatbuffers::containers::hash_map::HashMapBuilder;
+use crate::flatbuffers::containers::hash_set::HashSetBuilder;
 
 use crate::flatbuffers::containers::flat_serialize::{
     serialize_vec_opt, FlatBuilder, FlatSerialize,
@@ -56,13 +58,18 @@ impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for HostnameRule {
     }
 }
 
+#[derive(Default, Clone)]
+struct StringVector {
+    data: Vec<String>,
+}
+
 #[derive(Default)]
 pub(crate) struct CosmeticFilterCacheBuilder {
-    simple_class_rules: HashSet<String>,
-    simple_id_rules: HashSet<String>,
+    simple_class_rules: HashSetBuilder<String>,
+    simple_id_rules: HashSetBuilder<String>,
     misc_generic_selectors: HashSet<String>,
-    complex_class_rules: FlatMultiMapBuilder<String, String>,
-    complex_id_rules: FlatMultiMapBuilder<String, String>,
+    complex_class_rules: HashMapBuilder<String, StringVector>,
+    complex_id_rules: HashMapBuilder<String, StringVector>,
 
     hostname_hide: FlatMultiMapBuilder<Hash, String>,
     hostname_inject_script: FlatMultiMapBuilder<Hash, String>,
@@ -110,7 +117,10 @@ impl CosmeticFilterCacheBuilder {
                 if key == selector {
                     self.simple_class_rules.insert(class);
                 } else {
-                    self.complex_class_rules.insert(class, selector);
+                    let selectors = self
+                        .complex_class_rules
+                        .get_or_insert(class, StringVector::default());
+                    selectors.data.push(selector);
                 }
             }
         } else if selector.starts_with('#') {
@@ -120,7 +130,10 @@ impl CosmeticFilterCacheBuilder {
                 if key == selector {
                     self.simple_id_rules.insert(id);
                 } else {
-                    self.complex_id_rules.insert(id, selector);
+                    let selectors = self
+                        .complex_id_rules
+                        .get_or_insert(id, StringVector::default());
+                    selectors.data.push(selector);
                 }
             }
         } else {
@@ -204,11 +217,24 @@ impl CosmeticFilterCacheBuilder {
     }
 }
 
+impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for StringVector {
+    type Output = WIPOffset<fb::StringVector<'a>>;
+
+    fn serialize(value: Self, builder: &mut B) -> WIPOffset<fb::StringVector<'a>> {
+        let v = FlatSerialize::serialize(value.data, builder);
+        fb::StringVector::create(
+            builder.raw_builder(),
+            &fb::StringVectorArgs { data: Some(v) },
+        )
+    }
+}
+
 impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for CosmeticFilterCacheBuilder {
     type Output = WIPOffset<fb::CosmeticFilters<'a>>;
+
     fn serialize(value: Self, builder: &mut B) -> WIPOffset<fb::CosmeticFilters<'a>> {
-        let complex_class_rules = FlatMultiMapBuilder::finish(value.complex_class_rules, builder);
-        let complex_id_rules = FlatMultiMapBuilder::finish(value.complex_id_rules, builder);
+        let complex_class_rules = HashMapBuilder::finish(value.complex_class_rules, builder);
+        let complex_id_rules = HashMapBuilder::finish(value.complex_id_rules, builder);
 
         // Handle top-level hostname hide and inject_script for better deduplication
         let hostname_hide = FlatMultiMapBuilder::finish(value.hostname_hide, builder);

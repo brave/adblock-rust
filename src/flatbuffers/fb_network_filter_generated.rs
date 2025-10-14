@@ -987,6 +987,164 @@ pub mod fb {
             )
         }
     }
+    pub enum StringVectorOffset {}
+    #[derive(Copy, Clone, PartialEq)]
+
+    pub struct StringVector<'a> {
+        pub _tab: flatbuffers::Table<'a>,
+    }
+
+    impl<'a> flatbuffers::Follow<'a> for StringVector<'a> {
+        type Inner = StringVector<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+            Self {
+                _tab: flatbuffers::Table::new(buf, loc),
+            }
+        }
+    }
+
+    impl<'a> StringVector<'a> {
+        pub const VT_DATA: flatbuffers::VOffsetT = 4;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+            StringVector { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+            'bldr: 'args,
+            'args: 'mut_bldr,
+            'mut_bldr,
+            A: flatbuffers::Allocator + 'bldr,
+        >(
+            _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+            args: &'args StringVectorArgs<'args>,
+        ) -> flatbuffers::WIPOffset<StringVector<'bldr>> {
+            let mut builder = StringVectorBuilder::new(_fbb);
+            if let Some(x) = args.data {
+                builder.add_data(x);
+            }
+            builder.finish()
+        }
+
+        pub fn unpack(&self) -> StringVectorT {
+            let data = {
+                let x = self.data();
+                x.iter().map(|s| s.to_string()).collect()
+            };
+            StringVectorT { data }
+        }
+
+        #[inline]
+        pub fn data(&self) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(StringVector::VT_DATA, None)
+                    .unwrap()
+            }
+        }
+    }
+
+    impl flatbuffers::Verifiable for StringVector<'_> {
+        #[inline]
+        fn run_verifier(
+            v: &mut flatbuffers::Verifier,
+            pos: usize,
+        ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+            use self::flatbuffers::Verifiable;
+            v.visit_table(pos)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("data", Self::VT_DATA, true)?
+                .finish();
+            Ok(())
+        }
+    }
+    pub struct StringVectorArgs<'a> {
+        pub data: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+    }
+    impl<'a> Default for StringVectorArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+            StringVectorArgs {
+                data: None, // required field
+            }
+        }
+    }
+
+    pub struct StringVectorBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    }
+    impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> StringVectorBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_data(
+            &mut self,
+            data: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_
+                .push_slot_always::<flatbuffers::WIPOffset<_>>(StringVector::VT_DATA, data);
+        }
+        #[inline]
+        pub fn new(
+            _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> StringVectorBuilder<'a, 'b, A> {
+            let start = _fbb.start_table();
+            StringVectorBuilder {
+                fbb_: _fbb,
+                start_: start,
+            }
+        }
+        #[inline]
+        pub fn finish(self) -> flatbuffers::WIPOffset<StringVector<'a>> {
+            let o = self.fbb_.end_table(self.start_);
+            self.fbb_.required(o, StringVector::VT_DATA, "data");
+            flatbuffers::WIPOffset::new(o.value())
+        }
+    }
+
+    impl core::fmt::Debug for StringVector<'_> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            let mut ds = f.debug_struct("StringVector");
+            ds.field("data", &self.data());
+            ds.finish()
+        }
+    }
+    #[non_exhaustive]
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct StringVectorT {
+        pub data: Vec<String>,
+    }
+    impl Default for StringVectorT {
+        fn default() -> Self {
+            Self {
+                data: Default::default(),
+            }
+        }
+    }
+    impl StringVectorT {
+        pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
+            &self,
+            _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
+        ) -> flatbuffers::WIPOffset<StringVector<'b>> {
+            let data = Some({
+                let x = &self.data;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            StringVector::create(_fbb, &StringVectorArgs { data })
+        }
+    }
     pub enum CosmeticFiltersOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
@@ -1096,7 +1254,7 @@ pub mod fb {
             };
             let complex_class_rules_values = {
                 let x = self.complex_class_rules_values();
-                x.iter().map(|s| s.to_string()).collect()
+                x.iter().map(|t| t.unpack()).collect()
             };
             let complex_id_rules_index = {
                 let x = self.complex_id_rules_index();
@@ -1104,7 +1262,7 @@ pub mod fb {
             };
             let complex_id_rules_values = {
                 let x = self.complex_id_rules_values();
-                x.iter().map(|s| s.to_string()).collect()
+                x.iter().map(|t| t.unpack()).collect()
             };
             let hostname_hide_index = {
                 let x = self.hostname_hide_index();
@@ -1220,14 +1378,14 @@ pub mod fb {
         #[inline]
         pub fn complex_class_rules_values(
             &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<StringVector<'a>>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<StringVector>>,
                     >>(CosmeticFilters::VT_COMPLEX_CLASS_RULES_VALUES, None)
                     .unwrap()
             }
@@ -1253,14 +1411,14 @@ pub mod fb {
         #[inline]
         pub fn complex_id_rules_values(
             &self,
-        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<StringVector<'a>>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<
-                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<StringVector>>,
                     >>(CosmeticFilters::VT_COMPLEX_ID_RULES_VALUES, None)
                     .unwrap()
             }
@@ -1397,7 +1555,7 @@ pub mod fb {
                     true,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<StringVector>>,
                 >>(
                     "complex_class_rules_values",
                     Self::VT_COMPLEX_CLASS_RULES_VALUES,
@@ -1411,7 +1569,7 @@ pub mod fb {
                     true,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
-                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<StringVector>>,
                 >>(
                     "complex_id_rules_values",
                     Self::VT_COMPLEX_ID_RULES_VALUES,
@@ -1463,13 +1621,17 @@ pub mod fb {
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
         pub complex_class_rules_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+            flatbuffers::WIPOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<StringVector<'a>>>,
+            >,
         >,
         pub complex_id_rules_index: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
         pub complex_id_rules_values: Option<
-            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+            flatbuffers::WIPOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<StringVector<'a>>>,
+            >,
         >,
         pub hostname_hide_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
         pub hostname_hide_values: Option<
@@ -1565,7 +1727,7 @@ pub mod fb {
         pub fn add_complex_class_rules_values(
             &mut self,
             complex_class_rules_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<StringVector<'b>>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
@@ -1589,7 +1751,7 @@ pub mod fb {
         pub fn add_complex_id_rules_values(
             &mut self,
             complex_id_rules_values: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<StringVector<'b>>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
@@ -1774,9 +1936,9 @@ pub mod fb {
         pub simple_id_rules: Vec<String>,
         pub misc_generic_selectors: Vec<String>,
         pub complex_class_rules_index: Vec<String>,
-        pub complex_class_rules_values: Vec<String>,
+        pub complex_class_rules_values: Vec<StringVectorT>,
         pub complex_id_rules_index: Vec<String>,
-        pub complex_id_rules_values: Vec<String>,
+        pub complex_id_rules_values: Vec<StringVectorT>,
         pub hostname_hide_index: Vec<u64>,
         pub hostname_hide_values: Vec<String>,
         pub hostname_inject_script_index: Vec<u64>,
@@ -1830,7 +1992,7 @@ pub mod fb {
             });
             let complex_class_rules_values = Some({
                 let x = &self.complex_class_rules_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
             let complex_id_rules_index = Some({
@@ -1840,7 +2002,7 @@ pub mod fb {
             });
             let complex_id_rules_values = Some({
                 let x = &self.complex_id_rules_values;
-                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
             let hostname_hide_index = Some({

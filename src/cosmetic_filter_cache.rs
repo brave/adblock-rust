@@ -16,8 +16,9 @@ use crate::filters::cosmetic::{CosmeticFilterAction, CosmeticFilterOperator};
 use crate::filters::filter_data_context::FilterDataContextRef;
 
 use crate::flatbuffers::containers::flat_map::FlatMapView;
-use crate::flatbuffers::containers::flat_multimap::{FlatMapStringView, FlatMultiMapView};
-use crate::flatbuffers::containers::flat_set::FlatSetView;
+use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
+use crate::flatbuffers::containers::hash_map::HashMapStringView;
+use crate::flatbuffers::containers::hash_set::HashSetView;
 use crate::resources::{PermissionMask, ResourceStorage};
 
 use crate::utils::Hash;
@@ -169,13 +170,13 @@ impl CosmeticFilterCache {
         let mut selectors = vec![];
 
         let cosmetic_filters = self.filter_data_context.memory.root().cosmetic_filters();
-        let simple_class_rules = FlatSetView::new(cosmetic_filters.simple_class_rules());
-        let simple_id_rules = FlatSetView::new(cosmetic_filters.simple_id_rules());
-        let complex_class_rules = FlatMapStringView::new(
+        let simple_class_rules = HashSetView::new(cosmetic_filters.simple_class_rules());
+        let simple_id_rules = HashSetView::new(cosmetic_filters.simple_id_rules());
+        let complex_class_rules = HashMapStringView::new(
             cosmetic_filters.complex_class_rules_index(),
             cosmetic_filters.complex_class_rules_values(),
         );
-        let complex_id_rules = FlatMapStringView::new(
+        let complex_id_rules = HashMapStringView::new(
             cosmetic_filters.complex_id_rules_index(),
             cosmetic_filters.complex_id_rules_values(),
         );
@@ -185,10 +186,12 @@ impl CosmeticFilterCache {
             if simple_class_rules.contains(class) && !exceptions.contains(&format!(".{}", class)) {
                 selectors.push(format!(".{}", class));
             }
-            if let Some(bucket) = complex_class_rules.get(class) {
-                for (_, sel) in bucket {
-                    if !exceptions.contains(sel) {
-                        selectors.push(sel.to_string());
+            if let Some(values) = complex_class_rules.get(class) {
+                {
+                    for sel in values.data() {
+                        if !exceptions.contains(sel) {
+                            selectors.push(sel.to_string());
+                        }
                     }
                 }
             }
@@ -198,10 +201,12 @@ impl CosmeticFilterCache {
             if simple_id_rules.contains(id) && !exceptions.contains(&format!("#{}", id)) {
                 selectors.push(format!("#{}", id));
             }
-            if let Some(bucket) = complex_id_rules.get(id) {
-                for (_, sel) in bucket {
-                    if !exceptions.contains(sel) {
-                        selectors.push(sel.to_string());
+            if let Some(values) = complex_id_rules.get(id) {
+                {
+                    for sel in values.data() {
+                        if !exceptions.contains(sel) {
+                            selectors.push(sel.to_string());
+                        }
                     }
                 }
             }
