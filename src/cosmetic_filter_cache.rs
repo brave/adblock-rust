@@ -187,11 +187,9 @@ impl CosmeticFilterCache {
                 selectors.push(format!(".{}", class));
             }
             if let Some(values) = complex_class_rules.get(class) {
-                {
-                    for sel in values.data() {
-                        if !exceptions.contains(sel) {
-                            selectors.push(sel.to_string());
-                        }
+                for sel in values.data() {
+                    if !exceptions.contains(sel) {
+                        selectors.push(sel.to_string());
                     }
                 }
             }
@@ -202,11 +200,9 @@ impl CosmeticFilterCache {
                 selectors.push(format!("#{}", id));
             }
             if let Some(values) = complex_id_rules.get(id) {
-                {
-                    for sel in values.data() {
-                        if !exceptions.contains(sel) {
-                            selectors.push(sel.to_string());
-                        }
+                for sel in values.data() {
+                    if !exceptions.contains(sel) {
+                        selectors.push(sel.to_string());
                     }
                 }
             }
