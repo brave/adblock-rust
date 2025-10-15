@@ -54,4 +54,18 @@ impl<I: FbHashKey, Keys: FbIndex<I>> HashSetView<I, Keys> {
     pub fn contains(&self, key: I) -> bool {
         self.view.get_single(key).is_some()
     }
+
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.view.len()
+    }
+
+    #[cfg(test)]
+    pub fn capacity(&self) -> usize {
+        self.view.capacity()
+    }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/unit/flatbuffers/containers/hash_set.rs"]
+mod unit_tests;

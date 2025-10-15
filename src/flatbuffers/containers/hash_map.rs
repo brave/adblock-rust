@@ -78,6 +78,16 @@ where
     pub fn get(&self, key: I) -> Option<V> {
         self.view.get_single(key)
     }
+
+    #[cfg(test)]
+    pub fn capacity(&self) -> usize {
+        self.view.capacity()
+    }
+
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.view.len()
+    }
 }
 
 pub type HashMapStringView<'a, V> = HashMapView<
@@ -86,3 +96,7 @@ pub type HashMapStringView<'a, V> = HashMapView<
     flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
     flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<<V as flatbuffers::Follow<'a>>::Inner>>,
 >;
+
+#[cfg(test)]
+#[path = "../../../tests/unit/flatbuffers/containers/hash_map.rs"]
+mod unit_tests;
