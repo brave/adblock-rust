@@ -5,7 +5,7 @@ use flatbuffers::{Follow, Vector};
 /// 1. a faster &[I] for slices;
 /// 2. a slower for flatbuffers::Vector<I>, that uses Follow() internally.
 ///
-/// Note: it intentally returns values using a copy, because it's faster
+/// Note: it intentionally returns values using a copy, because it's faster
 /// than by reference.
 pub(crate) trait FbIndex<I> {
     fn len(&self) -> usize;
