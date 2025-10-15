@@ -63,7 +63,7 @@ impl<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> HashIndexView<I, V, 
         }
     }
 
-    fn capacity(&self) -> usize {
+    pub fn capacity(&self) -> usize {
         self.indexes.len()
     }
 
@@ -76,6 +76,17 @@ impl<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> HashIndexView<I, V, 
         } else {
             Some(self.values.get(slot))
         }
+    }
+
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        let mut len = 0;
+        for i in 0..self.capacity() {
+            if !FbHashKey::is_empty(&self.indexes.get(i)) {
+                len += 1;
+            }
+        }
+        len
     }
 }
 
@@ -102,15 +113,11 @@ impl<I: HashKey, V: Default + Clone> Default for HashIndexBuilder<I, V> {
 
 impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
     pub fn new_with_capacity(capacity: usize) -> Self {
-        debug_assert!(capacity >= 4);
-        let self_ = Self {
+        Self {
             size: 0,
             indexes: vec![I::default(); capacity],
             values: vec![V::default(); capacity],
-        };
-        debug_assert_eq!(self_.indexes.len(), capacity);
-        debug_assert_eq!(self_.capacity(), capacity);
-        self_
+        }
     }
 
     pub fn insert(&mut self, key: I, value: V, allow_duplicates: bool) -> (usize, &mut V) {
@@ -149,7 +156,8 @@ impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
     }
 
     fn maybe_increase_capacity(&mut self) {
-        if self.size * 2 <= self.capacity() { // Use 50% load factor.
+        if self.size * 2 <= self.capacity() {
+            // Use 50% load factor.
             return;
         }
 
@@ -161,16 +169,34 @@ impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
 
         for (key, value) in old_indexes.into_iter().zip(old_values.into_iter()) {
             if !HashKey::is_empty(&key) {
-              let slot = find_slot(&key, new_capacity, |slot| -> bool {
-                HashKey::is_empty(&self.indexes[slot])
-              });
-              self.indexes[slot] = key;
-              self.values[slot] = value;
+                let slot = find_slot(&key, new_capacity, |slot| -> bool {
+                    HashKey::is_empty(&self.indexes[slot])
+                });
+                self.indexes[slot] = key;
+                self.values[slot] = value;
             }
         }
     }
 
     pub fn consume(value: Self) -> (Vec<I>, Vec<V>) {
         (value.indexes, value.values)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_hash() {
+        // Verify get_hash is stable.
+        // If the value changes, update ADBLOCK_RUST_DAT_VERSION.
+        let message = "If the value changes, update ADBLOCK_RUST_DAT_VERSION.";
+        assert_eq!(
+            get_hash(&"adblock-rust"),
+            15102204115509201409,
+            "{}",
+            message
+        );
     }
 }
