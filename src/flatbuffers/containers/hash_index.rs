@@ -28,33 +28,33 @@ impl FbHashKey for &str {
 }
 
 #[inline(always)]
-fn next_bucket(mut bucket: usize, capacity: usize, step: &mut usize) -> usize {
-    bucket += *step * *step;
+fn next_slot(mut slot: usize, capacity: usize, step: &mut usize) -> usize {
+    slot += *step * *step;
     *step += 1;
-    bucket % capacity
+    slot % capacity
 }
 
-fn find_matching_bucket<I: FbHashKey, Keys: FbIndex<I>>(
+fn find_matching_slot<I: FbHashKey, Keys: FbIndex<I>>(
     indexes: &Keys,
-    mut bucket: usize,
+    mut slot: usize,
     key: I,
     capacity: usize,
     step: &mut usize,
 ) -> Option<usize> {
-    debug_assert!(bucket < capacity);
+    debug_assert!(slot < capacity);
     debug_assert!(*step > 0);
     debug_assert!(indexes.len() == capacity);
     loop {
-        let data = indexes.get(bucket);
+        let data = indexes.get(slot);
         if FbHashKey::is_empty(&data) {
             return None;
         }
 
         if data == key {
-            return Some(bucket);
+            return Some(slot);
         }
 
-        bucket = next_bucket(bucket, capacity, step);
+        slot = next_slot(slot, capacity, step);
     }
 }
 
@@ -76,14 +76,14 @@ impl<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> HashIndexView<I, V, 
     }
 
     pub fn get_single(&self, key: I) -> Option<V> {
-        let bucket = self.find_single_bucket(key);
-        bucket.map(|idx| self.values.get(idx))
+        let slot = self.find_single_slot(key);
+        slot.map(|idx| self.values.get(idx))
     }
 
-    fn find_single_bucket(&self, key: I) -> Option<usize> {
+    fn find_single_slot(&self, key: I) -> Option<usize> {
         let capacity = self.indexes.len();
-        let bucket = get_hash(&key) % capacity;
-        find_matching_bucket(&self.indexes, bucket, key, capacity, &mut 1)
+        let slot = get_hash(&key) % capacity;
+        find_matching_slot(&self.indexes, slot, key, capacity, &mut 1)
     }
 }
 
@@ -127,27 +127,27 @@ impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
 
         let capacity = self.capacity();
         assert!(capacity >= 4);
-        let mut bucket = target_hash % capacity;
+        let mut slot = target_hash % capacity;
 
         let mut step = 1;
 
         loop {
-            if HashKey::is_empty(&self.indexes[bucket]) {
-                // Found an empty bucket, take it and insert new key-value pair.
-                self.indexes[bucket] = key;
-                self.values[bucket] = value;
+            if HashKey::is_empty(&self.indexes[slot]) {
+                // Found an empty slot, take it and insert new key-value pair.
+                self.indexes[slot] = key;
+                self.values[slot] = value;
                 self.size += 1;
                 self.maybe_increase_capacity(allow_duplicates);
-                return (bucket, &mut self.values[bucket]);
+                return (slot, &mut self.values[slot]);
             }
 
-            if self.indexes[bucket] == key && !allow_duplicates {
+            if self.indexes[slot] == key && !allow_duplicates {
                 // Update the value for an existing key.
-                self.values[bucket] = value;
-                return (bucket, &mut self.values[bucket]);
+                self.values[slot] = value;
+                return (slot, &mut self.values[slot]);
             }
 
-            bucket = next_bucket(bucket, capacity, &mut step);
+            slot = next_slot(slot, capacity, &mut step);
         }
     }
 
@@ -155,27 +155,27 @@ impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
         self.indexes.len()
     }
 
-    pub fn find_single_bucket(&mut self, key: &I) -> Option<usize> {
+    pub fn find_single_slot(&mut self, key: &I) -> Option<usize> {
         let capacity = self.indexes.len();
-        let mut bucket = get_hash(key) % capacity;
+        let mut slot = get_hash(key) % capacity;
         let mut step = 1;
         loop {
-            let data = &self.indexes[bucket];
+            let data = &self.indexes[slot];
             if HashKey::is_empty(data) {
                 return None;
             }
 
             if data == key {
-                return Some(bucket);
+                return Some(slot);
             }
 
-            bucket = next_bucket(bucket, capacity, &mut step);
+            slot = next_slot(slot, capacity, &mut step);
         }
     }
 
     pub fn get_or_insert(&mut self, key: I, value: V) -> &mut V {
-        if let Some(existing_bucket) = self.find_single_bucket(&key) {
-            return &mut self.values[existing_bucket];
+        if let Some(existing_slot) = self.find_single_slot(&key) {
+            return &mut self.values[existing_slot];
         }
         let (_, new_value) = self.insert(key, value, false);
         new_value
