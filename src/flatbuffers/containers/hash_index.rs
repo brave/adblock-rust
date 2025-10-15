@@ -3,6 +3,7 @@
 /// The load factor is 25%-50%.
 /// Uses RustC FxHasher as a hash function.
 /// A default value is used to mark empty slots, so it can't be used as a key.
+/// Inspired by https://source.chromium.org/chromium/chromium/src/+/main:components/url_pattern_index/closed_hash_map.h
 use std::marker::PhantomData;
 
 use crate::flatbuffers::containers::fb_index::FbIndex;
@@ -27,34 +28,21 @@ impl FbHashKey for &str {
     }
 }
 
-#[inline(always)]
-fn next_slot(mut slot: usize, capacity: usize, step: &mut usize) -> usize {
-    slot += *step * *step;
-    *step += 1;
-    slot % capacity
-}
-
-fn find_matching_slot<I: FbHashKey, Keys: FbIndex<I>>(
-    indexes: &Keys,
-    mut slot: usize,
-    key: I,
-    capacity: usize,
-    step: &mut usize,
-) -> Option<usize> {
-    debug_assert!(slot < capacity);
-    debug_assert!(*step > 0);
-    debug_assert!(indexes.len() == capacity);
+pub fn find_slot<I: std::hash::Hash>(
+    key: &I,
+    table_size: usize,
+    probe: impl Fn(usize) -> bool,
+) -> usize {
+    debug_assert!(table_size.is_power_of_two());
+    let table_mask = table_size - 1;
+    let mut slot = get_hash(&key) & table_mask;
+    let mut step = 1;
     loop {
-        let data = indexes.get(slot);
-        if FbHashKey::is_empty(&data) {
-            return None;
+        if probe(slot) {
+            return slot;
         }
-
-        if data == key {
-            return Some(slot);
-        }
-
-        slot = next_slot(slot, capacity, step);
+        slot = (slot + step) & table_mask;
+        step += 1;
     }
 }
 
@@ -75,15 +63,19 @@ impl<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> HashIndexView<I, V, 
         }
     }
 
-    pub fn get_single(&self, key: I) -> Option<V> {
-        let slot = self.find_single_slot(key);
-        slot.map(|idx| self.values.get(idx))
+    fn capacity(&self) -> usize {
+        self.indexes.len()
     }
 
-    fn find_single_slot(&self, key: I) -> Option<usize> {
-        let capacity = self.indexes.len();
-        let slot = get_hash(&key) % capacity;
-        find_matching_slot(&self.indexes, slot, key, capacity, &mut 1)
+    pub fn get_single(&self, key: I) -> Option<V> {
+        let slot = find_slot(&key, self.capacity(), |slot| -> bool {
+            FbHashKey::is_empty(&self.indexes.get(slot)) || self.indexes.get(slot) == key
+        });
+        if FbHashKey::is_empty(&self.indexes.get(slot)) {
+            None
+        } else {
+            Some(self.values.get(slot))
+        }
     }
 }
 
@@ -123,31 +115,21 @@ impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
 
     pub fn insert(&mut self, key: I, value: V, allow_duplicates: bool) -> (usize, &mut V) {
         debug_assert!(!HashKey::is_empty(&key), "Key is empty");
-        let target_hash = get_hash(&key);
 
-        let capacity = self.capacity();
-        assert!(capacity >= 4);
-        let mut slot = target_hash % capacity;
+        let slot = find_slot(&key, self.capacity(), |slot| -> bool {
+            HashKey::is_empty(&self.indexes[slot])
+                || (self.indexes[slot] == key && !allow_duplicates)
+        });
 
-        let mut step = 1;
-
-        loop {
-            if HashKey::is_empty(&self.indexes[slot]) {
-                // Found an empty slot, take it and insert new key-value pair.
-                self.indexes[slot] = key;
-                self.values[slot] = value;
-                self.size += 1;
-                self.maybe_increase_capacity(allow_duplicates);
-                return (slot, &mut self.values[slot]);
-            }
-
-            if self.indexes[slot] == key && !allow_duplicates {
-                // Update the value for an existing key.
-                self.values[slot] = value;
-                return (slot, &mut self.values[slot]);
-            }
-
-            slot = next_slot(slot, capacity, &mut step);
+        if HashKey::is_empty(&self.indexes[slot]) {
+            self.indexes[slot] = key;
+            self.values[slot] = value;
+            self.size += 1;
+            self.maybe_increase_capacity();
+            (slot, &mut self.values[slot])
+        } else {
+            self.values[slot] = value;
+            (slot, &mut self.values[slot])
         }
     }
 
@@ -155,46 +137,35 @@ impl<I: HashKey, V: Default + Clone> HashIndexBuilder<I, V> {
         self.indexes.len()
     }
 
-    pub fn find_single_slot(&mut self, key: &I) -> Option<usize> {
-        let capacity = self.indexes.len();
-        let mut slot = get_hash(key) % capacity;
-        let mut step = 1;
-        loop {
-            let data = &self.indexes[slot];
-            if HashKey::is_empty(data) {
-                return None;
-            }
-
-            if data == key {
-                return Some(slot);
-            }
-
-            slot = next_slot(slot, capacity, &mut step);
-        }
-    }
-
     pub fn get_or_insert(&mut self, key: I, value: V) -> &mut V {
-        if let Some(existing_slot) = self.find_single_slot(&key) {
-            return &mut self.values[existing_slot];
+        let slot = find_slot(&key, self.capacity(), |slot| -> bool {
+            HashKey::is_empty(&self.indexes[slot]) || self.indexes[slot] == key
+        });
+        if !HashKey::is_empty(&self.indexes[slot]) {
+            return &mut self.values[slot];
         }
         let (_, new_value) = self.insert(key, value, false);
         new_value
     }
 
-    fn maybe_increase_capacity(&mut self, allow_duplicates: bool) {
-        // Use 50% load factor.
-        if self.size * 2 > self.capacity() {
-            self.size = 0;
-            let new_capacity = self.capacity() * 2;
-            let old_indexes = std::mem::take(&mut self.indexes);
-            let old_values = std::mem::take(&mut self.values);
-            self.indexes = vec![I::default(); new_capacity];
-            self.values = vec![V::default(); new_capacity];
+    fn maybe_increase_capacity(&mut self) {
+        if self.size * 2 <= self.capacity() { // Use 50% load factor.
+            return;
+        }
 
-            for (key, value) in old_indexes.into_iter().zip(old_values.into_iter()) {
-                if !HashKey::is_empty(&key) {
-                    self.insert(key, value, allow_duplicates);
-                }
+        let new_capacity = (self.capacity() * 2).next_power_of_two();
+        let old_indexes = std::mem::take(&mut self.indexes);
+        let old_values = std::mem::take(&mut self.values);
+        self.indexes = vec![I::default(); new_capacity];
+        self.values = vec![V::default(); new_capacity];
+
+        for (key, value) in old_indexes.into_iter().zip(old_values.into_iter()) {
+            if !HashKey::is_empty(&key) {
+              let slot = find_slot(&key, new_capacity, |slot| -> bool {
+                HashKey::is_empty(&self.indexes[slot])
+              });
+              self.indexes[slot] = key;
+              self.values[slot] = value;
             }
         }
     }
