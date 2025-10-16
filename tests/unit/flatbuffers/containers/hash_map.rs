@@ -14,28 +14,32 @@ mod tests {
     use super::flat::fb_test;
 
     fn serialize_map(values: Vec<(&str, &str)>) -> Vec<u8> {
-        let mut builder = flatbuffers::FlatBufferBuilder::new();
-        let mut map = HashMapBuilder::default();
+        let mut builder = HashMapBuilder::default();
         for (key, value) in values {
-            map.insert(key.to_string(), value.to_string());
+            builder.insert(key.to_string(), value.to_string());
         }
-        let map = HashMapBuilder::finish(map, &mut builder);
+        serialize_builder(builder)
+    }
+
+    fn serialize_builder(builder: HashMapBuilder<String, String>) -> Vec<u8> {
+        let mut flat_builder = flatbuffers::FlatBufferBuilder::new();
+        let map = HashMapBuilder::finish(builder, &mut flat_builder);
         let map_serialized = fb_test::TestStringMap::create(
-            &mut builder,
+            &mut flat_builder,
             &fb_test::TestStringMapArgs {
                 keys: Some(map.keys),
                 values: Some(map.values),
             },
         );
         let root = fb_test::TestRoot::create(
-            &mut builder,
+            &mut flat_builder,
             &fb_test::TestRootArgs {
                 test_string_map: Some(map_serialized),
                 ..Default::default()
             },
         );
-        builder.finish(root, None);
-        builder.finished_data().to_vec()
+        flat_builder.finish(root, None);
+        flat_builder.finished_data().to_vec()
     }
 
     fn load_map<'a>(data: &'a [u8]) -> HashMapStringView<'a, &'a str> {
@@ -65,7 +69,24 @@ mod tests {
         assert_eq!(map.get("b").unwrap(), "30");
     }
 
-    // TODO: test get_or_insert
+    #[test]
+    fn test_builder_getters() {
+        let mut builder = HashMapBuilder::default();
+        builder.insert("a".to_string(), "10".to_string());
+        assert_eq!(
+            builder.get_or_insert("a".to_string(), "20".to_string()),
+            "10"
+        );
+        assert_eq!(
+            builder.get_or_insert("b".to_string(), "20".to_string()),
+            "20"
+        );
+        let data = serialize_builder(builder);
+        let map = load_map(&data);
+        assert_eq!(map.get("a").unwrap(), "10");
+        assert_eq!(map.get("b").unwrap(), "20");
+        assert!(map.get("c").is_none());
+    }
 
     #[test]
     fn test_string_builder() {
