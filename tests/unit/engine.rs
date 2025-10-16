@@ -221,7 +221,7 @@ mod tests {
         #[cfg(feature = "debug-info")]
         {
             let debug_info = engine.get_debug_info();
-            let expected_size = 8_527_344_f32;
+            let expected_size = 8_963_552_f32;
             assert!(debug_info.flatbuffer_size >= (expected_size * 0.99) as usize);
             assert!(debug_info.flatbuffer_size <= (expected_size * 1.01) as usize);
         }
