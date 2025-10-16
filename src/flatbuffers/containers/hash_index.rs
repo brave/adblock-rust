@@ -8,18 +8,24 @@ use std::marker::PhantomData;
 
 use crate::flatbuffers::containers::fb_index::FbIndex;
 
+/// A trait for hash table builder keys, i.e. String.
+/// The default value is used to mark empty slots.
 pub(crate) trait HashKey: Eq + std::hash::Hash + Default + Clone {
+    /// Returns true if the key is empty.
     fn is_empty(&self) -> bool;
 }
 
-pub(crate) trait FbHashKey: Eq + std::hash::Hash {
-    fn is_empty(&self) -> bool;
-}
-
-impl HashKey for String {
+impl<T: Eq + std::hash::Hash + Default + Clone> HashKey for T {
     fn is_empty(&self) -> bool {
-        self.is_empty()
+        self == &T::default()
     }
+}
+
+/// A trait for hash table view keys that can be used in flatbuffers, i.e. &str.
+/// The implementation must synchronized with matching HashKey trait.
+pub(crate) trait FbHashKey: Eq + std::hash::Hash {
+    /// Returns true if the key is empty.
+    fn is_empty(&self) -> bool;
 }
 
 impl FbHashKey for &str {
@@ -28,6 +34,10 @@ impl FbHashKey for &str {
     }
 }
 
+/// An internal function to find a slot in the hash table for the given key.
+/// Returns the slot index.
+/// 'table_size' is the table size. It must be a power of two.
+/// 'probe' must return true at least for one slot (supposing the table isn't full).
 pub fn find_slot<I: std::hash::Hash>(
     key: &I,
     table_size: usize,
@@ -46,6 +56,9 @@ pub fn find_slot<I: std::hash::Hash>(
     }
 }
 
+/// A flatbuffer-compatible view of a hash table.
+/// It's used to access the hash table without copying the keys and values.
+/// Is loaded from HashIndexBuilder data, serialized into a flatbuffer.
 pub(crate) struct HashIndexView<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> {
     indexes: Keys,
     values: Values,
@@ -79,6 +92,8 @@ impl<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> HashIndexView<I, V, 
     }
 
     #[cfg(test)]
+    /// Returns the number of non-empty slots in the hash table.
+    /// Slow, use only for tests.
     pub fn len(&self) -> usize {
         let mut len = 0;
         for i in 0..self.capacity() {
@@ -90,12 +105,18 @@ impl<I: FbHashKey, V, Keys: FbIndex<I>, Values: FbIndex<V>> HashIndexView<I, V, 
     }
 }
 
+/// A builder for a hash table.
+/// The default value is used to mark empty slots.
+/// `consume()` output is suppose to be serialized into a flatbuffer and
+/// used as a HashIndexView.
 pub(crate) struct HashIndexBuilder<I, V> {
     indexes: Vec<I>,
     values: Vec<V>,
     size: usize,
 }
 
+/// An internal function to hash a key.
+/// The hash must be persistent across different runs of the program.
 fn get_hash<I: std::hash::Hash>(key: &I) -> usize {
     // RustC Hash is 2x faster than DefaultHasher.
     use rustc_hash::FxHasher;
