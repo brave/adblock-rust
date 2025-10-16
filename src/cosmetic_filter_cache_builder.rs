@@ -59,9 +59,7 @@ impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for HostnameRule {
 }
 
 #[derive(Default, Clone)]
-struct StringVector {
-    data: Vec<String>,
-}
+struct StringVector(Vec<String>);
 
 #[derive(Default)]
 pub(crate) struct CosmeticFilterCacheBuilder {
@@ -120,7 +118,7 @@ impl CosmeticFilterCacheBuilder {
                     let selectors = self
                         .complex_class_rules
                         .get_or_insert(class, StringVector::default());
-                    selectors.data.push(selector);
+                    selectors.0.push(selector);
                 }
             }
         } else if selector.starts_with('#') {
@@ -133,7 +131,7 @@ impl CosmeticFilterCacheBuilder {
                     let selectors = self
                         .complex_id_rules
                         .get_or_insert(id, StringVector::default());
-                    selectors.data.push(selector);
+                    selectors.0.push(selector);
                 }
             }
         } else {
@@ -221,7 +219,7 @@ impl<'a, B: FlatBuilder<'a>> FlatSerialize<'a, B> for StringVector {
     type Output = WIPOffset<fb::StringVector<'a>>;
 
     fn serialize(value: Self, builder: &mut B) -> WIPOffset<fb::StringVector<'a>> {
-        let v = FlatSerialize::serialize(value.data, builder);
+        let v = FlatSerialize::serialize(value.0, builder);
         fb::StringVector::create(
             builder.raw_builder(),
             &fb::StringVectorArgs { data: Some(v) },
