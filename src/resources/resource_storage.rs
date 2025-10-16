@@ -286,10 +286,10 @@ impl ResourceStorage {
         let mut result = String::new();
 
         for dep in deps.iter() {
-          if let ResourceContent::Text(content) = &dep.content {
-            result += content;
-            result += "\n";
-          }
+            if let ResourceContent::Text(content) = &dep.content {
+                result += content;
+                result += "\n";
+            }
         }
 
         result += &invokations;

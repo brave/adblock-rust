@@ -813,35 +813,26 @@ mod shared_storage_tests {
 
     use std::rc::Rc;
 
-    /// To be wrapped in [Rc] for shared access across engines.
-    struct BraveCoreResourceStorageInner {
-        /// Stores each resource by its canonical name
-        resources: HashMap<String, Resource>,
-    }
-
     #[derive(Clone)]
     struct BraveCoreResourceStorage {
-        shared_storage: Rc<BraveCoreResourceStorageInner>,
+        shared_storage: Rc<InMemoryResourceStorage>,
     }
 
     impl ResourceStorageBackend for BraveCoreResourceStorage {
-        fn get_resource(&self, resource_ident: &str) -> Option<Resource> {
-            self.shared_storage.resources.get(resource_ident).cloned()
+        fn get_resource(&self, resource_ident: &str) -> Option<ResourceImpl> {
+            self.shared_storage.get_resource(resource_ident)
         }
     }
 
     #[test]
     fn share_resources() {
-        let shared_storage = Rc::new(BraveCoreResourceStorageInner {
-            resources: HashMap::from_iter([(
-                "test-scriptlet.js".to_string(),
-                Resource::simple(
-                    "test-scriptlet",
-                    MimeType::ApplicationJavascript,
-                    "success!",
-                ),
-            )]),
-        });
+        let in_memory_storage = InMemoryResourceStorage::from_resources([Resource::simple(
+            "test-scriptlet.js",
+            MimeType::ApplicationJavascript,
+            "success!",
+        )]);
+
+        let shared_storage = Rc::new(in_memory_storage);
 
         let mut engine1 =
             crate::Engine::from_rules(["example1.com##+js(test-scriptlet)"], Default::default());
