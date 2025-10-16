@@ -8,7 +8,11 @@ use flatbuffers::{Follow, Vector};
 /// Note: it intentionally returns values using a copy, because it's faster
 /// than by reference.
 pub(crate) trait FbIndex<I> {
+    /// Returns the number of elements.
     fn len(&self) -> usize;
+
+    /// Returns a copy of the value at the given index.
+    /// 'index' must be in range [0, len()), otherwise panics.
     fn get(&self, index: usize) -> I;
 }
 
