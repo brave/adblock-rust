@@ -27,8 +27,13 @@ pub trait FlatSerialize<'b, B: FlatBuilder<'b>>: Sized {
 
 impl<'b> FlatBuilder<'b> for flatbuffers::FlatBufferBuilder<'b> {
     fn create_string(&mut self, s: &str) -> WIPOffset<&'b str> {
-        self.create_string(s)
+        if s.is_empty() {
+            flatbuffers::FlatBufferBuilder::create_shared_string(self, s)
+        } else {
+            flatbuffers::FlatBufferBuilder::create_string(self, s)
+        }
     }
+
     fn raw_builder(&mut self) -> &mut flatbuffers::FlatBufferBuilder<'b> {
         self
     }

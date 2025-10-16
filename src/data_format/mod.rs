@@ -17,7 +17,7 @@ const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
 
 /// The version of the data format.
 /// If the data format version is incremented, the data is considered as incompatible.
-const ADBLOCK_FLATBUFFER_VERSION: u8 = 2;
+const ADBLOCK_RUST_DAT_VERSION: u8 = 2;
 
 /// The total length of the header prefix (magic + version + seahash)
 const HEADER_PREFIX_LENGTH: usize = 4 + 1 + 8;
@@ -35,7 +35,7 @@ pub(crate) fn serialize_dat_file(data: &[u8]) -> Vec<u8> {
     let mut serialized = Vec::with_capacity(data.len() + HEADER_PREFIX_LENGTH);
     let hash = seahash::hash(data).to_le_bytes();
     serialized.extend_from_slice(&ADBLOCK_RUST_DAT_MAGIC);
-    serialized.push(ADBLOCK_FLATBUFFER_VERSION);
+    serialized.push(ADBLOCK_RUST_DAT_VERSION);
     serialized.extend_from_slice(&hash);
     assert_eq!(serialized.len(), HEADER_PREFIX_LENGTH);
 
@@ -49,7 +49,7 @@ pub(crate) fn deserialize_dat_file(serialized: &[u8]) -> Result<&[u8], Deseriali
     }
 
     let version = serialized[ADBLOCK_RUST_DAT_MAGIC.len()];
-    if version != ADBLOCK_FLATBUFFER_VERSION {
+    if version != ADBLOCK_RUST_DAT_VERSION {
         return Err(DeserializationError::VersionMismatch(version));
     }
     let data = &serialized[HEADER_PREFIX_LENGTH..];

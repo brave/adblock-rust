@@ -1,9 +1,9 @@
 use flatbuffers::{Follow, Vector};
 
+use crate::flatbuffers::containers::fb_index::FbIndex;
+
 // Represents sorted sequence to perform the binary search.
-pub(crate) trait SortedIndex<I> {
-    fn len(&self) -> usize;
-    fn get(&self, index: usize) -> I;
+pub(crate) trait SortedIndex<I>: FbIndex<I> {
     fn partition_point<F>(&self, predicate: F) -> usize
     where
         F: FnMut(&I) -> bool;
@@ -13,16 +13,6 @@ pub(crate) trait SortedIndex<I> {
 // if possible, because it faster than getting values with flatbuffer's
 // get method.
 impl<I: Ord + Copy> SortedIndex<I> for &[I] {
-    #[inline(always)]
-    fn len(&self) -> usize {
-        <[I]>::len(self)
-    }
-
-    #[inline(always)]
-    fn get(&self, index: usize) -> I {
-        self[index]
-    }
-
     #[inline(always)]
     fn partition_point<F>(&self, predicate: F) -> usize
     where
@@ -39,16 +29,6 @@ impl<'a, T: Follow<'a>> SortedIndex<T::Inner> for Vector<'a, T>
 where
     T::Inner: Ord,
 {
-    #[inline(always)]
-    fn len(&self) -> usize {
-        Vector::len(self)
-    }
-
-    #[inline(always)]
-    fn get(&self, index: usize) -> T::Inner {
-        Vector::get(self, index)
-    }
-
     fn partition_point<F>(&self, mut predicate: F) -> usize
     where
         F: FnMut(&T::Inner) -> bool,
