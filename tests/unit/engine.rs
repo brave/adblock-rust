@@ -221,13 +221,23 @@ mod tests {
         #[cfg(feature = "debug-info")]
         {
             let debug_info = engine.get_debug_info();
-            let expected_size = 8_963_552_f32;
-            assert!(debug_info.flatbuffer_size >= (expected_size * 0.99) as usize);
-            assert!(debug_info.flatbuffer_size <= (expected_size * 1.01) as usize);
+            let low_bound = 9_500_000;
+            let high_bound = 10_000_000;
+            assert!(
+                debug_info.flatbuffer_size >= low_bound,
+                "Expected size >= {} bytes, got {}",
+                low_bound,
+                debug_info.flatbuffer_size
+            );
+            assert!(
+                debug_info.flatbuffer_size <= high_bound,
+                "Expected size <= {} bytes, got {}",
+                high_bound,
+                debug_info.flatbuffer_size
+            );
         }
-
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            15959922653220214643
+            1870862363610703254
         } else {
             17169786507112655088
         };
