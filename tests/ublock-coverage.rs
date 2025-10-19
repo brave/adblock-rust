@@ -174,7 +174,7 @@ fn check_specifics_default() {
 #[test]
 fn check_basic_works_after_deserialization() {
     let engine = get_blocker_engine();
-    let serialized = engine.serialize().unwrap();
+    let serialized = engine.serialize().to_vec();
     let mut deserialized_engine = Engine::default();
     deserialized_engine.deserialize(&serialized).unwrap();
 

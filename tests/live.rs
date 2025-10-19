@@ -229,6 +229,7 @@ fn check_live_from_filterlists() {
 
 #[cfg(feature = "resource-assembler")]
 #[test]
+#[ignore = "issues/499"]
 fn check_live_redirects() {
     use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
@@ -281,11 +282,11 @@ fn check_live_redirects() {
 /// deserializing from it.
 fn stable_serialization_through_load() {
     let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
-    let ser1 = engine1.serialize().unwrap();
+    let ser1 = engine1.serialize().to_vec();
 
-    let mut engine2 = Engine::new(true);
+    let mut engine2 = Engine::default();
     engine2.deserialize(&ser1).unwrap();
-    let ser2 = engine2.serialize().unwrap();
+    let ser2 = engine2.serialize().to_vec();
 
     assert_eq!(ser1, ser2);
 }

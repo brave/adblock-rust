@@ -34,6 +34,8 @@ idna = "1.0.3"
 serde = { workspace = true }
 serde_json = { workspace = true }
 seahash = "4.1.0"
+# rustc-hash v1.1.0 provides a better performance than 2.x, chromium pins the same version.
+rustc-hash = { version = "1.1.0", default-features = false }
 memchr = "2.4"
 base64 = "0.22"
 rmp-serde = "0.15"
@@ -92,10 +94,10 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "unsync-regex-caching"]
+default = ["embedded-domain-resolver", "full-regex-handling", "single-thread"]
 full-regex-handling = []
-unsync-regex-caching = [] # disables `Send` and `Sync` on `Engine`.
-regex-debug-info = []
+single-thread = [] # disables `Send` and `Sync` on `Engine`.
+debug-info = []
 css-validation = ["cssparser", "selectors"]
 content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.

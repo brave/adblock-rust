@@ -20,9 +20,12 @@ pub mod blocker;
 #[cfg(feature = "content-blocking")]
 pub mod content_blocking;
 pub mod cosmetic_filter_cache;
+mod cosmetic_filter_cache_builder;
+mod cosmetic_filter_utils;
 mod data_format;
 mod engine;
 pub mod filters;
+mod flatbuffers;
 pub mod lists;
 mod network_filter_list;
 mod optimizer;
@@ -51,7 +54,7 @@ mod sync_tests {
     }
 
     #[test]
-    #[cfg(not(feature = "unsync-regex-caching"))]
+    #[cfg(not(feature = "single-thread"))]
     fn assert_engine_sync() {
         static_assert_sync::<crate::engine::Engine>();
     }

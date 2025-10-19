@@ -1,8 +1,7 @@
 use criterion::*;
 use once_cell::sync::Lazy;
 
-use adblock::blocker::{Blocker, BlockerOptions};
-use adblock::Engine;
+use adblock::{Engine, FilterSet};
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
@@ -79,14 +78,13 @@ fn list_parse(c: &mut Criterion) {
     group.finish();
 }
 
-fn get_blocker(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Blocker {
+fn get_engine(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
     let (network_filters, _) = adblock::lists::parse_filters(rules, false, Default::default());
 
-    let blocker_options = BlockerOptions {
-        enable_optimizations: true,
-    };
-
-    Blocker::new(network_filters, &blocker_options)
+    Engine::from_filter_set(
+        FilterSet::new_with_rules(network_filters, vec![], false),
+        true,
+    )
 }
 
 fn blocker_new(c: &mut Criterion) {
@@ -102,11 +100,11 @@ fn blocker_new(c: &mut Criterion) {
     .collect();
     let brave_list_rules: Vec<_> = rules_from_lists(&["data/brave/brave-main-list.txt"]).collect();
     let engine = Engine::from_rules(&brave_list_rules, Default::default());
-    let engine_serialized = engine.serialize().unwrap();
+    let engine_serialized = engine.serialize().to_vec();
 
-    group.bench_function("el+ep", move |b| b.iter(|| get_blocker(&easylist_rules)));
+    group.bench_function("el+ep", move |b| b.iter(|| get_engine(&easylist_rules)));
     group.bench_function("brave-list", move |b| {
-        b.iter(|| get_blocker(&brave_list_rules))
+        b.iter(|| get_engine(&brave_list_rules))
     });
     group.bench_function("brave-list-deserialize", move |b| {
         b.iter(|| {

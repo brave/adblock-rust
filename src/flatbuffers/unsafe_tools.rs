@@ -1,10 +1,9 @@
 //! Unsafe utility functions for working with flatbuffers and other low-level operations.
 
-use crate::filters::fb_network::flat::fb;
+use crate::filters::flatbuffer_generated::fb;
 
 // Minimum alignment for the beginning of the flatbuffer data.
-// Should be 4 while we support armv7 and x86_32.
-const MIN_ALIGNMENT: usize = 4;
+const MIN_ALIGNMENT: usize = 8;
 
 /// Converts a flatbuffers Vector to a slice.
 /// # Safety
@@ -20,7 +19,7 @@ pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
         // the alignment of the data must be a divisor of MIN_ALIGNMENT.
         assert!(MIN_ALIGNMENT.is_multiple_of(std::mem::size_of::<T>()));
     }
-    let _ = static_assert_alignment::<T>;
+    const { static_assert_alignment::<T>() };
 
     assert!(bytes.len().is_multiple_of(std::mem::size_of::<T>()));
     assert!((bytes.as_ptr() as usize).is_multiple_of(std::mem::align_of::<T>()));
@@ -36,10 +35,10 @@ pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
 // It could be constructed from raw data (includes the flatbuffer verification)
 // or from a builder that have just been used to construct the flatbuffer
 // Invariants:
-// 1. self.data() is properly verified flatbuffer contains FilterList.
+// 1. self.data() is properly verified flatbuffer contains the root object.
 // 2. self.data() is aligned to MIN_ALIGNMENT bytes.
 //    This is necessary for fb_vector_to_slice.
-pub(crate) struct VerifiedFlatFilterListMemory {
+pub(crate) struct VerifiedFlatbufferMemory {
     // The buffer containing the flatbuffer data.
     raw_data: Vec<u8>,
 
@@ -48,35 +47,39 @@ pub(crate) struct VerifiedFlatFilterListMemory {
     start: usize,
 }
 
-impl VerifiedFlatFilterListMemory {
-    pub(crate) fn from_raw(data: Vec<u8>) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
-        let memory = Self::from_vec(data);
+impl VerifiedFlatbufferMemory {
+    pub(crate) fn from_raw(data: &[u8]) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
+        let memory = Self::from_slice(data);
 
         // Verify that the data is a valid flatbuffer.
-        let _ = fb::root_as_network_filter_list(memory.data())?;
+        let _ = fb::root_as_engine(memory.data())?;
 
         Ok(memory)
     }
 
-    // Creates a new VerifiedFlatFilterListMemory from a builder.
+    // Creates a new VerifiedFlatbufferMemory from a builder.
     // Skip the verification, the builder must contains a valid FilterList.
     pub(crate) fn from_builder(builder: &flatbuffers::FlatBufferBuilder<'_>) -> Self {
-        let raw_data = builder.finished_data().to_vec();
-        Self::from_vec(raw_data)
+        Self::from_slice(builder.finished_data())
     }
 
     // Properly align the buffer to MIN_ALIGNMENT bytes.
-    pub(crate) fn from_vec(mut vec: Vec<u8>) -> Self {
+    pub(crate) fn from_slice(data: &[u8]) -> Self {
+        let mut vec = Vec::with_capacity(data.len() + MIN_ALIGNMENT);
         let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
+
         let start = if shift == 0 {
             0
         } else {
-            vec.reserve(vec.len() + MIN_ALIGNMENT); // vec.as_ptr() is changed
             let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
             let padding = MIN_ALIGNMENT - shift;
+            assert!(vec.capacity() >= padding);
             vec.splice(0..0, vec![0u8; padding]);
             padding
         };
+
+        vec.extend_from_slice(data);
+        assert!((vec.as_ptr() as usize + start).is_multiple_of(MIN_ALIGNMENT));
 
         let memory = Self {
             raw_data: vec,
@@ -86,8 +89,8 @@ impl VerifiedFlatFilterListMemory {
         memory
     }
 
-    pub(crate) fn filter_list(&self) -> fb::NetworkFilterList<'_> {
-        unsafe { fb::root_as_network_filter_list_unchecked(self.data()) }
+    pub(crate) fn root(&self) -> fb::Engine<'_> {
+        unsafe { fb::root_as_engine_unchecked(self.data()) }
     }
 
     pub fn data(&self) -> &[u8] {

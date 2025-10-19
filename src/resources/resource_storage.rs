@@ -35,7 +35,7 @@ impl ResourceContent {
 /// A internal representation of a Resource to store. Stores the content
 /// in the decoded form to use less memory.
 /// See [Resource] for details
-struct ResourceImpl {
+pub struct ResourceImpl {
     name: String,
     kind: ResourceType,
     content: ResourceContent,
@@ -44,12 +44,132 @@ struct ResourceImpl {
 }
 
 /// Unified resource storage for both redirects and scriptlets.
-#[derive(Default)]
+///
+/// By default, this uses an in-memory storage implementation, however this can be changed using
+/// a custom [ResourceStorageBackend] if desired.
 pub struct ResourceStorage {
+    #[cfg(not(feature = "single-thread"))]
+    backend: Box<dyn ResourceStorageBackend + Sync + Send>,
+    #[cfg(feature = "single-thread")]
+    backend: Box<dyn ResourceStorageBackend>,
+}
+
+/// Loads an empty `InMemoryResourceStorage` backend.
+impl Default for ResourceStorage {
+    fn default() -> Self {
+        Self {
+            backend: Box::new(InMemoryResourceStorage::default()),
+        }
+    }
+}
+
+impl ResourceStorage {
+    #[cfg(not(feature = "single-thread"))]
+    pub fn from_backend<S: ResourceStorageBackend + 'static + Sync + Send>(backend: S) -> Self {
+        Self {
+            backend: Box::new(backend),
+        }
+    }
+
+    #[cfg(feature = "single-thread")]
+    pub fn from_backend<S: ResourceStorageBackend + 'static>(backend: S) -> Self {
+        Self {
+            backend: Box::new(backend),
+        }
+    }
+
+    /// Constructor using an `InMemoryResourceStorage` as the backend with the given resources.
+    #[cfg(test)]
+    pub fn in_memory_from_resources(resources: impl IntoIterator<Item = Resource>) -> Self {
+        Self::from_backend(InMemoryResourceStorage::from_resources(resources))
+    }
+}
+
+/// Customizable backend for [Resource] storage.
+/// Custom implementations could be used to enable (for example) sharing of resources between
+/// multiple [crate::Engine]s, an on-disk backend, or special caching behavior.
+pub trait ResourceStorageBackend {
+    /// Gets the resource associated with `resource_ident`, respecting aliases if necessary.
+    fn get_resource(&self, resource_ident: &str) -> Option<ResourceImpl>;
+}
+
+/// Default implementation of [ResourceStorageBackend] that stores all resources in memory.
+#[derive(Default)]
+pub struct InMemoryResourceStorage {
     /// Stores each resource by its canonical name
     resources: HashMap<String, ResourceImpl>,
     /// Stores mappings from aliases to their canonical resource names
     aliases: HashMap<String, String>,
+}
+
+impl ResourceStorageBackend for InMemoryResourceStorage {
+    fn get_resource(&self, resource_ident: &str) -> Option<ResourceImpl> {
+        let resource = if let Some(resource) = self.resources.get(resource_ident) {
+            Some(resource)
+        } else if let Some(canonical_name) = self.aliases.get(resource_ident) {
+            self.resources.get(canonical_name)
+        } else {
+            None
+        };
+
+        resource.cloned()
+    }
+}
+
+impl InMemoryResourceStorage {
+    /// Convenience constructor that allows building storage for many resources at once. Errors are
+    /// silently consumed.
+    pub fn from_resources(resources: impl IntoIterator<Item = Resource>) -> Self {
+        let mut self_ = Self::default();
+
+        resources.into_iter().for_each(|resource| {
+            #[allow(clippy::unnecessary_lazy_evaluations)]
+            self_.add_resource(resource).unwrap_or_else(|_e| {
+                #[cfg(test)]
+                eprintln!("Failed to add resource: {:?}", _e)
+            })
+        });
+
+        self_
+    }
+
+    /// Adds a resource to storage so that it can be retrieved later.
+    pub fn add_resource(&mut self, resource: Resource) -> Result<(), AddResourceError> {
+        let resource_content: ResourceContent;
+
+        if let ResourceType::Mime(content_type) = &resource.kind {
+            if !resource.dependencies.is_empty() && !content_type.supports_dependencies() {
+                return Err(AddResourceError::ContentTypeDoesNotSupportDependencies);
+            }
+
+            if content_type.is_textual() {
+                resource_content = ResourceContent::text_from_base64(&resource.content)?;
+            } else {
+                resource_content = ResourceContent::raw_from_base64(&resource.content)?;
+            }
+        } else {
+            resource_content = ResourceContent::text_from_base64(&resource.content)?;
+        }
+
+        for ident in std::iter::once(&resource.name).chain(resource.aliases.iter()) {
+            if self.resources.contains_key(ident) || self.aliases.contains_key(ident) {
+                return Err(AddResourceError::NameAlreadyAdded);
+            }
+        }
+
+        resource.aliases.iter().for_each(|alias| {
+            self.aliases.insert(alias.clone(), resource.name.clone());
+        });
+        let resource_impl = ResourceImpl {
+            name: resource.name.clone(),
+            kind: resource.kind,
+            content: resource_content,
+            dependencies: resource.dependencies,
+            permission: resource.permission,
+        };
+        self.resources.insert(resource.name, resource_impl);
+        Ok(())
+    }
 }
 
 /// Formats `arg` such that it either is a JSON string, or is safe to insert within a JSON string,
@@ -146,61 +266,6 @@ fn extract_function_name(fn_def: &str) -> Option<&str> {
 }
 
 impl ResourceStorage {
-    /// Convenience constructor that allows building storage for many resources at once. Errors are
-    /// silently consumed.
-    pub fn from_resources(resources: impl IntoIterator<Item = Resource>) -> Self {
-        let mut self_ = Self::default();
-
-        resources.into_iter().for_each(|resource| {
-            #[allow(clippy::unnecessary_lazy_evaluations)]
-            self_.add_resource(resource).unwrap_or_else(|_e| {
-                #[cfg(test)]
-                eprintln!("Failed to add resource: {:?}", _e)
-            })
-        });
-
-        self_
-    }
-
-    /// Adds a resource to storage so that it can be retrieved later.
-    pub fn add_resource(&mut self, resource: Resource) -> Result<(), AddResourceError> {
-        let resource_content: ResourceContent;
-
-        if let ResourceType::Mime(content_type) = &resource.kind {
-            if !resource.dependencies.is_empty() && !content_type.supports_dependencies() {
-                return Err(AddResourceError::ContentTypeDoesNotSupportDependencies);
-            }
-
-            if content_type.is_textual() {
-                resource_content = ResourceContent::text_from_base64(&resource.content)?;
-            } else {
-                resource_content = ResourceContent::raw_from_base64(&resource.content)?;
-            }
-        } else {
-            resource_content = ResourceContent::text_from_base64(&resource.content)?;
-        }
-
-        for ident in std::iter::once(&resource.name).chain(resource.aliases.iter()) {
-            if self.resources.contains_key(ident) || self.aliases.contains_key(ident) {
-                return Err(AddResourceError::NameAlreadyAdded);
-            }
-        }
-
-        resource.aliases.iter().for_each(|alias| {
-            self.aliases.insert(alias.clone(), resource.name.clone());
-        });
-        let resource_impl = ResourceImpl {
-            name: resource.name.clone(),
-            kind: resource.kind,
-            content: resource_content,
-            dependencies: resource.dependencies,
-            permission: resource.permission,
-        };
-        self.resources.insert(resource.name, resource_impl);
-
-        Ok(())
-    }
-
     /// Given the contents of the `+js(...)` parts of multiple filters, return a script string
     /// appropriate for injection in a page.
     pub fn get_scriptlet_resources<'a>(
@@ -237,10 +302,10 @@ impl ResourceStorage {
     ///
     /// Note that no ordering is guaranteed; function definitions in JS can appear after they are
     /// used.
-    fn recursive_dependencies<'a: 'b, 'b>(
-        &'a self,
+    fn recursive_dependencies(
+        &self,
         new_dep: &str,
-        prev_deps: &mut Vec<&'b ResourceImpl>,
+        prev_deps: &mut Vec<ResourceImpl>,
         filter_permission: PermissionMask,
     ) -> Result<(), ScriptletResourceError> {
         if prev_deps.iter().any(|dep| dep.name == new_dep) {
@@ -249,9 +314,10 @@ impl ResourceStorage {
 
         let resource = self.get_permissioned_resource(new_dep, filter_permission)?;
 
+        let deps = resource.dependencies.clone();
         prev_deps.push(resource);
 
-        for dep in resource.dependencies.iter() {
+        for dep in deps.iter() {
             self.recursive_dependencies(dep, prev_deps, filter_permission)?;
         }
 
@@ -260,11 +326,11 @@ impl ResourceStorage {
 
     /// Given the contents of a single `+js(...)` filter part, return a scriptlet string
     /// appropriate for injection in a page.
-    fn get_scriptlet_resource<'a: 'b, 'b>(
-        &'a self,
+    fn get_scriptlet_resource(
+        &self,
         scriptlet_args: &str,
         filter_permission: PermissionMask,
-        required_deps: &mut Vec<&'b ResourceImpl>,
+        required_deps: &mut Vec<ResourceImpl>,
     ) -> Result<String, ScriptletResourceError> {
         // `unwrap` is safe because these are guaranteed valid at filter parsing.
         let scriptlet_args = parse_scriptlet_args(scriptlet_args).unwrap();
@@ -322,7 +388,7 @@ impl ResourceStorage {
 
     /// Get a data-URL formatted resource appropriate for a `$redirect` response.
     pub fn get_redirect_resource(&self, resource_ident: &str) -> Option<String> {
-        let resource = self.get_internal_resource(resource_ident);
+        let resource = self.backend.get_resource(resource_ident);
 
         resource.and_then(|resource| {
             if !resource.permission.is_default() {
@@ -344,26 +410,14 @@ impl ResourceStorage {
         })
     }
 
-    /// Gets the resource associated with `resource_ident`, respecting aliases if necessary.
-    fn get_internal_resource(&self, resource_ident: &str) -> Option<&ResourceImpl> {
-        let resource = if let Some(resource) = self.resources.get(resource_ident) {
-            Some(resource)
-        } else if let Some(canonical_name) = self.aliases.get(resource_ident) {
-            self.resources.get(canonical_name)
-        } else {
-            None
-        };
-
-        resource
-    }
-
     fn get_permissioned_resource(
         &self,
         scriptlet_name: &str,
         filter_permission: PermissionMask,
-    ) -> Result<&ResourceImpl, ScriptletResourceError> {
+    ) -> Result<ResourceImpl, ScriptletResourceError> {
         let resource = self
-            .get_internal_resource(scriptlet_name)
+            .backend
+            .get_resource(scriptlet_name)
             .ok_or(ScriptletResourceError::NoMatchingScriptlet)?;
 
         if !resource.permission.is_injectable_by(filter_permission) {

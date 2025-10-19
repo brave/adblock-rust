@@ -4,7 +4,7 @@ mod blocker_tests {
     use super::super::*;
     use crate::lists::parse_filters;
     use crate::request::Request;
-    use crate::resources::Resource;
+    use crate::resources::{Resource, ResourceStorage};
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
     use std::collections::HashSet;
     use std::iter::FromIterator;
@@ -85,15 +85,11 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
-        let mut resources = ResourceStorage::default();
-
-        resources
-            .add_resource(Resource::simple(
-                "noop-0.1s.mp3",
-                crate::resources::MimeType::AudioMp3,
-                "mp3",
-            ))
-            .unwrap();
+        let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
+            "noop-0.1s.mp3",
+            crate::resources::MimeType::AudioMp3,
+            "mp3",
+        )]);
 
         let matched_rule = blocker.check(&request, &resources);
         assert!(!matched_rule.matched);
@@ -129,15 +125,11 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
-        let mut resources = ResourceStorage::default();
-
-        resources
-            .add_resource(Resource::simple(
-                "noop-0.1s.mp3",
-                crate::resources::MimeType::AudioMp3,
-                "mp3",
-            ))
-            .unwrap();
+        let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
+            "noop-0.1s.mp3",
+            crate::resources::MimeType::AudioMp3,
+            "mp3",
+        )]);
 
         let matched_rule = blocker.check(&request, &resources);
         assert!(!matched_rule.matched);
@@ -168,15 +160,11 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
-        let mut resources = ResourceStorage::default();
-
-        resources
-            .add_resource(Resource::simple(
-                "noop.txt",
-                crate::resources::MimeType::TextPlain,
-                "noop",
-            ))
-            .unwrap();
+        let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
+            "noop.txt",
+            crate::resources::MimeType::TextPlain,
+            "noop",
+        )]);
 
         let matched_rule = blocker.check(&request, &resources);
         assert!(matched_rule.matched);
@@ -514,15 +502,11 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
-        let mut resources = ResourceStorage::default();
-
-        resources
-            .add_resource(Resource::simple(
-                "noopjs",
-                crate::resources::MimeType::ApplicationJavascript,
-                "(() => {})()",
-            ))
-            .unwrap();
+        let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
+            "noopjs",
+            crate::resources::MimeType::ApplicationJavascript,
+            "(() => {})()",
+        )]);
 
         let result = blocker.check(
             &Request::new(
@@ -979,26 +963,28 @@ mod blocker_tests {
         };
 
         let blocker = Blocker::new(network_filters, &blocker_options);
-        let mut resources = ResourceStorage::default();
-        fn add_simple_resource(
-            resources: &mut ResourceStorage,
-            identifier: &str,
-        ) -> Option<String> {
-            resources
-                .add_resource(Resource::simple(
-                    identifier,
-                    crate::resources::MimeType::TextPlain,
-                    identifier,
-                ))
-                .unwrap();
-            Some(format!(
+        fn simple_resource(identifier: &str) -> Resource {
+            Resource::simple(
+                identifier,
+                crate::resources::MimeType::TextPlain,
+                identifier,
+            )
+        }
+        fn simple_redirect(identifier: &str) -> String {
+            format!(
                 "data:text/plain;base64,{}",
                 BASE64_STANDARD.encode(identifier)
-            ))
+            )
         }
-        let a_redirect = add_simple_resource(&mut resources, "a");
-        let b_redirect = add_simple_resource(&mut resources, "b");
-        let c_redirect = add_simple_resource(&mut resources, "c");
+        let test_cases = ["a", "b", "c"];
+        let resources = ResourceStorage::in_memory_from_resources(test_cases.map(simple_resource));
+        let redirects = test_cases
+            .into_iter()
+            .map(simple_redirect)
+            .collect::<Vec<_>>();
+        let a_redirect = Some(redirects[0].clone());
+        let b_redirect = Some(redirects[1].clone());
+        let c_redirect = Some(redirects[2].clone());
 
         let result = blocker.check(
             &Request::new(
@@ -1472,17 +1458,17 @@ mod legacy_rule_parsing_tests {
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
         assert!(
-            blocker.exceptions.get_filter_map().total_size()
-                + blocker.generic_hide.get_filter_map().total_size()
+            blocker.exceptions().get_filter_map().total_size()
+                + blocker.generic_hide().get_filter_map().total_size()
                 >= expectation.exceptions,
             "Number of collected exceptions does not match expectation"
         );
 
         assert!(
-            blocker.filters.get_filter_map().total_size()
-                + blocker.importants.get_filter_map().total_size()
-                + blocker.redirects.get_filter_map().total_size()
-                + blocker.csp.get_filter_map().total_size()
+            blocker.filters().get_filter_map().total_size()
+                + blocker.importants().get_filter_map().total_size()
+                + blocker.redirects().get_filter_map().total_size()
+                + blocker.csp().get_filter_map().total_size()
                 >= expectation.filters - expectation.duplicates,
             "Number of collected network filters does not match expectation"
         );

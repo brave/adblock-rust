@@ -231,6 +231,20 @@ impl FilterSet {
         }
     }
 
+    // Used in benchmarks to avoid parsing the rules twice.
+    #[doc(hidden)]
+    pub fn new_with_rules(
+        network_filters: Vec<NetworkFilter>,
+        cosmetic_filters: Vec<CosmeticFilter>,
+        debug: bool,
+    ) -> Self {
+        Self {
+            debug,
+            network_filters,
+            cosmetic_filters,
+        }
+    }
+
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.

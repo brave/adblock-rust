@@ -153,7 +153,7 @@ mod tests {
         let mut engine = Engine::from_rules(filters, Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
-        let serialized = engine.serialize().unwrap();
+        let serialized = engine.serialize();
         let mut deserialized_engine = Engine::default();
         deserialized_engine.enable_tags(&["stuff"]);
         deserialized_engine.deserialize(&serialized).unwrap();
@@ -182,8 +182,8 @@ mod tests {
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
-        let data = engine.serialize().unwrap();
-        const EXPECTED_HASH: u64 = 9023363977439833140;
+        let data = engine.serialize().to_vec();
+        const EXPECTED_HASH: u64 = 884296823183764168;
         assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
@@ -192,8 +192,8 @@ mod tests {
     fn deserialization_generate_tags() {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
-        let data = engine.serialize().unwrap();
-        const EXPECTED_HASH: u64 = 17490165506820084756;
+        let data = engine.serialize().to_vec();
+        const EXPECTED_HASH: u64 = 7887643884738497753;
         assert_eq!(hash(&data), EXPECTED_HASH, "{}", HASH_MISMATCH_MSG);
         engine.deserialize(&data).unwrap();
     }
@@ -207,7 +207,7 @@ mod tests {
             Resource::simple("noopcss", MimeType::TextCss, ""),
         ]);
 
-        let serialized = engine.serialize().unwrap();
+        let serialized = engine.serialize().to_vec();
         println!("Engine serialized: {:?}", serialized);
         engine.deserialize(&serialized).unwrap();
     }
@@ -216,12 +216,30 @@ mod tests {
     fn deserialization_brave_list() {
         let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
         let mut engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
-        let data = engine.serialize().unwrap();
+        let data = engine.serialize().to_vec();
 
-        let expected_hash = if cfg!(feature = "css-validation") {
-            11154262451234023377
+        #[cfg(feature = "debug-info")]
+        {
+            let debug_info = engine.get_debug_info();
+            let low_bound = 9_500_000;
+            let high_bound = 10_000_000;
+            assert!(
+                debug_info.flatbuffer_size >= low_bound,
+                "Expected size >= {} bytes, got {}",
+                low_bound,
+                debug_info.flatbuffer_size
+            );
+            assert!(
+                debug_info.flatbuffer_size <= high_bound,
+                "Expected size <= {} bytes, got {}",
+                high_bound,
+                debug_info.flatbuffer_size
+            );
+        }
+        let expected_hash: u64 = if cfg!(feature = "css-validation") {
+            1870862363610703254
         } else {
-            48716029470216845
+            17169786507112655088
         };
 
         assert_eq!(hash(&data), expected_hash, "{}", HASH_MISMATCH_MSG);
@@ -492,13 +510,11 @@ mod tests {
         ], Default::default());
         let mut engine = Engine::from_filter_set(filter_set, false);
 
-        engine
-            .add_resource(Resource::simple(
-                "addthis.com/addthis_widget.js",
-                MimeType::ApplicationJavascript,
-                "window.addthis = undefined",
-            ))
-            .unwrap();
+        engine.use_resources([Resource::simple(
+            "addthis.com/addthis_widget.js",
+            MimeType::ApplicationJavascript,
+            "window.addthis = undefined",
+        )]);
 
         let request = Request::new("https://s7.addthis.com/js/250/addthis_widget.js?pub=resto", "https://www.rhmodern.com/catalog/product/product.jsp?productId=prod14970086&categoryId=cat7150028", "script").unwrap();
         let result = engine.check_network_request(&request);

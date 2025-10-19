@@ -93,7 +93,7 @@ mod redirect_storage_tests {
 
     #[test]
     fn get_resource_by_name() {
-        let mut storage = ResourceStorage::default();
+        let mut storage = InMemoryResourceStorage::default();
         storage
             .add_resource(Resource::simple(
                 "name.js",
@@ -101,6 +101,10 @@ mod redirect_storage_tests {
                 "resource data",
             ))
             .unwrap();
+
+        let storage = ResourceStorage {
+            backend: Box::new(storage),
+        };
 
         assert_eq!(
             storage.get_redirect_resource("name.js"),
@@ -113,10 +117,14 @@ mod redirect_storage_tests {
 
     #[test]
     fn get_resource_by_alias() {
-        let mut storage = ResourceStorage::default();
+        let mut storage = InMemoryResourceStorage::default();
         let mut r = Resource::simple("name.js", MimeType::ApplicationJavascript, "resource data");
         r.aliases.push("alias.js".to_string());
         storage.add_resource(r).unwrap();
+
+        let storage = ResourceStorage {
+            backend: Box::new(storage),
+        };
 
         assert_eq!(
             storage.get_redirect_resource("alias.js"),
@@ -129,11 +137,15 @@ mod redirect_storage_tests {
 
     #[test]
     fn permissions() {
-        let mut storage = ResourceStorage::default();
+        let mut storage = InMemoryResourceStorage::default();
         let mut r = Resource::simple("name.js", MimeType::ApplicationJavascript, "resource data");
         r.aliases.push("alias.js".to_string());
         r.permission = PermissionMask::from_bits(0b00000001);
         storage.add_resource(r).unwrap();
+
+        let storage = ResourceStorage {
+            backend: Box::new(storage),
+        };
 
         assert_eq!(storage.get_redirect_resource("name.js"), None,);
         assert_eq!(storage.get_redirect_resource("alias.js"), None,);
@@ -237,7 +249,7 @@ mod scriptlet_storage_tests {
 
     #[test]
     fn get_patched_scriptlets() {
-        let resources = ResourceStorage::from_resources([
+        let resources = ResourceStorage::in_memory_from_resources([
             Resource {
                 name: "greet.js".to_string(),
                 aliases: vec![],
@@ -339,7 +351,7 @@ mod scriptlet_storage_tests {
 
     #[test]
     fn parse_template_file_format() {
-        let resources = ResourceStorage::from_resources([
+        let resources = ResourceStorage::in_memory_from_resources([
             Resource {
                 name: "abort-current-inline-script.js".into(),
                 aliases: vec!["acis.js".into()],
@@ -446,7 +458,7 @@ mod scriptlet_storage_tests {
     /// cause a panic.
     #[test]
     fn patch_argslist_many_args() {
-        let resources = ResourceStorage::from_resources([Resource {
+        let resources = ResourceStorage::in_memory_from_resources([Resource {
             name: "abort-current-script.js".into(),
             aliases: vec!["acs.js".into()],
             kind: ResourceType::Mime(MimeType::ApplicationJavascript),
@@ -477,7 +489,7 @@ mod scriptlet_storage_tests {
         const PERM01: PermissionMask = PermissionMask::from_bits(0b00000001);
         const PERM10: PermissionMask = PermissionMask::from_bits(0b00000010);
         const PERM11: PermissionMask = PermissionMask::from_bits(0b00000011);
-        let resources = ResourceStorage::from_resources([
+        let resources = ResourceStorage::in_memory_from_resources([
             Resource::simple(
                 "default-perms.js",
                 MimeType::ApplicationJavascript,
@@ -566,7 +578,7 @@ mod scriptlet_storage_tests {
     #[test]
     fn dependencies() {
         const PERM01: PermissionMask = PermissionMask::from_bits(0b00000001);
-        let resources = ResourceStorage::from_resources([
+        let resources = ResourceStorage::in_memory_from_resources([
             Resource::simple("simple.fn", MimeType::FnJavascript, "simple"),
             Resource {
                 name: "permissioned.fn".into(),
@@ -791,5 +803,64 @@ mod scriptlet_storage_tests {
             "a\ncommon\nb\nfunction shared() { }\ntry {\nshared(\"argument\")\n} catch ( e ) { }\n"
         );
         assert_eq!(resources.get_scriptlet_resources([("test, 1", PERM01), ("test-wrapper, 2", PERM01), ("shared, 3", Default::default())]), "permissioned\na\ncommon\nb\nfunction test() {}\nfunction testWrapper() { test(arguments) }\nfunction shared() { }\ntry {\ntest(\"1\")\n} catch ( e ) { }\ntry {\ntestWrapper(\"2\")\n} catch ( e ) { }\ntry {\nshared(\"3\")\n} catch ( e ) { }\n");
+    }
+}
+
+#[cfg(all(test, feature = "single-thread"))]
+mod shared_storage_tests {
+    use super::super::*;
+    use crate::resources::MimeType;
+
+    use std::rc::Rc;
+
+    #[derive(Clone)]
+    struct BraveCoreResourceStorage {
+        shared_storage: Rc<InMemoryResourceStorage>,
+    }
+
+    impl ResourceStorageBackend for BraveCoreResourceStorage {
+        fn get_resource(&self, resource_ident: &str) -> Option<ResourceImpl> {
+            self.shared_storage.get_resource(resource_ident)
+        }
+    }
+
+    #[test]
+    fn share_resources() {
+        let in_memory_storage = InMemoryResourceStorage::from_resources([Resource::simple(
+            "test-scriptlet.js",
+            MimeType::ApplicationJavascript,
+            "success!",
+        )]);
+
+        let shared_storage = Rc::new(in_memory_storage);
+
+        let mut engine1 =
+            crate::Engine::from_rules(["example1.com##+js(test-scriptlet)"], Default::default());
+        engine1.use_resource_storage(BraveCoreResourceStorage {
+            shared_storage: Rc::clone(&shared_storage),
+        });
+
+        let mut engine2 =
+            crate::Engine::from_rules(["example2.com##+js(test-scriptlet)"], Default::default());
+        engine2.use_resource_storage(BraveCoreResourceStorage {
+            shared_storage: Rc::clone(&shared_storage),
+        });
+
+        assert!(engine1
+            .url_cosmetic_resources("https://example1.com")
+            .injected_script
+            .contains("success!"));
+        assert!(!engine1
+            .url_cosmetic_resources("https://example2.com")
+            .injected_script
+            .contains("success!"));
+        assert!(!engine2
+            .url_cosmetic_resources("https://example1.com")
+            .injected_script
+            .contains("success!"));
+        assert!(engine2
+            .url_cosmetic_resources("https://example2.com")
+            .injected_script
+            .contains("success!"));
     }
 }

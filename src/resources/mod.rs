@@ -15,7 +15,10 @@ pub mod resource_assembler;
 mod resource_storage;
 pub(crate) use resource_storage::parse_scriptlet_args;
 #[doc(inline)]
-pub use resource_storage::{AddResourceError, ResourceStorage, ScriptletResourceError};
+pub use resource_storage::{
+    AddResourceError, InMemoryResourceStorage, ResourceStorage, ResourceStorageBackend,
+    ScriptletResourceError,
+};
 
 use memchr::memrchr as find_char_reverse;
 use serde::{Deserialize, Serialize};
@@ -34,7 +37,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 /// # use adblock::Engine;
 /// # use adblock::lists::ParseOptions;
-/// # use adblock::resources::{MimeType, PermissionMask, Resource, ResourceType};
+/// # use adblock::resources::{MimeType, PermissionMask, Resource, ResourceStorage, ResourceType};
 /// # let mut filter_set = adblock::lists::FilterSet::default();
 /// # let untrusted_filters = vec![""];
 /// # let trusted_filters = vec![""];
@@ -59,14 +62,14 @@ use serde::{Deserialize, Serialize};
 /// let mut engine = Engine::from_filter_set(filter_set, true);
 /// // The `trusted-set-cookie` scriptlet cannot be injected without `COOKIE_ACCESS`
 /// // permission.
-/// engine.add_resource(Resource {
+/// engine.use_resources([Resource {
 ///     name: "trusted-set-cookie.js".to_string(),
 ///     aliases: vec![],
 ///     kind: ResourceType::Mime(MimeType::ApplicationJavascript),
 ///     content: base64::encode("document.cookie = '...';"),
 ///     dependencies: vec![],
 ///     permission: COOKIE_ACCESS,
-/// });
+/// }]);
 /// ```
 #[derive(Serialize, Deserialize, Clone, Copy, Default)]
 #[repr(transparent)]
@@ -99,6 +102,10 @@ impl PermissionMask {
     /// permissions.
     pub const fn from_bits(bits: u8) -> Self {
         Self(bits)
+    }
+
+    pub fn to_bits(&self) -> u8 {
+        self.0
     }
 
     /// Can `filter_mask` authorize injecting a resource requiring `self` permissions?
