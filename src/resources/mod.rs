@@ -16,8 +16,8 @@ mod resource_storage;
 pub(crate) use resource_storage::parse_scriptlet_args;
 #[doc(inline)]
 pub use resource_storage::{
-    AddResourceError, InMemoryResourceStorage, ResourceStorage, ResourceStorageBackend,
-    ScriptletResourceError,
+    AddResourceError, InMemoryResourceStorage, ResourceImpl, ResourceStorage,
+    ResourceStorageBackend, ScriptletResourceError,
 };
 
 use memchr::memrchr as find_char_reverse;
