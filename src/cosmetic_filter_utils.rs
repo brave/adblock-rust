@@ -94,16 +94,41 @@ pub(crate) fn encode_script_with_permission(
     script
 }
 
-/// Decodes permission bits from the last byte of a script string
+/// Decodes permission bits from the last char of a script string
 /// Returns (permission, script) tuple
 pub(crate) fn decode_script_with_permission(encoded_script: &str) -> (PermissionMask, &str) {
-    if encoded_script.is_empty() {
-        return (PermissionMask::default(), encoded_script);
+    if let Some(last_char_start) = encoded_script.char_indices().last() {
+        let last_char = last_char_start.1;
+        let permission_bits = last_char as u8;
+        let permission = PermissionMask::from_bits(permission_bits);
+        (permission, &encoded_script[..last_char_start.0])
+    } else {
+        (PermissionMask::default(), encoded_script)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encode_decode_script_with_permission() {
+        for permission in 0u8..=255u8 {
+            let script = "console.log('测试 🚀 emoji')".to_string();
+            let permission = PermissionMask::from_bits(permission);
+
+            let encoded = encode_script_with_permission(script.clone(), permission);
+            let (decoded_permission, decoded_script) = decode_script_with_permission(&encoded);
+
+            assert_eq!(decoded_permission.to_bits(), permission.to_bits());
+            assert_eq!(decoded_script, script);
+        }
     }
 
-    let last_char = encoded_script.chars().last().unwrap();
-    let permission_bits = last_char as u8;
-    let permission = PermissionMask::from_bits(permission_bits);
-    let script = &encoded_script[..encoded_script.len() - 1];
-    (permission, script)
+    #[test]
+    fn test_encode_decode_script_with_permission_empty() {
+        let (permission, script) = decode_script_with_permission("");
+        assert_eq!(permission.to_bits(), 0);
+        assert_eq!(script, "");
+    }
 }
