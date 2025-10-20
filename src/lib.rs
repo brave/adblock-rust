@@ -42,6 +42,10 @@ pub use engine::Engine;
 #[doc(inline)]
 pub use lists::FilterSet;
 
+#[cfg(feature = "debug-info")]
+#[doc(inline)]
+pub use engine::EngineDebugInfo;
+
 #[cfg(test)]
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
