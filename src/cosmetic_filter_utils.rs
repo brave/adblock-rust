@@ -84,19 +84,22 @@ impl SpecificFilterType {
     }
 }
 
-/// Encodes permission bits in the last 2 ascii bytes of a script string
+/// Encodes permission bits in the last 2 ascii chars of a script string
 /// Returns the script with permission appended
 pub(crate) fn encode_script_with_permission(
     mut script: String,
     permission: PermissionMask,
 ) -> String {
-    let permission_string = format!("{:02x}", permission.to_bits());
-    debug_assert_eq!(permission_string.len(), 2);
-    script.push_str(&permission_string);
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    let high = (permission.to_bits() >> 4) as usize;
+    let low = (permission.to_bits() & 0x0f) as usize;
+
+    script.push(HEX_CHARS[high] as char);
+    script.push(HEX_CHARS[low] as char);
     script
 }
 
-/// Decodes permission bits from the last 2 ascii bytes of a script string
+/// Decodes permission bits from the last 2 ascii chars of a script string
 /// Returns (permission, script) tuple
 pub(crate) fn decode_script_with_permission(encoded_script: &str) -> (PermissionMask, &str) {
     if encoded_script.len() < 2 {
@@ -106,12 +109,10 @@ pub(crate) fn decode_script_with_permission(encoded_script: &str) -> (Permission
     // unwrap: length >= 2 asserted above
     let (digit2, digit1) = (last_chars.next().unwrap(), last_chars.next().unwrap());
     fn parse_hex(c: char) -> Option<u8> {
-        if c >= '0' && c <= '9' {
-            Some(c as u8 - b'0')
-        } else if c >= 'a' && c <= 'f' {
-            Some(c as u8 - b'a' + 10)
-        } else {
-            None
+        match c {
+            '0'..='9' => Some(c as u8 - b'0'),
+            'a'..='f' => Some(c as u8 - b'a' + 10),
+            _ => None,
         }
     }
     if let (Some(d1), Some(d2)) = (parse_hex(digit1.1), parse_hex(digit2.1)) {
