@@ -23,7 +23,7 @@ pub mod cosmetic_filter_cache;
 mod cosmetic_filter_cache_builder;
 mod cosmetic_filter_utils;
 mod data_format;
-mod engine;
+pub mod engine;
 pub mod filters;
 mod flatbuffers;
 pub mod lists;
@@ -41,10 +41,6 @@ pub mod utils;
 pub use engine::Engine;
 #[doc(inline)]
 pub use lists::FilterSet;
-
-#[cfg(feature = "debug-info")]
-#[doc(inline)]
-pub use engine::EngineDebugInfo;
 
 #[cfg(test)]
 #[path = "../tests/test_utils.rs"]
