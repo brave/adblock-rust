@@ -84,26 +84,41 @@ impl SpecificFilterType {
     }
 }
 
-/// Encodes permission bits in the last byte of a script string
-/// Returns the script with permission byte prepended
+/// Encodes permission bits in the last 2 ascii bytes of a script string
+/// Returns the script with permission appended
 pub(crate) fn encode_script_with_permission(
     mut script: String,
     permission: PermissionMask,
 ) -> String {
-    script.push(permission.to_bits() as char);
+    let permission_string = format!("{:02x}", permission.to_bits());
+    debug_assert_eq!(permission_string.len(), 2);
+    script.push_str(&permission_string);
     script
 }
 
-/// Decodes permission bits from the last char of a script string
+/// Decodes permission bits from the last 2 ascii bytes of a script string
 /// Returns (permission, script) tuple
 pub(crate) fn decode_script_with_permission(encoded_script: &str) -> (PermissionMask, &str) {
-    if let Some(last_char_start) = encoded_script.char_indices().last() {
-        let last_char = last_char_start.1;
-        let permission_bits = last_char as u8;
-        let permission = PermissionMask::from_bits(permission_bits);
-        (permission, &encoded_script[..last_char_start.0])
+    if encoded_script.len() < 2 {
+        return (PermissionMask::default(), "");
+    }
+    let mut last_chars = encoded_script.char_indices().rev();
+    // unwrap: length >= 2 asserted above
+    let (digit2, digit1) = (last_chars.next().unwrap(), last_chars.next().unwrap());
+    fn parse_hex(c: char) -> Option<u8> {
+        if c >= '0' && c <= '9' {
+            Some(c as u8 - b'0')
+        } else if c >= 'a' && c <= 'f' {
+            Some(c as u8 - b'a' + 10)
+        } else {
+            None
+        }
+    }
+    if let (Some(d1), Some(d2)) = (parse_hex(digit1.1), parse_hex(digit2.1)) {
+        let permission = PermissionMask::from_bits(d1 << 4 | d2);
+        (permission, &encoded_script[..digit1.0])
     } else {
-        (PermissionMask::default(), encoded_script)
+        (PermissionMask::default(), "")
     }
 }
 
