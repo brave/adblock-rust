@@ -531,12 +531,12 @@ mod scriptlet_storage_tests {
                 if ident.len() > 2 {
                     assert_eq!(
                         resources.get_scriptlet_resources([(*ident, perm)]),
-                        format!("try {{\n{}\n}} catch ( e ) {{ }}\n", ident),
+                        format!("try {{\n{ident}\n}} catch ( e ) {{ }}\n"),
                     );
                 } else {
                     assert_eq!(
                         resources.get_scriptlet_resources([(*ident, perm)]),
-                        format!("try {{\nperm{}\n}} catch ( e ) {{ }}\n", ident),
+                        format!("try {{\nperm{ident}\n}} catch ( e ) {{ }}\n"),
                     );
                 }
             }
