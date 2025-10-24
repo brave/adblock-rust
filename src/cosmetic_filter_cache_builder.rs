@@ -171,7 +171,7 @@ impl CosmeticFilterCacheBuilder {
             .chain(rule.hostnames.unwrap_or_default())
             .chain(rule.entities.unwrap_or_default());
 
-        tokens_to_insert.for_each(|t| self.store_hostname_filter(&t, kind.clone()));
+        tokens_to_insert.for_each(|t| self.store_hostname_filter(&t, &kind));
 
         let tokens_to_insert_negated = std::iter::empty()
             .chain(rule.not_hostnames.unwrap_or_default())
@@ -179,16 +179,16 @@ impl CosmeticFilterCacheBuilder {
 
         let negated = kind.negated();
 
-        tokens_to_insert_negated.for_each(|t| self.store_hostname_filter(&t, negated.clone()));
+        tokens_to_insert_negated.for_each(|t| self.store_hostname_filter(&t, &negated));
     }
 
-    fn store_hostname_filter(&mut self, token: &Hash, kind: SpecificFilterType) {
+    fn store_hostname_filter(&mut self, token: &Hash, kind: &SpecificFilterType) {
         use SpecificFilterType::*;
 
         match kind {
             // Handle hide and inject_script at top level for better deduplication
             Hide(s) => {
-                self.hostname_hide.insert(*token, s);
+                self.hostname_hide.insert(*token, s.clone());
             }
             InjectScript((s, permission)) => {
                 let encoded_script = encode_script_with_permission(s, permission);
@@ -197,19 +197,19 @@ impl CosmeticFilterCacheBuilder {
             // Handle remaining types through HostnameRule
             Unhide(s) => {
                 let entry = self.specific_rules.entry(*token).or_default();
-                entry.unhide.push(s);
+                entry.unhide.push(s.clone());
             }
             UninjectScript((s, _)) => {
                 let entry = self.specific_rules.entry(*token).or_default();
-                entry.uninject_script.push(s);
+                entry.uninject_script.push(s.clone());
             }
             ProceduralOrAction(s) => {
                 let entry = self.specific_rules.entry(*token).or_default();
-                entry.procedural_action.push(s);
+                entry.procedural_action.push(s.clone());
             }
             ProceduralOrActionException(s) => {
                 let entry = self.specific_rules.entry(*token).or_default();
-                entry.procedural_action_exception.push(s);
+                entry.procedural_action_exception.push(s.clone());
             }
         }
     }
