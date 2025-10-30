@@ -183,7 +183,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 884296823183764168;
+        const EXPECTED_HASH: u64 = 10945714988765761881;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -193,7 +193,7 @@ mod tests {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 7887643884738497753;
+        const EXPECTED_HASH: u64 = 4608037684406751718;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -221,8 +221,8 @@ mod tests {
         #[cfg(feature = "debug-info")]
         {
             let debug_info = engine.get_debug_info();
-            let low_bound = 9_500_000;
-            let high_bound = 10_000_000;
+            let low_bound = 8_000_000;
+            let high_bound = 8_500_000;
             assert!(
                 debug_info.flatbuffer_size >= low_bound,
                 "Expected size >= {} bytes, got {}",
@@ -237,9 +237,9 @@ mod tests {
             );
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            18094146314477408965
+            9439492009815519037
         } else {
-            8215024964158872824
+            14803842039735157685
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
