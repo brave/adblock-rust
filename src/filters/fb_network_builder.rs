@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use flatbuffers::WIPOffset;
 
 use crate::filters::fb_builder::EngineFlatBuilder;
-use crate::filters::network::NetworkFilter;
+use crate::filters::network::{FilterTokens, NetworkFilter};
 
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
@@ -156,33 +156,55 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     None
                 };
 
-                for tokens in multi_tokens {
-                    let mut best_token: ShortHash = 0;
-                    let mut min_count = total_number_of_tokens + 1;
-                    for token in tokens {
-                        let token = to_short_hash(token);
-                        match tokens_histogram.get(&token) {
-                            None => {
-                                min_count = 0;
-                                best_token = token
+                match multi_tokens {
+                    FilterTokens::Empty => {
+                        // No tokens, skip this filter
+                    }
+                    FilterTokens::OptDomains(opt_domains) => {
+                        // For OptDomains, each domain is treated as a separate token group
+                        for &token in opt_domains.iter() {
+                            let token = to_short_hash(token);
+                            let best_token = token;
+
+                            if let Some(flat_filter) = flat_filter {
+                                filter_map.entry(best_token).or_default().push(flat_filter);
+                            } else {
+                                optimizable
+                                    .entry(best_token)
+                                    .or_default()
+                                    .push(network_filter.clone());
                             }
-                            Some(&count) if count < min_count => {
-                                min_count = count;
-                                best_token = token
-                            }
-                            _ => {}
                         }
                     }
+                    FilterTokens::Other(tokens) => {
+                        // For Other tokens, find the best token from the group
+                        let mut best_token: ShortHash = 0;
+                        let mut min_count = total_number_of_tokens + 1;
+                        for &token in tokens.iter() {
+                            let token = to_short_hash(token);
+                            match tokens_histogram.get(&token) {
+                                None => {
+                                    min_count = 0;
+                                    best_token = token
+                                }
+                                Some(&count) if count < min_count => {
+                                    min_count = count;
+                                    best_token = token
+                                }
+                                _ => {}
+                            }
+                        }
 
-                    if let Some(flat_filter) = flat_filter {
-                        filter_map.entry(best_token).or_default().push(flat_filter);
-                    } else {
-                        optimizable
-                            .entry(best_token)
-                            .or_default()
-                            .push(network_filter.clone());
+                        if let Some(flat_filter) = flat_filter {
+                            filter_map.entry(best_token).or_default().push(flat_filter);
+                        } else {
+                            optimizable
+                                .entry(best_token)
+                                .or_default()
+                                .push(network_filter.clone());
+                        }
                     }
-                } // tokens
+                }
             }
         }
 
