@@ -326,10 +326,10 @@ fn make_flatbuffer(
     optimize: bool,
 ) -> VerifiedFlatbufferMemory {
     let mut builder = EngineFlatBuilder::default();
-    let network_rules_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
-    let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
     let cosmetic_rules = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters, &mut builder);
     let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut builder);
+    let network_rules_builder = NetworkRulesBuilder::from_rules(network_filters, optimize);
+    let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
     builder.finish(network_rules, cosmetic_rules)
 }
 
