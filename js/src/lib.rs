@@ -351,8 +351,8 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     );
     if let Some(scriptlets_path) = scriptlets_path {
         #[allow(deprecated)]
-        resources.append(
-            &mut adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(
+        resources.extend(
+            adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(
                 &scriptlets_path,
             )),
         );
