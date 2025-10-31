@@ -11,8 +11,8 @@ trait Optimization {
 }
 
 pub fn is_filter_optimizable_by_patterns(filter: &NetworkFilter) -> bool {
-    filter.opt_domains.is_none()
-        && filter.opt_not_domains.is_none()
+    filter.get_opt_domains().is_none()
+        && filter.get_opt_not_domains().is_none()
         && !filter.is_hostname_anchor()
         && !filter.is_redirect()
         && !filter.is_csp()
@@ -92,13 +92,13 @@ impl Optimization for SimplePatternGroup {
         // if any filter is empty (meaning matches anything), the entire combiation matches anything
         if filters
             .iter()
-            .any(|f| matches!(f.filter, FilterPart::Empty))
+            .any(|f| matches!(f.get_filter(), FilterPart::Empty))
         {
-            filter.filter = FilterPart::Empty
+            filter.set_filter(FilterPart::Empty);
         } else {
             let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
             for f in filters {
-                match &f.filter {
+                match &f.get_filter() {
                     FilterPart::Empty => (),
                     FilterPart::Simple(s) => flat_patterns.push(s.clone()),
                     FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s),
@@ -106,11 +106,11 @@ impl Optimization for SimplePatternGroup {
             }
 
             if flat_patterns.is_empty() {
-                filter.filter = FilterPart::Empty;
+                filter.set_filter(FilterPart::Empty);
             } else if flat_patterns.len() == 1 {
-                filter.filter = FilterPart::Simple(flat_patterns[0].clone())
+                filter.set_filter(FilterPart::Simple(flat_patterns[0].clone()))
             } else {
-                filter.filter = FilterPart::AnyOf(flat_patterns)
+                filter.set_filter(FilterPart::AnyOf(flat_patterns))
             }
         }
 
@@ -121,13 +121,8 @@ impl Optimization for SimplePatternGroup {
             .mask
             .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 
-        if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Box::new(
-                filters
-                    .iter()
-                    .flat_map(|f| f.raw_line.clone())
-                    .join(" <+> "),
-            ))
+        if base_filter.get_raw_line().is_some() {
+            filter.add_raw_line(filters.iter().flat_map(|f| f.get_raw_line()).join(" <+> "))
         }
 
         filter

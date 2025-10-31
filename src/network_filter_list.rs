@@ -28,8 +28,8 @@ impl From<&NetworkFilter> for CheckResult {
     fn from(filter: &NetworkFilter) -> Self {
         Self {
             filter_mask: filter.mask,
-            modifier_option: filter.modifier_option.clone(),
-            raw_line: filter.raw_line.clone().map(|v| *v),
+            modifier_option: filter.get_modifier_option().map(|v| v.to_string()),
+            raw_line: filter.get_raw_line().map(|v| v.to_string()),
         }
     }
 }

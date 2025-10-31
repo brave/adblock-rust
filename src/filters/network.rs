@@ -304,8 +304,9 @@ impl From<&request::RequestType> for NetworkFilterMask {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum FilterPart {
+    #[default]
     Empty,
     Simple(String),
     AnyOf(Vec<String>),
@@ -371,21 +372,25 @@ impl FilterPart {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NetworkFilterExtra {
+    pub raw_line: Option<String>,           // 8
+    pub opt_domains: Option<Vec<Hash>>,     // 24
+    pub opt_not_domains: Option<Vec<Hash>>, // 24
+    pub modifier_option: Option<String>,    // 24
+    pub(crate) tag: Option<String>,         // 24
+    pub filter: FilterPart,                 // 32
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkFilter {
-    pub mask: NetworkFilterMask,
-    pub filter: FilterPart,
-    pub opt_domains: Option<Vec<Hash>>,
-    pub opt_not_domains: Option<Vec<Hash>>,
+    pub mask: NetworkFilterMask, // 4 (8)
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
-    pub modifier_option: Option<String>,
-    pub hostname: Option<String>,
-    pub(crate) tag: Option<String>,
+    pub hostname: Option<String>, // 24
 
-    pub raw_line: Option<Box<String>>,
+    pub id: Hash, // 8
 
-    pub id: Hash,
+    pub extra: Option<Box<NetworkFilterExtra>>,
 }
 
 // TODO - restrict the API so that this is always true - i.e. lazy-calculate IDs from actual data,
@@ -432,6 +437,70 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
 }
 
 impl NetworkFilter {
+    pub fn get_raw_line(&self) -> Option<&str> {
+        if let Some(extra) = &self.extra {
+            extra.raw_line.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_modifier_option(&self) -> Option<&str> {
+        if let Some(extra) = &self.extra {
+            extra.modifier_option.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_opt_domains(&self) -> Option<&[Hash]> {
+        if let Some(extra) = &self.extra {
+            extra.opt_domains.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_opt_not_domains(&self) -> Option<&[Hash]> {
+        if let Some(extra) = &self.extra {
+            extra.opt_not_domains.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn add_raw_line(&mut self, line: String) {
+        if let Some(extra) = &mut self.extra {
+            extra.raw_line = Some(line);
+        } else {
+            self.extra.get_or_insert_default().raw_line = Some(line);
+        }
+    }
+
+    pub fn get_tag(&self) -> Option<&str> {
+        if let Some(extra) = &self.extra {
+            extra.tag.as_deref()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_filter(&self) -> &FilterPart {
+        if let Some(extra) = &self.extra {
+            &extra.filter
+        } else {
+            &FilterPart::Empty
+        }
+    }
+
+    pub fn set_filter(&mut self, filter: FilterPart) {
+        if let Some(extra) = &mut self.extra {
+            extra.filter = filter;
+        } else {
+            self.extra.get_or_insert_default().filter = filter;
+        }
+    }
+
     pub fn parse(line: &str, debug: bool, _opts: ParseOptions) -> Result<Self, NetworkFilterError> {
         let parsed = AbstractNetworkFilter::parse(line)?;
 
@@ -795,23 +864,31 @@ impl NetworkFilter {
         // Finally, apply any explicitly negated request types
         mask &= !cpt_mask_negative;
 
+        let mut extra: Option<NetworkFilterExtra> = None;
+        if debug
+            || opt_domains.is_some()
+            || opt_not_domains.is_some()
+            || tag.is_some()
+            || modifier_option.is_some()
+            || filter.is_some()
+        {
+            let extra_val = extra.get_or_insert_with(|| NetworkFilterExtra::default());
+            if debug {
+                extra_val.raw_line = Some(String::from(line));
+            }
+            extra_val.opt_domains = opt_domains;
+            extra_val.opt_not_domains = opt_not_domains;
+            extra_val.tag = tag;
+            extra_val.modifier_option = modifier_option;
+            extra_val.filter = filter
+                .map(|f| FilterPart::Simple(f))
+                .unwrap_or(FilterPart::Empty);
+        }
+
         Ok(NetworkFilter {
-            filter: if let Some(simple_filter) = filter {
-                FilterPart::Simple(simple_filter)
-            } else {
-                FilterPart::Empty
-            },
             hostname: hostname_decoded?,
             mask,
-            opt_domains,
-            opt_not_domains,
-            tag,
-            raw_line: if debug {
-                Some(Box::new(String::from(line)))
-            } else {
-                None
-            },
-            modifier_option,
+            extra: extra.map(|e| Box::new(e)),
             id: utils::fast_hash(line),
         })
     }
@@ -856,23 +933,23 @@ impl NetworkFilter {
         let mut mask = self.mask;
         mask.set(NetworkFilterMask::BAD_FILTER, false);
         compute_filter_id(
-            self.modifier_option.as_deref(),
+            self.get_modifier_option(),
             mask,
-            self.filter.string_view().as_deref(),
+            self.get_filter().string_view().as_deref(),
             self.hostname.as_deref(),
-            self.opt_domains.as_ref(),
-            self.opt_not_domains.as_ref(),
+            self.get_opt_domains(),
+            self.get_opt_not_domains(),
         )
     }
 
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.modifier_option.as_deref(),
+            self.get_modifier_option(),
             self.mask,
-            self.filter.string_view().as_deref(),
+            self.get_filter().string_view().as_deref(),
             self.hostname.as_deref(),
-            self.opt_domains.as_ref(),
-            self.opt_not_domains.as_ref(),
+            self.get_opt_domains(),
+            self.get_opt_not_domains(),
         )
     }
 
@@ -881,11 +958,11 @@ impl NetworkFilter {
 
         // If there is only one domain and no domain negation, we also use this
         // domain as a token.
-        if self.opt_domains.is_some()
-            && self.opt_not_domains.is_none()
-            && self.opt_domains.as_ref().map(|d| d.len()) == Some(1)
+        if self.get_opt_domains().is_some()
+            && self.get_opt_not_domains().is_none()
+            && self.get_opt_domains().map(|d| d.len()) == Some(1)
         {
-            if let Some(domains) = self.opt_domains.as_ref() {
+            if let Some(domains) = self.get_opt_domains() {
                 if let Some(domain) = domains.first() {
                     tokens.push(*domain)
                 }
@@ -893,7 +970,7 @@ impl NetworkFilter {
         }
 
         // Get tokens from filter
-        match &self.filter {
+        match self.get_filter() {
             FilterPart::Simple(f) => {
                 if !self.is_complete_regex() {
                     let skip_last_token =
@@ -919,7 +996,7 @@ impl NetworkFilter {
         }
 
         if tokens.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
-            if let Some(removeparam) = &self.modifier_option {
+            if let Some(removeparam) = self.get_modifier_option() {
                 if VALID_PARAM.is_match(removeparam) {
                     let mut param_tokens = utils::tokenize(&removeparam.to_ascii_lowercase());
                     tokens.append(&mut param_tokens);
@@ -929,10 +1006,12 @@ impl NetworkFilter {
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
-        if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
-            self.opt_domains
-                .as_ref()
-                .unwrap_or(&vec![])
+        if tokens.is_empty()
+            && self.get_opt_domains().is_some()
+            && self.get_opt_not_domains().is_none()
+        {
+            self.get_opt_domains()
+                .unwrap_or(&[])
                 .iter()
                 .map(|&d| vec![d])
                 .collect()
@@ -957,8 +1036,8 @@ impl NetworkFilterMaskHelper for NetworkFilter {
 
 impl fmt::Display for NetworkFilter {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self.raw_line.as_ref() {
-            Some(r) => write!(f, "{}", r.clone()),
+        match self.get_raw_line() {
+            Some(r) => write!(f, "{}", r),
             None => write!(f, "NetworkFilter"),
         }
     }
@@ -977,11 +1056,11 @@ impl NetworkMatchable for NetworkFilter {
             check_excluded_domains, check_included_domains, check_options, check_pattern,
         };
         check_options(self.mask, request)
-            && check_included_domains(self.opt_domains.as_deref(), request)
-            && check_excluded_domains(self.opt_not_domains.as_deref(), request)
+            && check_included_domains(self.get_opt_domains(), request)
+            && check_excluded_domains(self.get_opt_not_domains(), request)
             && check_pattern(
                 self.mask,
-                self.filter.iter(),
+                self.get_filter().iter(),
                 self.hostname.as_deref(),
                 (self as *const NetworkFilter) as u64,
                 request,
@@ -1004,8 +1083,8 @@ fn compute_filter_id(
     mask: NetworkFilterMask,
     filter: Option<&str>,
     hostname: Option<&str>,
-    opt_domains: Option<&Vec<Hash>>,
-    opt_not_domains: Option<&Vec<Hash>>,
+    opt_domains: Option<&[Hash]>,
+    opt_not_domains: Option<&[Hash]>,
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits());
 

@@ -45,7 +45,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
         network_filter: &NetworkFilter,
         builder: &mut EngineFlatBuilder<'a>,
     ) -> WIPOffset<fb::NetworkFilter<'a>> {
-        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
+        let opt_domains = network_filter.get_opt_domains().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| builder.get_or_insert_unique_domain_hash(x))
@@ -55,7 +55,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
             FlatSerialize::serialize(o, builder)
         });
 
-        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
+        let opt_not_domains = network_filter.get_opt_not_domains().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| builder.get_or_insert_unique_domain_hash(x))
@@ -66,8 +66,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
         });
 
         let modifier_option = network_filter
-            .modifier_option
-            .as_ref()
+            .get_modifier_option()
             .map(|s| builder.create_string(s));
 
         let hostname = network_filter
@@ -75,14 +74,11 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
             .as_ref()
             .map(|s| builder.create_string(s));
 
-        let tag = network_filter
-            .tag
-            .as_ref()
-            .map(|s| builder.create_string(s));
+        let tag = network_filter.get_tag().map(|s| builder.create_string(s));
 
-        let patterns = if network_filter.filter.iter().len() > 0 {
+        let patterns = if network_filter.get_filter().iter().len() > 0 {
             let offsets: Vec<WIPOffset<&str>> = network_filter
-                .filter
+                .get_filter()
                 .iter()
                 .map(|s| builder.create_string(s))
                 .collect();
@@ -92,9 +88,8 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
         };
 
         let raw_line = network_filter
-            .raw_line
-            .as_ref()
-            .map(|v| builder.create_string(v.as_str()));
+            .get_raw_line()
+            .map(|v| builder.create_string(v));
 
         let network_filter = fb::NetworkFilter::create(
             builder.raw_builder(),
@@ -261,7 +256,7 @@ impl NetworkRulesBuilder {
                 FilterId::Exceptions
             } else if filter.is_important() {
                 FilterId::Importants
-            } else if filter.tag.is_some() && !filter.is_redirect() {
+            } else if filter.get_tag().is_some() && !filter.is_redirect() {
                 // `tag` + `redirect` is unsupported for now.
                 FilterId::TaggedFiltersAll
             } else if (filter.is_redirect() && filter.also_block_redirect())
