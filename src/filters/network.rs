@@ -900,10 +900,10 @@ impl NetworkFilter {
                         (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
                     let skip_first_token = self.is_right_anchor();
 
-                    let mut filter_tokens =
+                    let filter_tokens =
                         utils::tokenize_filter(f, skip_first_token, skip_last_token);
 
-                    tokens.append(&mut filter_tokens);
+                    tokens.extend(filter_tokens);
                 }
             }
             FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
@@ -913,16 +913,16 @@ impl NetworkFilter {
         // Append tokens from hostname, if any
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref() {
-                let mut hostname_tokens = utils::tokenize(hostname);
-                tokens.append(&mut hostname_tokens);
+                let hostname_tokens = utils::tokenize(hostname);
+                tokens.extend(hostname_tokens);
             }
         }
 
         if tokens.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
             if let Some(removeparam) = &self.modifier_option {
                 if VALID_PARAM.is_match(removeparam) {
-                    let mut param_tokens = utils::tokenize(&removeparam.to_ascii_lowercase());
-                    tokens.append(&mut param_tokens);
+                    let param_tokens = utils::tokenize(&removeparam.to_ascii_lowercase());
+                    tokens.extend(param_tokens);
                 }
             }
         }
