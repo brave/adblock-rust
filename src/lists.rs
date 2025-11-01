@@ -12,17 +12,12 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Specifies rule types to keep during parsing.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum RuleTypes {
+    #[default]
     All,
     NetworkOnly,
     CosmeticOnly,
-}
-
-impl Default for RuleTypes {
-    fn default() -> Self {
-        Self::All
-    }
 }
 
 impl RuleTypes {
