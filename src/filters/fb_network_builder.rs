@@ -156,6 +156,17 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     None
                 };
 
+                let mut store_filter = |token: ShortHash| {
+                    if let Some(flat_filter) = flat_filter {
+                        filter_map.entry(token).or_default().push(flat_filter);
+                    } else {
+                        optimizable
+                            .entry(token)
+                            .or_default()
+                            .push(network_filter.clone());
+                    }
+                };
+
                 match multi_tokens {
                     FilterTokens::Empty => {
                         // No tokens, skip this filter
@@ -163,17 +174,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     FilterTokens::OptDomains(opt_domains) => {
                         // For OptDomains, each domain is treated as a separate token group
                         for &token in opt_domains.iter() {
-                            let token = to_short_hash(token);
-                            let best_token = token;
-
-                            if let Some(flat_filter) = flat_filter {
-                                filter_map.entry(best_token).or_default().push(flat_filter);
-                            } else {
-                                optimizable
-                                    .entry(best_token)
-                                    .or_default()
-                                    .push(network_filter.clone());
-                            }
+                            store_filter(to_short_hash(token));
                         }
                     }
                     FilterTokens::Other(tokens) => {
@@ -195,14 +196,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                             }
                         }
 
-                        if let Some(flat_filter) = flat_filter {
-                            filter_map.entry(best_token).or_default().push(flat_filter);
-                        } else {
-                            optimizable
-                                .entry(best_token)
-                                .or_default()
-                                .push(network_filter.clone());
-                        }
+                        store_filter(best_token);
                     }
                 }
             }

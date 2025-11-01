@@ -950,9 +950,9 @@ impl NetworkFilter {
                 tokens.push(utils::fast_hash("https"));
             }
 
-            // Remake a new vector from the tokens
+            // Remake a vector to drop extra capacity.
             let mut t = Vec::with_capacity(tokens.len());
-            t.extend_from_slice(&tokens);
+            t.extend(tokens);
             FilterTokens::Other(t)
         }
     }

@@ -161,13 +161,7 @@ pub(crate) fn token_histogram<T>(
     let mut number_of_tokens = 0;
     for (_, tokens) in filter_tokens.iter() {
         match tokens {
-            FilterTokens::OptDomains(opt_domains) => {
-                for t in opt_domains {
-                    *tokens_histogram.entry(to_short_hash(*t)).or_insert(0) += 1;
-                    number_of_tokens += 1;
-                }
-            }
-            FilterTokens::Other(tokens) => {
+            FilterTokens::Other(tokens) | FilterTokens::OptDomains(tokens) => {
                 for t in tokens {
                     *tokens_histogram.entry(to_short_hash(*t)).or_insert(0) += 1;
                     number_of_tokens += 1;
