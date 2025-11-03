@@ -311,6 +311,12 @@ pub enum FilterPart {
     AnyOf(Vec<String>),
 }
 
+pub enum FilterTokens {
+    Empty,
+    OptDomains(Vec<Hash>),
+    Other(Vec<Hash>),
+}
+
 pub struct FilterPartIterator<'a> {
     filter_part: &'a FilterPart,
     index: usize,
@@ -876,7 +882,18 @@ impl NetworkFilter {
         )
     }
 
+    #[deprecated(since = "0.11.1", note = "use get_tokens_optimized instead")]
     pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
+        match self.get_tokens_optimized() {
+            FilterTokens::OptDomains(domains) => {
+                domains.into_iter().map(|domain| vec![domain]).collect()
+            }
+            FilterTokens::Other(tokens) => vec![tokens],
+            FilterTokens::Empty => vec![],
+        }
+    }
+
+    pub fn get_tokens_optimized(&self) -> FilterTokens {
         let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
 
         // If there is only one domain and no domain negation, we also use this
@@ -930,12 +947,12 @@ impl NetworkFilter {
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
         if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
-            self.opt_domains
-                .as_ref()
-                .unwrap_or(&vec![])
-                .iter()
-                .map(|&d| vec![d])
-                .collect()
+            if let Some(opt_domains) = self.opt_domains.as_ref() {
+                if !opt_domains.is_empty() {
+                    return FilterTokens::OptDomains(opt_domains.clone());
+                }
+            }
+            FilterTokens::Empty
         } else {
             // Add optional token for protocol
             if self.for_http() && !self.for_https() {
@@ -943,8 +960,11 @@ impl NetworkFilter {
             } else if self.for_https() && !self.for_http() {
                 tokens.push(utils::fast_hash("https"));
             }
-            tokens.shrink_to_fit();
-            vec![tokens]
+
+            // Remake a vector to drop extra capacity.
+            let mut t = Vec::with_capacity(tokens.len());
+            t.extend(tokens);
+            FilterTokens::Other(t)
         }
     }
 }
