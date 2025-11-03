@@ -1,6 +1,7 @@
 //! Unsafe utility functions for working with flatbuffers and other low-level operations.
 
 use crate::filters::flatbuffer_generated::fb;
+use std::mem::MaybeUninit;
 
 // Minimum alignment for the beginning of the flatbuffer data.
 const MIN_ALIGNMENT: usize = 8;
@@ -95,5 +96,48 @@ impl VerifiedFlatbufferMemory {
 
     pub fn data(&self) -> &[u8] {
         &self.raw_data[self.start..]
+    }
+}
+
+/// A simple stack-allocated vector.
+/// It is used to avoid allocations when the vector is small.
+pub(crate) struct StackVector<T, const MAX_SIZE: usize> {
+    data: [MaybeUninit<T>; MAX_SIZE],
+    size: usize,
+}
+
+impl<T, const MAX_SIZE: usize> Default for StackVector<T, MAX_SIZE>
+where
+    T: Default + Copy,
+{
+    fn default() -> Self {
+        Self {
+            data: [MaybeUninit::uninit(); MAX_SIZE],
+            size: 0,
+        }
+    }
+}
+
+impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+    pub fn push(&mut self, value: T) -> bool {
+        if self.size < MAX_SIZE {
+            self.data[self.size] = MaybeUninit::new(value);
+            self.size += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
+    pub fn into_vec(self) -> Vec<T> {
+        let mut v = Vec::with_capacity(self.size);
+        for i in 0..self.size {
+            v.push(unsafe { self.data[i].assume_init_read() });
+        }
+        v
     }
 }

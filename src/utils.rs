@@ -6,6 +6,8 @@ use seahash::hash;
 #[cfg(target_pointer_width = "32")]
 use seahash::reference::hash;
 
+use crate::flatbuffers::unsafe_tools::StackVector;
+
 pub type Hash = u64;
 
 // A smaller version of Hash that is used in serialized format.
@@ -27,16 +29,14 @@ fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
-pub(crate) const TOKENS_BUFFER_SIZE: usize = 128;
-pub(crate) const TOKENS_BUFFER_RESERVED: usize = 1;
-const TOKENS_MAX: usize = TOKENS_BUFFER_SIZE - TOKENS_BUFFER_RESERVED;
+pub(crate) type TokensBuffer = StackVector<Hash, 200>;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,
     is_allowed_code: &dyn Fn(char) -> bool,
     skip_first_token: bool,
     skip_last_token: bool,
-    tokens_buffer: &mut Vec<Hash>,
+    tokens_buffer: &mut TokensBuffer,
 ) {
     // let mut tokens_buffer_index = 0;
     let mut inside: bool = false;
@@ -44,9 +44,6 @@ fn fast_tokenizer_no_regex(
     let mut preceding_ch: Option<char> = None; // Used to check if a '*' is not just before a token
 
     for (i, c) in pattern.char_indices() {
-        if tokens_buffer.len() >= TOKENS_MAX {
-            return;
-        }
         if is_allowed_code(c) {
             if !inside {
                 inside = true;
@@ -75,17 +72,17 @@ fn fast_tokenizer_no_regex(
     }
 }
 
-pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
+pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut TokensBuffer) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }
 
 pub fn tokenize(pattern: &str) -> Vec<Hash> {
-    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+    let mut tokens_buffer = TokensBuffer::default();
     tokenize_to(pattern, &mut tokens_buffer);
-    tokens_buffer
+    tokens_buffer.into_vec()
 }
 
-pub(crate) fn tokenize_to(pattern: &str, tokens_buffer: &mut Vec<Hash>) {
+pub(crate) fn tokenize_to(pattern: &str, tokens_buffer: &mut TokensBuffer) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }
 
@@ -95,21 +92,21 @@ pub(crate) fn tokenize_filter(
     skip_first_token: bool,
     skip_last_token: bool,
 ) -> Vec<Hash> {
-    let mut tokens_buffer: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+    let mut tokens_buffer = TokensBuffer::default();
     tokenize_filter_to(
         pattern,
         skip_first_token,
         skip_last_token,
         &mut tokens_buffer,
     );
-    tokens_buffer
+    tokens_buffer.into_vec()
 }
 
 pub(crate) fn tokenize_filter_to(
     pattern: &str,
     skip_first_token: bool,
     skip_last_token: bool,
-    tokens_buffer: &mut Vec<Hash>,
+    tokens_buffer: &mut TokensBuffer,
 ) {
     fast_tokenizer_no_regex(
         pattern,

@@ -15,9 +15,7 @@ use crate::filters::abstract_network::{
 use crate::lists::ParseOptions;
 use crate::regex_manager::RegexManager;
 use crate::request;
-use crate::utils::{self, Hash};
-
-pub(crate) const TOKENS_BUFFER_SIZE: usize = 200;
+use crate::utils::{self, Hash, TokensBuffer};
 
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
 static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
@@ -895,7 +893,7 @@ impl NetworkFilter {
     }
 
     pub fn get_tokens_optimized(&self) -> FilterTokens {
-        let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+        let mut tokens = TokensBuffer::default();
 
         // If there is only one domain and no domain negation, we also use this
         // domain as a token.
@@ -905,7 +903,7 @@ impl NetworkFilter {
         {
             if let Some(domains) = self.opt_domains.as_ref() {
                 if let Some(domain) = domains.first() {
-                    tokens.push(*domain)
+                    tokens.push(*domain);
                 }
             }
         }
@@ -963,10 +961,7 @@ impl NetworkFilter {
                 tokens.push(utils::fast_hash("https"));
             }
 
-            // Remake a vector to drop extra capacity.
-            let mut t = Vec::with_capacity(tokens.len());
-            t.extend(tokens);
-            FilterTokens::Other(t)
+            FilterTokens::Other(tokens.into_vec())
         }
     }
 }
