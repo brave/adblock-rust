@@ -138,7 +138,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
             .filters
             .into_iter()
             .map(|filter| {
-                let tokens = filter.get_tokens();
+                let tokens = filter.get_tokens_optimized();
                 (filter, tokens)
             })
             .collect();

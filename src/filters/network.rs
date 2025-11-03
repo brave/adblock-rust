@@ -882,7 +882,18 @@ impl NetworkFilter {
         )
     }
 
-    pub fn get_tokens(&self) -> FilterTokens {
+    #[deprecated(since = "0.11.1", note = "use get_tokens_optimized instead")]
+    pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
+        match self.get_tokens_optimized() {
+            FilterTokens::OptDomains(domains) => {
+                domains.into_iter().map(|domain| vec![domain]).collect()
+            }
+            FilterTokens::Other(tokens) => vec![tokens],
+            FilterTokens::Empty => vec![],
+        }
+    }
+
+    pub fn get_tokens_optimized(&self) -> FilterTokens {
         let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
 
         // If there is only one domain and no domain negation, we also use this
