@@ -170,6 +170,10 @@ impl InMemoryResourceStorage {
         self.resources.insert(resource.name, resource_impl);
         Ok(())
     }
+
+    pub fn take_resources(&mut self) -> HashMap<String, ResourceImpl> {
+        std::mem::take(&mut self.resources)
+    }
 }
 
 /// Formats `arg` such that it either is a JSON string, or is safe to insert within a JSON string,
