@@ -6,9 +6,7 @@ use adblock::request::Request;
 use adblock::url_parser::parse_url;
 use adblock::{Engine, FilterSet};
 
-#[path = "../tests/test_utils.rs"]
-mod test_utils;
-use test_utils::rules_from_lists;
+use adblock::test_utils::rules_from_lists;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Clone)]

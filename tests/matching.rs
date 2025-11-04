@@ -149,9 +149,7 @@ fn check_engine_matching() {
 #[test]
 #[cfg(not(debug_assertions))] // This test is too slow to run in debug mode
 fn check_rule_matching_browserlike() {
-    #[path = "../tests/test_utils.rs"]
-    mod test_utils;
-    use test_utils::rules_from_lists;
+    use crate::test_utils::rules_from_lists;
 
     use adblock::request::Request;
     use adblock::Engine;

@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use crate::lists::FilterFormat;
     use crate::resources::MimeType;
-    use crate::{lists::FilterFormat, test_utils::rules_from_lists};
+    use crate::test_utils::rules_from_lists;
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
     use seahash::hash;
 

@@ -32,6 +32,7 @@ mod optimizer;
 pub mod regex_manager;
 pub mod request;
 pub mod resources;
+pub mod test_utils;
 pub mod url_parser;
 
 #[doc(hidden)]
@@ -41,10 +42,6 @@ pub mod utils;
 pub use engine::Engine;
 #[doc(inline)]
 pub use lists::FilterSet;
-
-#[cfg(test)]
-#[path = "../tests/test_utils.rs"]
-mod test_utils;
 
 #[cfg(test)]
 mod sync_tests {

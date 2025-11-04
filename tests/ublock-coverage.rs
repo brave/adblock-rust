@@ -4,8 +4,7 @@ use adblock::Engine;
 #[allow(unused_imports)]
 use std::collections::HashMap;
 
-mod test_utils;
-use test_utils::rules_from_lists;
+use adblock::test_utils::rules_from_lists;
 
 #[cfg(not(debug_assertions))]
 #[allow(non_snake_case)]

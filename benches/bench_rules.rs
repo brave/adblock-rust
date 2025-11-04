@@ -3,9 +3,7 @@ use once_cell::sync::Lazy;
 
 use adblock::{Engine, FilterSet};
 
-#[path = "../tests/test_utils.rs"]
-mod test_utils;
-use test_utils::rules_from_lists;
+use adblock::test_utils::rules_from_lists;
 
 static DEFAULT_LISTS: Lazy<Vec<String>> =
     Lazy::new(|| rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]).collect());
