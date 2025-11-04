@@ -9,7 +9,7 @@ use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize,
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::utils::Hash;
 
-use super::flat::fb;
+use super::flatbuffer_generated::fb;
 
 #[derive(Clone, Default)]
 pub(crate) struct ShareableString {
