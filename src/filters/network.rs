@@ -311,6 +311,7 @@ pub enum FilterPart {
     AnyOf(Vec<String>),
 }
 
+#[derive(Debug, PartialEq)]
 pub enum FilterTokens {
     Empty,
     OptDomains(Vec<Hash>),
@@ -928,6 +929,17 @@ impl NetworkFilter {
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref() {
                 utils::tokenize_to(hostname, &mut tokens);
+            }
+        } else if let Some(hostname) = self.hostname.as_ref() {
+            // For hostname regex patterns, try to extract literal tokens from the beginning
+            // Only tokenize if it looks like <literal>.<pattern> where we can extract the literal part
+            if let Some(dot_pos) = hostname.find('.') {
+                let prefix = &hostname[..dot_pos];
+                // Allow alphanumeric and hyphens (valid hostname chars)
+                // Minimum 2 chars to avoid overly generic tokens
+                if prefix.len() >= 2 && prefix.chars().all(|c| c.is_alphanumeric() || c == '-') {
+                    tokens.push(utils::fast_hash(prefix));
+                }
             }
         }
 
