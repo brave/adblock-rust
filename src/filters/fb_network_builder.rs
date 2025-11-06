@@ -10,7 +10,6 @@ use crate::filters::network::{FilterTokens, NetworkFilter};
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize, WIPFlatVec};
-use crate::network_filter_list::token_histogram;
 use crate::optimizer;
 use crate::utils::{to_short_hash, Hash, ShortHash};
 
@@ -133,21 +132,71 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
 
         let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
 
-        // Compute tokens for all filters
-        let filter_tokens: Vec<_> = rule_list
-            .filters
-            .into_iter()
-            .map(|filter| {
-                let tokens = filter.get_tokens_optimized();
-                (filter, tokens)
-            })
-            .collect();
+        let mut used_tokens = HashMap::<ShortHash, usize>::with_capacity(rule_list.filters.len());
 
-        // compute the tokens' frequency histogram
-        let (total_number_of_tokens, tokens_histogram) = token_histogram(&filter_tokens);
+        used_tokens.insert(
+            to_short_hash(crate::utils::fast_hash("https")),
+            usize::MAX / 2,
+        );
+        used_tokens.insert(
+            to_short_hash(crate::utils::fast_hash("http")),
+            usize::MAX / 2,
+        );
+        used_tokens.insert(
+            to_short_hash(crate::utils::fast_hash("www")),
+            usize::MAX / 3,
+        );
+        used_tokens.insert(
+            to_short_hash(crate::utils::fast_hash("com")),
+            usize::MAX / 3,
+        );
+        let mut add_bad_token = |s: &str| {
+            used_tokens.insert(to_short_hash(crate::utils::fast_hash(s)), usize::MAX / 4);
+        };
+        let bad_tokens = vec![
+            "uk",
+            "net",
+            "org",
+            "io",
+            "de",
+            "fr",
+            "es",
+            "it",
+            "nl",
+            "se",
+            "ru",
+            "pl",
+            "co",
+            "js",
+            "css",
+            "img",
+            "jpg",
+            "html",
+            "png",
+            "cdn",
+            "static",
+            "images",
+            "api",
+            "wp",
+            "ad",
+            "ads",
+            "content",
+            "doubleclick",
+            "analytics",
+            "assets",
+            "id",
+            "min",
+            "amazon",
+            "google",
+            "googlesyndication",
+            "googleapis",
+        ];
+        for token in bad_tokens {
+            add_bad_token(token);
+        }
 
         {
-            for (network_filter, multi_tokens) in filter_tokens.into_iter() {
+            for network_filter in rule_list.filters {
                 let flat_filter = if !rule_list.optimize
                     || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
                 {
@@ -167,9 +216,11 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     }
                 };
 
+                let multi_tokens = network_filter.get_tokens_optimized();
                 match multi_tokens {
                     FilterTokens::Empty => {
-                        // No tokens, skip this filter
+                        // No tokens, add to fallback bucket (token 0)
+                        store_filter(0);
                     }
                     FilterTokens::OptDomains(opt_domains) => {
                         // For OptDomains, each domain is treated as a separate token group
@@ -178,25 +229,30 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                         }
                     }
                     FilterTokens::Other(tokens) => {
-                        // For Other tokens, find the best token from the group
-                        let mut best_token: ShortHash = 0;
-                        let mut min_count = total_number_of_tokens + 1;
+                        // pick a less used token
+                        let mut least_used_token = 0;
+                        let mut least_used_count = usize::MAX;
                         for &token in tokens.iter() {
-                            let token = to_short_hash(token);
-                            match tokens_histogram.get(&token) {
-                                None => {
-                                    min_count = 0;
-                                    best_token = token
+                            if token == 0 {
+                                // TODO: optimize by not adding 0 in the first place
+                                continue;
+                            }
+                            match used_tokens.entry(to_short_hash(token)) {
+                                std::collections::hash_map::Entry::Occupied(entry) => {
+                                    if *entry.get() < least_used_count {
+                                        least_used_count = *entry.get();
+                                        least_used_token = to_short_hash(token);
+                                    }
                                 }
-                                Some(&count) if count < min_count => {
-                                    min_count = count;
-                                    best_token = token
+                                std::collections::hash_map::Entry::Vacant(_) => {
+                                    least_used_token = to_short_hash(token);
+                                    break;
                                 }
-                                _ => {}
                             }
                         }
-
-                        store_filter(best_token);
+                        store_filter(least_used_token);
+                        // TODO: avoid second lookup?
+                        *used_tokens.entry(least_used_token).or_insert(0) += 1;
                     }
                 }
             }
