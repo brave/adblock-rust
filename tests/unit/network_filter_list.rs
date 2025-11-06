@@ -27,49 +27,6 @@ mod tests {
     }
 
     #[test]
-    fn token_histogram_works() {
-        // handle the case of just 1 token
-        {
-            let tokens = vec![(0, vec![vec![111]])];
-            let (total_tokens, histogram) = token_histogram(&tokens);
-            assert_eq!(total_tokens, 1);
-            assert_eq!(histogram.get(&111), Some(&1));
-            // include bad tokens
-            assert_eq!(histogram.get(&fast_hash("http")), Some(&1));
-            assert_eq!(histogram.get(&fast_hash("www")), Some(&1));
-        }
-
-        // handle the case of repeating tokens
-        {
-            let tokens = vec![(0, vec![vec![111]]), (1, vec![vec![111]])];
-            let (total_tokens, histogram) = token_histogram(&tokens);
-            assert_eq!(total_tokens, 2);
-            assert_eq!(histogram.get(&111), Some(&2));
-            // include bad tokens
-            assert_eq!(histogram.get(&fast_hash("http")), Some(&2));
-            assert_eq!(histogram.get(&fast_hash("www")), Some(&2));
-        }
-
-        // handle the different token set sizes
-        {
-            let tokens = vec![
-                (0, vec![vec![111, 123, 132]]),
-                (1, vec![vec![111], vec![123], vec![132]]),
-                (2, vec![vec![111, 123], vec![132]]),
-                (3, vec![vec![111, 111], vec![111]]),
-            ];
-            let (total_tokens, histogram) = token_histogram(&tokens);
-            assert_eq!(total_tokens, 12);
-            assert_eq!(histogram.get(&111), Some(&6));
-            assert_eq!(histogram.get(&123), Some(&3));
-            assert_eq!(histogram.get(&132), Some(&3));
-            // include bad tokens
-            assert_eq!(histogram.get(&fast_hash("http")), Some(&12));
-            assert_eq!(histogram.get(&fast_hash("www")), Some(&12));
-        }
-    }
-
-    #[test]
     fn network_filter_list_new_works() {
         {
             let filters = ["||foo.com"];
