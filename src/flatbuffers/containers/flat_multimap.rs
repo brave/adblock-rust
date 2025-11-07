@@ -71,12 +71,12 @@ where
     V: Follow<'a>,
     Keys: SortedIndex<I>,
 {
-    type Item = (usize, <V as Follow<'a>>::Inner);
+    type Item = <V as Follow<'a>>::Inner;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.keys.len() && self.keys.get(self.index) == self.key {
             self.index += 1;
-            Some((self.index - 1, self.values.get(self.index - 1)))
+            Some(self.values.get(self.index - 1))
         } else {
             None
         }
