@@ -169,7 +169,9 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
 
                 match multi_tokens {
                     FilterTokens::Empty => {
-                        // No tokens, skip this filter
+                        // No tokens, add to fallback bucket (token 0)
+                        // This ensures filters without extractable tokens are still checked as a fallback
+                        store_filter(0);
                     }
                     FilterTokens::OptDomains(opt_domains) => {
                         // For OptDomains, each domain is treated as a separate token group
