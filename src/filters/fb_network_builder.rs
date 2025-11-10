@@ -129,7 +129,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
         rule_list: Self,
         builder: &mut EngineFlatBuilder<'a>,
     ) -> WIPOffset<fb::NetworkFilterList<'a>> {
-        let mut filter_map = HashMap::<ShortHash, Vec<WIPOffset<fb::NetworkFilter<'a>>>>::new();
+        let mut filter_map_builder = FlatMultiMapBuilder::with_capacity(rule_list.filters.len());
 
         let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
 
@@ -158,7 +158,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
 
                 let mut store_filter = |token: ShortHash| {
                     if let Some(flat_filter) = flat_filter {
-                        filter_map.entry(token).or_default().push(flat_filter);
+                        filter_map_builder.insert(token, flat_filter);
                     } else {
                         optimizable
                             .entry(token)
@@ -212,7 +212,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
 
                 for filter in optimized {
                     let flat_filter = FlatSerialize::serialize(&filter, builder);
-                    filter_map.entry(token).or_default().push(flat_filter);
+                    filter_map_builder.insert(token, flat_filter);
                 }
             }
         } else {
@@ -222,8 +222,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
             );
         }
 
-        let flat_filter_map_builder = FlatMultiMapBuilder::from_filter_map(filter_map);
-        let flat_filter_map = FlatMultiMapBuilder::finish(flat_filter_map_builder, builder);
+        let flat_filter_map = FlatMultiMapBuilder::finish(filter_map_builder, builder);
 
         fb::NetworkFilterList::create(
             builder.raw_builder(),
