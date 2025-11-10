@@ -90,9 +90,8 @@ impl NetworkFilterList<'_> {
 
         for token in request.get_tokens_for_match() {
             if let Some(iter) = filter_map.get(to_short_hash(*token)) {
-                for (index, fb_filter) in iter {
-                    let filter =
-                        FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
+                for fb_filter in iter {
+                    let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
@@ -133,9 +132,8 @@ impl NetworkFilterList<'_> {
 
         for token in request.get_tokens_for_match() {
             if let Some(iter) = filter_map.get(to_short_hash(*token)) {
-                for (index, fb_filter) in iter {
-                    let filter =
-                        FlatNetworkFilter::new(&fb_filter, index, self.filter_data_context);
+                for fb_filter in iter {
+                    let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)

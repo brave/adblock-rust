@@ -46,7 +46,7 @@ mod tests {
 
         // Test existing key
         let mut iter = map.get(1).unwrap();
-        assert_eq!(iter.next(), Some((0, 100)));
+        assert_eq!(iter.next(), Some(100));
         assert_eq!(iter.next(), None);
 
         // Test non-existing key
@@ -65,14 +65,14 @@ mod tests {
 
         // Test key with single value
         let mut iter = map.get(3).unwrap();
-        assert_eq!(iter.next(), Some((5, 60)));
+        assert_eq!(iter.next(), Some(60));
         assert_eq!(iter.next(), None);
 
         // Test key with multiple values
         let mut iter = map.get(2).unwrap();
-        assert_eq!(iter.next(), Some((2, 30)));
-        assert_eq!(iter.next(), Some((3, 40)));
-        assert_eq!(iter.next(), Some((4, 50)));
+        assert_eq!(iter.next(), Some(30));
+        assert_eq!(iter.next(), Some(40));
+        assert_eq!(iter.next(), Some(50));
         assert_eq!(iter.next(), None);
 
         // Test non-existing key
@@ -89,9 +89,9 @@ mod tests {
         assert_eq!(map.total_size(), 3);
 
         let mut iter = map.get(5).unwrap();
-        assert_eq!(iter.next(), Some((0, 100)));
-        assert_eq!(iter.next(), Some((1, 200)));
-        assert_eq!(iter.next(), Some((2, 300)));
+        assert_eq!(iter.next(), Some(100));
+        assert_eq!(iter.next(), Some(200));
+        assert_eq!(iter.next(), Some(300));
         assert_eq!(iter.next(), None);
     }
 
@@ -104,9 +104,9 @@ mod tests {
 
         assert_eq!(map.total_size(), 3);
 
-        assert_eq!(map.get(1).unwrap().next(), Some((0, 10)));
-        assert_eq!(map.get(3).unwrap().next(), Some((1, 30)));
-        assert_eq!(map.get(5).unwrap().next(), Some((2, 50)));
+        assert_eq!(map.get(1).unwrap().next(), Some(10));
+        assert_eq!(map.get(3).unwrap().next(), Some(30));
+        assert_eq!(map.get(5).unwrap().next(), Some(50));
         assert!(map.get(2).is_none());
         assert!(map.get(4).is_none());
     }
@@ -149,11 +149,8 @@ mod tests {
         );
 
         assert_eq!(map.total_size(), 3);
-        assert_eq!(map.get(1).unwrap().collect::<Vec<_>>(), vec![(0, 10)]);
-        assert_eq!(
-            map.get(2).unwrap().collect::<Vec<_>>(),
-            vec![(1, 20), (2, 30)]
-        );
+        assert_eq!(map.get(1).unwrap().collect::<Vec<_>>(), vec![10]);
+        assert_eq!(map.get(2).unwrap().collect::<Vec<_>>(), vec![20, 30]);
         assert!(map.get(0).is_none());
         assert!(map.get(3).is_none());
     }
@@ -191,11 +188,8 @@ mod tests {
         let map = FlatMultiMapView::new(flat_map.keys(), flat_map.values());
 
         assert_eq!(map.total_size(), 3);
-        assert_eq!(map.get("a").unwrap().collect::<Vec<_>>(), vec![(0, "10")]);
-        assert_eq!(
-            map.get("b").unwrap().collect::<Vec<_>>(),
-            vec![(1, "20"), (2, "30")]
-        );
+        assert_eq!(map.get("a").unwrap().collect::<Vec<_>>(), vec!["10"]);
+        assert_eq!(map.get("b").unwrap().collect::<Vec<_>>(), vec!["20", "30"]);
         assert!(map.get("c").is_none());
         assert!(map.get("d").is_none());
     }
