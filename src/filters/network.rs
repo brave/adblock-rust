@@ -382,6 +382,10 @@ pub struct NetworkFilter {
     pub filter: FilterPart,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
+    /// Original domain strings corresponding to opt_domains (for content blocking conversion)
+    pub opt_domains_strings: Option<Vec<String>>,
+    /// Original domain strings corresponding to opt_not_domains (for content blocking conversion)
+    pub opt_not_domains_strings: Option<Vec<String>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
     pub modifier_option: Option<String>,
@@ -455,6 +459,8 @@ impl NetworkFilter {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
+        let mut opt_domains_strings: Option<Vec<String>> = None;
+        let mut opt_not_domains_strings: Option<Vec<String>> = None;
 
         let mut modifier_option: Option<String> = None;
         let mut tag: Option<String> = None;
@@ -485,23 +491,35 @@ impl NetworkFilter {
                         domains.dedup();
                         let mut opt_domains_array: Vec<Hash> = vec![];
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
+                        let mut opt_domains_strings_array: Vec<String> = vec![];
+                        let mut opt_not_domains_strings_array: Vec<String> = vec![];
 
                         for (enabled, domain) in domains {
                             let domain_hash = utils::fast_hash(&domain);
                             if !enabled {
                                 opt_not_domains_array.push(domain_hash);
+                                opt_not_domains_strings_array.push(domain);
                             } else {
                                 opt_domains_array.push(domain_hash);
+                                opt_domains_strings_array.push(domain);
                             }
                         }
 
                         if !opt_domains_array.is_empty() {
-                            opt_domains_array.sort_unstable();
-                            opt_domains = Some(opt_domains_array);
+                            // Sort both arrays together to maintain correspondence between hashes and strings
+                            let mut pairs: Vec<_> = opt_domains_array
+                                .into_iter()
+                                .zip(opt_domains_strings_array.into_iter())
+                                .collect();
+                            pairs.sort_by_key(|(hash, _)| *hash);
+                            let (sorted_hashes, sorted_strings): (Vec<_>, Vec<_>) =
+                                pairs.into_iter().unzip();
+                            opt_domains = Some(sorted_hashes);
+                            opt_domains_strings = Some(sorted_strings);
                         }
                         if !opt_not_domains_array.is_empty() {
-                            opt_not_domains_array.sort_unstable();
                             opt_not_domains = Some(opt_not_domains_array);
+                            opt_not_domains_strings = Some(opt_not_domains_strings_array);
                         }
                     }
                     NetworkFilterOption::Badfilter => mask.set(NetworkFilterMask::BAD_FILTER, true),
@@ -810,6 +828,8 @@ impl NetworkFilter {
             mask,
             opt_domains,
             opt_not_domains,
+            opt_domains_strings,
+            opt_not_domains_strings,
             tag,
             raw_line: if debug {
                 Some(Box::new(String::from(line)))

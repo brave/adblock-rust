@@ -29,7 +29,7 @@ pub mod fb {
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
             }
         }
     }
@@ -441,7 +441,7 @@ pub mod fb {
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
             }
         }
     }
@@ -672,7 +672,7 @@ pub mod fb {
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
             }
         }
     }
@@ -999,7 +999,7 @@ pub mod fb {
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
             }
         }
     }
@@ -1158,7 +1158,7 @@ pub mod fb {
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
             }
         }
     }
@@ -2065,7 +2065,7 @@ pub mod fb {
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
             Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
             }
         }
     }
@@ -2073,7 +2073,8 @@ pub mod fb {
     impl<'a> Engine<'a> {
         pub const VT_NETWORK_RULES: flatbuffers::VOffsetT = 4;
         pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
-        pub const VT_COSMETIC_FILTERS: flatbuffers::VOffsetT = 8;
+        pub const VT_UNIQUE_DOMAINS_STRINGS: flatbuffers::VOffsetT = 8;
+        pub const VT_COSMETIC_FILTERS: flatbuffers::VOffsetT = 10;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -2093,6 +2094,9 @@ pub mod fb {
             if let Some(x) = args.cosmetic_filters {
                 builder.add_cosmetic_filters(x);
             }
+            if let Some(x) = args.unique_domains_strings {
+                builder.add_unique_domains_strings(x);
+            }
             if let Some(x) = args.unique_domains_hashes {
                 builder.add_unique_domains_hashes(x);
             }
@@ -2111,6 +2115,10 @@ pub mod fb {
                 let x = self.unique_domains_hashes();
                 x.into_iter().collect()
             };
+            let unique_domains_strings = {
+                let x = self.unique_domains_strings();
+                x.iter().map(|s| s.to_string()).collect()
+            };
             let cosmetic_filters = {
                 let x = self.cosmetic_filters();
                 Box::new(x.unpack())
@@ -2118,6 +2126,7 @@ pub mod fb {
             EngineT {
                 network_rules,
                 unique_domains_hashes,
+                unique_domains_strings,
                 cosmetic_filters,
             }
         }
@@ -2155,6 +2164,24 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// Contains the original domain strings corresponding to unique_domains_hashes.
+        /// This is needed for content blocking conversion where we need to reconstruct
+        /// the original domain names from the hashes.
+        #[inline]
+        pub fn unique_domains_strings(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                    >>(Engine::VT_UNIQUE_DOMAINS_STRINGS, None)
+                    .unwrap()
+            }
+        }
         #[inline]
         pub fn cosmetic_filters(&self) -> CosmeticFilters<'a> {
             // Safety:
@@ -2187,6 +2214,13 @@ pub mod fb {
                     Self::VT_UNIQUE_DOMAINS_HASHES,
                     true,
                 )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>(
+                    "unique_domains_strings",
+                    Self::VT_UNIQUE_DOMAINS_STRINGS,
+                    true,
+                )?
                 .visit_field::<flatbuffers::ForwardsUOffset<CosmeticFilters>>(
                     "cosmetic_filters",
                     Self::VT_COSMETIC_FILTERS,
@@ -2203,15 +2237,19 @@ pub mod fb {
             >,
         >,
         pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+        pub unique_domains_strings: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
         pub cosmetic_filters: Option<flatbuffers::WIPOffset<CosmeticFilters<'a>>>,
     }
     impl<'a> Default for EngineArgs<'a> {
         #[inline]
         fn default() -> Self {
             EngineArgs {
-                network_rules: None,         // required field
-                unique_domains_hashes: None, // required field
-                cosmetic_filters: None,      // required field
+                network_rules: None,          // required field
+                unique_domains_hashes: None,  // required field
+                unique_domains_strings: None, // required field
+                cosmetic_filters: None,       // required field
             }
         }
     }
@@ -2244,6 +2282,18 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_unique_domains_strings(
+            &mut self,
+            unique_domains_strings: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                Engine::VT_UNIQUE_DOMAINS_STRINGS,
+                unique_domains_strings,
+            );
+        }
+        #[inline]
         pub fn add_cosmetic_filters(
             &mut self,
             cosmetic_filters: flatbuffers::WIPOffset<CosmeticFilters<'b>>,
@@ -2271,6 +2321,11 @@ pub mod fb {
                 .required(o, Engine::VT_NETWORK_RULES, "network_rules");
             self.fbb_
                 .required(o, Engine::VT_UNIQUE_DOMAINS_HASHES, "unique_domains_hashes");
+            self.fbb_.required(
+                o,
+                Engine::VT_UNIQUE_DOMAINS_STRINGS,
+                "unique_domains_strings",
+            );
             self.fbb_
                 .required(o, Engine::VT_COSMETIC_FILTERS, "cosmetic_filters");
             flatbuffers::WIPOffset::new(o.value())
@@ -2282,6 +2337,7 @@ pub mod fb {
             let mut ds = f.debug_struct("Engine");
             ds.field("network_rules", &self.network_rules());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
+            ds.field("unique_domains_strings", &self.unique_domains_strings());
             ds.field("cosmetic_filters", &self.cosmetic_filters());
             ds.finish()
         }
@@ -2291,6 +2347,7 @@ pub mod fb {
     pub struct EngineT {
         pub network_rules: Vec<NetworkFilterListT>,
         pub unique_domains_hashes: Vec<u64>,
+        pub unique_domains_strings: Vec<String>,
         pub cosmetic_filters: Box<CosmeticFiltersT>,
     }
     impl Default for EngineT {
@@ -2298,6 +2355,7 @@ pub mod fb {
             Self {
                 network_rules: Default::default(),
                 unique_domains_hashes: Default::default(),
+                unique_domains_strings: Default::default(),
                 cosmetic_filters: Default::default(),
             }
         }
@@ -2316,6 +2374,11 @@ pub mod fb {
                 let x = &self.unique_domains_hashes;
                 _fbb.create_vector(x)
             });
+            let unique_domains_strings = Some({
+                let x = &self.unique_domains_strings;
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
             let cosmetic_filters = Some({
                 let x = &self.cosmetic_filters;
                 x.pack(_fbb)
@@ -2325,6 +2388,7 @@ pub mod fb {
                 &EngineArgs {
                     network_rules,
                     unique_domains_hashes,
+                    unique_domains_strings,
                     cosmetic_filters,
                 },
             )
@@ -2383,14 +2447,14 @@ pub mod fb {
     /// # Safety
     /// Callers must trust the given bytes do indeed contain a valid `Engine`.
     pub unsafe fn root_as_engine_unchecked(buf: &[u8]) -> Engine {
-        flatbuffers::root_unchecked::<Engine>(buf)
+        unsafe { flatbuffers::root_unchecked::<Engine>(buf) }
     }
     #[inline]
     /// Assumes, without verification, that a buffer of bytes contains a size prefixed Engine and returns it.
     /// # Safety
     /// Callers must trust the given bytes do indeed contain a valid size prefixed `Engine`.
     pub unsafe fn size_prefixed_root_as_engine_unchecked(buf: &[u8]) -> Engine {
-        flatbuffers::size_prefixed_root_unchecked::<Engine>(buf)
+        unsafe { flatbuffers::size_prefixed_root_unchecked::<Engine>(buf) }
     }
     #[inline]
     pub fn finish_engine_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(

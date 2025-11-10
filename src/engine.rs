@@ -318,6 +318,69 @@ impl Engine {
         ));
         Ok(())
     }
+
+    /// Returns an equivalent list of content blocking rules for the network filters in this engine.
+    ///
+    /// Only network filters can be converted to content blocking format from a compiled engine.
+    ///
+    /// The list of content blocking rules will be properly ordered to ensure correct behavior of
+    /// `ignore-previous-rules`-typed rules.
+    #[cfg(feature = "content-blocking")]
+    pub fn to_content_blocking(&self) -> Vec<crate::content_blocking::CbRule> {
+        use crate::filters::fb_network_builder::NetworkFilterListId;
+        use std::collections::HashSet;
+
+        let mut ignore_previous_rules = vec![];
+        let mut other_rules = vec![];
+        let mut processed_filters = HashSet::new();
+
+        let root = self.filter_data_context.memory.root();
+        let network_rules = root.network_rules();
+        let unique_domains_strings = root.unique_domains_strings();
+
+        // Convert directly from flatbuffer data without raw_line
+        let domains_vec: Vec<String> = unique_domains_strings
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        // Iterate over all network filter lists
+        for list_id in 0..NetworkFilterListId::Size as usize {
+            // Get the flatbuffer list
+            let list_fb = network_rules.get(list_id);
+
+            // Iterate over all filters in this list directly from the flatbuffer
+            for filter_fb in list_fb.filter_map_values().iter() {
+                let id = filter_fb._tab.loc();
+                if !processed_filters.insert(id) {
+                    continue;
+                }
+
+                if let Ok(equivalent) =
+                    crate::content_blocking::fb_network_filter_to_cb_rule(&filter_fb, &domains_vec)
+                {
+                    equivalent
+                        .into_iter()
+                        .for_each(|cb_rule| match &cb_rule.action.typ {
+                            crate::content_blocking::CbType::IgnorePreviousRules => {
+                                ignore_previous_rules.push(cb_rule)
+                            }
+                            _ => other_rules.push(cb_rule),
+                        });
+                }
+            }
+        }
+
+        // Order ignore-previous-rules after other rules
+        other_rules.extend(ignore_previous_rules);
+
+        // Add the ignore-previous-fp-documents rule if we have any network rules
+        if !other_rules.is_empty() {
+            other_rules.push(crate::content_blocking::ignore_previous_fp_documents());
+        }
+
+        other_rules
+    }
 }
 
 /// Static assertions for `Engine: Send + Sync` traits.

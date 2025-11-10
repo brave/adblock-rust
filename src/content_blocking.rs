@@ -1,6 +1,7 @@
 //! Transforms filter rules into content blocking syntax used on iOS and MacOS.
 
 use crate::filters::cosmetic::CosmeticFilter;
+use crate::filters::flatbuffer_generated::fb::NetworkFilter as FbNetworkFilter;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::lists::ParsedFilter;
 
@@ -119,7 +120,7 @@ pub enum CbLoadType {
 
 /// Corresponds to possible entries in the `trigger.resource_type` field of a Safari content
 /// blocking rule.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Ord, PartialOrd)]
 #[serde(rename_all = "kebab-case")]
 pub enum CbResourceType {
     Document,
@@ -145,18 +146,30 @@ pub struct CbTrigger {
     /// An array of strings matched to a URL's domain; limits action to a list of specific domains.
     /// Values must be lowercase ASCII, or punycode for non-ASCII. Add * in front to match domain
     /// and subdomains. Can't be used with unless-domain.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_domain_list"
+    )]
     pub if_domain: Option<Vec<String>>,
     /// An array of strings matched to a URL's domain; acts on any site except domains in a
     /// provided list. Values must be lowercase ASCII, or punycode for non-ASCII. Add * in front to
     /// match domain and subdomains. Can't be used with if-domain.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_domain_list"
+    )]
     pub unless_domain: Option<Vec<String>>,
     /// An array of strings representing the resource types (how the browser intends to use the
     /// resource) that the rule should match. If not specified, the rule matches all resource
     /// types. Valid values: document, image, style-sheet, script, font, raw (Any untyped load),
     /// svg-document, media, popup.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_resource_type"
+    )]
     pub resource_type: Option<HashSet<CbResourceType>>,
     /// An array of strings that can include one of two mutually exclusive values. If not
     /// specified, the rule matches all load types. first-party is triggered only if the resource
@@ -248,6 +261,34 @@ fn non_empty(v: Vec<String>) -> Option<Vec<String>> {
     }
 }
 
+fn serialize_resource_type<S>(
+    value: &Option<HashSet<CbResourceType>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    if let Some(resource_type) = value {
+        let mut sorted = resource_type.iter().map(|r| r.clone()).collect::<Vec<_>>();
+        sorted.sort();
+        serializer.serialize_some(&Some(sorted))
+    } else {
+        serializer.serialize_none()
+    }
+}
+
+fn serialize_domain_list<S>(value: &Option<Vec<String>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    if let Some(domains) = value {
+        let mut sorted = domains.clone();
+        sorted.sort();
+        serializer.serialize_some(&Some(sorted))
+    } else {
+        serializer.serialize_none()
+    }
+}
 /// Some adblock rules cannot be directly represented by a single content blocking rule. This enum
 /// serves as an intermediate conversion step that provides extra context on why one rule turned
 /// into multiple rules.
@@ -301,6 +342,271 @@ impl Iterator for CbRuleEquivalentIterator {
     }
 }
 
+/// Convert a flatbuffer NetworkFilter to CbRuleEquivalent using resolved domain strings
+pub fn fb_network_filter_to_cb_rule(
+    fb_filter: &FbNetworkFilter<'_>,
+    unique_domains_strings: &[String],
+) -> Result<CbRuleEquivalent, CbRuleCreationFailure> {
+    static SPECIAL_CHARS: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r##"([.+?^${}()|\[\]\\])"##).unwrap());
+    static REPLACE_WILDCARDS: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\*"##).unwrap());
+    static TRAILING_SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new(r##"\^$"##).unwrap());
+
+    let mask = NetworkFilterMask::from_bits_truncate(fb_filter.mask());
+
+    // Check for unsupported features
+    if mask.contains(NetworkFilterMask::IS_REDIRECT) {
+        return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
+    }
+    if mask.contains(NetworkFilterMask::GENERIC_HIDE) {
+        return Err(CbRuleCreationFailure::NetworkGenerichideUnsupported);
+    }
+    if mask.contains(NetworkFilterMask::IS_CSP) {
+        return Err(CbRuleCreationFailure::NetworkCspUnsupported);
+    }
+    if mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX) {
+        return Err(CbRuleCreationFailure::FullRegexUnsupported);
+    }
+    if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+        return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
+    }
+
+    let load_type =
+        if mask.contains(NetworkFilterMask::THIRD_PARTY | NetworkFilterMask::FIRST_PARTY) {
+            vec![]
+        } else if mask.contains(NetworkFilterMask::THIRD_PARTY) {
+            vec![CbLoadType::ThirdParty]
+        } else if mask.contains(NetworkFilterMask::FIRST_PARTY) {
+            vec![CbLoadType::FirstParty]
+        } else {
+            vec![]
+        };
+
+    let url_filter = match (fb_filter.patterns(), fb_filter.hostname()) {
+        (Some(patterns), Some(hostname)) if !patterns.is_empty() => {
+            let pattern = patterns.get(0); // Take first pattern
+            let without_trailing_separator = TRAILING_SEPARATOR.replace_all(pattern, "");
+            let escaped_special_chars =
+                SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
+            let with_fixed_wildcards = REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+
+            let mut url_filter = format!(
+                "^[^:]+:(//)?([^/]+\\.)?{}",
+                SPECIAL_CHARS.replace_all(hostname, r##"\$1"##)
+            );
+
+            if mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
+                url_filter += ".*";
+            }
+
+            url_filter += &with_fixed_wildcards;
+
+            if mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
+                url_filter += "$";
+            }
+
+            url_filter
+        }
+        (Some(patterns), None) if !patterns.is_empty() => {
+            let pattern = patterns.get(0); // Take first pattern
+            let without_trailing_separator = TRAILING_SEPARATOR.replace_all(pattern, "");
+            let escaped_special_chars =
+                SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
+            let with_fixed_wildcards = REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+            let mut url_filter = if mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
+                format!("^{with_fixed_wildcards}")
+            } else {
+                let scheme_part = if mask
+                    .contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS)
+                {
+                    ""
+                } else if mask.contains(NetworkFilterMask::FROM_HTTP) {
+                    "^http://.*"
+                } else if mask.contains(NetworkFilterMask::FROM_HTTPS) {
+                    "^https://.*"
+                } else if mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
+                    "^wss?://.*"
+                } else {
+                    unreachable!("Invalid scheme information");
+                };
+
+                format!("{scheme_part}{with_fixed_wildcards}")
+            };
+
+            if mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
+                url_filter += "$";
+            }
+
+            url_filter
+        }
+        (Some(_), Some(hostname)) => {
+            let escaped_special_chars = SPECIAL_CHARS.replace_all(hostname, r##"\$1"##);
+            format!("^[^:]+:(//)?([^/]+\\.)?{escaped_special_chars}")
+        }
+        _ => {
+            if mask.contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS) {
+                "^https?://".to_string()
+            } else if mask.contains(NetworkFilterMask::FROM_HTTP) {
+                "^http://".to_string()
+            } else if mask.contains(NetworkFilterMask::FROM_HTTPS) {
+                "^https://".to_string()
+            } else if mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
+                "^wss?://".to_string()
+            } else {
+                unreachable!("Invalid scheme information");
+            }
+        }
+    };
+
+    // Resolve domain strings from indices
+    let (if_domain, unless_domain) =
+        if fb_filter.opt_domains().is_some() || fb_filter.opt_not_domains().is_some() {
+            let mut if_domain = vec![];
+            let mut unless_domain = vec![];
+
+            // Process opt_domains (if-domain)
+            if let Some(opt_domains) = fb_filter.opt_domains() {
+                for domain_index in opt_domains {
+                    if let Some(domain_str) = unique_domains_strings.get(domain_index as usize) {
+                        let normalized_domain = if domain_str.is_ascii() {
+                            domain_str.to_lowercase()
+                        } else {
+                            idna::domain_to_ascii(&domain_str.to_lowercase())
+                                .unwrap_or_else(|_| domain_str.to_lowercase())
+                        };
+                        if_domain.push(format!("*{normalized_domain}"));
+                    }
+                }
+            }
+
+            // Process opt_not_domains (unless-domain)
+            if let Some(opt_not_domains) = fb_filter.opt_not_domains() {
+                for domain_index in opt_not_domains {
+                    if let Some(domain_str) = unique_domains_strings.get(domain_index as usize) {
+                        let normalized_domain = if domain_str.is_ascii() {
+                            domain_str.to_lowercase()
+                        } else {
+                            idna::domain_to_ascii(&domain_str.to_lowercase())
+                                .unwrap_or_else(|_| domain_str.to_lowercase())
+                        };
+                        unless_domain.push(format!("*{normalized_domain}"));
+                    }
+                }
+            }
+
+            (non_empty(if_domain), non_empty(unless_domain))
+        } else {
+            (None, None)
+        };
+
+    if if_domain.is_some() && unless_domain.is_some() {
+        return Err(CbRuleCreationFailure::UnlessAndIfDomainTogetherUnsupported);
+    }
+
+    let blocking_type = if mask.contains(NetworkFilterMask::IS_EXCEPTION) {
+        CbType::IgnorePreviousRules
+    } else {
+        CbType::Block
+    };
+
+    let resource_type = if mask.contains(NetworkFilterMask::FROM_NETWORK_TYPES) {
+        None
+    } else {
+        let mut types = HashSet::new();
+        let mut unsupported_flags = NetworkFilterMask::empty();
+
+        macro_rules! push_if_flag {
+            ($flag:ident, $target:ident) => {
+                if mask.contains(NetworkFilterMask::$flag) {
+                    types.insert(CbResourceType::$target);
+                }
+            };
+            ($flag:ident) => {
+                if mask.contains(NetworkFilterMask::$flag) {
+                    unsupported_flags |= NetworkFilterMask::$flag;
+                }
+            };
+        }
+        push_if_flag!(FROM_IMAGE, Image);
+        push_if_flag!(FROM_MEDIA, Media);
+        push_if_flag!(FROM_OBJECT);
+        push_if_flag!(FROM_OTHER);
+        push_if_flag!(FROM_PING);
+        push_if_flag!(FROM_SCRIPT, Script);
+        push_if_flag!(FROM_STYLESHEET, StyleSheet);
+        push_if_flag!(FROM_SUBDOCUMENT, Document);
+        push_if_flag!(FROM_WEBSOCKET);
+        push_if_flag!(FROM_XMLHTTPREQUEST, Raw);
+        push_if_flag!(FROM_FONT, Font);
+
+        if !unsupported_flags.is_empty() && types.is_empty() {
+            return Err(CbRuleCreationFailure::NoSupportedNetworkOptions(
+                unsupported_flags,
+            ));
+        }
+
+        Some(types)
+    };
+
+    let url_filter_is_case_sensitive = if mask.contains(NetworkFilterMask::MATCH_CASE) {
+        Some(true)
+    } else {
+        None
+    };
+
+    let single_rule = CbRule {
+        action: CbAction {
+            typ: blocking_type,
+            selector: None,
+        },
+        trigger: CbTrigger {
+            url_filter,
+            load_type,
+            if_domain,
+            unless_domain,
+            resource_type,
+            url_filter_is_case_sensitive,
+            ..Default::default()
+        },
+    };
+
+    if !single_rule.is_ascii() {
+        return Err(CbRuleCreationFailure::RuleContainsNonASCII);
+    }
+
+    if let Some(resource_types) = &single_rule.trigger.resource_type {
+        if resource_types.len() > 1
+            && resource_types.contains(&CbResourceType::Document)
+            && single_rule.trigger.load_type.is_empty()
+        {
+            let mut non_doc_types = resource_types.clone();
+            non_doc_types.remove(&CbResourceType::Document);
+            let rule_clone = single_rule.clone();
+            let non_doc_rule = CbRule {
+                trigger: CbTrigger {
+                    resource_type: Some(non_doc_types),
+                    ..rule_clone.trigger
+                },
+                ..rule_clone
+            };
+            let mut doc_type = HashSet::new();
+            doc_type.insert(CbResourceType::Document);
+            let just_doc_rule = CbRule {
+                trigger: CbTrigger {
+                    resource_type: Some(doc_type),
+                    load_type: vec![CbLoadType::ThirdParty],
+                    ..single_rule.trigger
+                },
+                ..single_rule
+            };
+
+            return Ok(CbRuleEquivalent::SplitDocument(non_doc_rule, just_doc_rule));
+        }
+    }
+
+    Ok(CbRuleEquivalent::SingleRule(single_rule))
+}
+
 impl TryFrom<NetworkFilter> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
@@ -328,6 +634,11 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             }
             if v.is_removeparam() {
                 return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
+            }
+
+            // Reject rules with unsupported "from=" option
+            if raw_line.contains("from=") {
+                return Err(CbRuleCreationFailure::FromNotSupported);
             }
 
             let load_type = if v
@@ -425,53 +736,45 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 .to_string(),
             };
 
-            let (if_domain, unless_domain) = if v.opt_domains.is_some()
-                || v.opt_not_domains.is_some()
-            {
-                let mut if_domain = vec![];
-                let mut unless_domain = vec![];
+            let (if_domain, unless_domain) =
+                if v.opt_domains_strings.is_some() || v.opt_not_domains_strings.is_some() {
+                    let mut if_domain = vec![];
+                    let mut unless_domain = vec![];
 
-                // Unwraps are okay here - any rules with opt_domains or opt_not_domains must have
-                // an options section delimited by a '$' character, followed by a `domain=` option.
-                let opts = &raw_line[find_char(b'$', raw_line.as_bytes()).unwrap() + "$".len()..];
-                let domain_start_index =
-                    if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
-                        index
-                    } else {
-                        return Err(CbRuleCreationFailure::FromNotSupported);
-                    };
-                let domains_start = &opts[domain_start_index + "domain=".len()..];
-                let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
-                    &domains_start[..comma]
+                    // Process if-domains (allowed domains)
+                    if let Some(opt_domains_strings) = &v.opt_domains_strings {
+                        for domain in opt_domains_strings {
+                            let lowercase = domain.to_lowercase();
+                            let normalized_domain = if lowercase.is_ascii() {
+                                lowercase
+                            } else {
+                                // The network filter has already parsed successfully, so this should be
+                                // safe
+                                idna::domain_to_ascii(&lowercase).unwrap()
+                            };
+                            if_domain.push(format!("*{normalized_domain}"));
+                        }
+                    }
+
+                    // Process unless-domains (blocked domains)
+                    if let Some(opt_not_domains_strings) = &v.opt_not_domains_strings {
+                        for domain in opt_not_domains_strings {
+                            let lowercase = domain.to_lowercase();
+                            let normalized_domain = if lowercase.is_ascii() {
+                                lowercase
+                            } else {
+                                // The network filter has already parsed successfully, so this should be
+                                // safe
+                                idna::domain_to_ascii(&lowercase).unwrap()
+                            };
+                            unless_domain.push(format!("*{normalized_domain}"));
+                        }
+                    }
+
+                    (non_empty(if_domain), non_empty(unless_domain))
                 } else {
-                    domains_start
-                }
-                .split('|');
-
-                domains.for_each(|domain| {
-                    let (collection, domain) =
-                        if let Some(domain_stripped) = domain.strip_prefix('~') {
-                            (&mut unless_domain, domain_stripped)
-                        } else {
-                            (&mut if_domain, domain)
-                        };
-
-                    let lowercase = domain.to_lowercase();
-                    let normalized_domain = if lowercase.is_ascii() {
-                        lowercase
-                    } else {
-                        // The network filter has already parsed successfully, so this should be
-                        // safe
-                        idna::domain_to_ascii(&lowercase).unwrap()
-                    };
-
-                    collection.push(format!("*{normalized_domain}"));
-                });
-
-                (non_empty(if_domain), non_empty(unless_domain))
-            } else {
-                (None, None)
-            };
+                    (None, None)
+                };
 
             if if_domain.is_some() && unless_domain.is_some() {
                 return Err(CbRuleCreationFailure::UnlessAndIfDomainTogetherUnsupported);
@@ -615,12 +918,12 @@ impl TryFrom<CosmeticFilter> for CbRule {
                     }
                     LocationType::Hostname => {
                         if let Ok(encoded) = idna::domain_to_ascii(location) {
-                            hostnames_vec.push(encoded);
+                            hostnames_vec.push(format!("*{}", encoded));
                         }
                     }
                     LocationType::NotHostname => {
                         if let Ok(encoded) = idna::domain_to_ascii(location) {
-                            not_hostnames_vec.push(encoded);
+                            not_hostnames_vec.push(format!("*{}", encoded));
                         }
                     }
                 },

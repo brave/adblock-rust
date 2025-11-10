@@ -183,7 +183,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::from_rules(["ad-banner"], Default::default());
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 10945714988765761881;
+        const EXPECTED_HASH: u64 = 8658658273172715973;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -193,7 +193,7 @@ mod tests {
         let mut engine = Engine::from_rules(["ad-banner$tag=abc"], Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 4608037684406751718;
+        const EXPECTED_HASH: u64 = 753873060964812206;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -222,7 +222,7 @@ mod tests {
         {
             let debug_info = engine.get_debug_info();
             let low_bound = 8_000_000;
-            let high_bound = 8_500_000;
+            let high_bound = 8_600_000;
             assert!(
                 debug_info.flatbuffer_size >= low_bound,
                 "Expected size >= {} bytes, got {}",
@@ -237,9 +237,9 @@ mod tests {
             );
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            13277824246832611772
+            13391724788164209240
         } else {
-            12001568478200869587
+            6404886792057238978
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
@@ -894,5 +894,103 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
                 .injected_script,
             ""
         );
+    }
+
+    #[test]
+    #[cfg(feature = "content-blocking")]
+    fn engine_to_content_blocking_compares_with_filterset() -> Result<(), ()> {
+        use std::fs;
+
+        // Load the brave-main-list.txt file
+        let brave_list_content = fs::read_to_string("data/brave/brave-main-list.txt")
+            .expect("Failed to read brave-main-list.txt");
+
+        let filters: Vec<&str> = brave_list_content
+            .lines()
+            // .filter(|line| line.contains("devtools-detector"))
+            .collect();
+
+        // Create FilterSet in debug mode
+        let mut filter_set = crate::lists::FilterSet::new(true);
+        filter_set.add_filters(&filters, Default::default());
+        // Only network filters are used for content blocking
+        filter_set.cosmetic_filters = vec![];
+
+        // Get content blocking from FilterSet
+        let (filterset_cb_rules, _filterset_used_rules) = filter_set.into_content_blocking()?;
+
+        // Create Engine from the same filters (need to recreate FilterSet)
+        let mut filter_set2 = crate::lists::FilterSet::new(false);
+        filter_set2.add_filters(&filters, Default::default());
+        let engine = Engine::from_filter_set(filter_set2, false);
+
+        // Get content blocking from Engine
+        let mut engine_cb_rules = engine.to_content_blocking();
+
+        // Sort domains in engine rules for comparison
+        for rule in &mut engine_cb_rules {
+            if let Some(ref mut domains) = rule.trigger.if_domain {
+                domains.sort();
+            }
+            if let Some(ref mut domains) = rule.trigger.unless_domain {
+                domains.sort();
+            }
+        }
+
+        // Sort domains in filterset rules for comparison
+        let mut sorted_filterset_cb_rules = filterset_cb_rules;
+        for rule in &mut sorted_filterset_cb_rules {
+            if let Some(ref mut domains) = rule.trigger.if_domain {
+                domains.sort();
+            }
+            if let Some(ref mut domains) = rule.trigger.unless_domain {
+                domains.sort();
+            }
+        }
+
+        // Compare the rules using HashSets of string representations
+        use std::collections::HashSet;
+
+        let engine_rule_strings: HashSet<String> = engine_cb_rules
+            .into_iter()
+            .map(|rule| serde_json::to_string(&rule).unwrap())
+            .collect();
+
+        let filterset_rule_strings: HashSet<String> = sorted_filterset_cb_rules
+            .into_iter()
+            .map(|rule| serde_json::to_string(&rule).unwrap())
+            .collect();
+
+        // Find differences
+        let engine_only: Vec<_> = engine_rule_strings
+            .difference(&filterset_rule_strings)
+            .collect();
+
+        let filterset_only: Vec<_> = filterset_rule_strings
+            .difference(&engine_rule_strings)
+            .collect();
+
+        if !engine_only.is_empty() || !filterset_only.is_empty() {
+            println!(
+                "Engine produced {} rules, FilterSet produced {} rules from brave-main-list.txt",
+                engine_rule_strings.len(),
+                filterset_rule_strings.len()
+            );
+            let new_rule = engine_only.iter().next();
+            let old_rule = filterset_only.iter().next();
+            println!(
+                "First difference (old|new):\n {:?}\n {:?}",
+                old_rule, new_rule,
+            );
+        }
+
+        // The sets should be equal
+        assert_eq!(engine_rule_strings.len(), filterset_rule_strings.len());
+        assert!(
+            engine_rule_strings == filterset_rule_strings,
+            "Content blocking rules differ between Engine and FilterSet"
+        );
+
+        Ok(())
     }
 }

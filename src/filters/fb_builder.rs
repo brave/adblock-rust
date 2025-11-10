@@ -21,17 +21,19 @@ pub(crate) struct EngineFlatBuilder<'a> {
     fb_builder: flatbuffers::FlatBufferBuilder<'a>,
     unique_domains_hashes: Vec<Hash>,
     unique_domains_hashes_map: HashMap<Hash, u32>,
+    unique_domains_strings: Vec<String>,
     shared_strings: Vec<WIPOffset<&'a str>>,
     shared_strings_original: Vec<String>,
 }
 
 impl<'a> EngineFlatBuilder<'a> {
-    pub fn get_or_insert_unique_domain_hash(&mut self, h: &Hash) -> u32 {
+    pub fn get_or_insert_unique_domain(&mut self, h: &Hash, domain_str: &str) -> u32 {
         if let Some(&index) = self.unique_domains_hashes_map.get(h) {
             return index;
         }
         let index = self.unique_domains_hashes.len() as u32;
         self.unique_domains_hashes.push(*h);
+        self.unique_domains_strings.push(domain_str.to_string());
         self.unique_domains_hashes_map.insert(*h, index);
         index
     }
@@ -52,11 +54,21 @@ impl<'a> EngineFlatBuilder<'a> {
     ) -> VerifiedFlatbufferMemory {
         let unique_domains_hashes =
             Some(self.fb_builder.create_vector(&self.unique_domains_hashes));
+
+        // Create vector of domain strings
+        let domain_string_offsets: Vec<_> = self
+            .unique_domains_strings
+            .iter()
+            .map(|s| self.fb_builder.create_string(s))
+            .collect();
+        let unique_domains_strings = Some(self.fb_builder.create_vector(&domain_string_offsets));
+
         let engine = fb::Engine::create(
             self.raw_builder(),
             &fb::EngineArgs {
                 network_rules: Some(network_rules),
                 unique_domains_hashes,
+                unique_domains_strings,
                 cosmetic_filters: Some(cosmetic_rules),
             },
         );

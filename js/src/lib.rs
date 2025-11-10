@@ -323,6 +323,17 @@ fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
     Ok(JsNull::new(&mut cx))
 }
 
+fn engine_to_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let this = cx.argument::<JsBox<Engine>>(0)?;
+
+    let result = if let Ok(engine) = this.0.lock() {
+        engine.to_content_blocking()
+    } else {
+        cx.throw_error("Failed to acquire lock on engine")?
+    };
+    json_ffi::to_js(&mut cx, &result)
+}
+
 fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let url: String = cx.argument::<JsString>(0)?.value(&mut cx);
     let source_url: String = cx.argument::<JsString>(1)?.value(&mut cx);
@@ -410,6 +421,7 @@ register_module!(mut m, {
     m.export_function("Engine_useResources", engine_use_resources)?;
     m.export_function("Engine_tagExists", engine_tag_exists)?;
     m.export_function("Engine_clearTags", engine_clear_tags)?;
+    m.export_function("Engine_toContentBlocking", engine_to_content_blocking)?;
 
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;

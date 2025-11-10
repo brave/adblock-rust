@@ -33,7 +33,7 @@ pub(crate) struct NetworkFilterPattern {
 /// Any option that appears on the right side of a network filter as initiated by a `$` character.
 /// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
 /// negated using a prepended `~`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum NetworkFilterOption {
     Domain(Vec<(bool, String)>),
     Badfilter,
