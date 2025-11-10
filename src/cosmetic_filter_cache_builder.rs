@@ -194,50 +194,50 @@ impl CosmeticFilterCacheBuilder {
             // Handle hide and inject_script at top level for better deduplication
             Hide(s) => {
                 let mut shareable_string = None;
-                for token in tokens {
+                for hash in tokens {
                     let s = shareable_string.get_or_insert_with(|| builder.add_shareable_string(s));
-                    self.hostname_hide.insert(token, s.clone());
+                    self.hostname_hide.insert(hash, s.clone());
                 }
             }
             InjectScript((s, permission)) => {
                 let mut shareable_string = None;
-                for token in tokens {
+                for hash in tokens {
                     let s = shareable_string.get_or_insert_with(|| {
                         builder.add_shareable_string(&encode_script_with_permission(s, permission))
                     });
-                    self.hostname_inject_script.insert(token, s.clone());
+                    self.hostname_inject_script.insert(hash, s.clone());
                 }
             }
             // Handle remaining types through HostnameRule
             Unhide(s) => {
                 let mut shareable_string = None;
-                for token in tokens {
+                for hash in tokens {
                     let s = shareable_string.get_or_insert_with(|| builder.add_shareable_string(s));
-                    let entry = self.specific_rules.entry(token).or_default();
+                    let entry = self.specific_rules.entry(hash).or_default();
                     entry.unhide.push(s.clone());
                 }
             }
             UninjectScript((s, _)) => {
                 let mut shareable_string = None;
-                for token in tokens {
+                for hash in tokens {
                     let s = shareable_string.get_or_insert_with(|| builder.add_shareable_string(s));
-                    let entry = self.specific_rules.entry(token).or_default();
+                    let entry = self.specific_rules.entry(hash).or_default();
                     entry.uninject_script.push(s.clone());
                 }
             }
             ProceduralOrAction(s) => {
                 let mut shareable_string = None;
-                for token in tokens {
+                for hash in tokens {
                     let s = shareable_string.get_or_insert_with(|| builder.add_shareable_string(s));
-                    let entry = self.specific_rules.entry(token).or_default();
+                    let entry = self.specific_rules.entry(hash).or_default();
                     entry.procedural_action.push(s.clone());
                 }
             }
             ProceduralOrActionException(s) => {
                 let mut shareable_string = None;
-                for token in tokens {
+                for hash in tokens {
                     let s = shareable_string.get_or_insert_with(|| builder.add_shareable_string(s));
-                    let entry = self.specific_rules.entry(token).or_default();
+                    let entry = self.specific_rules.entry(hash).or_default();
                     entry.procedural_action_exception.push(s.clone());
                 }
             }

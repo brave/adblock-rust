@@ -113,6 +113,11 @@ table Engine {
   /// Contains hashes for opt_(not)_domains. See opt_domains for details.
   unique_domains_hashes: [uint64] (required);
 
+  /// Contains the original domain strings corresponding to unique_domains_hashes.
+  /// This is needed for content blocking conversion where we need to reconstruct
+  /// the original domain names from the hashes.
+  unique_domains_strings: [string] (required);
+
   cosmetic_filters: CosmeticFilters (required);
 }
 

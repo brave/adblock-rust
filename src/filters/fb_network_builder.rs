@@ -46,20 +46,36 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
         network_filter: &NetworkFilter,
         builder: &mut EngineFlatBuilder<'a>,
     ) -> WIPOffset<fb::NetworkFilter<'a>> {
-        let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
-            let mut o: Vec<u32> = v
+        let opt_domains = network_filter.opt_domains.as_ref().map(|hashes| {
+            let domain_strings = network_filter.opt_domains_strings.as_ref();
+            let mut o: Vec<u32> = hashes
                 .iter()
-                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .enumerate()
+                .map(|(i, hash)| {
+                    let domain_str = domain_strings
+                        .and_then(|strings| strings.get(i))
+                        .map(|s| s.as_str())
+                        .unwrap_or("");
+                    builder.get_or_insert_unique_domain(hash, domain_str)
+                })
                 .collect();
             o.sort_unstable();
             o.dedup();
             FlatSerialize::serialize(o, builder)
         });
 
-        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|v| {
-            let mut o: Vec<u32> = v
+        let opt_not_domains = network_filter.opt_not_domains.as_ref().map(|hashes| {
+            let domain_strings = network_filter.opt_not_domains_strings.as_ref();
+            let mut o: Vec<u32> = hashes
                 .iter()
-                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .enumerate()
+                .map(|(i, hash)| {
+                    let domain_str = domain_strings
+                        .and_then(|strings| strings.get(i))
+                        .map(|s| s.as_str())
+                        .unwrap_or("");
+                    builder.get_or_insert_unique_domain(hash, domain_str)
+                })
                 .collect();
             o.sort_unstable();
             o.dedup();
