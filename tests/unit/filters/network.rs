@@ -1186,4 +1186,17 @@ mod parse_tests {
         defaults.opt_domains = Some(vec![utils::fast_hash("auth.wi-fi.ru")]);
         assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
     }
+
+    #[test]
+    fn test_simple_pattern_tokenization() {
+        let rule = "||some.primewire.c*/sw$script,1p";
+        let filter = NetworkFilter::parse(rule, true, ParseOptions::default()).unwrap();
+        assert_eq!(
+            filter.get_tokens_optimized(),
+            FilterTokens::Other(vec![
+                utils::fast_hash("some"),
+                utils::fast_hash("primewire")
+            ])
+        );
+    }
 }
