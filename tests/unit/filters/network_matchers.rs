@@ -350,9 +350,38 @@ mod match_tests {
     }
 
     fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
+        let mut mapping = HashMap::new();
+        let opt_domains = filter.opt_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
+        let opt_not_domains = filter.opt_not_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
         super::super::check_options(filter.mask, request)
-            && super::super::check_included_domains(filter.opt_domains.as_deref(), request)
-            && super::super::check_excluded_domains(filter.opt_not_domains.as_deref(), request)
+            && super::super::check_included_domains_mapped(
+                opt_domains.as_deref(),
+                request,
+                &mapping,
+            )
+            && super::super::check_excluded_domains_mapped(
+                opt_not_domains.as_deref(),
+                request,
+                &mapping,
+            )
     }
 
     #[test]

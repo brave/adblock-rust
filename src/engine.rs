@@ -139,6 +139,11 @@ impl Engine {
         self.blocker.check(request, &self.resources)
     }
 
+    #[doc(hidden)]
+    pub(crate) fn check_network_request_exceptions(&self, request: &Request) -> bool {
+        self.blocker.check_exceptions(request)
+    }
+
     pub fn check_network_request_subset(
         &self,
         request: &Request,

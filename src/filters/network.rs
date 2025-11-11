@@ -969,6 +969,18 @@ impl NetworkFilter {
             FilterTokens::Other(t)
         }
     }
+
+    #[doc(hidden)]
+    pub fn matches_test(&self, request: &request::Request) -> bool {
+        let filter_set = crate::FilterSet::new_with_rules(vec![self.clone()], vec![], true);
+        let engine = crate::Engine::from_filter_set(filter_set, true);
+
+        if self.is_exception() {
+            engine.check_network_request_exceptions(request)
+        } else {
+            engine.check_network_request(request).matched
+        }
+    }
 }
 
 impl NetworkFilterMaskHelper for NetworkFilter {
@@ -991,30 +1003,6 @@ pub trait NetworkMatchable {
 
     #[cfg(test)]
     fn matches_test(&self, request: &request::Request) -> bool;
-}
-
-impl NetworkMatchable for NetworkFilter {
-    fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool {
-        use crate::filters::network_matchers::{
-            check_excluded_domains, check_included_domains, check_options, check_pattern,
-        };
-        check_options(self.mask, request)
-            && check_included_domains(self.opt_domains.as_deref(), request)
-            && check_excluded_domains(self.opt_not_domains.as_deref(), request)
-            && check_pattern(
-                self.mask,
-                self.filter.iter(),
-                self.hostname.as_deref(),
-                (self as *const NetworkFilter) as u64,
-                request,
-                regex_manager,
-            )
-    }
-
-    #[cfg(test)]
-    fn matches_test(&self, request: &request::Request) -> bool {
-        self.matches(request, &mut RegexManager::default())
-    }
 }
 
 // ---------------------------------------------------------------------------

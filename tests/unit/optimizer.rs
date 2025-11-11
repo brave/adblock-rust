@@ -3,7 +3,6 @@ mod optimization_tests_pattern_group {
     #[cfg(test)]
     mod optimization_tests_pattern_group_tests {
         use super::*;
-        use crate::filters::network::NetworkMatchable;
         use crate::lists;
         use crate::regex_manager::CompiledRegex;
         use crate::regex_manager::RegexManager;
@@ -19,19 +18,18 @@ mod optimization_tests_pattern_group {
         }
 
         fn check_match(
-            regex_manager: &mut RegexManager,
+            _regex_manager: &mut RegexManager,
             filter: &NetworkFilter,
             url_path: &str,
             matches: bool,
         ) {
-            let is_match = filter.matches(
+            let is_match = filter.matches_test(
                 &Request::new(
                     ("https://example.com/".to_string() + url_path).as_str(),
                     "https://google.com",
                     "",
                 )
                 .unwrap(),
-                regex_manager,
             );
             assert!(
                 is_match == matches,
@@ -325,7 +323,6 @@ mod optimization_tests_pattern_group {
     }
     */
     use super::super::*;
-    use crate::filters::network::NetworkMatchable;
     use crate::lists;
     use crate::regex_manager::CompiledRegex;
     use crate::regex_manager::RegexManager;
@@ -341,19 +338,18 @@ mod optimization_tests_pattern_group {
     }
 
     fn check_match(
-        regex_manager: &mut RegexManager,
+        _regex_manager: &mut RegexManager,
         filter: &NetworkFilter,
         url_path: &str,
         matches: bool,
     ) {
-        let is_match = filter.matches(
+        let is_match = filter.matches_test(
             &Request::new(
                 ("https://example.com/".to_string() + url_path).as_str(),
                 "https://google.com",
                 "",
             )
             .unwrap(),
-            regex_manager,
         );
         assert!(
             is_match == matches,

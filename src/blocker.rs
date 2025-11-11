@@ -155,6 +155,14 @@ impl Blocker {
             .is_some()
     }
 
+    #[doc(hidden)]
+    pub(crate) fn check_exceptions(&self, request: &Request) -> bool {
+        let mut regex_manager = self.borrow_regex_manager();
+        self.exceptions()
+            .check(request, &HashSet::new(), &mut regex_manager)
+            .is_some()
+    }
+
     pub fn check_parameterised(
         &self,
         request: &Request,
