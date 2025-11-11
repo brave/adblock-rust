@@ -446,6 +446,9 @@ pub fn check_included_domains_mapped(
             }) {
                 return false;
             }
+        } else {
+            // If there are domain restrictions but no source hostname, we can't apply the rule
+            return false;
         }
     }
     true
@@ -485,6 +488,10 @@ pub fn check_excluded_domains_mapped(
             }) {
                 return false;
             }
+        } else {
+            // If there are domain restrictions but no source hostname
+            // (i.e. about:blank), apply the rule anyway.
+            return true;
         }
     }
 
