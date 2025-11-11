@@ -25,6 +25,8 @@ mod tests {
     #[test]
     fn simple_match() {
         let engine = make_engine("||geo*.hltv.org^");
+        engine.borrow_regex_manager();
+
         assert!(
             engine
                 .check_network_request(&make_request("https://geo2.hltv.org/"))
@@ -39,6 +41,7 @@ mod tests {
     #[test]
     fn discard_and_recreate() {
         let engine = make_engine("||geo*.hltv.org^");
+        engine.borrow_regex_manager();
 
         assert!(
             engine
