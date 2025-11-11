@@ -271,6 +271,13 @@ impl Engine {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
+    #[cfg(test)]
+    pub fn borrow_regex_manager(
+        &self,
+    ) -> std::cell::RefMut<'_, crate::regex_manager::RegexManager> {
+        self.blocker.borrow_regex_manager()
+    }
+
     #[cfg(feature = "debug-info")]
     pub fn discard_regex(&mut self, regex_id: u64) {
         self.blocker.discard_regex(regex_id);

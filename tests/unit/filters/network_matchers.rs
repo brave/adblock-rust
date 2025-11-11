@@ -688,22 +688,34 @@ mod match_tests {
     }
 
     #[test]
-    #[ignore] // Not going to handle lookaround regexes
     #[cfg(feature = "debug-info")]
     fn check_lookaround_regex_handled() {
         {
+            use crate::Engine;
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
-            let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
-            let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
-            let source = "http://123movies.com";
+            let engine = Engine::from_rules(vec![filter], Default::default());
+            let url = "https://9anime.to/watch/episode-1";
+            let source = "https://9anime.to";
             let request = request::Request::new(url, source, "script").unwrap();
-            let mut regex_manager = RegexManager::default();
-            assert!(regex_manager.get_compiled_regex_count() == 0);
-            assert!(
-                network_filter.matches(&request, &mut regex_manager),
-                "Expected match for {filter} on {url}"
+            assert_eq!(
+                engine
+                    .get_debug_info()
+                    .regex_debug_info
+                    .compiled_regex_count,
+                0
             );
-            assert!(regex_manager.get_compiled_regex_count() == 1);
+            // Regex can't be compiled, so no match.
+            assert!(
+                !engine.check_network_request(&request).matched,
+                "Expected no match for {filter} on {url}"
+            );
+            assert_eq!(
+                engine
+                    .get_debug_info()
+                    .regex_debug_info
+                    .compiled_regex_count,
+                1
+            );
         }
     }
 
