@@ -6,6 +6,7 @@ use flatbuffers::WIPOffset;
 
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::network::{FilterTokens, NetworkFilter};
+use crate::filters::token_selector::TokenSelector;
 
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
@@ -132,68 +133,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
 
         let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
 
-        let mut used_tokens = HashMap::<ShortHash, usize>::with_capacity(rule_list.filters.len());
-
-        used_tokens.insert(
-            to_short_hash(crate::utils::fast_hash("https")),
-            usize::MAX / 2,
-        );
-        used_tokens.insert(
-            to_short_hash(crate::utils::fast_hash("http")),
-            usize::MAX / 2,
-        );
-        used_tokens.insert(
-            to_short_hash(crate::utils::fast_hash("www")),
-            usize::MAX / 3,
-        );
-        used_tokens.insert(
-            to_short_hash(crate::utils::fast_hash("com")),
-            usize::MAX / 3,
-        );
-        let mut add_bad_token = |s: &str| {
-            used_tokens.insert(to_short_hash(crate::utils::fast_hash(s)), usize::MAX / 4);
-        };
-        let bad_tokens = vec![
-            "uk",
-            "net",
-            "org",
-            "io",
-            "de",
-            "fr",
-            "es",
-            "it",
-            "nl",
-            "se",
-            "ru",
-            "pl",
-            "co",
-            "js",
-            "css",
-            "img",
-            "jpg",
-            "html",
-            "png",
-            "cdn",
-            "static",
-            "images",
-            "api",
-            "wp",
-            "ad",
-            "ads",
-            "content",
-            "doubleclick",
-            "analytics",
-            "assets",
-            "id",
-            "min",
-            "amazon",
-            "google",
-            "googlesyndication",
-            "googleapis",
-        ];
-        for token in bad_tokens {
-            add_bad_token(token);
-        }
+        let mut token_frequencies = TokenSelector::new(rule_list.filters.len());
 
         {
             for network_filter in rule_list.filters {
@@ -205,12 +145,13 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     None
                 };
 
-                let mut store_filter = |token: ShortHash| {
+                let mut store_filter = |token: Hash| {
+                    let short_token = to_short_hash(token);
                     if let Some(flat_filter) = flat_filter {
-                        filter_map_builder.insert(token, flat_filter);
+                        filter_map_builder.insert(short_token, flat_filter);
                     } else {
                         optimizable
-                            .entry(token)
+                            .entry(short_token)
                             .or_default()
                             .push(network_filter.clone());
                     }
@@ -225,34 +166,14 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     FilterTokens::OptDomains(opt_domains) => {
                         // For OptDomains, each domain is treated as a separate token group
                         for &token in opt_domains.iter() {
-                            store_filter(to_short_hash(token));
+                            store_filter(token);
+                            token_frequencies.record_usage(token);
                         }
                     }
                     FilterTokens::Other(tokens) => {
-                        // pick a less used token
-                        let mut least_used_token = 0;
-                        let mut least_used_count = usize::MAX;
-                        for &token in tokens.iter() {
-                            if token == 0 {
-                                // TODO: optimize by not adding 0 in the first place
-                                continue;
-                            }
-                            match used_tokens.entry(to_short_hash(token)) {
-                                std::collections::hash_map::Entry::Occupied(entry) => {
-                                    if *entry.get() < least_used_count {
-                                        least_used_count = *entry.get();
-                                        least_used_token = to_short_hash(token);
-                                    }
-                                }
-                                std::collections::hash_map::Entry::Vacant(_) => {
-                                    least_used_token = to_short_hash(token);
-                                    break;
-                                }
-                            }
-                        }
-                        store_filter(least_used_token);
-                        // TODO: avoid second lookup?
-                        *used_tokens.entry(least_used_token).or_insert(0) += 1;
+                        let best_token = token_frequencies.select_least_used_token(&tokens);
+                        token_frequencies.record_usage(best_token);
+                        store_filter(best_token);
                     }
                 }
             }
