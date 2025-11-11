@@ -79,6 +79,11 @@ pub struct Blocker {
     pub(crate) filter_data_context: FilterDataContextRef,
 }
 
+#[cfg(feature = "single-thread")]
+pub(crate) type RegexManagerRef<'a> = std::cell::RefMut<'a, RegexManager>;
+#[cfg(not(feature = "single-thread"))]
+pub(crate) type RegexManagerRef<'a> = std::sync::MutexGuard<'a, RegexManager>;
+
 impl Blocker {
     /// Decide if a network request (usually from WebRequest API) should be
     /// blocked, redirected or allowed.
@@ -130,21 +135,15 @@ impl Blocker {
         self.get_list(NetworkFilterListId::TaggedFiltersAll)
     }
 
-    #[cfg(feature = "single-thread")]
-    pub(crate) fn borrow_regex_manager(&self) -> std::cell::RefMut<'_, RegexManager> {
-        #[allow(unused_mut)]
+    pub(crate) fn borrow_regex_manager(&self) -> RegexManagerRef<'_> {
+        #[cfg(feature = "single-thread")]
         let mut manager = self.regex_manager.borrow_mut();
+        #[cfg(not(feature = "single-thread"))]
+        let mut manager = self.regex_manager.lock().unwrap();
 
         #[cfg(not(target_arch = "wasm32"))]
         manager.update_time();
 
-        manager
-    }
-
-    #[cfg(not(feature = "single-thread"))]
-    pub(crate) fn borrow_regex_manager(&self) -> std::sync::MutexGuard<'_, RegexManager> {
-        let mut manager = self.regex_manager.lock().unwrap();
-        manager.update_time();
         manager
     }
 

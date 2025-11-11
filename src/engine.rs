@@ -272,9 +272,7 @@ impl Engine {
     }
 
     #[cfg(test)]
-    pub fn borrow_regex_manager(
-        &self,
-    ) -> std::cell::RefMut<'_, crate::regex_manager::RegexManager> {
+    pub fn borrow_regex_manager(&self) -> crate::blocker::RegexManagerRef<'_> {
         self.blocker.borrow_regex_manager()
     }
 
