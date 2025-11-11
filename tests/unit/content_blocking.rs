@@ -15,6 +15,17 @@ mod ab2cb_tests {
         );
     }
 
+    fn test_from_abp_multi(abp_rules: &[&str], cb: &str) {
+        let mut filter_set = crate::lists::FilterSet::new(true);
+        filter_set.add_filters(abp_rules, Default::default());
+        let (cb_rules, _) = filter_set.into_content_blocking().unwrap();
+        assert_eq!(
+            cb_rules,
+            serde_json::from_str::<Vec<CbRule>>(cb)
+                .expect("content blocking rules under test could not be deserialized")
+        );
+    }
+
     #[test]
     fn ad_tests() {
         test_from_abp(
@@ -649,6 +660,38 @@ mod ab2cb_tests {
             },
             "trigger": {
                 "url-filter": "^[^:]+:(//)?([^/]+\\.)?gamer\\.no/\\?module=tumedia\\\\dfproxy\\\\modules"
+            }
+        }]"####,
+        );
+    }
+
+    #[test]
+    fn badfilter_cancels_matching_rules() {
+        // Test that BAD_FILTER rules cancel out matching rules
+        // Input: regular rule, BAD_FILTER rule, and differently modified rule
+        // Output: only the differently modified rule should remain (BAD_FILTER cancels the exact match)
+        test_from_abp_multi(
+            &[
+                "||example.com^",
+                "||example.com^$badfilter",
+                "||example.com^$third-party",
+            ],
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?example\\.com",
+                "load-type": ["third-party"]
+            }
+        }, {
+            "action": {
+                "type": "ignore-previous-rules"
+            },
+            "trigger": {
+                "url-filter": ".*",
+                "resource-type": ["document"],
+                "load-type": ["first-party"]
             }
         }]"####,
         );
