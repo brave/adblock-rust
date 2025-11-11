@@ -137,6 +137,7 @@ impl Blocker {
 
     pub(crate) fn borrow_regex_manager(&self) -> RegexManagerRef<'_> {
         #[cfg(feature = "single-thread")]
+        #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
         #[cfg(not(feature = "single-thread"))]
         let mut manager = self.regex_manager.lock().unwrap();
