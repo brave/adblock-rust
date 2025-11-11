@@ -16,11 +16,7 @@ mod optimization_tests_pattern_group {
             );
         }
 
-        fn check_match(
-            filter: &NetworkFilter,
-            url_path: &str,
-            matches: bool,
-        ) {
+        fn check_match(filter: &NetworkFilter, url_path: &str, matches: bool) {
             let is_match = filter.matches_test(
                 &Request::new(
                     ("https://example.com/".to_string() + url_path).as_str(),
@@ -318,11 +314,7 @@ mod optimization_tests_pattern_group {
         );
     }
 
-    fn check_match(
-        filter: &NetworkFilter,
-        url_path: &str,
-        matches: bool,
-    ) {
+    fn check_match(filter: &NetworkFilter, url_path: &str, matches: bool) {
         let is_match = filter.matches_test(
             &Request::new(
                 ("https://example.com/".to_string() + url_path).as_str(),
