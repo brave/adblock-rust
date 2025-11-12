@@ -861,24 +861,24 @@ impl NetworkFilter {
 
     pub fn get_id_without_badfilter(&self) -> Hash {
         compute_filter_id(
-            self.modifier_option.as_deref(),
+            &self.modifier_option,
             self.mask.bits() & !NetworkFilterMask::BAD_FILTER.bits(),
-            self.filter.string_view().as_deref(),
-            self.hostname.as_deref(),
-            self.opt_domains.as_ref(),
-            self.opt_not_domains.as_ref(),
+            &self.filter,
+            &self.hostname,
+            &self.opt_domains,
+            &self.opt_not_domains,
         )
     }
 
     #[deprecated(since = "0.11.2", note = "use get_id_without_badfilter instead")]
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.modifier_option.as_deref(),
+            &self.modifier_option,
             self.mask.bits(),
-            self.filter.string_view().as_deref(),
-            self.hostname.as_deref(),
-            self.opt_domains.as_ref(),
-            self.opt_not_domains.as_ref(),
+            &self.filter,
+            &self.hostname,
+            &self.opt_domains,
+            &self.opt_not_domains,
         )
     }
 
@@ -1020,50 +1020,61 @@ impl NetworkMatchable for NetworkFilter {
 // Filter parsing
 // ---------------------------------------------------------------------------
 
+#[inline]
 fn compute_filter_id(
-    modifier_option: Option<&str>,
+    modifier_option: &Option<String>,
     mask: u32,
-    filter: Option<&str>,
-    hostname: Option<&str>,
-    opt_domains: Option<&Vec<Hash>>,
-    opt_not_domains: Option<&Vec<Hash>>,
+    filter: &FilterPart,
+    hostname: &Option<String>,
+    opt_domains: &Option<Vec<Hash>>,
+    opt_not_domains: &Option<Vec<Hash>>,
 ) -> Hash {
-    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask);
+    use rustc_hash::FxHasher;
+    use std::hash::Hasher;
 
+    let mut hasher = FxHasher::default();
+
+    // Hash the mask first
+    hasher.write_u32(mask);
+
+    // Hash modifier_option
     if let Some(s) = modifier_option {
-        let chars = s.chars();
-        for c in chars {
-            hash = hash.wrapping_mul(33) ^ (c as Hash);
-        }
-    };
+        hasher.write(s.as_bytes());
+    }
 
+    // Hash domains
     if let Some(domains) = opt_domains {
-        for d in domains {
-            hash = hash.wrapping_mul(33) ^ d;
+        hasher.write_u32(domains.len() as u32);
+        for &d in domains {
+            hasher.write_u64(d);
         }
-    };
+    }
 
+    // Hash not_domains
     if let Some(domains) = opt_not_domains {
-        for d in domains {
-            hash = hash.wrapping_mul(33) ^ d;
+        hasher.write_u32(domains.len() as u32);
+        for &d in domains {
+            hasher.write_u64(d);
         }
     }
-
-    if let Some(s) = filter {
-        let chars = s.chars();
-        for c in chars {
-            hash = hash.wrapping_mul(33) ^ (c as Hash);
+    // Hash filter
+    if let FilterPart::Simple(s) = filter {
+        hasher.write(s.as_bytes());
+    } else if let FilterPart::AnyOf(s) = filter {
+        for d in s {
+            hasher.write(d.as_bytes());
+            hasher.write_u8(0);
         }
+    } else {
+        hasher.write_u32(0);
     }
 
+    // Hash hostname
     if let Some(s) = hostname {
-        let chars = s.chars();
-        for c in chars {
-            hash = hash.wrapping_mul(33) ^ (c as Hash);
-        }
+        hasher.write(s.as_bytes());
     }
 
-    hash
+    hasher.finish()
 }
 
 /// Check if the sub-string contained between the indices start and end is a
