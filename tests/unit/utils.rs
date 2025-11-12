@@ -98,4 +98,46 @@ mod tests {
         assert!(!bin_lookup(&[1, 2, 3, 4, 42], 0));
         assert!(!bin_lookup(&[1, 2, 3, 4, 42], 5));
     }
+
+    #[test]
+    fn test_array_vec_default_is_empty() {
+        let vec: crate::utils::ArrayVec<u64, 4> = crate::utils::ArrayVec::default();
+        assert!(vec.is_empty());
+        assert_eq!(vec.as_slice(), &[] as &[u64]);
+        assert_eq!(vec.get_free_capacity(), 4);
+    }
+
+    #[test]
+    fn test_array_vec_push_and_access() {
+        let mut vec: crate::utils::ArrayVec<u64, 4> = crate::utils::ArrayVec::default();
+        assert!(vec.push(1));
+        assert!(vec.push(2));
+        assert!(vec.push(3));
+        assert_eq!(vec.as_slice(), &[1, 2, 3]);
+        assert_eq!(vec.get_free_capacity(), 1);
+        assert!(!vec.is_empty());
+    }
+
+    #[test]
+    fn test_array_vec_push_beyond_capacity() {
+        let mut vec: crate::utils::ArrayVec<u64, 2> = crate::utils::ArrayVec::default();
+        assert!(vec.push(1));
+        assert!(vec.push(2));
+        assert!(!vec.push(3)); // Should fail to push beyond capacity
+        assert_eq!(vec.as_slice(), &[1, 2]);
+        assert_eq!(vec.get_free_capacity(), 0);
+    }
+
+    #[test]
+    fn test_array_vec_clear() {
+        let mut vec: crate::utils::ArrayVec<u64, 4> = crate::utils::ArrayVec::default();
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+        assert_eq!(vec.as_slice(), &[1, 2, 3]);
+        vec.clear();
+        assert!(vec.is_empty());
+        assert_eq!(vec.as_slice(), &[] as &[u64]);
+        assert_eq!(vec.get_free_capacity(), 4);
+    }
 }

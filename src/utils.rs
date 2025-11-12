@@ -6,7 +6,59 @@ use seahash::hash;
 #[cfg(target_pointer_width = "32")]
 use seahash::reference::hash;
 
-use crate::flatbuffers::unsafe_tools::StackVector;
+/// A stack-allocated vector that uses [T; MAX_SIZE] with Default initialization.
+/// All elements are initialized to T::default(), and we track the logical size separately.
+/// Note: a future impl can switch to using MaybeUninit with unsafe code for better efficiency.
+pub struct ArrayVec<T, const MAX_SIZE: usize> {
+    data: [T; MAX_SIZE],
+    size: usize,
+}
+
+impl<T: Default + Copy, const MAX_SIZE: usize> Default for ArrayVec<T, MAX_SIZE> {
+    fn default() -> Self {
+        Self {
+            data: [T::default(); MAX_SIZE],
+            size: 0,
+        }
+    }
+}
+
+impl<T: Default, const MAX_SIZE: usize> ArrayVec<T, MAX_SIZE> {
+    pub fn push(&mut self, value: T) -> bool {
+        if self.size < MAX_SIZE {
+            self.data[self.size] = value;
+            self.size += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+
+    pub fn get_free_capacity(&self) -> usize {
+        MAX_SIZE - self.size
+    }
+
+    pub fn clear(&mut self) {
+        self.size = 0;
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.data[..self.size]
+    }
+
+    pub fn into_vec(mut self) -> Vec<T> {
+        let mut v = Vec::with_capacity(self.size);
+        for i in 0..self.size {
+            v.push(std::mem::take(&mut self.data[i]));
+        }
+        self.size = 0;
+        v
+    }
+}
 
 pub type Hash = u64;
 
@@ -29,7 +81,7 @@ fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
-pub type TokensBuffer = StackVector<Hash, 256>;
+pub type TokensBuffer = ArrayVec<Hash, 256>;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,
