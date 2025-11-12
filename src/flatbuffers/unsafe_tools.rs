@@ -130,6 +130,10 @@ impl<T: Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
         self.size == 0
     }
 
+    pub fn get_free_capacity(&self) -> usize {
+        MAX_SIZE - self.size
+    }
+
     pub fn clear(&mut self) {
         self.size = 0;
     }

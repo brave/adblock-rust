@@ -44,6 +44,9 @@ fn fast_tokenizer_no_regex(
     let mut preceding_ch: Option<char> = None; // Used to check if a '*' is not just before a token
 
     for (i, c) in pattern.char_indices() {
+        if tokens_buffer.get_free_capacity() <= 1 {
+            return; // reserve one free slot for the zero token
+        }
         if is_allowed_code(c) {
             if !inside {
                 inside = true;
