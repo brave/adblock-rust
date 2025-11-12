@@ -1,7 +1,6 @@
 //! Unsafe utility functions for working with flatbuffers and other low-level operations.
 
 use crate::filters::flatbuffer_generated::fb;
-use std::mem::MaybeUninit;
 
 // Minimum alignment for the beginning of the flatbuffer data.
 const MIN_ALIGNMENT: usize = 8;
@@ -99,37 +98,27 @@ impl VerifiedFlatbufferMemory {
     }
 }
 
-/// A simple stack-allocated vector.
-/// It is used to avoid allocations when the vector is small.
+/// A stack-allocated vector that uses [T; MAX_SIZE] with Default initialization.
+/// All elements are initialized to T::default(), and we track the logical size separately.
+/// Note: a future impl can switch to using MaybeUninit with unsafe code for better efficiency.
 pub struct StackVector<T, const MAX_SIZE: usize> {
-    data: [MaybeUninit<T>; MAX_SIZE],
+    data: [T; MAX_SIZE],
     size: usize,
 }
 
-impl<T, const MAX_SIZE: usize> Default for StackVector<T, MAX_SIZE>
-where
-    T: Default + Copy,
-{
+impl<T: Default + Copy, const MAX_SIZE: usize> Default for StackVector<T, MAX_SIZE> {
     fn default() -> Self {
         Self {
-            data: [MaybeUninit::uninit(); MAX_SIZE],
+            data: [T::default(); MAX_SIZE],
             size: 0,
         }
     }
 }
 
-impl<T, const MAX_SIZE: usize> Drop for StackVector<T, MAX_SIZE> {
-    fn drop(&mut self) {
-        for i in 0..self.size {
-            unsafe { self.data[i].assume_init_drop() };
-        }
-    }
-}
-
-impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+impl<T: Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     pub fn push(&mut self, value: T) -> bool {
         if self.size < MAX_SIZE {
-            self.data[self.size] = MaybeUninit::new(value);
+            self.data[self.size] = value;
             self.size += 1;
             true
         } else {
@@ -142,21 +131,19 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     }
 
     pub fn clear(&mut self) {
-        for i in 0..self.size {
-            unsafe { self.data[i].assume_init_drop() };
-        }
         self.size = 0;
     }
 
     pub fn as_slice(&self) -> &[T] {
-        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const T, self.size) }
+        &self.data[..self.size]
     }
 
-    pub fn into_vec(self) -> Vec<T> {
+    pub fn into_vec(mut self) -> Vec<T> {
         let mut v = Vec::with_capacity(self.size);
         for i in 0..self.size {
-            v.push(unsafe { self.data[i].assume_init_read() });
+            v.push(std::mem::take(&mut self.data[i]));
         }
+        self.size = 0;
         v
     }
 }
