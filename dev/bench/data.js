@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1762931189834,
+  "lastUpdate": 1762935964812,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -5741,6 +5741,96 @@ window.BENCHMARK_DATA = {
             "name": "cosmetic-class-id-match/brave-list",
             "value": 3389120,
             "range": "± 946890",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3feffc97ad1750a27ab0969bbb52be016fe511ca",
+          "message": "[perf] Replace token_histogram to token selector (#563)\n\nThe PRs replaced old (slow and not enough memory preserving) token_histogram to TokenSelector. It\n* process filters one by one, which faster and uses less memory. Also it unblocks the next optimizations.\n* has the problematic tokens hardcoded;\n* saves about -10% of building time.\n* provides the final token quality that is a little worse, but the difference in matching performance is about 3-4%.",
+          "timestamp": "2025-11-12T12:21:27+04:00",
+          "tree_id": "929ebdf4df1550287649f078b15cc7fdb4e5d983",
+          "url": "https://github.com/brave/adblock-rust/commit/3feffc97ad1750a27ab0969bbb52be016fe511ca"
+        },
+        "date": 1762935963538,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2089868473,
+            "range": "± 20161585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1119548,
+            "range": "± 13496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 155371876,
+            "range": "± 816509",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 29471071,
+            "range": "± 1288134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 10213344,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 60612235,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1231711,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2692696,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 71591,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "url_cosmetic_resources/brave-list",
+            "value": 192025,
+            "range": "± 3720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosmetic-class-id-match/brave-list",
+            "value": 3479706,
+            "range": "± 936426",
             "unit": "ns/iter"
           }
         ]
