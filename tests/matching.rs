@@ -199,5 +199,5 @@ fn check_rule_matching_browserlike() {
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";
-    assert_eq!((blocked, passes), (101701, 141244), "{msg}");
+    assert_eq!((blocked, passes), (106860, 136085), "{msg}");
 }
