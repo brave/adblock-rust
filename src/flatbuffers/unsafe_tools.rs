@@ -118,6 +118,14 @@ where
     }
 }
 
+impl<T, const MAX_SIZE: usize> Drop for StackVector<T, MAX_SIZE> {
+    fn drop(&mut self) {
+        for i in 0..self.size {
+            unsafe { self.data[i].assume_init_drop() };
+        }
+    }
+}
+
 impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     pub fn push(&mut self, value: T) -> bool {
         if self.size < MAX_SIZE {
@@ -134,6 +142,9 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     }
 
     pub fn clear(&mut self) {
+        for i in 0..self.size {
+            unsafe { self.data[i].assume_init_drop() };
+        }
         self.size = 0;
     }
 
