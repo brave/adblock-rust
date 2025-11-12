@@ -4,7 +4,7 @@ mod tests {
 
     use crate::{request, Engine};
 
-    use mock_instant::global::MockClock;
+    use mock_instant::thread_local::MockClock;
 
     fn make_engine(line: &str) -> Engine {
         Engine::from_rules(vec![line], Default::default())
