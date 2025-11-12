@@ -307,7 +307,8 @@ impl FilterSet {
 
         self.network_filters.into_iter().for_each(|filter| {
             // Don't process bad filter rules or matching bad filter rules.
-            if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
+            if bad_filter_ids.contains(&filter.get_id_without_badfilter()) || filter.is_badfilter()
+            {
                 return;
             }
             let original_rule = *filter

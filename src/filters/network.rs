@@ -860,11 +860,9 @@ impl NetworkFilter {
     }
 
     pub fn get_id_without_badfilter(&self) -> Hash {
-        let mut mask = self.mask;
-        mask.set(NetworkFilterMask::BAD_FILTER, false);
         compute_filter_id(
             self.modifier_option.as_deref(),
-            mask,
+            self.mask.bits() & !NetworkFilterMask::BAD_FILTER.bits(),
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
@@ -872,10 +870,11 @@ impl NetworkFilter {
         )
     }
 
+    #[deprecated(since = "0.11.2", note = "use get_id_without_badfilter instead")]
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
             self.modifier_option.as_deref(),
-            self.mask,
+            self.mask.bits(),
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
@@ -1023,13 +1022,13 @@ impl NetworkMatchable for NetworkFilter {
 
 fn compute_filter_id(
     modifier_option: Option<&str>,
-    mask: NetworkFilterMask,
+    mask: u32,
     filter: Option<&str>,
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
-    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits());
+    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask);
 
     if let Some(s) = modifier_option {
         let chars = s.chars();

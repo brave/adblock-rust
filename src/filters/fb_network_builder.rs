@@ -232,7 +232,7 @@ impl NetworkRulesBuilder {
 
         for filter in network_filters.into_iter() {
             // skip any bad filters
-            let filter_id = filter.get_id();
+            let filter_id = filter.get_id_without_badfilter();
             if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
                 continue;
             }
