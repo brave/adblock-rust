@@ -29,7 +29,7 @@ fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
-pub(crate) type TokensBuffer = StackVector<Hash, 200>;
+pub type TokensBuffer = StackVector<Hash, 200>;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,

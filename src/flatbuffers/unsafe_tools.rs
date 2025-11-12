@@ -101,7 +101,7 @@ impl VerifiedFlatbufferMemory {
 
 /// A simple stack-allocated vector.
 /// It is used to avoid allocations when the vector is small.
-pub(crate) struct StackVector<T, const MAX_SIZE: usize> {
+pub struct StackVector<T, const MAX_SIZE: usize> {
     data: [MaybeUninit<T>; MAX_SIZE],
     size: usize,
 }
@@ -131,6 +131,14 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
 
     pub fn is_empty(&self) -> bool {
         self.size == 0
+    }
+
+    pub fn clear(&mut self) {
+        self.size = 0;
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const T, self.size) }
     }
 
     pub fn into_vec(self) -> Vec<T> {
