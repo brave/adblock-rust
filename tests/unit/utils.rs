@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use crate::utils::ArrayVec;
 
     #[test]
     #[ignore] // won't match hard-coded values when using a different hash function
@@ -101,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_array_vec_default_is_empty() {
-        let vec: crate::utils::ArrayVec<u64, 4> = crate::utils::ArrayVec::default();
+        let vec: ArrayVec<u64, 4> = Default::default();
         assert!(vec.is_empty());
         assert_eq!(vec.as_slice(), &[] as &[u64]);
         assert_eq!(vec.get_free_capacity(), 4);
@@ -109,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_array_vec_push_and_access() {
-        let mut vec: crate::utils::ArrayVec<u64, 4> = crate::utils::ArrayVec::default();
+        let mut vec: ArrayVec<u64, 4> = Default::default();
         assert!(vec.push(1));
         assert!(vec.push(2));
         assert!(vec.push(3));
@@ -120,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_array_vec_push_beyond_capacity() {
-        let mut vec: crate::utils::ArrayVec<u64, 2> = crate::utils::ArrayVec::default();
+        let mut vec: ArrayVec<u64, 2> = Default::default();
         assert!(vec.push(1));
         assert!(vec.push(2));
         assert!(!vec.push(3)); // Should fail to push beyond capacity
@@ -130,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_array_vec_clear() {
-        let mut vec: crate::utils::ArrayVec<u64, 4> = crate::utils::ArrayVec::default();
+        let mut vec: ArrayVec<u64, 4> = Default::default();
         vec.push(1);
         vec.push(2);
         vec.push(3);
