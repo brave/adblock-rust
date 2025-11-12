@@ -1194,10 +1194,7 @@ mod parse_tests {
         let mut tokens_buffer = utils::TokensBuffer::default();
         assert_eq!(
             filter.get_tokens_optimized(&mut tokens_buffer),
-            FilterTokens::Other(&[
-                utils::fast_hash("some"),
-                utils::fast_hash("primewire")
-            ])
+            FilterTokens::Other(&[utils::fast_hash("some"), utils::fast_hash("primewire")])
         );
     }
 }

@@ -893,7 +893,10 @@ impl NetworkFilter {
         }
     }
 
-    pub fn get_tokens_optimized<'a>(&'a self, tokens_buffer: &'a mut TokensBuffer) -> FilterTokens<'a> {
+    pub fn get_tokens_optimized<'a>(
+        &'a self,
+        tokens_buffer: &'a mut TokensBuffer,
+    ) -> FilterTokens<'a> {
         tokens_buffer.clear();
 
         // If there is only one domain and no domain negation, we also use this
@@ -947,7 +950,8 @@ impl NetworkFilter {
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
-        if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
+        if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
+        {
             if let Some(opt_domains) = self.opt_domains.as_ref() {
                 if !opt_domains.is_empty() {
                     return FilterTokens::OptDomains(opt_domains);
