@@ -173,7 +173,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                         }
                     }
                     FilterTokens::Other(tokens) => {
-                        let best_token = token_frequencies.select_least_used_token(&tokens);
+                        let best_token = token_frequencies.select_least_used_token(tokens);
                         token_frequencies.record_usage(best_token);
                         store_filter(best_token);
                     }

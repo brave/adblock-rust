@@ -886,7 +886,7 @@ impl NetworkFilter {
         let mut tokens_buffer = TokensBuffer::default();
         match self.get_tokens_optimized(&mut tokens_buffer) {
             FilterTokens::OptDomains(domains) => {
-                domains.into_iter().map(|domain| vec![*domain]).collect()
+                domains.iter().map(|domain| vec![*domain]).collect()
             }
             FilterTokens::Other(tokens) => vec![tokens.to_vec()],
             FilterTokens::Empty => vec![],
