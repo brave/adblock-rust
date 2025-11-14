@@ -33,6 +33,7 @@ pub mod regex_manager;
 pub mod request;
 pub mod resources;
 #[doc(hidden)]
+#[path = "test_utils/test_utils.rs"]
 pub mod test_utils;
 pub mod url_parser;
 
