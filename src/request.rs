@@ -243,7 +243,7 @@ fn calculate_tokens(url_lower_cased: &str) -> Vec<utils::Hash> {
     utils::tokenize_pooled(url_lower_cased, &mut tokens);
     // Add zero token as a fallback to wildcard rule bucket
     tokens.push(0);
-    tokens.into_vec()
+    tokens.into_iter().collect()
 }
 
 #[cfg(test)]

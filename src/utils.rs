@@ -6,59 +6,7 @@ use seahash::hash;
 #[cfg(target_pointer_width = "32")]
 use seahash::reference::hash;
 
-/// A stack-allocated vector that uses [T; MAX_SIZE] with Default initialization.
-/// All elements are initialized to T::default(), and we track the logical size separately.
-/// Note: a future impl can switch to using MaybeUninit with unsafe code for better efficiency.
-pub struct ArrayVec<T, const MAX_SIZE: usize> {
-    data: [T; MAX_SIZE],
-    size: usize,
-}
-
-impl<T: Default + Copy, const MAX_SIZE: usize> Default for ArrayVec<T, MAX_SIZE> {
-    fn default() -> Self {
-        Self {
-            data: [T::default(); MAX_SIZE],
-            size: 0,
-        }
-    }
-}
-
-impl<T: Default, const MAX_SIZE: usize> ArrayVec<T, MAX_SIZE> {
-    pub fn push(&mut self, value: T) -> bool {
-        if self.size < MAX_SIZE {
-            self.data[self.size] = value;
-            self.size += 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.size == 0
-    }
-
-    pub fn get_free_capacity(&self) -> usize {
-        MAX_SIZE - self.size
-    }
-
-    pub fn clear(&mut self) {
-        self.size = 0;
-    }
-
-    pub fn as_slice(&self) -> &[T] {
-        &self.data[..self.size]
-    }
-
-    pub fn into_vec(mut self) -> Vec<T> {
-        let mut v = Vec::with_capacity(self.size);
-        for i in 0..self.size {
-            v.push(std::mem::take(&mut self.data[i]));
-        }
-        self.size = 0;
-        v
-    }
-}
+pub use arrayvec::ArrayVec;
 
 pub type Hash = u64;
 
@@ -96,7 +44,7 @@ fn fast_tokenizer_no_regex(
     let mut preceding_ch: Option<char> = None; // Used to check if a '*' is not just before a token
 
     for (i, c) in pattern.char_indices() {
-        if tokens_buffer.get_free_capacity() <= 1 {
+        if tokens_buffer.capacity() - tokens_buffer.len() <= 1 {
             return; // reserve one free slot for the zero token
         }
         if is_allowed_code(c) {
@@ -134,7 +82,7 @@ pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut TokensBuffer) {
 pub fn tokenize(pattern: &str) -> Vec<Hash> {
     let mut tokens_buffer = TokensBuffer::default();
     tokenize_to(pattern, &mut tokens_buffer);
-    tokens_buffer.into_vec()
+    tokens_buffer.into_iter().collect()
 }
 
 pub(crate) fn tokenize_to(pattern: &str, tokens_buffer: &mut TokensBuffer) {
@@ -154,7 +102,7 @@ pub(crate) fn tokenize_filter(
         skip_last_token,
         &mut tokens_buffer,
     );
-    tokens_buffer.into_vec()
+    tokens_buffer.into_iter().collect()
 }
 
 pub(crate) fn tokenize_filter_to(
