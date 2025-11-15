@@ -1,5 +1,4 @@
-use adblock::filters::network::{NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable};
-use adblock::regex_manager::RegexManager;
+use adblock::filters::network::{NetworkFilter, NetworkFilterMaskHelper};
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
 use adblock::Engine;
@@ -75,7 +74,7 @@ fn check_filter_matching() {
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if let Ok(request) = request_res {
                 assert!(
-                    network_filter.matches(&request, &mut RegexManager::default()),
+                    network_filter.matches_test(&request),
                     "Expected {} to match {} at {}, typed {}",
                     filter,
                     req.url,

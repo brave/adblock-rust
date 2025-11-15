@@ -350,9 +350,38 @@ mod match_tests {
     }
 
     fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
+        let mut mapping = HashMap::new();
+        let opt_domains = filter.opt_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
+        let opt_not_domains = filter.opt_not_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
         super::super::check_options(filter.mask, request)
-            && super::super::check_included_domains(filter.opt_domains.as_deref(), request)
-            && super::super::check_excluded_domains(filter.opt_not_domains.as_deref(), request)
+            && super::super::check_included_domains_mapped(
+                opt_domains.as_deref(),
+                request,
+                &mapping,
+            )
+            && super::super::check_excluded_domains_mapped(
+                opt_not_domains.as_deref(),
+                request,
+                &mapping,
+            )
     }
 
     #[test]
@@ -659,22 +688,34 @@ mod match_tests {
     }
 
     #[test]
-    #[ignore] // Not going to handle lookaround regexes
     #[cfg(feature = "debug-info")]
     fn check_lookaround_regex_handled() {
         {
+            use crate::Engine;
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
-            let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
-            let url = "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer";
-            let source = "http://123movies.com";
+            let engine = Engine::from_rules(vec![filter], Default::default());
+            let url = "https://9anime.to/watch/episode-1";
+            let source = "https://9anime.to";
             let request = request::Request::new(url, source, "script").unwrap();
-            let mut regex_manager = RegexManager::default();
-            assert!(regex_manager.get_compiled_regex_count() == 0);
-            assert!(
-                network_filter.matches(&request, &mut regex_manager),
-                "Expected match for {filter} on {url}"
+            assert_eq!(
+                engine
+                    .get_debug_info()
+                    .regex_debug_info
+                    .compiled_regex_count,
+                0
             );
-            assert!(regex_manager.get_compiled_regex_count() == 1);
+            // Regex can't be compiled, so no match.
+            assert!(
+                !engine.check_network_request(&request).matched,
+                "Expected no match for {filter} on {url}"
+            );
+            assert_eq!(
+                engine
+                    .get_debug_info()
+                    .regex_debug_info
+                    .compiled_regex_count,
+                1
+            );
         }
     }
 
