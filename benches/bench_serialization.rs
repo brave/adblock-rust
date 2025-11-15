@@ -2,9 +2,7 @@ use criterion::*;
 
 use adblock::Engine;
 
-#[path = "../tests/test_utils.rs"]
-mod test_utils;
-use test_utils::rules_from_lists;
+use adblock::test_utils::rules_from_lists;
 
 fn serialization(c: &mut Criterion) {
     let mut group = c.benchmark_group("blocker-serialization");

@@ -14,7 +14,7 @@ use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize,
 use crate::optimizer;
 use crate::utils::{to_short_hash, Hash, ShortHash};
 
-use super::flat::fb;
+use super::flatbuffer_generated::fb;
 
 pub(crate) enum NetworkFilterListId {
     Csp = 0,
