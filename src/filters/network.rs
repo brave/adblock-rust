@@ -970,8 +970,8 @@ impl NetworkFilter {
         }
     }
 
-    #[doc(hidden)]
-    pub fn matches_test(&self, request: &request::Request) -> bool {
+    #[cfg(test)]
+    pub(crate) fn matches_test(&self, request: &request::Request) -> bool {
         let filter_set = crate::FilterSet::new_with_rules(vec![self.clone()], vec![], true);
         let engine = crate::Engine::from_filter_set(filter_set, true);
 

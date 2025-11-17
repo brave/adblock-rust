@@ -139,7 +139,7 @@ impl Engine {
         self.blocker.check(request, &self.resources)
     }
 
-    #[doc(hidden)]
+    #[cfg(test)]
     pub(crate) fn check_network_request_exceptions(&self, request: &Request) -> bool {
         self.blocker.check_exceptions(request)
     }

@@ -135,6 +135,8 @@ impl Blocker {
         self.get_list(NetworkFilterListId::TaggedFiltersAll)
     }
 
+    /// Borrow mutable reference to the regex manager for the ['Blocker`].
+    /// Only one caller can borrow the regex manager at a time.
     pub(crate) fn borrow_regex_manager(&self) -> RegexManagerRef<'_> {
         #[cfg(feature = "single-thread")]
         #[allow(unused_mut)]
@@ -155,7 +157,7 @@ impl Blocker {
             .is_some()
     }
 
-    #[doc(hidden)]
+    #[cfg(test)]
     pub(crate) fn check_exceptions(&self, request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
         self.exceptions()

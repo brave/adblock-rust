@@ -25,7 +25,6 @@ mod tests {
     #[test]
     fn simple_match() {
         let engine = make_engine("||geo*.hltv.org^");
-        engine.borrow_regex_manager();
 
         assert!(
             engine
@@ -41,7 +40,6 @@ mod tests {
     #[test]
     fn discard_and_recreate() {
         let engine = make_engine("||geo*.hltv.org^");
-        engine.borrow_regex_manager();
 
         assert!(
             engine
