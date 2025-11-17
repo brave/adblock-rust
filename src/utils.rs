@@ -29,6 +29,8 @@ fn is_allowed_filter(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '%'
 }
 
+/// A fixed-size array-like vector of hashes with maximum capacity of 256.
+/// Used instread of Vec<Hash> to avoid heap allocations.
 pub type TokensBuffer = ArrayVec<Hash, 256>;
 
 fn fast_tokenizer_no_regex(
