@@ -1,9 +1,8 @@
 mod legacy_test_filters {
     use adblock::filters::network::NetworkFilter;
     use adblock::filters::network::NetworkFilterMask;
-    use adblock::filters::network::NetworkMatchable;
-    use adblock::regex_manager::RegexManager;
     use adblock::request::Request;
+    use adblock::Engine;
 
     fn test_filter<'a>(
         raw_filter: &str,
@@ -35,12 +34,15 @@ mod legacy_test_filters {
             filter.filter
         );
 
+        let engine = Engine::from_rules_debug([raw_filter], Default::default());
+
         for to_block in blocked {
             assert!(
-                filter.matches(
-                    &Request::new(to_block, "https://example.com", "other").unwrap(),
-                    &mut RegexManager::default()
-                ),
+                engine
+                    .check_network_request(
+                        &Request::new(to_block, "https://example.com", "other").unwrap(),
+                    )
+                    .matched,
                 "Expected filter {} to match {}",
                 raw_filter,
                 &to_block
@@ -49,10 +51,11 @@ mod legacy_test_filters {
 
         for to_pass in not_blocked {
             assert!(
-                !filter.matches(
-                    &Request::new(to_pass, "https://example.com", "other").unwrap(),
-                    &mut RegexManager::default()
-                ),
+                !engine
+                    .check_network_request(
+                        &Request::new(to_pass, "https://example.com", "other").unwrap(),
+                    )
+                    .matched,
                 "Expected filter {} to pass {}",
                 raw_filter,
                 &to_pass
@@ -302,14 +305,12 @@ mod legacy_test_filters {
         );
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
-        let filter = NetworkFilter::parse(
-            "||googlesyndication.com/safeframe/$third-party,script",
-            true,
-            Default::default(),
-        )
-        .unwrap();
         let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "https://this-is-always-third-party.com", "script").unwrap();
-        assert!(filter.matches(&request, &mut RegexManager::default()));
+        let engine = Engine::from_rules_debug(
+            ["||googlesyndication.com/safeframe/$third-party,script"],
+            Default::default(),
+        );
+        assert!(engine.check_network_request(&request).matched);
     }
 }
 

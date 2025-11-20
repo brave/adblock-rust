@@ -3,10 +3,8 @@ mod optimization_tests_pattern_group {
     #[cfg(test)]
     mod optimization_tests_pattern_group_tests {
         use super::*;
-        use crate::filters::network::NetworkMatchable;
         use crate::lists;
         use crate::regex_manager::CompiledRegex;
-        use crate::regex_manager::RegexManager;
         use crate::request::Request;
         use regex::bytes::RegexSetBuilder as BytesRegexSetBuilder;
 
@@ -18,20 +16,14 @@ mod optimization_tests_pattern_group {
             );
         }
 
-        fn check_match(
-            regex_manager: &mut RegexManager,
-            filter: &NetworkFilter,
-            url_path: &str,
-            matches: bool,
-        ) {
-            let is_match = filter.matches(
+        fn check_match(filter: &NetworkFilter, url_path: &str, matches: bool) {
+            let is_match = filter.matches_test(
                 &Request::new(
                     ("https://example.com/".to_string() + url_path).as_str(),
                     "https://google.com",
                     "",
                 )
                 .unwrap(),
-                regex_manager,
             );
             assert!(
                 is_match == matches,
@@ -95,38 +87,22 @@ mod optimization_tests_pattern_group {
                 fused.to_string(),
                 "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
             );
-            let mut regex_manager = RegexManager::default();
-            check_match(&mut regex_manager, &fused, "/static/ad-", true);
-            check_match(&mut regex_manager, &fused, "/static/ad.", true);
-            check_match(&mut regex_manager, &fused, "/static/ad%", false);
-            check_match(&mut regex_manager, &fused, "/static/ads-", false);
-            check_match(&mut regex_manager, &fused, "/static/ad/", true);
-            check_match(&mut regex_manager, &fused, "/static/ad", false);
-            check_match(&mut regex_manager, &fused, "/static/ad/foobar", true);
-            check_match(
-                &mut regex_manager,
-                &fused,
-                "/static/ad/foobar/asd?q=1",
-                true,
-            );
-            check_match(&mut regex_manager, &fused, "/static/ads/", true);
-            check_match(&mut regex_manager, &fused, "/static/ads", false);
-            check_match(&mut regex_manager, &fused, "/static/ads/foobar", true);
-            check_match(
-                &mut regex_manager,
-                &fused,
-                "/static/ads/foobar/asd?q=1",
-                true,
-            );
-            check_match(&mut regex_manager, &fused, "/static/adv/", true);
-            check_match(&mut regex_manager, &fused, "/static/adv", false);
-            check_match(&mut regex_manager, &fused, "/static/adv/foobar", true);
-            check_match(
-                &mut regex_manager,
-                &fused,
-                "/static/adv/foobar/asd?q=1",
-                true,
-            );
+            check_match(&fused, "/static/ad-", true);
+            check_match(&fused, "/static/ad.", true);
+            check_match(&fused, "/static/ad%", false);
+            check_match(&fused, "/static/ads-", false);
+            check_match(&fused, "/static/ad/", true);
+            check_match(&fused, "/static/ad", false);
+            check_match(&fused, "/static/ad/foobar", true);
+            check_match(&fused, "/static/ad/foobar/asd?q=1", true);
+            check_match(&fused, "/static/ads/", true);
+            check_match(&fused, "/static/ads", false);
+            check_match(&fused, "/static/ads/foobar", true);
+            check_match(&fused, "/static/ads/foobar/asd?q=1", true);
+            check_match(&fused, "/static/adv/", true);
+            check_match(&fused, "/static/adv", false);
+            check_match(&fused, "/static/adv/foobar", true);
+            check_match(&fused, "/static/adv/foobar/asd?q=1", true);
         }
 
         #[test]
@@ -325,10 +301,8 @@ mod optimization_tests_pattern_group {
     }
     */
     use super::super::*;
-    use crate::filters::network::NetworkMatchable;
     use crate::lists;
     use crate::regex_manager::CompiledRegex;
-    use crate::regex_manager::RegexManager;
     use crate::request::Request;
     use regex::bytes::RegexSetBuilder as BytesRegexSetBuilder;
 
@@ -340,20 +314,14 @@ mod optimization_tests_pattern_group {
         );
     }
 
-    fn check_match(
-        regex_manager: &mut RegexManager,
-        filter: &NetworkFilter,
-        url_path: &str,
-        matches: bool,
-    ) {
-        let is_match = filter.matches(
+    fn check_match(filter: &NetworkFilter, url_path: &str, matches: bool) {
+        let is_match = filter.matches_test(
             &Request::new(
                 ("https://example.com/".to_string() + url_path).as_str(),
                 "https://google.com",
                 "",
             )
             .unwrap(),
-            regex_manager,
         );
         assert!(
             is_match == matches,
@@ -417,38 +385,22 @@ mod optimization_tests_pattern_group {
             fused.to_string(),
             "/static/ad- <+> /static/ad. <+> /static/ad/* <+> /static/ads/* <+> /static/adv/*"
         );
-        let mut regex_manager = RegexManager::default();
-        check_match(&mut regex_manager, &fused, "/static/ad-", true);
-        check_match(&mut regex_manager, &fused, "/static/ad.", true);
-        check_match(&mut regex_manager, &fused, "/static/ad%", false);
-        check_match(&mut regex_manager, &fused, "/static/ads-", false);
-        check_match(&mut regex_manager, &fused, "/static/ad/", true);
-        check_match(&mut regex_manager, &fused, "/static/ad", false);
-        check_match(&mut regex_manager, &fused, "/static/ad/foobar", true);
-        check_match(
-            &mut regex_manager,
-            &fused,
-            "/static/ad/foobar/asd?q=1",
-            true,
-        );
-        check_match(&mut regex_manager, &fused, "/static/ads/", true);
-        check_match(&mut regex_manager, &fused, "/static/ads", false);
-        check_match(&mut regex_manager, &fused, "/static/ads/foobar", true);
-        check_match(
-            &mut regex_manager,
-            &fused,
-            "/static/ads/foobar/asd?q=1",
-            true,
-        );
-        check_match(&mut regex_manager, &fused, "/static/adv/", true);
-        check_match(&mut regex_manager, &fused, "/static/adv", false);
-        check_match(&mut regex_manager, &fused, "/static/adv/foobar", true);
-        check_match(
-            &mut regex_manager,
-            &fused,
-            "/static/adv/foobar/asd?q=1",
-            true,
-        );
+        check_match(&fused, "/static/ad-", true);
+        check_match(&fused, "/static/ad.", true);
+        check_match(&fused, "/static/ad%", false);
+        check_match(&fused, "/static/ads-", false);
+        check_match(&fused, "/static/ad/", true);
+        check_match(&fused, "/static/ad", false);
+        check_match(&fused, "/static/ad/foobar", true);
+        check_match(&fused, "/static/ad/foobar/asd?q=1", true);
+        check_match(&fused, "/static/ads/", true);
+        check_match(&fused, "/static/ads", false);
+        check_match(&fused, "/static/ads/foobar", true);
+        check_match(&fused, "/static/ads/foobar/asd?q=1", true);
+        check_match(&fused, "/static/adv/", true);
+        check_match(&fused, "/static/adv", false);
+        check_match(&fused, "/static/adv/foobar", true);
+        check_match(&fused, "/static/adv/foobar/asd?q=1", true);
     }
 
     #[test]
