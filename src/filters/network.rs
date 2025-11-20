@@ -15,9 +15,7 @@ use crate::filters::abstract_network::{
 use crate::lists::ParseOptions;
 use crate::regex_manager::RegexManager;
 use crate::request;
-use crate::utils::{self, Hash};
-
-pub(crate) const TOKENS_BUFFER_SIZE: usize = 200;
+use crate::utils::{self, Hash, TokensBuffer};
 
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
 static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
@@ -312,10 +310,10 @@ pub enum FilterPart {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum FilterTokens {
+pub enum FilterTokens<'a> {
     Empty,
-    OptDomains(Vec<Hash>),
-    Other(Vec<Hash>),
+    OptDomains(&'a [Hash]),
+    Other(&'a [Hash]),
 }
 
 pub struct FilterPartIterator<'a> {
@@ -885,17 +883,21 @@ impl NetworkFilter {
 
     #[deprecated(since = "0.11.1", note = "use get_tokens_optimized instead")]
     pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
-        match self.get_tokens_optimized() {
+        let mut tokens_buffer = TokensBuffer::default();
+        match self.get_tokens_optimized(&mut tokens_buffer) {
             FilterTokens::OptDomains(domains) => {
-                domains.into_iter().map(|domain| vec![domain]).collect()
+                domains.iter().map(|domain| vec![*domain]).collect()
             }
-            FilterTokens::Other(tokens) => vec![tokens],
+            FilterTokens::Other(tokens) => vec![tokens.to_vec()],
             FilterTokens::Empty => vec![],
         }
     }
 
-    pub fn get_tokens_optimized(&self) -> FilterTokens {
-        let mut tokens: Vec<Hash> = Vec::with_capacity(TOKENS_BUFFER_SIZE);
+    pub fn get_tokens_optimized<'a>(
+        &'a self,
+        tokens_buffer: &'a mut TokensBuffer,
+    ) -> FilterTokens<'a> {
+        tokens_buffer.clear();
 
         // If there is only one domain and no domain negation, we also use this
         // domain as a token.
@@ -905,7 +907,7 @@ impl NetworkFilter {
         {
             if let Some(domains) = self.opt_domains.as_ref() {
                 if let Some(domain) = domains.first() {
-                    tokens.push(*domain)
+                    tokens_buffer.push(*domain);
                 }
             }
         }
@@ -918,7 +920,7 @@ impl NetworkFilter {
                         (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
                     let skip_first_token = self.is_right_anchor();
 
-                    utils::tokenize_filter_to(f, skip_first_token, skip_last_token, &mut tokens);
+                    utils::tokenize_filter_to(f, skip_first_token, skip_last_token, tokens_buffer);
                 }
             }
             FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
@@ -928,45 +930,43 @@ impl NetworkFilter {
         // Append tokens from hostname, if any
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref() {
-                utils::tokenize_to(hostname, &mut tokens);
+                utils::tokenize_to(hostname, tokens_buffer);
             }
         } else if let Some(hostname) = self.hostname.as_ref() {
             // Find last dot to tokenize the prefix
             let last_dot_pos = hostname.rfind('.');
             if let Some(last_dot_pos) = last_dot_pos {
-                utils::tokenize_to(&hostname[..last_dot_pos], &mut tokens);
+                utils::tokenize_to(&hostname[..last_dot_pos], tokens_buffer);
             }
         }
 
-        if tokens.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+        if tokens_buffer.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
             if let Some(removeparam) = &self.modifier_option {
                 if VALID_PARAM.is_match(removeparam) {
-                    utils::tokenize_to(&removeparam.to_ascii_lowercase(), &mut tokens);
+                    utils::tokenize_to(&removeparam.to_ascii_lowercase(), tokens_buffer);
                 }
             }
         }
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
-        if tokens.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none() {
+        if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
+        {
             if let Some(opt_domains) = self.opt_domains.as_ref() {
                 if !opt_domains.is_empty() {
-                    return FilterTokens::OptDomains(opt_domains.clone());
+                    return FilterTokens::OptDomains(opt_domains);
                 }
             }
             FilterTokens::Empty
         } else {
             // Add optional token for protocol
             if self.for_http() && !self.for_https() {
-                tokens.push(utils::fast_hash("http"));
+                tokens_buffer.push(utils::fast_hash("http"));
             } else if self.for_https() && !self.for_http() {
-                tokens.push(utils::fast_hash("https"));
+                tokens_buffer.push(utils::fast_hash("https"));
             }
 
-            // Remake a vector to drop extra capacity.
-            let mut t = Vec::with_capacity(tokens.len());
-            t.extend(tokens);
-            FilterTokens::Other(t)
+            FilterTokens::Other(tokens_buffer.as_slice())
         }
     }
 }

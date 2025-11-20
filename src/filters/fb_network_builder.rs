@@ -7,6 +7,7 @@ use flatbuffers::WIPOffset;
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::network::{FilterTokens, NetworkFilter};
 use crate::filters::token_selector::TokenSelector;
+use crate::utils::TokensBuffer;
 
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
@@ -134,6 +135,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
         let mut optimizable = HashMap::<ShortHash, Vec<NetworkFilter>>::new();
 
         let mut token_frequencies = TokenSelector::new(rule_list.filters.len());
+        let mut tokens_buffer = TokensBuffer::default();
 
         {
             for network_filter in rule_list.filters {
@@ -157,7 +159,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     }
                 };
 
-                let multi_tokens = network_filter.get_tokens_optimized();
+                let multi_tokens = network_filter.get_tokens_optimized(&mut tokens_buffer);
                 match multi_tokens {
                     FilterTokens::Empty => {
                         // No tokens, add to fallback bucket (token 0)
@@ -171,7 +173,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                         }
                     }
                     FilterTokens::Other(tokens) => {
-                        let best_token = token_frequencies.select_least_used_token(&tokens);
+                        let best_token = token_frequencies.select_least_used_token(tokens);
                         token_frequencies.record_usage(best_token);
                         store_filter(best_token);
                     }
