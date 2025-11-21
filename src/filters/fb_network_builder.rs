@@ -159,7 +159,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
                     }
                 };
 
-                let multi_tokens = network_filter.get_tokens_optimized(&mut tokens_buffer);
+                let multi_tokens = network_filter.get_tokens(&mut tokens_buffer);
                 match multi_tokens {
                     FilterTokens::Empty => {
                         // No tokens, add to fallback bucket (token 0)

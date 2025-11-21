@@ -31,7 +31,7 @@ fn is_allowed_filter(ch: char) -> bool {
 
 /// A fixed-size array-like vector of hashes with maximum capacity of 256.
 /// Used instread of Vec<Hash> to avoid heap allocations.
-pub type TokensBuffer = ArrayVec<Hash, 256>;
+pub(crate) type TokensBuffer = ArrayVec<Hash, 256>;
 
 fn fast_tokenizer_no_regex(
     pattern: &str,

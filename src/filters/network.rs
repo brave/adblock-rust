@@ -310,7 +310,7 @@ pub enum FilterPart {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum FilterTokens<'a> {
+pub(crate) enum FilterTokens<'a> {
     Empty,
     OptDomains(&'a [Hash]),
     Other(&'a [Hash]),
@@ -881,19 +881,7 @@ impl NetworkFilter {
         )
     }
 
-    #[deprecated(since = "0.11.1", note = "use get_tokens_optimized instead")]
-    pub fn get_tokens(&self) -> Vec<Vec<Hash>> {
-        let mut tokens_buffer = TokensBuffer::default();
-        match self.get_tokens_optimized(&mut tokens_buffer) {
-            FilterTokens::OptDomains(domains) => {
-                domains.iter().map(|domain| vec![*domain]).collect()
-            }
-            FilterTokens::Other(tokens) => vec![tokens.to_vec()],
-            FilterTokens::Empty => vec![],
-        }
-    }
-
-    pub fn get_tokens_optimized<'a>(
+    pub(crate) fn get_tokens<'a>(
         &'a self,
         tokens_buffer: &'a mut TokensBuffer,
     ) -> FilterTokens<'a> {
@@ -998,11 +986,8 @@ impl fmt::Display for NetworkFilter {
     }
 }
 
-pub trait NetworkMatchable {
+pub(crate) trait NetworkMatchable {
     fn matches(&self, request: &request::Request, regex_manager: &mut RegexManager) -> bool;
-
-    #[cfg(test)]
-    fn matches_test(&self, request: &request::Request) -> bool;
 }
 
 // ---------------------------------------------------------------------------

@@ -171,9 +171,4 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             regex_manager,
         )
     }
-
-    #[cfg(test)]
-    fn matches_test(&self, request: &Request) -> bool {
-        self.matches(request, &mut RegexManager::default())
-    }
 }
