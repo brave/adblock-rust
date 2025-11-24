@@ -1,5 +1,4 @@
-use adblock::filters::network::{NetworkFilter, NetworkFilterMaskHelper, NetworkMatchable};
-use adblock::regex_manager::RegexManager;
+use adblock::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
 use adblock::Engine;
@@ -70,18 +69,38 @@ fn check_filter_matching() {
                 "Could not parse filter {filter}"
             );
             let network_filter = network_filter_res.unwrap();
+            let mut filters = vec![network_filter.clone()];
+            if network_filter.is_exception() {
+                let mut original_filter = network_filter.clone();
+                original_filter
+                    .mask
+                    .set(NetworkFilterMask::IS_EXCEPTION, false);
+                filters.push(original_filter);
+            }
+            let filter_set = adblock::FilterSet::new_with_rules(filters, vec![], true);
+            let engine = adblock::Engine::from_filter_set(filter_set, true);
 
             let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if let Ok(request) = request_res {
-                assert!(
-                    network_filter.matches(&request, &mut RegexManager::default()),
-                    "Expected {} to match {} at {}, typed {}",
-                    filter,
-                    req.url,
-                    req.sourceUrl,
-                    req.r#type
-                );
+                let result = engine.check_network_request(&request);
+                if !network_filter.is_exception() {
+                    assert!(
+                        result.matched,
+                        "Expected {} to match {} at {}, typed {}",
+                        filter, req.url, req.sourceUrl, req.r#type
+                    );
+                } else {
+                    assert!(
+                        !result.matched && result.exception.is_some(),
+                        "Expected {} exception to match {} at {}, typed {}",
+                        filter,
+                        req.url,
+                        req.sourceUrl,
+                        req.r#type
+                    );
+                }
+
                 requests_checked += 1;
             }
         }
@@ -199,5 +218,5 @@ fn check_rule_matching_browserlike() {
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";
-    assert_eq!((blocked, passes), (106860, 136085), "{msg}");
+    assert_eq!((blocked, passes), (106861, 136084), "{msg}");
 }
