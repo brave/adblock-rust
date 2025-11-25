@@ -44,7 +44,7 @@ cssparser = { version = "0.34", optional = true }
 selectors = { version = "0.26", optional = true }
 precomputed-hash = "0.1"
 thiserror = "1.0"
-flatbuffers = { version = "25.2.10" }
+flatbuffers = { version = "25.9.23" }
 
 [dev-dependencies]
 criterion = "=0.5.1"
