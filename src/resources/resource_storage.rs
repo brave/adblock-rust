@@ -336,8 +336,8 @@ impl ResourceStorage {
         filter_permission: PermissionMask,
         required_deps: &mut Vec<ResourceImpl>,
     ) -> Result<String, ScriptletResourceError> {
-        // `unwrap` is safe because these are guaranteed valid at filter parsing.
-        let scriptlet_args = parse_scriptlet_args(scriptlet_args).unwrap();
+        let scriptlet_args = parse_scriptlet_args(scriptlet_args)
+            .ok_or(ScriptletResourceError::InvalidScriptletArgs)?;
 
         if scriptlet_args.is_empty() {
             return Err(ScriptletResourceError::MissingScriptletName);
@@ -472,6 +472,8 @@ pub enum ScriptletResourceError {
     ContentTypeNotInjectable,
     #[error("filter rule is not authorized to inject the intended scriptlet")]
     InsufficientPermissions,
+    #[error("scriptlet arguments were malformed")]
+    InvalidScriptletArgs,
 }
 
 impl From<base64::DecodeError> for ScriptletResourceError {

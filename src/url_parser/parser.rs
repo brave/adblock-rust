@@ -186,15 +186,22 @@ simple_enum_error! {
     // HostParseError => "internal host parse error",
     RelativeUrlWithoutBase => "relative URL without a base",
     // RelativeUrlWithCannotBeABaseBase => "relative URL with a cannot-be-a-base base",
-    // SetHostOnCannotBeABaseUrl => "a cannot-be-a-base URL doesn’t have a host to set",
+    // SetHostOnCannotBeABaseUrl => "a cannot-be-a-base URL doesn't have a host to set",
     // Overflow => "URLs more than 4 GB are not supported",
     FileUrlNotSupported => "file URLs are not supported",
     ExpectedMoreChars => "Expected more characters",
+    FormattingError => "internal formatting error",
 }
 
 impl From<idna::Errors> for ParseError {
     fn from(_: idna::Errors) -> ParseError {
         ParseError::IdnaError
+    }
+}
+
+impl From<fmt::Error> for ParseError {
+    fn from(_: fmt::Error) -> ParseError {
+        ParseError::FormattingError
     }
 }
 
@@ -529,10 +536,10 @@ impl Parser {
         }
 
         if host_str.is_ascii() {
-            write!(&mut self.serialization, "{host_str}").unwrap();
+            write!(&mut self.serialization, "{host_str}")?;
         } else {
             let encoded = idna::domain_to_ascii(host_str)?;
-            write!(&mut self.serialization, "{encoded}").unwrap();
+            write!(&mut self.serialization, "{encoded}")?;
         }
 
         let host_end = self.serialization.len();

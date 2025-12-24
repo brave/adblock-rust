@@ -310,6 +310,7 @@ impl FilterSet {
             if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
                 return;
             }
+            // SAFETY: self.debug verified earlier; debug mode guarantees raw_line is Some.
             let original_rule = *filter
                 .raw_line
                 .clone()
@@ -331,6 +332,7 @@ impl FilterSet {
         let add_fp_document_exception = !filters_used.is_empty();
 
         self.cosmetic_filters.into_iter().for_each(|filter| {
+            // SAFETY: self.debug verified earlier; debug mode guarantees raw_line is Some.
             let original_rule = *filter
                 .raw_line
                 .clone()

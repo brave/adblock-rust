@@ -227,6 +227,14 @@ pub enum CbRuleCreationFailure {
     FromNotSupported,
     /// Content blocking rules cannot support procedural cosmetic filter operators.
     ProceduralCosmeticFiltersUnsupported,
+    /// Network filter has no supported scheme (HTTP, HTTPS, or WebSocket).
+    NoSupportedScheme,
+    /// Domain could not be converted to ASCII (IDNA encoding failed).
+    DomainEncodingError,
+    /// Rule options expected in the raw filter could not be found.
+    MissingOptionsDelimiter,
+    /// Cosmetic filter did not contain the expected `#` separator.
+    MissingCosmeticDelimiter,
 }
 
 impl TryFrom<ParsedFilter> for CbRuleEquivalent {
@@ -392,7 +400,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                         } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
                             "^wss?://.*"
                         } else {
-                            unreachable!("Invalid scheme information");
+                            return Err(CbRuleCreationFailure::NoSupportedScheme);
                         };
 
                         format!("{scheme_part}{with_fixed_wildcards}")
@@ -420,58 +428,57 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
                     "^wss?://"
                 } else {
-                    unreachable!("Invalid scheme information");
+                    return Err(CbRuleCreationFailure::NoSupportedScheme);
                 }
                 .to_string(),
             };
 
-            let (if_domain, unless_domain) = if v.opt_domains.is_some()
-                || v.opt_not_domains.is_some()
-            {
-                let mut if_domain = vec![];
-                let mut unless_domain = vec![];
+            let (if_domain, unless_domain) =
+                if v.opt_domains.is_some() || v.opt_not_domains.is_some() {
+                    let mut if_domain = vec![];
+                    let mut unless_domain = vec![];
 
-                // Unwraps are okay here - any rules with opt_domains or opt_not_domains must have
-                // an options section delimited by a '$' character, followed by a `domain=` option.
-                let opts = &raw_line[find_char(b'$', raw_line.as_bytes()).unwrap() + "$".len()..];
-                let domain_start_index =
-                    if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
-                        index
-                    } else {
-                        return Err(CbRuleCreationFailure::FromNotSupported);
-                    };
-                let domains_start = &opts[domain_start_index + "domain=".len()..];
-                let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
-                    &domains_start[..comma]
-                } else {
-                    domains_start
-                }
-                .split('|');
-
-                domains.for_each(|domain| {
-                    let (collection, domain) =
-                        if let Some(domain_stripped) = domain.strip_prefix('~') {
-                            (&mut unless_domain, domain_stripped)
+                    // Options are mandatory when domains are present; otherwise the rule cannot be converted.
+                    let opts_start = find_char(b'$', raw_line.as_bytes())
+                        .ok_or(CbRuleCreationFailure::MissingOptionsDelimiter)?;
+                    let opts = &raw_line[opts_start + "$".len()..];
+                    let domain_start_index =
+                        if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
+                            index
                         } else {
-                            (&mut if_domain, domain)
+                            return Err(CbRuleCreationFailure::FromNotSupported);
+                        };
+                    let domains_start = &opts[domain_start_index + "domain=".len()..];
+                    let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
+                        &domains_start[..comma]
+                    } else {
+                        domains_start
+                    }
+                    .split('|');
+
+                    for domain in domains {
+                        let (collection, domain) =
+                            if let Some(domain_stripped) = domain.strip_prefix('~') {
+                                (&mut unless_domain, domain_stripped)
+                            } else {
+                                (&mut if_domain, domain)
+                            };
+
+                        let lowercase = domain.to_lowercase();
+                        let normalized_domain = if lowercase.is_ascii() {
+                            lowercase
+                        } else {
+                            idna::domain_to_ascii(&lowercase)
+                                .map_err(|_| CbRuleCreationFailure::DomainEncodingError)?
                         };
 
-                    let lowercase = domain.to_lowercase();
-                    let normalized_domain = if lowercase.is_ascii() {
-                        lowercase
-                    } else {
-                        // The network filter has already parsed successfully, so this should be
-                        // safe
-                        idna::domain_to_ascii(&lowercase).unwrap()
-                    };
+                        collection.push(format!("*{normalized_domain}"));
+                    }
 
-                    collection.push(format!("*{normalized_domain}"));
-                });
-
-                (non_empty(if_domain), non_empty(unless_domain))
-            } else {
-                (None, None)
-            };
+                    (non_empty(if_domain), non_empty(unless_domain))
+                } else {
+                    (None, None)
+                };
 
             if if_domain.is_some() && unless_domain.is_some() {
                 return Err(CbRuleCreationFailure::UnlessAndIfDomainTogetherUnsupported);
@@ -606,8 +613,8 @@ impl TryFrom<CosmeticFilter> for CbRule {
 
             let mut any_unsupported = false;
 
-            // Unwrap is okay here - cosmetic rules must have a '#' character
-            let sharp_index = find_char(b'#', raw_line.as_bytes()).unwrap();
+            let sharp_index = find_char(b'#', raw_line.as_bytes())
+                .ok_or(CbRuleCreationFailure::MissingCosmeticDelimiter)?;
             CosmeticFilter::locations_before_sharp(raw_line, sharp_index).for_each(
                 |(location_type, location)| match location_type {
                     LocationType::Entity | LocationType::NotEntity | LocationType::Unsupported => {

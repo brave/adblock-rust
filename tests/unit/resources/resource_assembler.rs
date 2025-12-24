@@ -8,7 +8,8 @@ mod tests {
             Path::new("data/test/fake-uBO-files/web_accessible_resources");
         let redirect_resources_path = Path::new("data/test/fake-uBO-files/redirect-resources.js");
         let resources =
-            assemble_web_accessible_resources(web_accessible_resource_dir, redirect_resources_path);
+            assemble_web_accessible_resources(web_accessible_resource_dir, redirect_resources_path)
+                .expect("assemble resources");
 
         let expected_resource_names = vec![
             "1x1.gif",
@@ -108,7 +109,7 @@ mod tests {
     fn test_scriptlet_resource_assembly2() {
         let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets2.js");
         #[allow(deprecated)]
-        let resources = assemble_scriptlet_resources(scriptlets_path);
+        let resources = assemble_scriptlet_resources(scriptlets_path).expect("assemble scriptlets");
 
         let expected_resource_names = vec![
             "abort-current-inline-script.js",
@@ -205,7 +206,7 @@ mod tests {
     fn test_scriptlet_resource_assembly() {
         let scriptlets_path = Path::new("data/test/fake-uBO-files/scriptlets.js");
         #[allow(deprecated)]
-        let resources = assemble_scriptlet_resources(scriptlets_path);
+        let resources = assemble_scriptlet_resources(scriptlets_path).expect("assemble scriptlets");
 
         let expected_resource_names = vec![
             "abort-current-inline-script.js",

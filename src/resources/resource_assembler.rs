@@ -8,7 +8,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 static TOP_COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"^/\*[\S\s]+?\n\*/\s*"#).unwrap());
 static NON_EMPTY_LINE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\S"#).unwrap());
@@ -69,12 +70,34 @@ static UNQUOTED_FIELD_RE: Lazy<Regex> =
 static TRAILING_BLOCK_COMMENT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"\s*/\*[^'"]*\*/\s*$"#).unwrap());
 
+#[derive(Debug, Error)]
+pub enum ResourceAssemblyError {
+    #[error("failed to read redirect resources map: {0}")]
+    RedirectMapIo(#[source] std::io::Error),
+    #[error("failed to parse redirect resources map: {0}")]
+    RedirectMapParse(#[source] serde_json::Error),
+    #[error("redirect resources map is missing expected preamble: {0}")]
+    RedirectMapFormat(&'static str),
+    #[error("resource file does not exist: {0:?}")]
+    MissingResource(PathBuf),
+    #[error("failed to read resource file: {0}")]
+    ResourceRead(#[source] std::io::Error),
+    #[error("resource content is not valid UTF-8: {0}")]
+    ResourceUtf8(#[source] std::str::Utf8Error),
+    #[error("failed to read scriptlets file: {0}")]
+    ScriptletIo(#[source] std::io::Error),
+    #[error("malformed scriptlet resource: {0}")]
+    ScriptletFormat(&'static str),
+}
+
 /// Reads data from a a file in the format of uBlock Origin's `redirect-resources.js` file to
 /// determine the files in the `web_accessible_resources` directory, as well as any of their
 /// aliases.
 ///
 /// This is read from the exported `Map`.
-fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourceProperties> {
+fn read_redirectable_resource_mapping(
+    mapfile_data: &str,
+) -> Result<Vec<ResourceProperties>, ResourceAssemblyError> {
     // This isn't bulletproof, but it should handle the historical versions of the mapping
     // correctly, and having a strict JSON parser should catch any unexpected format changes. Plus,
     // it prevents dependending on a full JS engine.
@@ -101,7 +124,11 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
 
     // Trim out the beginning `export default new Map(`.
     // Also, replace all single quote characters with double quotes.
-    assert!(map.starts_with(REDIRECTABLE_RESOURCES_DECLARATION));
+    if !map.starts_with(REDIRECTABLE_RESOURCES_DECLARATION) {
+        return Err(ResourceAssemblyError::RedirectMapFormat(
+            "expected map to start with export default preamble",
+        ));
+    }
     map = map[REDIRECTABLE_RESOURCES_DECLARATION.len() - 1..].replace('\'', "\"");
 
     // Remove all whitespace from the entire string.
@@ -121,9 +148,10 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
         .to_string();
 
     // It *should* be valid JSON now, so parse it with serde_json.
-    let parsed: Vec<JsResourceEntry> = serde_json::from_str(&map).unwrap();
+    let parsed: Vec<JsResourceEntry> =
+        serde_json::from_str(&map).map_err(ResourceAssemblyError::RedirectMapParse)?;
 
-    parsed
+    Ok(parsed
         .into_iter()
         .filter_map(|(name, props)| {
             // Ignore resources with params for now, since there's no support for them currently.
@@ -137,12 +165,12 @@ fn read_redirectable_resource_mapping(mapfile_data: &str) -> Vec<ResourcePropert
                 })
             }
         })
-        .collect()
+        .collect())
 }
 
 /// Reads data from a file in the form of uBlock Origin's `scriptlets.js` file and produces
 /// templatable scriptlets for use in cosmetic filtering.
-fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
+fn read_template_resources(scriptlets_data: &str) -> Result<Vec<Resource>, ResourceAssemblyError> {
     let mut resources = Vec::new();
 
     let uncommented = TOP_COMMENT_RE.replace_all(scriptlets_data, "");
@@ -164,8 +192,12 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
 
         if let Some(stripped) = line.strip_prefix("/// ") {
             let mut line = stripped.split_whitespace();
-            let prop = line.next().expect("Detail line has property name");
-            let value = line.next().expect("Detail line has property value");
+            let prop = line.next().ok_or(ResourceAssemblyError::ScriptletFormat(
+                "missing property name",
+            ))?;
+            let value = line.next().ok_or(ResourceAssemblyError::ScriptletFormat(
+                "missing property value",
+            ))?;
             details
                 .entry(prop)
                 .and_modify(|v| v.push(value))
@@ -186,7 +218,11 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
         };
 
         resources.push(Resource {
-            name: name.expect("Resource name must be specified").to_owned(),
+            name: name
+                .ok_or(ResourceAssemblyError::ScriptletFormat(
+                    "resource name must be specified",
+                ))?
+                .to_owned(),
             aliases: details
                 .get("alias")
                 .map(|aliases| aliases.iter().map(|alias| alias.to_string()).collect())
@@ -202,7 +238,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
         script.clear();
     }
 
-    resources
+    Ok(resources)
 }
 
 /// Reads byte data from an arbitrary resource file, and assembles a `Resource` from it with the
@@ -210,7 +246,7 @@ fn read_template_resources(scriptlets_data: &str) -> Vec<Resource> {
 fn build_resource_from_file_contents(
     resource_contents: &[u8],
     resource_info: &ResourceProperties,
-) -> Resource {
+) -> Result<Resource, ResourceAssemblyError> {
     let name = resource_info.name.to_owned();
     let aliases = resource_info
         .alias
@@ -220,20 +256,21 @@ fn build_resource_from_file_contents(
     let mimetype = MimeType::from_extension(&resource_info.name[..]);
     let content = match mimetype {
         MimeType::ApplicationJavascript | MimeType::TextHtml | MimeType::TextPlain => {
-            let utf8string = std::str::from_utf8(resource_contents).unwrap();
+            let utf8string = std::str::from_utf8(resource_contents)
+                .map_err(ResourceAssemblyError::ResourceUtf8)?;
             BASE64_STANDARD.encode(utf8string.replace('\r', ""))
         }
         _ => BASE64_STANDARD.encode(resource_contents),
     };
 
-    Resource {
+    Ok(Resource {
         name,
         aliases,
         kind: ResourceType::Mime(mimetype),
         content,
         dependencies: vec![],
         permission: Default::default(),
-    }
+    })
 }
 
 /// Produces a `Resource` from the `web_accessible_resource_dir` directory according to the
@@ -241,16 +278,17 @@ fn build_resource_from_file_contents(
 fn read_resource_from_web_accessible_dir(
     web_accessible_resource_dir: &Path,
     resource_info: &ResourceProperties,
-) -> Resource {
+) -> Result<Resource, ResourceAssemblyError> {
     let resource_path = web_accessible_resource_dir.join(&resource_info.name);
     if !resource_path.is_file() {
-        panic!("Expected {resource_path:?} to be a file");
+        return Err(ResourceAssemblyError::MissingResource(resource_path));
     }
-    let mut resource_file = File::open(resource_path).expect("open resource file for reading");
+    let mut resource_file =
+        File::open(resource_path).map_err(ResourceAssemblyError::ResourceRead)?;
     let mut resource_contents = Vec::new();
     resource_file
         .read_to_end(&mut resource_contents)
-        .expect("read resource file contents");
+        .map_err(ResourceAssemblyError::ResourceRead)?;
 
     build_resource_from_file_contents(&resource_contents, resource_info)
 }
@@ -266,9 +304,10 @@ fn read_resource_from_web_accessible_dir(
 pub fn assemble_web_accessible_resources(
     web_accessible_resource_dir: &Path,
     redirect_resources_path: &Path,
-) -> Vec<Resource> {
-    let mapfile_data = std::fs::read_to_string(redirect_resources_path).expect("read aliases path");
-    let resource_properties = read_redirectable_resource_mapping(&mapfile_data);
+) -> Result<Vec<Resource>, ResourceAssemblyError> {
+    let mapfile_data = std::fs::read_to_string(redirect_resources_path)
+        .map_err(ResourceAssemblyError::RedirectMapIo)?;
+    let resource_properties = read_redirectable_resource_mapping(&mapfile_data)?;
 
     resource_properties
         .iter()
@@ -290,8 +329,15 @@ pub fn assemble_web_accessible_resources(
 /// - `scriptlets_path`: A file in the format of uBlock Origin's `scriptlets.js` containing
 ///   templatable scriptlet files for use in cosmetic filtering
 #[deprecated]
-pub fn assemble_scriptlet_resources(scriptlets_path: &Path) -> Vec<Resource> {
-    let scriptlets_data = std::fs::read_to_string(scriptlets_path).expect("read scriptlets path");
+pub fn assemble_scriptlet_resources(
+    scriptlets_path: &Path,
+) -> Result<Vec<Resource>, ResourceAssemblyError> {
+    let scriptlets_data = match std::fs::read_to_string(scriptlets_path)
+        .map_err(ResourceAssemblyError::ScriptletIo)
+    {
+        Ok(data) => data,
+        Err(e) => return Err(e),
+    };
     read_template_resources(&scriptlets_data)
 }
 
