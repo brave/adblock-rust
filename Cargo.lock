@@ -19,7 +19,6 @@ dependencies = [
  "itertools 0.13.0",
  "memchr",
  "mock_instant",
- "once_cell",
  "percent-encoding",
  "precomputed-hash",
  "regex",
