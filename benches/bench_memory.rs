@@ -12,9 +12,7 @@ use adblock::request::Request;
 use adblock::resources::Resource;
 use adblock::Engine;
 
-#[path = "../tests/test_utils.rs"]
-mod test_utils;
-use test_utils::rules_from_lists;
+use adblock::test_utils::rules_from_lists;
 
 // Custom allocator to track memory usage
 #[global_allocator]
