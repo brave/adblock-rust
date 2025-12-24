@@ -44,7 +44,11 @@ mod json_ffi {
         cx: &mut C,
         input: &T,
     ) -> JsResult<'a, JsValue> {
-        let input_handle = JsString::new(cx, serde_json::to_string(&input).unwrap());
+        let serialized = match serde_json::to_string(&input) {
+            Ok(s) => s,
+            Err(e) => return cx.throw_error(e.to_string()),
+        };
+        let input_handle = JsString::new(cx, serialized);
 
         let json: Handle<JsObject> = cx.global().get(cx, "JSON")?;
         let json_parse: Handle<JsFunction> = json.get(cx, "parse")?;
@@ -345,17 +349,26 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
         None => None,
     };
 
-    let mut resources = assemble_web_accessible_resources(
+    let mut resources = match assemble_web_accessible_resources(
         &Path::new(&web_accessible_resource_dir),
         &Path::new(&redirect_resources_path),
-    );
+    ) {
+        Ok(r) => r,
+        Err(e) => return cx.throw_error(e.to_string()),
+    };
     if let Some(scriptlets_path) = scriptlets_path {
         #[allow(deprecated)]
-        resources.extend(
-            adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(
-                &scriptlets_path,
-            )),
-        );
+        {
+            let scriptlet_resources =
+                adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(
+                    &scriptlets_path,
+                ));
+            let scriptlet_resources = match scriptlet_resources {
+                Ok(r) => r,
+                Err(e) => return cx.throw_error(e.to_string()),
+            };
+            resources.extend(scriptlet_resources);
+        }
     }
 
     json_ffi::to_js(&mut cx, &resources)

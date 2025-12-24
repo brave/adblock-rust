@@ -99,12 +99,14 @@ fn get_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Vec<
         let mut resource_data = assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-resources.js"),
-        );
+        )
+        .expect("assemble redirect resources");
         #[allow(deprecated)]
         resource_data.append(
             &mut adblock::resources::resource_assembler::assemble_scriptlet_resources(Path::new(
                 "data/test/fake-uBO-files/scriptlets.js",
-            )),
+            ))
+            .expect("assemble scriptlets"),
         );
         resource_data
     }
