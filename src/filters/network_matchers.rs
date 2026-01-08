@@ -201,7 +201,9 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        // SAFETY: This function is only called from check_pattern() when
+        // mask.is_hostname_anchor() is true, which guarantees hostname is Some.
+        .unwrap_or_else(|| unreachable!())
 }
 
 // ||pattern|
@@ -236,7 +238,9 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        // SAFETY: This function is only called from check_pattern() when
+        // mask.is_hostname_anchor() is true, which guarantees hostname is Some.
+        .unwrap_or_else(|| unreachable!())
 }
 
 // |||pattern|
@@ -276,7 +280,9 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        // SAFETY: This function is only called from check_pattern() when
+        // mask.is_hostname_anchor() is true, which guarantees hostname is Some.
+        .unwrap_or_else(|| unreachable!())
 }
 
 // ||pattern + left-anchor => This means that a plain pattern needs to appear
@@ -313,7 +319,9 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        // SAFETY: This function is only called from check_pattern() when
+        // mask.is_hostname_anchor() is true, which guarantees hostname is Some.
+        .unwrap_or_else(|| unreachable!())
 }
 
 // ||pattern
@@ -347,7 +355,9 @@ where
                 false
             }
         })
-        .unwrap_or_else(|| unreachable!()) // no match if filter has no hostname - should be unreachable
+        // SAFETY: This function is only called from check_pattern() when
+        // mask.is_hostname_anchor() is true, which guarantees hostname is Some.
+        .unwrap_or_else(|| unreachable!())
 }
 
 /// Efficiently checks if a certain network filter matches against a network

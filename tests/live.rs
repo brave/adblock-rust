@@ -234,7 +234,8 @@ fn check_live_redirects() {
     let redirect_engine_path =
         std::path::Path::new("data/test/fake-uBO-files/redirect-resources.js");
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
-    let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path);
+    let resources = assemble_web_accessible_resources(war_dir, redirect_engine_path)
+        .expect("assemble resources");
 
     engine.use_resources(resources);
     {

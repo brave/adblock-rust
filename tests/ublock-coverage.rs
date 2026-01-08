@@ -94,7 +94,8 @@ fn check_specific_rules() {
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),
             Path::new("data/test/fake-uBO-files/redirect-resources.js"),
-        );
+        )
+        .expect("assemble resources");
         engine.use_resources(resources);
 
         let request = Request::new(
