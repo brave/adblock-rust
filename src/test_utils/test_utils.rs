@@ -1,5 +1,5 @@
-//! Convenience functions used for tests across different build targets. Import via `#[path = ]` if
-//! needed outside of this directory.
+//! Test helper utilities for the adblock-rust project.
+//! Used in tests and benchmarks.
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn rules_from_lists(

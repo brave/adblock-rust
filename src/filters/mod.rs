@@ -11,17 +11,6 @@ pub(crate) mod filter_data_context;
 pub mod network;
 pub(crate) mod token_selector;
 
-#[allow(unknown_lints)]
-#[allow(
-    dead_code,
-    clippy::all,
-    unused_imports,
-    unsafe_code,
-    mismatched_lifetime_syntaxes
-)]
-#[path = "../flatbuffers/fb_network_filter_generated.rs"]
-mod flat;
-
 pub(crate) mod flatbuffer_generated {
-    pub use super::flat::fb;
+    pub use crate::flatbuffers::fb_network_filter_generated::fb;
 }
