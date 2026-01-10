@@ -753,10 +753,24 @@ impl NetworkFilter {
 
         let hostname_decoded = hostname
             .map(|host| {
+                // Strip "www." prefix only if it's a subdomain (not the whole domain)
+                // ||www.com^ should NOT be stripped (www.com is the actual domain)
+                // ||www.youjizz.com^ SHOULD be stripped to youjizz.com (www is a subdomain)
                 let hostname_normalised = if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
-                    host.trim_start_matches("www.")
+                    // Check if stripping www. would leave a valid domain with at least one dot
+                    if let Some(after_www) = host.strip_prefix("www.") {
+                        if after_www.contains('.') {
+                            // www. is a subdomain prefix, strip it
+                            after_www.to_string()
+                        } else {
+                            // www. is the whole domain (e.g., www.com), don't strip
+                            host
+                        }
+                    } else {
+                        host
+                    }
                 } else {
-                    &host
+                    host
                 };
 
                 let lowercase = hostname_normalised.to_lowercase();
