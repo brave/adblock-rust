@@ -41,35 +41,45 @@ fn is_anchored_by_hostname(
     } else if filter_hostname_len == hostname_len {
         // If they have the same len(), they should be equal
         filter_hostname == hostname
-    } else if let Some(match_index) = memmem::find(hostname.as_bytes(), filter_hostname.as_bytes())
-    {
-        if match_index == 0 {
-            // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
-            //
-            // Examples (filter_hostname, hostname):
-            //   * (foo, foo.com)
-            //   * (sub.foo, sub.foo.com)
-            wildcard_filter_hostname
-                || filter_hostname.ends_with('.')
-                || hostname[filter_hostname_len..].starts_with('.')
-        } else if match_index == hostname_len - filter_hostname_len {
-            // `filter_hostname` is a suffix of `hostname`.
-            //
-            // Examples (filter_hostname, hostname):
-            //    * (foo.com, sub.foo.com)
-            //    * (com, foo.com)
-            filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
-        } else {
-            // `filter_hostname` is infix of `hostname` and needs match full labels
-            (wildcard_filter_hostname
-                || filter_hostname.ends_with('.')
-                || hostname[filter_hostname_len..].starts_with('.'))
-                && (filter_hostname.starts_with('.')
-                    || hostname[match_index - 1..].starts_with('.'))
-        }
     } else {
-        // No match
-        false
+        // For hostname anchors, we need exact matches at domain boundaries.
+        // ||www.com should match:
+        //   - www.com (exact)
+        //   - sub.www.com (subdomain)
+        // But NOT:
+        //   - example.com (different domain that happens to share .com)
+        //   - wwwXcom (no dot separator)
+        
+        // Use memmem to find the filter_hostname anywhere in hostname (supports infix)
+        if let Some(match_index) = memmem::find(hostname.as_bytes(), filter_hostname.as_bytes()) {
+            if match_index == 0 {
+                // `filter_hostname` is a prefix of `hostname` and needs to match full a label.
+                //
+                // Examples (filter_hostname, hostname):
+                //   * (foo, foo.com)
+                //   * (sub.foo, sub.foo.com)
+                wildcard_filter_hostname
+                    || filter_hostname.ends_with('.')
+                    || hostname[filter_hostname_len..].starts_with('.')
+            } else if match_index == hostname_len - filter_hostname_len {
+                // `filter_hostname` is a suffix of `hostname`.
+                //
+                // Examples (filter_hostname, hostname):
+                //    * (foo.com, sub.foo.com)
+                //    * (com, foo.com)
+                filter_hostname.starts_with('.') || hostname[match_index - 1..].starts_with('.')
+            } else {
+                // `filter_hostname` is infix of `hostname` and needs match full labels
+                (wildcard_filter_hostname
+                    || filter_hostname.ends_with('.')
+                    || hostname[match_index + filter_hostname_len..].starts_with('.'))
+                    && (filter_hostname.starts_with('.')
+                        || hostname[match_index - 1..].starts_with('.'))
+            }
+        } else {
+            // No match
+            false
+        }
     }
 }
 

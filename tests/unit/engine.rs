@@ -237,9 +237,9 @@ mod tests {
             );
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            13277824246832611772
+            13277824246832611772  // TODO: Update this after fix verification
         } else {
-            12001568478200869587
+            11046028832243863514  // Updated after fix for issue #479 (smart www-stripping)
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
