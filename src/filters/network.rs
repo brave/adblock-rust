@@ -2,9 +2,9 @@
 //! modification.
 
 use memchr::memchr as find_char;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use thiserror::Error;
 
 use std::fmt;
@@ -18,7 +18,7 @@ use crate::request;
 use crate::utils::{self, Hash, TokensBuffer};
 
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
-static VALID_PARAM: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
+static VALID_PARAM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
 #[non_exhaustive]
 #[derive(Debug, Error, PartialEq, Clone)]
@@ -641,7 +641,7 @@ impl NetworkFilter {
                 // and then the pattern.
                 // TODO - this could be made more efficient if we could match between two
                 // indices. Once again, we have to do more work than is really needed.
-                static SEPARATOR: Lazy<Regex> = Lazy::new(|| Regex::new("[/^*]").unwrap());
+                static SEPARATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new("[/^*]").unwrap());
                 if let Some(first_separator) = SEPARATOR.find(pattern) {
                     let first_separator_start = first_separator.start();
                     // NOTE: `first_separator` shall never be -1 here since `IS_REGEX` is true.
@@ -825,8 +825,8 @@ impl NetworkFilter {
     /// emulate the behavior of hosts-style blocking.
     pub fn parse_hosts_style(hostname: &str, debug: bool) -> Result<Self, NetworkFilterError> {
         // Make sure the hostname doesn't contain any invalid characters
-        static INVALID_CHARS: Lazy<Regex> =
-            Lazy::new(|| Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap());
+        static INVALID_CHARS: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap());
         if INVALID_CHARS.is_match(hostname) {
             return Err(NetworkFilterError::FilterParseError);
         }

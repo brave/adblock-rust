@@ -64,9 +64,11 @@ pub struct RemoteFilterSource {
 
 /// Fetch all filters once and store them in a lazy-loaded static variable to avoid unnecessary
 /// network traffic.
-static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::FilterSet>> =
-    once_cell::sync::Lazy::new(|| {
-        async fn get_all_filters() -> adblock::lists::FilterSet {
+fn get_all_filters() -> &'static adblock::lists::FilterSet {
+    static FILTERS: std::sync::OnceLock<adblock::lists::FilterSet> = std::sync::OnceLock::new();
+    FILTERS.get_or_init(|| {
+        let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+        async_runtime.block_on(async {
             use futures::FutureExt;
 
             const DEFAULT_LISTS_URL: &str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
@@ -98,23 +100,23 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
             assert!(default_lists.len() > 10); // sanity check
 
             let filters_fut: Vec<_> = default_lists
-            .iter()
-            .map(|list| {
-                println!("Starting download of filter, '{}'", list.url);
-                reqwest::get(&list.url)
-                    .then(move |resp| {
-                        let response = resp.expect("Could not request rules");
-                        if response.status() != 200 {
-                            panic!("Failed download of filter, '{}'. Received status code {} when only 200 was expected", list.url.clone(), response.status());
-                        }
-                        response.text()
-                    }).map(move |text| {
-                        let text = text.expect("Could not get rules as text");
-                        println!("Finished download of filter, '{}' ({} bytes)", list.url, text.len());
-                        ( list.format, text )
-                    })
-            })
-            .collect();
+                .iter()
+                .map(|list| {
+                    println!("Starting download of filter, '{}'", list.url);
+                    reqwest::get(&list.url)
+                        .then(move |resp| {
+                            let response = resp.expect("Could not request rules");
+                            if response.status() != 200 {
+                                panic!("Failed download of filter, '{}'. Received status code {} when only 200 was expected", list.url.clone(), response.status());
+                            }
+                            response.text()
+                        }).map(move |text| {
+                            let text = text.expect("Could not get rules as text");
+                            println!("Finished download of filter, '{}' ({} bytes)", list.url, text.len());
+                            ( list.format, text )
+                        })
+                })
+                .collect();
 
             let mut filter_set = adblock::lists::FilterSet::default();
 
@@ -132,11 +134,9 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
                 });
 
             filter_set
-        }
-
-        let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-        std::sync::Mutex::new(async_runtime.block_on(get_all_filters()))
-    });
+        })
+    })
+}
 
 /// Example usage of this test:
 ///
@@ -145,12 +145,12 @@ static ALL_FILTERS: once_cell::sync::Lazy<std::sync::Mutex<adblock::lists::Filte
 #[ignore = "opt-in: used for troubleshooting issues with live tests"]
 fn troubleshoot() {
     println!("Troubleshooting initiated. Safe journeys. ⛵");
-    let _grabbed = ALL_FILTERS.lock().unwrap();
+    let _grabbed = get_all_filters();
     println!("Troubleshooting complete. Welcome back! 🥳");
 }
 
 fn get_blocker_engine() -> Engine {
-    let mut engine = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
+    let mut engine = Engine::from_filter_set(get_all_filters().clone(), true);
 
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -278,7 +278,7 @@ fn check_live_redirects() {
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
 fn stable_serialization_through_load() {
-    let engine1 = Engine::from_filter_set(ALL_FILTERS.lock().unwrap().clone(), true);
+    let engine1 = Engine::from_filter_set(get_all_filters().clone(), true);
     let ser1 = engine1.serialize().to_vec();
 
     let mut engine2 = Engine::default();
