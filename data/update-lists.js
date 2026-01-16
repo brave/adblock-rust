@@ -1,5 +1,6 @@
 // A script to update the test lists and resources.
-// Use: BRAVE_SERVICE_KEY=<key> node data/update-lists.js <brave_list_version> <resource_list_version>
+// Use: BRAVE_SERVICE_KEY=<key> node data/update-lists.js \
+//      <brave_list_version> <defalt_privacy_filters_version> <resource_list_version>
 
 const { execSync } = require("child_process");
 const fs = require("fs");
