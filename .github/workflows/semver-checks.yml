@@ -6,6 +6,9 @@ on:
       - master
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   semver-checks:
     runs-on: ubuntu-latest
@@ -14,11 +17,5 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@02be93da58aa71fb456aa9c43b301149248829d8 # v1.15.1
-
-      - name: Install cargo-semver-checks
-        run: cargo install cargo-semver-checks
-
-      - name: Run semver checks
-        run: cargo semver-checks
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@5b298c9520f7096a4683c0bd981a7ac5a7e249ae # v2.8
