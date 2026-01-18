@@ -621,32 +621,47 @@ pub(crate) fn parse_scriptlet_args(mut args: &str) -> Option<Vec<String>> {
             args = &args[i..];
         }
 
-        let (arg, needs_transform);
+        let (mut arg, mut needs_transform);
 
         match args.chars().next() {
             Some(qc) if qc == '"' || qc == '\'' || qc == '`' => {
+                let saved_args = args;
                 args = &args[1..];
                 let i;
                 (i, needs_transform) = index_next_unescaped_separator(args, qc);
                 if let Some(i) = i {
                     arg = &args[..i];
-                    args = &args[i + 1..];
+                    let next_args = &args[i + 1..];
                     // consume whitespace following the quote
-                    if let Some(i) = args.find(|c: char| !c.is_whitespace()) {
-                        args = &args[i..];
-                    }
+                    let next_args = if let Some(idx) = next_args.find(|c: char| !c.is_whitespace()) {
+                        &next_args[idx..]
+                    } else {
+                        next_args
+                    };
                     // consume comma separator
-                    if args.starts_with(',') {
-                        args = &args[1..];
-                    } else if !args.is_empty() {
-                        // uBO pushes everything up to the next comma without escapes, but it's
-                        // very weird and probably not what the filter list author intended.
-                        // Treating it as an error for now.
-                        return None;
+                    if next_args.starts_with(',') {
+                        args = &next_args[1..];
+                    } else if next_args.is_empty() {
+                        args = next_args;
+                    } else {
+                        // Next character after the quoted string isn't a comma.
+                        // Check if it looks like a malformed quoted argument or a JS expression.
+                        let next_char = next_args.chars().next().unwrap();
+                        if next_char.is_alphanumeric() || next_char == '"' || next_char == '\'' || next_char == '`' || next_char == '\\' {
+                            // Looks like a malformed quoted argument (e.g., "test"test or 'test'"test")
+                            return None;
+                        }
+                        // Likely a JS expression with an operator after the quote (e.g., "test"!==undefined)
+                        // Fall back to comma-separated parsing from the beginning.
+                        args = saved_args;
+                        let idx;
+                        (idx, needs_transform) = index_next_unescaped_separator(args, ',');
+                        arg = args[..idx.unwrap_or(args.len())].trim_end();
+                        args = &args[idx.map(|i| i + 1).unwrap_or(args.len())..];
                     }
                 } else {
-                    // uBO pushes the entire argument, including the unmatched quote. Again, weird
-                    // and probably not intended.
+                    // No matching closing quote found.
+                    // This is a malformed quoted argument.
                     return None;
                 }
             }
