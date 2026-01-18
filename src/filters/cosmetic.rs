@@ -632,9 +632,16 @@ mod css_validation {
             )]);
         }
 
+        // Normalize ABP-style quoted attribute names to standard CSS
+        // Transform ["attribute-name"] to [attribute-name]
+        static RE_QUOTED_ATTR: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r#"\["([^"]+)"([*^$|~]?=)"#).unwrap()
+        });
+        let normalized_selector = RE_QUOTED_ATTR.replace_all(selector, "[$1$2");
+
         // Use `mock-stylesheet-marker` where uBO uses `color: red` since we have control over the
         // parsing logic within the block.
-        let mock_stylesheet = format!("{selector}{{mock-stylesheet-marker}}");
+        let mock_stylesheet = format!("{}{{mock-stylesheet-marker}}", normalized_selector);
         let mut pi = ParserInput::new(&mock_stylesheet);
         let mut parser = Parser::new(&mut pi);
         let mut parser_impl = QualifiedRuleParserImpl {
