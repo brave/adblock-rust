@@ -29,6 +29,7 @@ mod parse_tests {
         from_object: bool,
         from_other: bool,
         from_ping: bool,
+        from_popup: bool,
         from_script: bool,
         from_stylesheet: bool,
         from_subdocument: bool,
@@ -67,6 +68,7 @@ mod parse_tests {
                 from_object: filter.mask.contains(NetworkFilterMask::FROM_OBJECT),
                 from_other: filter.mask.contains(NetworkFilterMask::FROM_OTHER),
                 from_ping: filter.mask.contains(NetworkFilterMask::FROM_PING),
+                from_popup: filter.mask.contains(NetworkFilterMask::FROM_POPUP),
                 from_script: filter.mask.contains(NetworkFilterMask::FROM_SCRIPT),
                 from_stylesheet: filter.mask.contains(NetworkFilterMask::FROM_STYLESHEET),
                 from_subdocument: filter.mask.contains(NetworkFilterMask::FROM_SUBDOCUMENT),
@@ -106,6 +108,7 @@ mod parse_tests {
             from_object: true,
             from_other: true,
             from_ping: true,
+            from_popup: true,
             from_script: true,
             from_stylesheet: true,
             from_subdocument: true,
@@ -1011,7 +1014,7 @@ mod parse_tests {
 
     #[test]
     fn handles_unsupported_options() {
-        let options = vec!["genericblock", "inline-script", "popunder", "popup", "woot"];
+        let options = vec!["genericblock", "inline-script", "popunder", "woot"];
 
         for option in options {
             let filter =
@@ -1030,6 +1033,7 @@ mod parse_tests {
             "object-subrequest",
             "other",
             "ping",
+            "popup",
             "script",
             "stylesheet",
             "subdocument",
@@ -1045,6 +1049,7 @@ mod parse_tests {
             breakdown.from_object = value;
             breakdown.from_other = value;
             breakdown.from_ping = value;
+            breakdown.from_popup = value;
             breakdown.from_script = value;
             breakdown.from_stylesheet = value;
             breakdown.from_subdocument = value;
@@ -1061,6 +1066,7 @@ mod parse_tests {
                 "object-subrequest" => breakdown.from_object = value,
                 "other" => breakdown.from_other = value,
                 "ping" => breakdown.from_ping = value,
+                "popup" => breakdown.from_popup = value,
                 "script" => breakdown.from_script = value,
                 "stylesheet" => breakdown.from_stylesheet = value,
                 "subdocument" => breakdown.from_subdocument = value,
