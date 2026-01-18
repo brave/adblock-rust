@@ -650,11 +650,39 @@ mod css_validation {
         }
 
         fn has_procedural_operator(selector: &selectors::parser::Selector<SelectorImpl>) -> bool {
+            fn has_procedural_in_args(args: &str, accept_abp_selectors: bool) -> bool {
+                let nested_selector = format!("{}{{mock-stylesheet-marker}}", args);
+                let mut nested_pi = ParserInput::new(&nested_selector);
+                let mut nested_parser = Parser::new(&mut nested_pi);
+                let mut nested_parser_impl = QualifiedRuleParserImpl {
+                    accept_abp_selectors,
+                };
+                let mut nested_rule_list_parser = cssparser::StyleSheetParser::new(
+                    &mut nested_parser,
+                    &mut nested_parser_impl,
+                );
+
+                if let Some(Ok(nested_prelude)) = nested_rule_list_parser.next() {
+                    for nested_sel in nested_prelude.slice().iter() {
+                        if has_procedural_operator(nested_sel) {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+
             let mut iter = selector.iter();
             loop {
                 for component in iter.by_ref() {
                     if is_procedural_operator(component) {
                         return true;
+                    }
+                    // Also check inside :has() arguments
+                    if let selectors::parser::Component::NonTSPseudoClass(NonTSPseudoClass::AnythingElse(name, Some(args))) = component {
+                        if name == "has" && has_procedural_in_args(args, false) {
+                            return true;
+                        }
                     }
                 }
                 if iter.next_sequence().is_none() {
@@ -746,6 +774,137 @@ mod css_validation {
                                 pending_css_selector = String::new();
                             }
                             output.push(procedural_operator);
+                        } else if let NonTSPseudoClass::AnythingElse(name, Some(args)) = c {
+                            // Check if this is a :has() with nested procedural operators
+                            if name == "has" {
+                                // Try to parse the argument to extract nested procedural operators
+                                let nested_selector = format!("{}{{mock-stylesheet-marker}}", args);
+                                let mut nested_pi = ParserInput::new(&nested_selector);
+                                let mut nested_parser = Parser::new(&mut nested_pi);
+                                let mut nested_parser_impl = QualifiedRuleParserImpl {
+                                    accept_abp_selectors,
+                                };
+                                let mut nested_rule_list_parser = cssparser::StyleSheetParser::new(
+                                    &mut nested_parser,
+                                    &mut nested_parser_impl,
+                                );
+
+                                let nested_prelude_opt = nested_rule_list_parser.next();
+                                if let Some(Ok(nested_prelude)) = nested_prelude_opt {
+                                    // Check if the nested selector has procedural operators
+                                    let mut has_nested_procedural = false;
+                                    for nested_sel in nested_prelude.slice().iter() {
+                                        if has_procedural_operator(nested_sel) {
+                                            has_nested_procedural = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if has_nested_procedural {
+                                        // Extract procedural operators from the nested selector
+                                        // For nested :has(), we need to keep it as a CSS selector
+                                        // but extract any :has-text() and other procedural operators
+                                        let mut nested_css = String::new();
+                                        let mut found_procedural_in_has = false;
+
+                                        for nested_sel in nested_prelude.slice().iter() {
+                                            let mut nested_iter = nested_sel.iter();
+                                            loop {
+                                                for nested_component in nested_iter.by_ref() {
+                                                    if let Component::NonTSPseudoClass(nested_c) = nested_component {
+                                                        if nested_c.to_procedural_operator().is_some() {
+                                                            found_procedural_in_has = true;
+                                                        }
+                                                    }
+                                                }
+                                                if nested_iter.next_sequence().is_none() {
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if found_procedural_in_has {
+                                            // Flush pending CSS selector
+                                            if !pending_css_selector.is_empty() {
+                                                output.push(CosmeticFilterOperator::CssSelector(
+                                                    pending_css_selector.clone(),
+                                                ));
+                                                pending_css_selector.clear();
+                                            }
+
+                                            // Process the nested selector to extract operators
+                                            for nested_sel in nested_prelude.slice().iter() {
+                                                // Collect all parts similar to the main selector processing
+                                                enum NestedPart<'a> {
+                                                    Component(&'a selectors::parser::Component<SelectorImpl>),
+                                                    Combinator(selectors::parser::Combinator),
+                                                }
+
+                                                let mut nested_parts = vec![];
+                                                let mut nested_iter = nested_sel.iter();
+                                                loop {
+                                                    let mut nested_components = vec![];
+                                                    for nested_component in nested_iter.by_ref() {
+                                                        nested_components.push(NestedPart::Component(nested_component));
+                                                    }
+                                                    nested_parts.extend(nested_components.into_iter().rev());
+                                                    if let Some(nested_combinator) = nested_iter.next_sequence() {
+                                                        nested_parts.push(NestedPart::Combinator(nested_combinator));
+                                                    } else {
+                                                        break;
+                                                    }
+                                                }
+
+                                                let mut nested_pending = String::new();
+                                                for nested_part in nested_parts.into_iter().rev() {
+                                                    match nested_part {
+                                                        NestedPart::Component(Component::NonTSPseudoClass(nested_c)) => {
+                                                            if let Some(nested_procedural) = nested_c.to_procedural_operator() {
+                                                                if !nested_pending.is_empty() {
+                                                                    nested_css.push_str(&nested_pending);
+                                                                    nested_pending.clear();
+                                                                }
+                                                                if !nested_css.is_empty() {
+                                                                    pending_css_selector.push_str(":has(");
+                                                                    pending_css_selector.push_str(&nested_css);
+                                                                    pending_css_selector.push(')');
+                                                                    nested_css.clear();
+                                                                }
+                                                                output.push(nested_procedural);
+                                                            } else {
+                                                                nested_c.to_css(&mut nested_pending)
+                                                                    .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                                                            }
+                                                        }
+                                                        NestedPart::Component(other_comp) => {
+                                                            other_comp.to_css(&mut nested_pending)
+                                                                .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                                                        }
+                                                        NestedPart::Combinator(comb) => {
+                                                            comb.to_css(&mut nested_pending)
+                                                                .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
+                                                        }
+                                                    }
+                                                }
+                                                if !nested_pending.is_empty() {
+                                                    nested_css.push_str(&nested_pending);
+                                                }
+                                            }
+
+                                            // If there's remaining nested CSS, add it
+                                            if !nested_css.is_empty() {
+                                                pending_css_selector.push_str(":has(");
+                                                pending_css_selector.push_str(&nested_css);
+                                                pending_css_selector.push(')');
+                                            }
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                            // Default: just render it as CSS
+                            c.to_css(&mut pending_css_selector)
+                                .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
                         } else {
                             c.to_css(&mut pending_css_selector)
                                 .map_err(|_| CosmeticFilterError::InvalidCssSelector)?;
