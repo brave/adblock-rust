@@ -188,6 +188,10 @@ impl CosmeticFilter {
                 hostname.len()
             };
             let location = &hostname[start..end];
+            // Skip wildcard (*) - it matches all domains
+            if location == "*" {
+                return None;
+            }
             // AdGuard regex syntax
             if location.starts_with('/') {
                 return Some((CosmeticFilterLocationType::Unsupported, part));
