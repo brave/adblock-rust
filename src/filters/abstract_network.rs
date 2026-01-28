@@ -47,12 +47,14 @@ pub(crate) enum NetworkFilterOption {
     Csp(Option<String>),
     Removeparam(String),
     Generichide,
+    Elemhide,
     Document,
     Image(bool),
     Media(bool),
     Object(bool),
     Other(bool),
     Ping(bool),
+    Popup(bool),
     Script(bool),
     Stylesheet(bool),
     Subdocument(bool),
@@ -72,6 +74,7 @@ impl NetworkFilterOption {
                 | Self::Object(..)
                 | Self::Other(..)
                 | Self::Ping(..)
+                | Self::Popup(..)
                 | Self::Script(..)
                 | Self::Stylesheet(..)
                 | Self::Subdocument(..)
@@ -232,6 +235,10 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                 return Err(NetworkFilterError::NegatedGenericHide)
             }
             ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
+            ("elemhide", true) | ("ehide", true) => {
+                return Err(NetworkFilterError::NegatedElemHide)
+            }
+            ("elemhide", false) | ("ehide", false) => NetworkFilterOption::Elemhide,
             ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
             ("document", false) | ("doc", false) => NetworkFilterOption::Document,
             ("image", negated) => NetworkFilterOption::Image(!negated),
@@ -241,6 +248,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             }
             ("other", negated) => NetworkFilterOption::Other(!negated),
             ("ping", negated) | ("beacon", negated) => NetworkFilterOption::Ping(!negated),
+            ("popup", negated) => NetworkFilterOption::Popup(!negated),
             ("script", negated) => NetworkFilterOption::Script(!negated),
             ("stylesheet", negated) | ("css", negated) => NetworkFilterOption::Stylesheet(!negated),
             ("subdocument", negated) | ("frame", negated) => {
