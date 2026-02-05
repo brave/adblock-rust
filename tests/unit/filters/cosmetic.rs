@@ -489,6 +489,53 @@ mod parse_tests {
     }
 
     #[test]
+    fn wildcard_support() {
+        // Wildcard for scriptlet injection (issue #582)
+        check_parse_result(
+            r#"*##+js(test-scriptlet.js)"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#"test-scriptlet.js"#.to_string()),
+                script_inject: true,
+                ..Default::default()
+            },
+        );
+        check_parse_result(
+            r#"*##+js(test-scriptlet.js, arg1, arg2)"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#"test-scriptlet.js, arg1, arg2"#.to_string()),
+                script_inject: true,
+                ..Default::default()
+            },
+        );
+        // Wildcard for regular cosmetic filters
+        check_parse_result(
+            r#"*##.ad-banner"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#".ad-banner"#.to_string()),
+                ..Default::default()
+            },
+        );
+        // Wildcard combined with other domains
+        check_parse_result(
+            r#"*,example.com##.ad-banner"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#".ad-banner"#.to_string()),
+                hostnames: sort_hash_domains(vec!["example.com"]),
+                ..Default::default()
+            },
+        );
+        check_parse_result(
+            r#"example.com,*##+js(test-scriptlet.js)"#,
+            CosmeticFilterBreakdown {
+                selector: SelectorType::PlainCss(r#"test-scriptlet.js"#.to_string()),
+                hostnames: sort_hash_domains(vec!["example.com"]),
+                script_inject: true,
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
     fn entities() {
         check_parse_result(
             r#"monova.*##+js(nowebrtc.js)"#,
