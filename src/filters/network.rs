@@ -39,6 +39,8 @@ pub enum NetworkFilterError {
     NegatedTag,
     #[error("negated generichide")]
     NegatedGenericHide,
+    #[error("negated elemhide")]
+    NegatedElemHide,
     #[error("negated document")]
     NegatedDocument,
     #[error("negated all")]
@@ -99,8 +101,10 @@ bitflags::bitflags! {
         const IS_REMOVEPARAM = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
+        const FROM_POPUP = 1 << 25;
         const IS_REDIRECT = 1 << 26;
         const BAD_FILTER = 1 << 27;
+        const ELEM_HIDE = 1 << 28;
         const GENERIC_HIDE = 1 << 30;
 
         // Full document rules are not implied by negated types.
@@ -130,6 +134,7 @@ bitflags::bitflags! {
             Self::FROM_OBJECT.bits() |
             Self::FROM_OTHER.bits() |
             Self::FROM_PING.bits() |
+            Self::FROM_POPUP.bits() |
             Self::FROM_SCRIPT.bits() |
             Self::FROM_STYLESHEET.bits() |
             Self::FROM_SUBDOCUMENT.bits() |
@@ -209,6 +214,11 @@ pub trait NetworkFilterMaskHelper {
     #[inline]
     fn is_generic_hide(&self) -> bool {
         self.has_flag(NetworkFilterMask::GENERIC_HIDE)
+    }
+
+    #[inline]
+    fn is_elem_hide(&self) -> bool {
+        self.has_flag(NetworkFilterMask::ELEM_HIDE)
     }
 
     #[inline]
@@ -292,6 +302,7 @@ impl From<&request::RequestType> for NetworkFilterMask {
             request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
             request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Ping => NetworkFilterMask::FROM_PING,
+            request::RequestType::Popup => NetworkFilterMask::FROM_POPUP,
             request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
             request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
             request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
@@ -542,6 +553,9 @@ impl NetworkFilter {
                     NetworkFilterOption::Generichide => {
                         mask.set(NetworkFilterMask::GENERIC_HIDE, true)
                     }
+                    NetworkFilterOption::Elemhide => {
+                        mask.set(NetworkFilterMask::ELEM_HIDE, true)
+                    }
                     NetworkFilterOption::Document => {
                         cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true)
                     }
@@ -552,6 +566,7 @@ impl NetworkFilter {
                     }
                     NetworkFilterOption::Other(enabled) => apply_content_type!(FROM_OTHER, enabled),
                     NetworkFilterOption::Ping(enabled) => apply_content_type!(FROM_PING, enabled),
+                    NetworkFilterOption::Popup(enabled) => apply_content_type!(FROM_POPUP, enabled),
                     NetworkFilterOption::Script(enabled) => {
                         apply_content_type!(FROM_SCRIPT, enabled)
                     }
