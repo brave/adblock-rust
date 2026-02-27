@@ -52,6 +52,9 @@ jobs:
       - name: Build npm package
         run: npm ci
 
+      - name: Test npm package JS bindings
+        run: npm run test:js
+
       - name: Cargo test 'adblock' package
         run: cargo test --all-features --tests --no-fail-fast
 

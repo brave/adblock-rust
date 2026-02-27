@@ -36,6 +36,7 @@
     "build-release": "npm run build -- --release",
     "update-lists": "node data/update-lists.js",
     "postinstall": "npm run build-release",
-    "test": "cargo test"
+    "test": "cargo test",
+    "test:js": "node --test js/test/bindings.test.mjs"
   }
 }
