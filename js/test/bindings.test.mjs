@@ -340,6 +340,7 @@ describe('Engine.check — redirect rules', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
         );
         assert.equal(result.matched, true);
+        assert.equal(result.filter, '||ads.example.com^$script,redirect=noopjs');
         assert.ok(result.redirect.length > 0);
     });
 
@@ -351,6 +352,7 @@ describe('Engine.check — redirect rules', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
         );
         assert.equal(result.matched, true);
+        assert.equal(result.filter, '||ads.example.com^');
         assert.ok(result.redirect == null);
     });
 });
