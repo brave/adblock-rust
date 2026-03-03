@@ -616,10 +616,6 @@ describe('Engine tags', () => {
     });
 });
 
-// NOTE: Engine.addResource is listed in js/index.js forwardClassMethods but
-// Engine_addResource is NOT exported in register_module! (js/src/lib.rs).
-// It will throw at runtime. Skipping test until the export is added.
-
 // ---------------------------------------------------------------------------
 // uBlockResources
 // ---------------------------------------------------------------------------
