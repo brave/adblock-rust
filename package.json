@@ -27,15 +27,11 @@
     "type": "git",
     "url": "git+https://github.com/brave/adblock-rust.git"
   },
-  "dependencies": {
-    "cargo-cp-artifact": "^0.1"
-  },
   "scripts": {
-    "build": "cd js && cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
-    "build-debug": "npm run build --",
-    "build-release": "npm run build -- --release",
+    "build": "node js/build.js --release",
+    "build-debug": "node js/build.js",
     "update-lists": "node data/update-lists.js",
-    "postinstall": "npm run build-release",
+    "postinstall": "npm run build",
     "test": "cargo test",
     "test:js": "node --test js/test/bindings.test.mjs"
   }

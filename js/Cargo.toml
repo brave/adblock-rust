@@ -10,10 +10,11 @@ exclude = ["artifacts.json", "index.node"]
 crate-type = ["cdylib"]
 
 [dependencies]
+napi = { version = "3", features = ["serde-json"] }
+napi-derive = "3"
 serde = { workspace = true }
 serde_json = { workspace = true }
 adblock = { path = "../", features = ["css-validation", "content-blocking", "resource-assembler"] }
-neon = { version = "^0.10.1", default-features = false, features = ["napi-1"] }
 
-[features]
-default-panic-hook = []
+[build-dependencies]
+napi-build = "2"
