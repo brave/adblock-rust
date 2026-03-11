@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773221526461,
+  "lastUpdate": 1773224294624,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -7721,6 +7721,96 @@ window.BENCHMARK_DATA = {
             "name": "cosmetic-class-id-match/brave-list",
             "value": 3470223,
             "range": "± 958064",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37435502+mschfh@users.noreply.github.com",
+            "name": "mschfh",
+            "username": "mschfh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0de87f2fd0dc1c5830e46352f1936576b02f0c06",
+          "message": "Change perf CI runner to ubuntu-latest-4-cores-public (#605)\n\n* Change perf CI runner to ubuntu-latest-4-cores-public\n\n---------\n\nCo-authored-by: Mihai PLESA <mihai.plesa@gmail.com>",
+          "timestamp": "2026-03-11T05:13:41-05:00",
+          "tree_id": "22ada8d8176bebd5ed768f2f0cabfab0d7019a6c",
+          "url": "https://github.com/brave/adblock-rust/commit/0de87f2fd0dc1c5830e46352f1936576b02f0c06"
+        },
+        "date": 1773224293188,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1922233843,
+            "range": "± 7444913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1108578,
+            "range": "± 22785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 142462755,
+            "range": "± 1184027",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 25232194,
+            "range": "± 140297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial",
+            "value": 10630445,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/max",
+            "value": 61948094,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-initial/alloc-count",
+            "value": 1030640,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests",
+            "value": 2316792,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "value": 70181,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "url_cosmetic_resources/brave-list",
+            "value": 189213,
+            "range": "± 815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosmetic-class-id-match/brave-list",
+            "value": 3407690,
+            "range": "± 917606",
             "unit": "ns/iter"
           }
         ]
