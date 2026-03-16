@@ -1360,7 +1360,7 @@ mod legacy_rule_parsing_tests {
     // * not handling document/subdocument options;
     // * the optimizer that merges multiple rules into one;
     const EASY_LIST: ListCounts = ListCounts {
-        filters: 53691 - 678,
+        filters: 53695 - 678,
         cosmetic_filters: if cfg!(feature = "css-validation") {
             23808
         } else {
