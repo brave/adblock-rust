@@ -753,20 +753,19 @@ impl NetworkFilter {
 
         let hostname_decoded = hostname
             .map(|host| {
-                let hostname_normalised = if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
-                    host.trim_start_matches("www.")
+                let hostname =
+                    idna::domain_to_ascii_cow(host.as_bytes(), idna::AsciiDenyList::EMPTY)
+                        .map_err(|_| NetworkFilterError::PunycodeError)?;
+                let hostname_normalized = if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
+                    if let Some(stripped) = hostname.strip_prefix("www.") {
+                        std::borrow::Cow::from(stripped)
+                    } else {
+                        hostname
+                    }
                 } else {
-                    &host
+                    hostname
                 };
-
-                let lowercase = hostname_normalised.to_lowercase();
-                let hostname = if lowercase.is_ascii() {
-                    lowercase
-                } else {
-                    idna::domain_to_ascii(&lowercase)
-                        .map_err(|_| NetworkFilterError::PunycodeError)?
-                };
-                Ok(hostname)
+                Ok(hostname_normalized.to_string())
             })
             .transpose();
 
@@ -839,22 +838,9 @@ impl NetworkFilter {
             return Err(NetworkFilterError::FilterParseError);
         }
 
-        // Normalize the hostname to punycode and parse it as a `||hostname^` rule.
-        let normalized_host = hostname.to_lowercase();
-        let normalized_host = normalized_host.trim_start_matches("www.");
-
-        let mut hostname = "||".to_string();
-        if normalized_host.is_ascii() {
-            hostname.push_str(normalized_host);
-        } else {
-            hostname.push_str(
-                &idna::domain_to_ascii(normalized_host)
-                    .map_err(|_| NetworkFilterError::PunycodeError)?,
-            );
-        }
-        hostname.push('^');
-
-        NetworkFilter::parse(&hostname, debug, Default::default())
+        // Parse it as a `||hostname^` rule.
+        let rule = format!("||{hostname}^");
+        NetworkFilter::parse(&rule, debug, Default::default())
     }
 
     pub fn get_id_without_badfilter(&self) -> Hash {
