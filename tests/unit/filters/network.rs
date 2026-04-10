@@ -986,7 +986,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("www.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(*filter.raw_line.clone().unwrap(), "||example.com^");
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||www.example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -1006,6 +1006,66 @@ mod parse_tests {
             defaults.is_right_anchor = true;
             defaults.from_document = true;
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        // Uppercase hostname
+        {
+            let filter = NetworkFilter::parse_hosts_style("Example.COM", true).unwrap();
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||Example.COM^");
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("example.com".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            defaults.from_document = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        // Mixed-case with www prefix
+        {
+            let filter = NetworkFilter::parse_hosts_style("WWW.Example.COM", true).unwrap();
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||WWW.Example.COM^");
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("example.com".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            defaults.from_document = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        // Non-ASCII / punycode hostname
+        {
+            let filter = NetworkFilter::parse_hosts_style("münchen.de", true).unwrap();
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||münchen.de^");
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("xn--mnchen-3ya.de".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            defaults.from_document = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        // Non-ASCII with www prefix
+        {
+            let filter = NetworkFilter::parse_hosts_style("www.münchen.de", true).unwrap();
+            assert!(filter.raw_line.is_some());
+            assert_eq!(*filter.raw_line.clone().unwrap(), "||www.münchen.de^");
+            let mut defaults = default_network_filter_breakdown();
+            defaults.hostname = Some("xn--mnchen-3ya.de".to_string());
+            defaults.is_plain = true;
+            defaults.is_hostname_anchor = true;
+            defaults.is_right_anchor = true;
+            defaults.from_document = true;
+            assert_eq!(defaults, NetworkFilterBreakdown::from(&filter))
+        }
+        // Equivalence between parse_hosts_style and manually constructing the parse input
+        {
+            let hosts_filter = NetworkFilter::parse_hosts_style("Example.COM", true).unwrap();
+            let parse_filter =
+                NetworkFilter::parse("||example.com^", true, Default::default()).unwrap();
+            assert_eq!(hosts_filter.hostname, parse_filter.hostname);
+            assert_eq!(hosts_filter.mask, parse_filter.mask);
         }
     }
 
