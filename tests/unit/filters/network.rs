@@ -1257,4 +1257,38 @@ mod parse_tests {
             FilterTokens::Other(&[utils::fast_hash("some"), utils::fast_hash("primewire")])
         );
     }
+
+    #[test]
+    fn test_regex_with_dollar_end_anchor_issue_257() {
+        // https://github.com/brave/adblock-rust/issues/257
+        // Regex filter with $ end-anchor AND options should parse correctly
+        let filter_str = r"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case";
+        let result = NetworkFilter::parse(filter_str, true, Default::default());
+        assert!(result.is_ok(), "Filter with regex $ anchor and options should parse: {:?}", result);
+        let filter = result.unwrap();
+        // The pattern should include the $ anchor character
+        let pattern = filter.filter.string_view().unwrap();
+        assert!(pattern.contains("json$"), "Regex pattern should contain $ anchor, got: {}", pattern);
+        assert!(filter.match_case(), "match-case option should be set");
+        assert!(filter.is_regex(), "filter should be detected as regex");
+    }
+
+    #[test]
+    fn test_regex_with_dollar_anchor_no_options() {
+        // Regex filter with $ anchor but no options
+        let filter_str = r"/\.json$/";
+        let result = NetworkFilter::parse(filter_str, true, Default::default());
+        assert!(result.is_ok(), "Regex with $ anchor and no options should parse: {:?}", result);
+        let filter = result.unwrap();
+        let pattern = filter.filter.string_view().unwrap();
+        assert!(pattern.contains('$'), "Pattern should contain $ anchor, got: {}", pattern);
+    }
+
+    #[test]
+    fn test_regex_without_dollar_anchor_with_options() {
+        // Normal regex with options but no $ anchor - should still work
+        let filter_str = r"/\.json/$script,3p";
+        let result = NetworkFilter::parse(filter_str, true, Default::default());
+        assert!(result.is_ok(), "Normal regex with options should parse: {:?}", result);
+    }
 }

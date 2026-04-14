@@ -107,16 +107,68 @@ impl AbstractNetworkFilter {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
-
+        // Find the `$` that separates the pattern from filter options.
+        // Regex filters (delimited by `/`) may contain `$` as an end-of-string
+        // anchor. When a candidate `$` yields an options-parse error and the
+        // pattern to its left looks like a regex, try the next `$` to the left.
         let mut options = None;
-        if let Some(options_index) = maybe_options_index {
-            filter_index_end = options_index;
-
-            // slicing here is safe; the first byte after '$' will be a character boundary
-            let raw_options = &line[filter_index_end + 1..];
-
-            options = Some(parse_filter_options(raw_options)?);
+        {
+            let bytes = line.as_bytes();
+            let mut search_end = bytes.len();
+            let mut last_err = None;
+            loop {
+                let maybe_dollar = find_char_reverse(b'$', &bytes[..search_end]);
+                match maybe_dollar {
+                    Some(idx) if idx >= filter_index_start => {
+                        let raw_options = &line[idx + 1..];
+                        match parse_filter_options(raw_options) {
+                            Ok(parsed) => {
+                                filter_index_end = idx;
+                                options = Some(parsed);
+                                last_err = None;
+                                break;
+                            }
+                            Err(e) => {
+                                // Check if the pattern to the left of this `$` looks
+                                // like a regex (delimited by `/`). Only then is it
+                                // plausible that this `$` is a regex anchor rather than
+                                // the options separator.
+                                let pattern_before = &line[filter_index_start..idx];
+                                let after_dollar = &line[idx + 1..];
+                                // The `$` may be a regex end-anchor if the overall
+                                // pattern is regex-delimited (`/pattern$/`). Check
+                                // whether the left side starts with `/` and either
+                                // already ends with `/`, or the text right after `$`
+                                // starts with `/` (the closing regex delimiter).
+                                let looks_like_regex = pattern_before.starts_with('/')
+                                    && (pattern_before.ends_with('/')
+                                        || pattern_before.ends_with("$/")
+                                        || after_dollar.starts_with('/'));
+                                if looks_like_regex {
+                                    // Try the next `$` to the left.
+                                    last_err = Some(e);
+                                    search_end = idx;
+                                } else {
+                                    // Not a regex pattern — this `$` must be the
+                                    // options separator; propagate the error.
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        // No more `$` candidates. If we had a previous error from a
+                        // regex-looking pattern, that error was for the wrong `$` —
+                        // the filter simply has no options section.
+                        if last_err.is_some() {
+                            // No valid options separator found; treat the entire
+                            // line (after @@) as the pattern with no options.
+                            filter_index_end = line.len();
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
