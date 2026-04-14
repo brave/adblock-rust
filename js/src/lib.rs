@@ -4,129 +4,78 @@ use adblock::lists::{
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 use adblock::resources::Resource;
 use adblock::Engine as EngineInternal;
-use neon::prelude::*;
-use neon::types::buffer::TypedArray as _;
-use serde::{Deserialize, Serialize};
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
+use serde::Serialize;
 use std::cell::RefCell;
 use std::path::Path;
 use std::sync::Mutex;
 
-/// Use the JS context's JSON.stringify and JSON.parse as an FFI, at least until
-/// https://github.com/neon-bindings/neon/pull/953 is available
-mod json_ffi {
-    use super::*;
-    use serde::de::DeserializeOwned;
+// ---------------------------------------------------------------------------
+// FilterSet
+// ---------------------------------------------------------------------------
 
-    /// Call `JSON.stringify` to convert the input to a `JsString`, then call serde_json to parse
-    /// it to an instance of a native Rust type
-    pub fn from_js<'a, C: Context<'a>, T: DeserializeOwned>(
-        cx: &mut C,
-        input: Handle<JsValue>,
-    ) -> NeonResult<T> {
-        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?;
-        let json_stringify: Handle<JsFunction> = json.get(cx, "stringify")?;
+#[napi(js_name = "FilterSet")]
+pub struct JsFilterSet {
+    inner: RefCell<FilterSetInternal>,
+}
 
-        let undefined = JsUndefined::new(cx);
-        let js_string = json_stringify
-            .call(cx, undefined, [input])?
-            .downcast::<JsString, _>(cx)
-            .or_throw(cx)?;
+// Safety: the `single-thread` feature on adblock makes FilterSetInternal !Send,
+// but NAPI-RS classes require Send. The JS runtime is single-threaded so this is
+// safe in practice.
+unsafe impl Send for JsFilterSet {}
 
-        match serde_json::from_str(&js_string.value(cx)) {
-            Ok(v) => Ok(v),
-            Err(e) => cx.throw_error(e.to_string())?,
+#[napi]
+impl JsFilterSet {
+    #[napi(constructor)]
+    pub fn new(debug: Option<bool>) -> Self {
+        Self {
+            inner: RefCell::new(FilterSetInternal::new(debug.unwrap_or(false))),
         }
     }
 
-    /// Use `serde_json` to stringify the input, then call `JSON.parse` to convert it to a
-    /// `JsValue`
-    pub fn to_js<'a, C: Context<'a>, T: serde::Serialize>(
-        cx: &mut C,
-        input: &T,
-    ) -> JsResult<'a, JsValue> {
-        let input_handle = JsString::new(cx, serde_json::to_string(&input).unwrap());
-
-        let json: Handle<JsObject> = cx.global().get(cx, "JSON")?;
-        let json_parse: Handle<JsFunction> = json.get(cx, "parse")?;
-
-        json_parse.call_with(cx).arg(input_handle).apply(cx)
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct EngineOptions {
-    pub optimize: Option<bool>,
-}
-
-#[derive(Default)]
-struct FilterSet(RefCell<FilterSetInternal>);
-impl FilterSet {
-    fn new(debug: bool) -> Self {
-        Self(RefCell::new(FilterSetInternal::new(debug)))
-    }
-    fn add_filters(&self, rules: &[String], opts: ParseOptions) -> FilterListMetadata {
-        self.0.borrow_mut().add_filters(rules, opts)
-    }
-    fn add_filter(
+    #[napi]
+    pub fn add_filters(
         &self,
-        filter: &str,
-        opts: ParseOptions,
-    ) -> Result<(), adblock::lists::FilterParseError> {
-        self.0.borrow_mut().add_filter(filter, opts)
+        rules: Vec<String>,
+        opts: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
+        let parse_opts: ParseOptions = match opts {
+            Some(v) => serde_json::from_value(v).map_err(|e| Error::from_reason(e.to_string()))?,
+            None => ParseOptions::default(),
+        };
+        let metadata: FilterListMetadata = self.inner.borrow_mut().add_filters(&rules, parse_opts);
+        serde_json::to_value(&metadata).map_err(|e| Error::from_reason(e.to_string()))
     }
-    fn into_content_blocking(
-        &self,
-    ) -> Result<(Vec<adblock::content_blocking::CbRule>, Vec<String>), ()> {
-        self.0.borrow().clone().into_content_blocking()
+
+    #[napi]
+    pub fn add_filter(&self, filter: String, opts: Option<serde_json::Value>) -> Result<bool> {
+        let parse_opts: ParseOptions = match opts {
+            Some(v) => serde_json::from_value(v).map_err(|e| Error::from_reason(e.to_string()))?,
+            None => ParseOptions::default(),
+        };
+        Ok(self
+            .inner
+            .borrow_mut()
+            .add_filter(&filter, parse_opts)
+            .is_ok())
     }
-}
 
-impl Finalize for FilterSet {}
-
-fn create_filter_set(mut cx: FunctionContext) -> JsResult<JsBox<FilterSet>> {
-    match cx.argument_opt(0) {
-        Some(arg) => {
-            let debug: bool = arg
-                .downcast::<JsBoolean, _>(&mut cx)
-                .or_throw(&mut cx)?
-                .value(&mut cx);
-            Ok(cx.boxed(FilterSet::new(debug)))
+    #[napi]
+    pub fn into_content_blocking(&self) -> Result<Either<serde_json::Value, Undefined>> {
+        match self.inner.borrow().clone().into_content_blocking() {
+            Ok((cb_rules, filters_used)) => {
+                let result = ContentBlockingConversionResult {
+                    content_blocking_rules: cb_rules,
+                    filters_used,
+                };
+                let val =
+                    serde_json::to_value(&result).map_err(|e| Error::from_reason(e.to_string()))?;
+                Ok(Either::A(val))
+            }
+            Err(_) => Ok(Either::B(())),
         }
-        None => Ok(cx.boxed(FilterSet::default())),
     }
-}
-
-fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<FilterSet>>(0)?;
-
-    // Take the first argument, which must be an array
-    let rules_handle: Handle<JsValue> = cx.argument(1)?;
-    // Second argument is optional parse options. All fields are optional. ParseOptions::default()
-    // if unspecified.
-    let parse_opts = match cx.argument_opt(2) {
-        Some(parse_opts_arg) => json_ffi::from_js(&mut cx, parse_opts_arg)?,
-        None => ParseOptions::default(),
-    };
-
-    let rules: Vec<String> = json_ffi::from_js(&mut cx, rules_handle)?;
-
-    let metadata = this.add_filters(&rules, parse_opts);
-
-    json_ffi::to_js(&mut cx, &metadata)
-}
-
-fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    let this = cx.argument::<JsBox<FilterSet>>(0)?;
-
-    let filter: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let parse_opts = match cx.argument_opt(2) {
-        Some(parse_opts_arg) => json_ffi::from_js(&mut cx, parse_opts_arg)?,
-        None => ParseOptions::default(),
-    };
-
-    let ok = this.add_filter(&filter, parse_opts).is_ok();
-    // Return true/false depending on whether or not the filter could be added
-    Ok(JsBoolean::new(&mut cx, ok))
 }
 
 #[derive(Serialize)]
@@ -136,289 +85,192 @@ struct ContentBlockingConversionResult {
     filters_used: Vec<String>,
 }
 
-fn filter_set_into_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<FilterSet>>(0)?;
+// ---------------------------------------------------------------------------
+// Engine
+// ---------------------------------------------------------------------------
 
-    match this.into_content_blocking() {
-        Ok((cb_rules, filters_used)) => {
-            let r = ContentBlockingConversionResult {
-                content_blocking_rules: cb_rules,
-                filters_used,
-            };
-            json_ffi::to_js(&mut cx, &r)
+#[napi(js_name = "Engine")]
+pub struct JsEngine {
+    inner: Mutex<EngineInternal>,
+}
+
+// Safety: same rationale as JsFilterSet — single-threaded JS runtime.
+unsafe impl Send for JsEngine {}
+
+#[napi]
+impl JsEngine {
+    #[napi(constructor)]
+    pub fn new(filter_set: &JsFilterSet, options: Option<serde_json::Value>) -> Self {
+        let rules = filter_set.inner.borrow().clone();
+
+        let optimize = match options {
+            Some(serde_json::Value::Bool(b)) => b,
+            Some(ref obj) => obj
+                .get("optimize")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
+            None => true,
+        };
+
+        Self {
+            inner: Mutex::new(EngineInternal::from_filter_set(rules, optimize)),
         }
-        Err(_) => return Ok(JsUndefined::new(&mut cx).upcast()),
+    }
+
+    #[napi]
+    pub fn check(
+        &self,
+        url: String,
+        source_url: String,
+        request_type: String,
+        debug: Option<bool>,
+    ) -> Result<serde_json::Value> {
+        let debug = debug.unwrap_or(false);
+        let request = adblock::request::Request::new(&url, &source_url, &request_type)
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+
+        let result = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .check_network_request(&request);
+
+        if debug {
+            serde_json::to_value(&result).map_err(|e| Error::from_reason(e.to_string()))
+        } else {
+            Ok(serde_json::Value::Bool(result.matched))
+        }
+    }
+
+    #[napi]
+    pub fn url_cosmetic_resources(&self, url: String) -> Result<serde_json::Value> {
+        let result = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .url_cosmetic_resources(&url);
+        serde_json::to_value(&result).map_err(|e| Error::from_reason(e.to_string()))
+    }
+
+    #[napi]
+    pub fn hidden_class_id_selectors(
+        &self,
+        classes: Vec<String>,
+        ids: Vec<String>,
+        exceptions: Vec<String>,
+    ) -> Result<Vec<String>> {
+        let exceptions_set: std::collections::HashSet<String> = exceptions.into_iter().collect();
+        let result = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .hidden_class_id_selectors(&classes, &ids, &exceptions_set);
+        Ok(result)
+    }
+
+    #[napi]
+    pub fn serialize(&self) -> Result<Buffer> {
+        let serialized = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .serialize()
+            .to_vec();
+        Ok(serialized.into())
+    }
+
+    #[napi]
+    pub fn deserialize(&self, buffer: Buffer) -> Result<()> {
+        let mut engine = self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?;
+        let _ = engine.deserialize(&buffer);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn enable_tag(&self, tag: String) -> Result<()> {
+        self.inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .enable_tags(&[&tag]);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn use_resources(&self, resources: serde_json::Value) -> Result<()> {
+        let resources: Vec<Resource> =
+            serde_json::from_value(resources).map_err(|e| Error::from_reason(e.to_string()))?;
+        self.inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .use_resources(resources);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn tag_exists(&self, tag: String) -> Result<bool> {
+        Ok(self
+            .inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .tag_exists(&tag))
+    }
+
+    #[napi]
+    pub fn clear_tags(&self) -> Result<()> {
+        self.inner
+            .lock()
+            .map_err(|e| Error::from_reason(e.to_string()))?
+            .use_tags(&[]);
+        Ok(())
     }
 }
 
-struct Engine(Mutex<EngineInternal>);
+// ---------------------------------------------------------------------------
+// Standalone functions
+// ---------------------------------------------------------------------------
 
-impl Finalize for Engine {}
-
-unsafe impl Send for Engine {}
-
-fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
-    // Take the first argument, which must be a JsFilterSet
-    let rules = cx.argument::<JsBox<FilterSet>>(0)?;
-    let rules = rules.0.borrow().clone();
-
-    let engine_internal = match cx.argument_opt(1) {
-        Some(arg) => {
-            let optimize = match arg.downcast::<JsBoolean, _>(&mut cx) {
-                Ok(b) => b.value(&mut cx),
-                Err(_) => {
-                    let config = json_ffi::from_js::<_, EngineOptions>(&mut cx, arg)?;
-                    config.optimize.unwrap_or(true)
-                }
-            };
-            EngineInternal::from_filter_set(rules, optimize)
-        }
-        None => EngineInternal::from_filter_set(rules, true),
-    };
-    Ok(cx.boxed(Engine(Mutex::new(engine_internal))))
+#[napi]
+pub fn validate_request(url: String, source_url: String, request_type: String) -> bool {
+    adblock::request::Request::new(&url, &source_url, &request_type).is_ok()
 }
 
-fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let url: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let source_url: String = cx.argument::<JsString>(2)?.value(&mut cx);
-    let request_type: String = cx.argument::<JsString>(3)?.value(&mut cx);
-
-    let debug = match cx.argument_opt(4) {
-        Some(arg) => {
-            // Throw if the argument exists and it cannot be downcasted to a boolean
-            arg.downcast::<JsBoolean, _>(&mut cx)
-                .or_throw(&mut cx)?
-                .value(&mut cx)
-        }
-        None => false,
-    };
-
-    let request = match adblock::request::Request::new(&url, &source_url, &request_type) {
-        Ok(r) => r,
-        Err(e) => cx.throw_error(e.to_string())?,
-    };
-
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.check_network_request(&request)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    if debug {
-        json_ffi::to_js(&mut cx, &result)
-    } else {
-        Ok(cx.boolean(result.matched).upcast())
-    }
+#[napi(js_name = "FilterFormat")]
+pub fn filter_format_enum() -> serde_json::Value {
+    serde_json::json!({
+        "STANDARD": serde_json::to_value(FilterFormat::Standard).unwrap(),
+        "HOSTS": serde_json::to_value(FilterFormat::Hosts).unwrap(),
+    })
 }
 
-fn engine_hidden_class_id_selectors(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let classes_arg = cx.argument::<JsValue>(1)?;
-    let classes: Vec<String> = json_ffi::from_js(&mut cx, classes_arg)?;
-
-    let ids_arg = cx.argument::<JsValue>(2)?;
-    let ids: Vec<String> = json_ffi::from_js(&mut cx, ids_arg)?;
-
-    let exceptions_arg = cx.argument::<JsValue>(3)?;
-    let exceptions: std::collections::HashSet<String> = json_ffi::from_js(&mut cx, exceptions_arg)?;
-
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.hidden_class_id_selectors(&classes, &ids, &exceptions)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    json_ffi::to_js(&mut cx, &result)
+#[napi(js_name = "RuleTypes")]
+pub fn rule_types_enum() -> serde_json::Value {
+    serde_json::json!({
+        "ALL": serde_json::to_value(RuleTypes::All).unwrap(),
+        "NETWORK_ONLY": serde_json::to_value(RuleTypes::NetworkOnly).unwrap(),
+        "COSMETIC_ONLY": serde_json::to_value(RuleTypes::CosmeticOnly).unwrap(),
+    })
 }
 
-fn engine_url_cosmetic_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let url: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.url_cosmetic_resources(&url)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    json_ffi::to_js(&mut cx, &result)
-}
-
-fn engine_serialize(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-    let serialized = if let Ok(engine) = this.0.lock() {
-        engine.serialize().to_vec()
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-
-    // initialise new Array Buffer in the JS context
-    let mut buffer = JsArrayBuffer::new(&mut cx, serialized.len())?;
-    // copy data from Rust buffer to JS Array Buffer
-    buffer.as_mut_slice(&mut cx).copy_from_slice(&serialized);
-
-    Ok(buffer)
-}
-
-fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-    let serialized_handle = cx.argument::<JsArrayBuffer>(1)?;
-
-    if let Ok(mut engine) = this.0.lock() {
-        let _result = engine.deserialize(&serialized_handle.as_slice(&mut cx));
-    }
-
-    Ok(JsNull::new(&mut cx))
-}
-
-fn engine_enable_tag(mut cx: FunctionContext) -> JsResult<JsNull> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    if let Ok(mut engine) = this.0.lock() {
-        engine.enable_tags(&[&tag])
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(JsNull::new(&mut cx))
-}
-
-fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let resources_arg = cx.argument::<JsValue>(1)?;
-    let resources: Vec<Resource> = json_ffi::from_js(&mut cx, resources_arg)?;
-
-    if let Ok(mut engine) = this.0.lock() {
-        engine.use_resources(resources)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(JsNull::new(&mut cx))
-}
-
-fn engine_tag_exists(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.tag_exists(&tag)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(cx.boolean(result))
-}
-
-fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    if let Ok(mut engine) = this.0.lock() {
-        engine.use_tags(&[]);
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(JsNull::new(&mut cx))
-}
-
-fn validate_request(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    let url: String = cx.argument::<JsString>(0)?.value(&mut cx);
-    let source_url: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let request_type: String = cx.argument::<JsString>(2)?.value(&mut cx);
-    let request_ok = adblock::request::Request::new(&url, &source_url, &request_type).is_ok();
-
-    Ok(cx.boolean(request_ok))
-}
-
-fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
-    let web_accessible_resource_dir: String = cx.argument::<JsString>(0)?.value(&mut cx);
-    let redirect_resources_path: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    // `scriptlets_path` is optional, since adblock-rust parsing that file is now deprecated.
-    let scriptlets_path = match cx.argument_opt(2) {
-        Some(arg) => Some(
-            arg.downcast::<JsString, _>(&mut cx)
-                .or_throw(&mut cx)?
-                .value(&mut cx),
-        ),
-        None => None,
-    };
-
+#[napi(js_name = "uBlockResources")]
+pub fn u_block_resources(
+    web_accessible_resource_dir: String,
+    redirect_resources_path: String,
+    scriptlets_path: Option<String>,
+) -> Result<serde_json::Value> {
     let mut resources = assemble_web_accessible_resources(
-        &Path::new(&web_accessible_resource_dir),
-        &Path::new(&redirect_resources_path),
+        Path::new(&web_accessible_resource_dir),
+        Path::new(&redirect_resources_path),
     );
     if let Some(scriptlets_path) = scriptlets_path {
         #[allow(deprecated)]
         resources.extend(
-            adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(
+            adblock::resources::resource_assembler::assemble_scriptlet_resources(Path::new(
                 &scriptlets_path,
             )),
         );
     }
-
-    json_ffi::to_js(&mut cx, &resources)
+    serde_json::to_value(&resources).map_err(|e| Error::from_reason(e.to_string()))
 }
-
-fn build_filter_format_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
-    let filter_format_enum = JsObject::new(cx);
-
-    let standard = json_ffi::to_js(cx, &FilterFormat::Standard)?;
-    filter_format_enum.set(cx, "STANDARD", standard)?;
-
-    let hosts = json_ffi::to_js(cx, &FilterFormat::Hosts)?;
-    filter_format_enum.set(cx, "HOSTS", hosts)?;
-
-    Ok(filter_format_enum)
-}
-
-fn build_rule_types_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObject> {
-    let rule_types_enum = JsObject::new(cx);
-
-    let all = json_ffi::to_js(cx, &RuleTypes::All)?;
-    rule_types_enum.set(cx, "ALL", all)?;
-
-    let network_only = json_ffi::to_js(cx, &RuleTypes::NetworkOnly)?;
-    rule_types_enum.set(cx, "NETWORK_ONLY", network_only)?;
-
-    let cosmetic_only = json_ffi::to_js(cx, &RuleTypes::CosmeticOnly)?;
-    rule_types_enum.set(cx, "COSMETIC_ONLY", cosmetic_only)?;
-
-    Ok(rule_types_enum)
-}
-
-register_module!(mut m, {
-    m.export_function("FilterSet_constructor", create_filter_set)?;
-    m.export_function("FilterSet_addFilters", filter_set_add_filters)?;
-    m.export_function("FilterSet_addFilter", filter_set_add_filter)?;
-    m.export_function(
-        "FilterSet_intoContentBlocking",
-        filter_set_into_content_blocking,
-    )?;
-
-    m.export_function("Engine_constructor", engine_constructor)?;
-    m.export_function("Engine_check", engine_check)?;
-    m.export_function("Engine_urlCosmeticResources", engine_url_cosmetic_resources)?;
-    m.export_function(
-        "Engine_hiddenClassIdSelectors",
-        engine_hidden_class_id_selectors,
-    )?;
-    m.export_function("Engine_serialize", engine_serialize)?;
-    m.export_function("Engine_deserialize", engine_deserialize)?;
-    m.export_function("Engine_enableTag", engine_enable_tag)?;
-    m.export_function("Engine_useResources", engine_use_resources)?;
-    m.export_function("Engine_tagExists", engine_tag_exists)?;
-    m.export_function("Engine_clearTags", engine_clear_tags)?;
-
-    m.export_function("validateRequest", validate_request)?;
-    m.export_function("uBlockResources", ublock_resources)?;
-
-    let filter_format_enum = build_filter_format_enum(&mut m)?;
-    m.export_value("FilterFormat", filter_format_enum)?;
-
-    let rule_types_enum = build_rule_types_enum(&mut m)?;
-    m.export_value("RuleTypes", rule_types_enum)?;
-
-    Ok(())
-});
