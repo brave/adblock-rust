@@ -988,7 +988,7 @@ mod parse_tests {
             assert!(filter.raw_line.is_some());
             assert_eq!(*filter.raw_line.clone().unwrap(), "||www.example.com^");
             let mut defaults = default_network_filter_breakdown();
-            defaults.hostname = Some("example.com".to_string());
+            defaults.hostname = Some("www.example.com".to_string());
             defaults.is_plain = true;
             defaults.is_hostname_anchor = true;
             defaults.is_right_anchor = true;
@@ -1026,7 +1026,7 @@ mod parse_tests {
             assert!(filter.raw_line.is_some());
             assert_eq!(*filter.raw_line.clone().unwrap(), "||WWW.Example.COM^");
             let mut defaults = default_network_filter_breakdown();
-            defaults.hostname = Some("example.com".to_string());
+            defaults.hostname = Some("www.example.com".to_string());
             defaults.is_plain = true;
             defaults.is_hostname_anchor = true;
             defaults.is_right_anchor = true;
@@ -1052,7 +1052,7 @@ mod parse_tests {
             assert!(filter.raw_line.is_some());
             assert_eq!(*filter.raw_line.clone().unwrap(), "||www.münchen.de^");
             let mut defaults = default_network_filter_breakdown();
-            defaults.hostname = Some("xn--mnchen-3ya.de".to_string());
+            defaults.hostname = Some("www.xn--mnchen-3ya.de".to_string());
             defaults.is_plain = true;
             defaults.is_hostname_anchor = true;
             defaults.is_right_anchor = true;

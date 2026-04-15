@@ -756,16 +756,7 @@ impl NetworkFilter {
                 let hostname =
                     idna::domain_to_ascii_cow(host.as_bytes(), idna::AsciiDenyList::EMPTY)
                         .map_err(|_| NetworkFilterError::PunycodeError)?;
-                let hostname_normalized = if mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR) {
-                    if let Some(stripped) = hostname.strip_prefix("www.") {
-                        std::borrow::Cow::from(stripped)
-                    } else {
-                        hostname
-                    }
-                } else {
-                    hostname
-                };
-                Ok(hostname_normalized.to_string())
+                Ok(hostname.to_string())
             })
             .transpose();
 
