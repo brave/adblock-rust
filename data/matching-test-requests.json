@@ -15580,7 +15580,7 @@
   },
   {
     "check": true,
-    "filters": ["||www.youjizz.com^$image"],
+    "filters": ["||youjizz.com^$image"],
     "sourceUrl": "https://",
     "type": "image",
     "url": "https://cdne-pics.youjizz.com"

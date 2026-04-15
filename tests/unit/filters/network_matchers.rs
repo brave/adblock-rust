@@ -154,7 +154,7 @@ mod match_tests {
     fn check_hosts_style_works() {
         hosts_filter_match_url("foo.com", "https://foo.com/bar", true);
         hosts_filter_match_url("foo.foo.com", "https://foo.com/bar", false);
-        hosts_filter_match_url("www.foo.com", "https://foo.com/bar", true);
+        hosts_filter_match_url("www.foo.com", "https://www.foo.com/bar", true);
         hosts_filter_match_url("com.foo", "https://foo.baz.com/bar", false);
         hosts_filter_match_url("foo.baz", "https://foo.baz.com/bar", false);
 
