@@ -93,7 +93,7 @@ harness = false
 [features]
 # If disabling default features, consider explicitly re-enabling the
 # "embedded-domain-resolver" feature.
-default = ["embedded-domain-resolver", "full-regex-handling", "single-thread"]
+default = ["embedded-domain-resolver", "full-regex-handling", "single-thread", "css-validation"]
 full-regex-handling = []
 single-thread = [] # disables `Send` and `Sync` on `Engine`.
 debug-info = []
