@@ -807,33 +807,55 @@ mod match_tests {
 
     #[test]
     fn all_option_matches_document_only() {
-        let filter = NetworkFilter::parse("||example.com^$all", true, Default::default()).unwrap();
+        {
+            let filter =
+                NetworkFilter::parse("||example.com^$all", true, Default::default()).unwrap();
 
-        // must match a main document request
-        let doc_request = request::Request::new(
-            "https://example.com/",
-            "https://example.com/",
-            "document",
-        )
-        .unwrap();
-        assert!(filter.matches_test(&doc_request));
+            let doc_request = request::Request::new(
+                "https://example.com/",
+                "https://example.com/",
+                "document",
+            )
+            .unwrap();
+            assert!(filter.matches_test(&doc_request));
 
-        // must NOT match an image sub-resource on the same host
-        let img_request = request::Request::new(
-            "https://example.com/image.png",
-            "https://example.com/",
-            "image",
-        )
-        .unwrap();
-        assert!(!filter.matches_test(&img_request));
+            let img_request = request::Request::new(
+                "https://example.com/image.png",
+                "https://example.com/",
+                "image",
+            )
+            .unwrap();
+            assert!(!filter.matches_test(&img_request));
 
-        // must NOT match a script sub-resource
-        let script_request = request::Request::new(
-            "https://example.com/app.js",
-            "https://example.com/",
-            "script",
-        )
-        .unwrap();
-        assert!(!filter.matches_test(&script_request));
+            let script_request = request::Request::new(
+                "https://example.com/app.js",
+                "https://example.com/",
+                "script",
+            )
+            .unwrap();
+            assert!(!filter.matches_test(&script_request));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||example.com^$all,image", true, Default::default())
+                    .unwrap();
+
+            let doc_request = request::Request::new(
+                "https://example.com/",
+                "https://example.com/",
+                "document",
+            )
+            .unwrap();
+            assert!(filter.matches_test(&doc_request));
+
+            let img_request = request::Request::new(
+                "https://example.com/image.png",
+                "https://example.com/",
+                "image",
+            )
+            .unwrap();
+            assert!(!filter.matches_test(&img_request));
+        }
     }
 }
