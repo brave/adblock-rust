@@ -1081,6 +1081,60 @@ mod parse_tests {
     }
 
     #[test]
+    fn handles_all_option_as_document() {
+        fn doc_only_defaults() -> NetworkFilterBreakdown {
+            let mut d = default_network_filter_breakdown();
+            d.hostname = Some(String::from("foo.com"));
+            d.is_hostname_anchor = true;
+            d.is_plain = true;
+            d.from_document = true;
+            d.from_network_types = false;
+            d.from_font = false;
+            d.from_image = false;
+            d.from_media = false;
+            d.from_object = false;
+            d.from_other = false;
+            d.from_ping = false;
+            d.from_script = false;
+            d.from_stylesheet = false;
+            d.from_subdocument = false;
+            d.from_websocket = false;
+            d.from_xml_http_request = false;
+            d
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$all", true, Default::default()).unwrap();
+            assert_eq!(doc_only_defaults(), NetworkFilterBreakdown::from(&filter));
+        }
+
+        for opt in &["document", "doc"] {
+            let filter = NetworkFilter::parse(
+                &format!("||foo.com${opt}"),
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(doc_only_defaults(), NetworkFilterBreakdown::from(&filter));
+        }
+
+        {
+            let filter = NetworkFilter::parse(
+                "||foo.com$all,domain=example.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            let mut expected = doc_only_defaults();
+            expected.opt_domains = Some(vec![crate::utils::fast_hash("example.com")]);
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        assert_eq!(NetworkFilter::parse("||foo.com$~all", true, Default::default()).err(), Some(NetworkFilterError::NegatedDocument));
+    }
+
+    #[test]
     fn handles_content_type_options() {
         let options = vec![
             "font",

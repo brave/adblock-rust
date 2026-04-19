@@ -59,7 +59,6 @@ pub(crate) enum NetworkFilterOption {
     XmlHttpRequest(bool),
     Websocket(bool),
     Font(bool),
-    All,
 }
 
 impl NetworkFilterOption {
@@ -78,7 +77,6 @@ impl NetworkFilterOption {
                 | Self::XmlHttpRequest(..)
                 | Self::Websocket(..)
                 | Self::Font(..)
-                | Self::All
         )
     }
 
@@ -163,10 +161,13 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
 
         // Check for options: option=value1|value2
         let mut option_and_values = maybe_negated_option.splitn(2, '=');
-        let (option, value) = (
+        let (raw_option_name, value) = (
             option_and_values.next().unwrap(),
             option_and_values.next().unwrap_or_default(),
         );
+
+        // $all is a uBO alias for $document.
+        let option = if raw_option_name == "all" { "doc" } else { raw_option_name };
 
         result.push(match (option, negation) {
             ("domain", _) | ("from", _) => {
@@ -251,8 +252,6 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             }
             ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
             ("font", negated) => NetworkFilterOption::Font(!negated),
-            ("all", true) => return Err(NetworkFilterError::NegatedAll),
-            ("all", false) => NetworkFilterOption::All,
             (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
         });
     }
