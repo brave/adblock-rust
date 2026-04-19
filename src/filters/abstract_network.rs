@@ -59,7 +59,6 @@ pub(crate) enum NetworkFilterOption {
     XmlHttpRequest(bool),
     Websocket(bool),
     Font(bool),
-    All,
 }
 
 impl NetworkFilterOption {
@@ -78,7 +77,6 @@ impl NetworkFilterOption {
                 | Self::XmlHttpRequest(..)
                 | Self::Websocket(..)
                 | Self::Font(..)
-                | Self::All
         )
     }
 
@@ -252,7 +250,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
             ("font", negated) => NetworkFilterOption::Font(!negated),
             ("all", true) => return Err(NetworkFilterError::NegatedAll),
-            ("all", false) => NetworkFilterOption::All,
+            ("all", false) => NetworkFilterOption::Document,
             (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
         });
     }
