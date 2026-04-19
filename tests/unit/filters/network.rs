@@ -1131,7 +1131,7 @@ mod parse_tests {
             assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
         }
 
-        assert!(NetworkFilter::parse("||foo.com$~all", true, Default::default()).is_err());
+        assert_eq!(NetworkFilter::parse("||foo.com$~all", true, Default::default()).err(), Some(NetworkFilterError::NegatedDocument));
     }
 
     #[test]
