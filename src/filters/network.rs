@@ -41,8 +41,6 @@ pub enum NetworkFilterError {
     NegatedGenericHide,
     #[error("negated document")]
     NegatedDocument,
-    #[error("negated all")]
-    NegatedAll,
     #[error("generichide without exception")]
     GenericHideWithoutException,
     #[error("empty redirection")]
