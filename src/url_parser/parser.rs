@@ -9,7 +9,6 @@
 use std::error::Error;
 use std::fmt::{self, Formatter, Write};
 
-use idna::AsciiDenyList;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use std::ops::{Range, RangeFrom, RangeTo};
 
@@ -532,7 +531,8 @@ impl Parser {
         if host_str.is_ascii() {
             write!(&mut self.serialization, "{host_str}").unwrap();
         } else {
-            let encoded = idna::domain_to_ascii_cow(host_str.as_bytes(), AsciiDenyList::EMPTY)?;
+            let encoded =
+                idna::domain_to_ascii_cow(host_str.as_bytes(), idna::AsciiDenyList::EMPTY)?;
             write!(&mut self.serialization, "{encoded}").unwrap();
         }
 

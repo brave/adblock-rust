@@ -4,7 +4,6 @@ use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::lists::ParsedFilter;
 
-use idna::AsciiDenyList;
 use memchr::{memchr as find_char, memmem};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -465,7 +464,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                     } else {
                         // The network filter has already parsed successfully, so this should be
                         // safe
-                        idna::domain_to_ascii_cow(&lowercase.as_bytes(), AsciiDenyList::EMPTY)
+                        idna::domain_to_ascii_cow(&lowercase.as_bytes(), idna::AsciiDenyList::EMPTY)
                             .unwrap()
                             .to_string()
                     };
@@ -619,16 +618,18 @@ impl TryFrom<CosmeticFilter> for CbRule {
                         any_unsupported = true
                     }
                     LocationType::Hostname => {
-                        if let Ok(encoded) =
-                            idna::domain_to_ascii_cow(location.as_bytes(), AsciiDenyList::EMPTY)
-                        {
+                        if let Ok(encoded) = idna::domain_to_ascii_cow(
+                            location.as_bytes(),
+                            idna::AsciiDenyList::EMPTY,
+                        ) {
                             hostnames_vec.push(encoded.to_string());
                         }
                     }
                     LocationType::NotHostname => {
-                        if let Ok(encoded) =
-                            idna::domain_to_ascii_cow(location.as_bytes(), AsciiDenyList::EMPTY)
-                        {
+                        if let Ok(encoded) = idna::domain_to_ascii_cow(
+                            location.as_bytes(),
+                            idna::AsciiDenyList::EMPTY,
+                        ) {
                             not_hostnames_vec.push(encoded.to_string());
                         }
                     }

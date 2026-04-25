@@ -1,7 +1,6 @@
 //! Filters that take effect at a page-content level, including CSS selector-based filtering and
 //! content script injection.
 
-use idna::AsciiDenyList;
 use memchr::{memchr as find_char, memmem, memrchr as find_char_reverse};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -229,7 +228,7 @@ impl CosmeticFilter {
             if location.is_ascii() {
                 hostname.push_str(location);
             } else {
-                match idna::domain_to_ascii_cow(location.as_bytes(), AsciiDenyList::EMPTY) {
+                match idna::domain_to_ascii_cow(location.as_bytes(), idna::AsciiDenyList::EMPTY) {
                     Ok(x) if !x.is_empty() => hostname.push_str(&x),
                     _ => return Err(CosmeticFilterError::PunycodeError),
                 }
