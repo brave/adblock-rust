@@ -4,6 +4,7 @@ use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::lists::ParsedFilter;
 
+use idna::AsciiDenyList;
 use memchr::{memchr as find_char, memmem};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -464,7 +465,9 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                     } else {
                         // The network filter has already parsed successfully, so this should be
                         // safe
-                        idna::domain_to_ascii(&lowercase).unwrap()
+                        idna::domain_to_ascii_cow(&lowercase.as_bytes(), AsciiDenyList::EMPTY)
+                            .unwrap()
+                            .to_string()
                     };
 
                     collection.push(format!("*{normalized_domain}"));
@@ -616,13 +619,17 @@ impl TryFrom<CosmeticFilter> for CbRule {
                         any_unsupported = true
                     }
                     LocationType::Hostname => {
-                        if let Ok(encoded) = idna::domain_to_ascii(location) {
-                            hostnames_vec.push(encoded);
+                        if let Ok(encoded) =
+                            idna::domain_to_ascii_cow(location.as_bytes(), AsciiDenyList::EMPTY)
+                        {
+                            hostnames_vec.push(encoded.to_string());
                         }
                     }
                     LocationType::NotHostname => {
-                        if let Ok(encoded) = idna::domain_to_ascii(location) {
-                            not_hostnames_vec.push(encoded);
+                        if let Ok(encoded) =
+                            idna::domain_to_ascii_cow(location.as_bytes(), AsciiDenyList::EMPTY)
+                        {
+                            not_hostnames_vec.push(encoded.to_string());
                         }
                     }
                 },
