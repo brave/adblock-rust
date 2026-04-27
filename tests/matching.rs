@@ -1,7 +1,7 @@
+use adblock::Engine;
 use adblock::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
 use adblock::request::Request;
 use adblock::resources::{MimeType, Resource, ResourceType};
-use adblock::Engine;
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use serde::{Deserialize, Serialize};
@@ -172,8 +172,8 @@ fn check_rule_matching_browserlike() {
     mod test_utils;
     use test_utils::rules_from_lists;
 
-    use adblock::request::Request;
     use adblock::Engine;
+    use adblock::request::Request;
     use serde::Deserialize;
 
     #[allow(non_snake_case)]

@@ -312,17 +312,19 @@ mod tests {
                 )
                 .matched
         );
-        assert!(engine
-            .check_network_request(
-                &Request::new(
-                    "https://sub.example.com",
-                    "https://sub.example.com",
-                    "document"
+        assert!(
+            engine
+                .check_network_request(
+                    &Request::new(
+                        "https://sub.example.com",
+                        "https://sub.example.com",
+                        "document"
+                    )
+                    .unwrap()
                 )
-                .unwrap()
-            )
-            .exception
-            .is_some());
+                .exception
+                .is_some()
+        );
     }
 
     #[test]

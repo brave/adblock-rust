@@ -229,7 +229,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                 NetworkFilterOption::Removeparam(String::from(value))
             }
             ("generichide", true) | ("ghide", true) => {
-                return Err(NetworkFilterError::NegatedGenericHide)
+                return Err(NetworkFilterError::NegatedGenericHide);
             }
             ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
             ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),

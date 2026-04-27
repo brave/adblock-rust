@@ -14,7 +14,7 @@ use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
 use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
-use crate::utils::{to_short_hash, ShortHash};
+use crate::utils::{ShortHash, to_short_hash};
 
 /// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
 /// [NetworkFilterList] for a given request.

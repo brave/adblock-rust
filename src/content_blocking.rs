@@ -241,11 +241,7 @@ impl TryFrom<ParsedFilter> for CbRuleEquivalent {
 }
 
 fn non_empty(v: Vec<String>) -> Option<Vec<String>> {
-    if !v.is_empty() {
-        Some(v)
-    } else {
-        None
-    }
+    if !v.is_empty() { Some(v) } else { None }
 }
 
 /// Some adblock rules cannot be directly represented by a single content blocking rule. This enum
@@ -347,7 +343,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
 
             let url_filter = match (v.filter, v.hostname) {
                 (crate::filters::network::FilterPart::AnyOf(_), _) => {
-                    return Err(CbRuleCreationFailure::OptimizedRulesUnsupported)
+                    return Err(CbRuleCreationFailure::OptimizedRulesUnsupported);
                 }
                 (crate::filters::network::FilterPart::Simple(part), Some(hostname)) => {
                     let without_trailing_separator = TRAILING_SEPARATOR.replace_all(&part, "");
@@ -550,34 +546,33 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 return Err(CbRuleCreationFailure::RuleContainsNonASCII);
             }
 
-            if let Some(resource_types) = &single_rule.trigger.resource_type {
-                if resource_types.len() > 1
-                    && resource_types.contains(&CbResourceType::Document)
-                    && single_rule.trigger.load_type.is_empty()
-                {
-                    let mut non_doc_types = resource_types.clone();
-                    non_doc_types.remove(&CbResourceType::Document);
-                    let rule_clone = single_rule.clone();
-                    let non_doc_rule = CbRule {
-                        trigger: CbTrigger {
-                            resource_type: Some(non_doc_types),
-                            ..rule_clone.trigger
-                        },
-                        ..rule_clone
-                    };
-                    let mut doc_type = HashSet::new();
-                    doc_type.insert(CbResourceType::Document);
-                    let just_doc_rule = CbRule {
-                        trigger: CbTrigger {
-                            resource_type: Some(doc_type),
-                            load_type: vec![CbLoadType::ThirdParty],
-                            ..single_rule.trigger
-                        },
-                        ..single_rule
-                    };
+            if let Some(resource_types) = &single_rule.trigger.resource_type
+                && resource_types.len() > 1
+                && resource_types.contains(&CbResourceType::Document)
+                && single_rule.trigger.load_type.is_empty()
+            {
+                let mut non_doc_types = resource_types.clone();
+                non_doc_types.remove(&CbResourceType::Document);
+                let rule_clone = single_rule.clone();
+                let non_doc_rule = CbRule {
+                    trigger: CbTrigger {
+                        resource_type: Some(non_doc_types),
+                        ..rule_clone.trigger
+                    },
+                    ..rule_clone
+                };
+                let mut doc_type = HashSet::new();
+                doc_type.insert(CbResourceType::Document);
+                let just_doc_rule = CbRule {
+                    trigger: CbTrigger {
+                        resource_type: Some(doc_type),
+                        load_type: vec![CbLoadType::ThirdParty],
+                        ..single_rule.trigger
+                    },
+                    ..single_rule
+                };
 
-                    return Ok(Self::SplitDocument(non_doc_rule, just_doc_rule));
-                }
+                return Ok(Self::SplitDocument(non_doc_rule, just_doc_rule));
             }
 
             Ok(Self::SingleRule(single_rule))

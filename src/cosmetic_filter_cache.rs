@@ -135,8 +135,8 @@ impl CosmeticFilterCache {
 
     #[cfg(test)]
     pub fn from_rules(rules: Vec<CosmeticFilter>) -> Self {
-        use crate::engine::Engine;
         use crate::FilterSet;
+        use crate::engine::Engine;
 
         let mut filter_set = FilterSet::new(true);
         filter_set.cosmetic_filters = rules;

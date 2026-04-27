@@ -863,11 +863,16 @@ mod css_validation {
         arguments: &mut Parser<'i, '_>,
     ) -> Result<String, ParseError<'i, SelectorParseErrorKind<'i>>> {
         let mut inner = String::new();
-        while let Ok(arg) = arguments.next_including_whitespace() {
+        loop {
+            let arg = match arguments.next_including_whitespace() {
+                Ok(arg) => arg,
+                Err(_) => break,
+            };
             if arg.to_css(&mut inner).is_err() {
                 return Err(arguments.new_custom_error(SelectorParseErrorKind::InvalidState));
             };
-            if let Some(closing_token) = nested_matching_close(arg) {
+            let closing_token = nested_matching_close(arg);
+            if let Some(closing_token) = closing_token {
                 let nested = arguments.parse_nested_block(to_css_nested)?;
                 inner.push_str(&nested);
                 closing_token.to_css(&mut inner).map_err(|_| {
@@ -962,7 +967,7 @@ mod css_validation {
                 | "remove-attr" | "remove-class" => {
                     return Err(arguments.new_custom_error(
                         SelectorParseErrorKind::UnsupportedPseudoClassOrElement(name),
-                    ))
+                    ));
                 }
                 _ => (),
             }
