@@ -153,7 +153,7 @@ impl RangeArg for RangeTo<usize> {
 pub type ParseResult<T> = Result<T, ParseError>;
 
 macro_rules! simple_enum_error {
-    ($($name: ident => $description: expr,)+) => {
+    ($($name: ident => $description: expr_2021,)+) => {
         /// Errors that can occur during parsing.
         #[derive(PartialEq, Eq, Clone, Copy, Debug)]
         pub enum ParseError {

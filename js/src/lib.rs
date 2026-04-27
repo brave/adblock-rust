@@ -200,10 +200,9 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
         Err(e) => cx.throw_error(e.to_string())?,
     };
 
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.check_network_request(&request)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    let result = match this.0.lock() {
+        Ok(engine) => engine.check_network_request(&request),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     if debug {
         json_ffi::to_js(&mut cx, &result)
@@ -224,10 +223,9 @@ fn engine_hidden_class_id_selectors(mut cx: FunctionContext) -> JsResult<JsValue
     let exceptions_arg = cx.argument::<JsValue>(3)?;
     let exceptions: std::collections::HashSet<String> = json_ffi::from_js(&mut cx, exceptions_arg)?;
 
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.hidden_class_id_selectors(&classes, &ids, &exceptions)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    let result = match this.0.lock() {
+        Ok(engine) => engine.hidden_class_id_selectors(&classes, &ids, &exceptions),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     json_ffi::to_js(&mut cx, &result)
 }
@@ -237,20 +235,18 @@ fn engine_url_cosmetic_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     let url: String = cx.argument::<JsString>(1)?.value(&mut cx);
 
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.url_cosmetic_resources(&url)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    let result = match this.0.lock() {
+        Ok(engine) => engine.url_cosmetic_resources(&url),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     json_ffi::to_js(&mut cx, &result)
 }
 
 fn engine_serialize(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
-    let serialized = if let Ok(engine) = this.0.lock() {
-        engine.serialize().to_vec()
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    let serialized = match this.0.lock() {
+        Ok(engine) => engine.serialize().to_vec(),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
 
     // initialise new Array Buffer in the JS context
@@ -277,10 +273,9 @@ fn engine_enable_tag(mut cx: FunctionContext) -> JsResult<JsNull> {
 
     let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
 
-    if let Ok(mut engine) = this.0.lock() {
-        engine.enable_tags(&[&tag])
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    match this.0.lock() {
+        Ok(mut engine) => engine.enable_tags(&[&tag]),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     Ok(JsNull::new(&mut cx))
 }
@@ -291,10 +286,9 @@ fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
     let resources_arg = cx.argument::<JsValue>(1)?;
     let resources: Vec<Resource> = json_ffi::from_js(&mut cx, resources_arg)?;
 
-    if let Ok(mut engine) = this.0.lock() {
-        engine.use_resources(resources)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    match this.0.lock() {
+        Ok(mut engine) => engine.use_resources(resources),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     Ok(JsNull::new(&mut cx))
 }
@@ -304,10 +298,9 @@ fn engine_tag_exists(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
     let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
 
-    let result = if let Ok(engine) = this.0.lock() {
-        engine.tag_exists(&tag)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    let result = match this.0.lock() {
+        Ok(engine) => engine.tag_exists(&tag),
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     Ok(cx.boolean(result))
 }
@@ -315,10 +308,11 @@ fn engine_tag_exists(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
-    if let Ok(mut engine) = this.0.lock() {
-        engine.use_tags(&[]);
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
+    match this.0.lock() {
+        Ok(mut engine) => {
+            engine.use_tags(&[]);
+        }
+        _ => cx.throw_error("Failed to acquire lock on engine")?,
     };
     Ok(JsNull::new(&mut cx))
 }
