@@ -1,9 +1,9 @@
+use adblock::Engine as EngineInternal;
 use adblock::lists::{
     FilterFormat, FilterListMetadata, FilterSet as FilterSetInternal, ParseOptions, RuleTypes,
 };
-use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 use adblock::resources::Resource;
-use adblock::Engine as EngineInternal;
+use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 use neon::prelude::*;
 use neon::types::buffer::TypedArray as _;
 use serde::{Deserialize, Serialize};

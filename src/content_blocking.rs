@@ -241,11 +241,7 @@ impl TryFrom<ParsedFilter> for CbRuleEquivalent {
 }
 
 fn non_empty(v: Vec<String>) -> Option<Vec<String>> {
-    if !v.is_empty() {
-        Some(v)
-    } else {
-        None
-    }
+    if !v.is_empty() { Some(v) } else { None }
 }
 
 /// Some adblock rules cannot be directly represented by a single content blocking rule. This enum
@@ -347,7 +343,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
 
             let url_filter = match (v.filter, v.hostname) {
                 (crate::filters::network::FilterPart::AnyOf(_), _) => {
-                    return Err(CbRuleCreationFailure::OptimizedRulesUnsupported)
+                    return Err(CbRuleCreationFailure::OptimizedRulesUnsupported);
                 }
                 (crate::filters::network::FilterPart::Simple(part), Some(hostname)) => {
                     let without_trailing_separator = TRAILING_SEPARATOR.replace_all(&part, "");

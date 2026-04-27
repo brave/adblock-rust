@@ -6,8 +6,7 @@ use adblock::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterM
 use adblock::request::Request;
 use adblock::resources::Resource;
 
-const DEFAULT_LISTS_URL: &str =
-    "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
+const DEFAULT_LISTS_URL: &str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
 
 async fn get_all_filters() -> Vec<String> {
     use futures::FutureExt;

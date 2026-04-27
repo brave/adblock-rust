@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use adblock::Engine;
 use adblock::request::Request;
 use adblock::resources::Resource;
-use adblock::Engine;
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;

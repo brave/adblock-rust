@@ -1,7 +1,7 @@
 use adblock::{
+    Engine,
     lists::{FilterSet, ParseOptions},
     request::Request,
-    Engine,
 };
 
 fn main() {

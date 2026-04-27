@@ -1213,33 +1213,38 @@ mod css_validation_tests {
     #[test]
     fn bad_selector_inputs() {
         assert!(validate_css_selector(r#"rm -rf ./*"#, false).is_err());
-        assert!(validate_css_selector(
-            r#"javascript:alert("All pseudo-classes are valid")"#,
-            false
-        )
-        .is_ok());
-        assert!(validate_css_selector(
-            r#"javascript:alert("But opening comments are still forbidden" /*)"#,
-            false
-        )
-        .is_err());
+        assert!(
+            validate_css_selector(r#"javascript:alert("All pseudo-classes are valid")"#, false)
+                .is_ok()
+        );
+        assert!(
+            validate_css_selector(
+                r#"javascript:alert("But opening comments are still forbidden" /*)"#,
+                false
+            )
+            .is_err()
+        );
         assert!(validate_css_selector(r#"This is not a CSS selector."#, false).is_err());
         assert!(validate_css_selector(r#"./malware.sh"#, false).is_err());
         assert!(validate_css_selector(r#"https://safesite.ru"#, false).is_err());
-        assert!(validate_css_selector(
-            r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#,
-            false
-        )
-        .is_err());
+        assert!(
+            validate_css_selector(
+                r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#,
+                false
+            )
+            .is_err()
+        );
         assert!(validate_css_selector(r#"#!/usr/bin/sh"#, false).is_err());
         assert!(validate_css_selector(r#"input,input/*"#, false).is_err());
         // Accept a closing comment within a string. It should still be impossible to create an
         // opening comment to match it.
-        assert!(validate_css_selector(
-            r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#,
-            false
-        )
-        .is_ok());
+        assert!(
+            validate_css_selector(
+                r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#,
+                false
+            )
+            .is_ok()
+        );
     }
 
     #[test]

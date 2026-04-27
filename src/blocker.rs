@@ -456,8 +456,8 @@ impl Blocker {
         network_filters: Vec<crate::filters::network::NetworkFilter>,
         options: &BlockerOptions,
     ) -> Self {
-        use crate::engine::Engine;
         use crate::FilterSet;
+        use crate::engine::Engine;
 
         let mut filter_set = FilterSet::new(true);
         filter_set.network_filters = network_filters;

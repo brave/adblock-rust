@@ -3,7 +3,7 @@
 use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::cosmetic_filter_cache_builder::CosmeticFilterCacheBuilder;
-use crate::data_format::{deserialize_dat_file, serialize_dat_file, DeserializationError};
+use crate::data_format::{DeserializationError, deserialize_dat_file, serialize_dat_file};
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::fb_network_builder::NetworkRulesBuilder;

@@ -389,12 +389,18 @@ mod scriptlet_storage_tests {
         );
 
         assert_eq!(
-            resources.get_scriptlet_resources([("abort-on-property-read, write tests", Default::default())]),
+            resources.get_scriptlet_resources([(
+                "abort-on-property-read, write tests",
+                Default::default()
+            )]),
             "try {\n(function() {confirm(\"Do you want to write tests?\");})();\n} catch ( e ) { }\n",
         );
 
         assert_eq!(
-            resources.get_scriptlet_resources([("abort-on-property-read.js, block advertisements", Default::default())]),
+            resources.get_scriptlet_resources([(
+                "abort-on-property-read.js, block advertisements",
+                Default::default()
+            )]),
             "try {\n(function() {confirm(\"Do you want to block advertisements?\");})();\n} catch ( e ) { }\n",
         );
 
@@ -414,12 +420,16 @@ mod scriptlet_storage_tests {
         );
 
         assert_eq!(
-            resources.get_scriptlet_resources([("googletagservices_gpt, test1", Default::default())]),
+            resources
+                .get_scriptlet_resources([("googletagservices_gpt, test1", Default::default())]),
             "function gpt(a1 = '', a2 = '') {console.log(a1, a2)}\ntry {\ngpt(\"test1\")\n} catch ( e ) { }\n",
         );
 
         assert_eq!(
-            resources.get_scriptlet_resources([("googletagservices.com/gpt, test1, test2", Default::default())]),
+            resources.get_scriptlet_resources([(
+                "googletagservices.com/gpt, test1, test2",
+                Default::default()
+            )]),
             "function gpt(a1 = '', a2 = '') {console.log(a1, a2)}\ntry {\ngpt(\"test1\", \"test2\")\n} catch ( e ) { }\n",
         );
 
@@ -786,7 +796,10 @@ mod scriptlet_storage_tests {
             ""
         );
 
-        assert_eq!(resources.get_scriptlet_resources([("test, arg1, arg2", PERM01)]), "permissioned\na\ncommon\nb\nfunction test() {}\ntry {\ntest(\"arg1\", \"arg2\")\n} catch ( e ) { }\n");
+        assert_eq!(
+            resources.get_scriptlet_resources([("test, arg1, arg2", PERM01)]),
+            "permissioned\na\ncommon\nb\nfunction test() {}\ntry {\ntest(\"arg1\", \"arg2\")\n} catch ( e ) { }\n"
+        );
 
         // Note: `test` still gets inserted as a dependency before it becomes apparent that
         // `permissioned` is not authorized. However, this shouldn't have much detrimental effect.
@@ -794,15 +807,28 @@ mod scriptlet_storage_tests {
             resources.get_scriptlet_resources([("test-wrapper", Default::default())]),
             "function test() {}\n"
         );
-        assert_eq!(resources.get_scriptlet_resources([("test-wrapper", PERM01)]), "function test() {}\npermissioned\na\ncommon\nb\nfunction testWrapper() { test(arguments) }\ntry {\ntestWrapper()\n} catch ( e ) { }\n");
+        assert_eq!(
+            resources.get_scriptlet_resources([("test-wrapper", PERM01)]),
+            "function test() {}\npermissioned\na\ncommon\nb\nfunction testWrapper() { test(arguments) }\ntry {\ntestWrapper()\n} catch ( e ) { }\n"
+        );
 
-        assert_eq!(resources.get_scriptlet_resources([("test", PERM01), ("test-wrapper", PERM01)]), "permissioned\na\ncommon\nb\nfunction test() {}\nfunction testWrapper() { test(arguments) }\ntry {\ntest()\n} catch ( e ) { }\ntry {\ntestWrapper()\n} catch ( e ) { }\n");
+        assert_eq!(
+            resources.get_scriptlet_resources([("test", PERM01), ("test-wrapper", PERM01)]),
+            "permissioned\na\ncommon\nb\nfunction test() {}\nfunction testWrapper() { test(arguments) }\ntry {\ntest()\n} catch ( e ) { }\ntry {\ntestWrapper()\n} catch ( e ) { }\n"
+        );
 
         assert_eq!(
             resources.get_scriptlet_resources([("shared, argument", Default::default())]),
             "a\ncommon\nb\nfunction shared() { }\ntry {\nshared(\"argument\")\n} catch ( e ) { }\n"
         );
-        assert_eq!(resources.get_scriptlet_resources([("test, 1", PERM01), ("test-wrapper, 2", PERM01), ("shared, 3", Default::default())]), "permissioned\na\ncommon\nb\nfunction test() {}\nfunction testWrapper() { test(arguments) }\nfunction shared() { }\ntry {\ntest(\"1\")\n} catch ( e ) { }\ntry {\ntestWrapper(\"2\")\n} catch ( e ) { }\ntry {\nshared(\"3\")\n} catch ( e ) { }\n");
+        assert_eq!(
+            resources.get_scriptlet_resources([
+                ("test, 1", PERM01),
+                ("test-wrapper, 2", PERM01),
+                ("shared, 3", Default::default())
+            ]),
+            "permissioned\na\ncommon\nb\nfunction test() {}\nfunction testWrapper() { test(arguments) }\nfunction shared() { }\ntry {\ntest(\"1\")\n} catch ( e ) { }\ntry {\ntestWrapper(\"2\")\n} catch ( e ) { }\ntry {\nshared(\"3\")\n} catch ( e ) { }\n"
+        );
     }
 }
 
@@ -846,21 +872,29 @@ mod shared_storage_tests {
             shared_storage: Rc::clone(&shared_storage),
         });
 
-        assert!(engine1
-            .url_cosmetic_resources("https://example1.com")
-            .injected_script
-            .contains("success!"));
-        assert!(!engine1
-            .url_cosmetic_resources("https://example2.com")
-            .injected_script
-            .contains("success!"));
-        assert!(!engine2
-            .url_cosmetic_resources("https://example1.com")
-            .injected_script
-            .contains("success!"));
-        assert!(engine2
-            .url_cosmetic_resources("https://example2.com")
-            .injected_script
-            .contains("success!"));
+        assert!(
+            engine1
+                .url_cosmetic_resources("https://example1.com")
+                .injected_script
+                .contains("success!")
+        );
+        assert!(
+            !engine1
+                .url_cosmetic_resources("https://example2.com")
+                .injected_script
+                .contains("success!")
+        );
+        assert!(
+            !engine2
+                .url_cosmetic_resources("https://example1.com")
+                .injected_script
+                .contains("success!")
+        );
+        assert!(
+            engine2
+                .url_cosmetic_resources("https://example2.com")
+                .injected_script
+                .contains("success!")
+        );
     }
 }

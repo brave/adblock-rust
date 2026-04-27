@@ -9,7 +9,7 @@
 use std::error::Error;
 use std::fmt::{self, Formatter, Write};
 
-use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use std::ops::{Range, RangeFrom, RangeTo};
 
 /// https://url.spec.whatwg.org/#fragment-percent-encode-set

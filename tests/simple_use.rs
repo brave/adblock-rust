@@ -1,5 +1,5 @@
-use adblock::request::Request;
 use adblock::Engine;
+use adblock::request::Request;
 
 #[test]
 fn check_simple_use() {

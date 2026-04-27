@@ -1,5 +1,5 @@
-use adblock::request::Request;
 use adblock::Engine;
+use adblock::request::Request;
 
 #[allow(unused_imports)]
 use std::collections::HashMap;
