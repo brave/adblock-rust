@@ -960,41 +960,37 @@ mod matching_tests {
                 return false;
             }
 
-            if let Some(ref filter_not_hostnames) = self.not_hostnames {
-                if request_hostnames
+            if let Some(ref filter_not_hostnames) = self.not_hostnames
+                && request_hostnames
                     .iter()
                     .any(|hash| bin_lookup(filter_not_hostnames, *hash))
-                {
-                    return false;
-                }
+            {
+                return false;
             }
 
-            if let Some(ref filter_not_entities) = self.not_entities {
-                if request_entities
+            if let Some(ref filter_not_entities) = self.not_entities
+                && request_entities
                     .iter()
                     .any(|hash| bin_lookup(filter_not_entities, *hash))
-                {
-                    return false;
-                }
+            {
+                return false;
             }
 
             if self.hostnames.is_some() || self.entities.is_some() {
-                if let Some(ref filter_hostnames) = self.hostnames {
-                    if request_hostnames
+                if let Some(ref filter_hostnames) = self.hostnames
+                    && request_hostnames
                         .iter()
                         .any(|hash| bin_lookup(filter_hostnames, *hash))
-                    {
-                        return true;
-                    }
+                {
+                    return true;
                 }
 
-                if let Some(ref filter_entities) = self.entities {
-                    if request_entities
+                if let Some(ref filter_entities) = self.entities
+                    && request_entities
                         .iter()
                         .any(|hash| bin_lookup(filter_entities, *hash))
-                    {
-                        return true;
-                    }
+                {
+                    return true;
                 }
 
                 return false;

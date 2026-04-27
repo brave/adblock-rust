@@ -546,34 +546,33 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 return Err(CbRuleCreationFailure::RuleContainsNonASCII);
             }
 
-            if let Some(resource_types) = &single_rule.trigger.resource_type {
-                if resource_types.len() > 1
-                    && resource_types.contains(&CbResourceType::Document)
-                    && single_rule.trigger.load_type.is_empty()
-                {
-                    let mut non_doc_types = resource_types.clone();
-                    non_doc_types.remove(&CbResourceType::Document);
-                    let rule_clone = single_rule.clone();
-                    let non_doc_rule = CbRule {
-                        trigger: CbTrigger {
-                            resource_type: Some(non_doc_types),
-                            ..rule_clone.trigger
-                        },
-                        ..rule_clone
-                    };
-                    let mut doc_type = HashSet::new();
-                    doc_type.insert(CbResourceType::Document);
-                    let just_doc_rule = CbRule {
-                        trigger: CbTrigger {
-                            resource_type: Some(doc_type),
-                            load_type: vec![CbLoadType::ThirdParty],
-                            ..single_rule.trigger
-                        },
-                        ..single_rule
-                    };
+            if let Some(resource_types) = &single_rule.trigger.resource_type
+                && resource_types.len() > 1
+                && resource_types.contains(&CbResourceType::Document)
+                && single_rule.trigger.load_type.is_empty()
+            {
+                let mut non_doc_types = resource_types.clone();
+                non_doc_types.remove(&CbResourceType::Document);
+                let rule_clone = single_rule.clone();
+                let non_doc_rule = CbRule {
+                    trigger: CbTrigger {
+                        resource_type: Some(non_doc_types),
+                        ..rule_clone.trigger
+                    },
+                    ..rule_clone
+                };
+                let mut doc_type = HashSet::new();
+                doc_type.insert(CbResourceType::Document);
+                let just_doc_rule = CbRule {
+                    trigger: CbTrigger {
+                        resource_type: Some(doc_type),
+                        load_type: vec![CbLoadType::ThirdParty],
+                        ..single_rule.trigger
+                    },
+                    ..single_rule
+                };
 
-                    return Ok(Self::SplitDocument(non_doc_rule, just_doc_rule));
-                }
+                return Ok(Self::SplitDocument(non_doc_rule, just_doc_rule));
             }
 
             Ok(Self::SingleRule(single_rule))

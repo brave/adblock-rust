@@ -74,7 +74,7 @@ impl FilterSet {
     ) -> Result<(), adblock::lists::FilterParseError> {
         self.0.borrow_mut().add_filter(filter, opts)
     }
-    fn into_content_blocking(
+    fn content_blocking_rules(
         &self,
     ) -> Result<(Vec<adblock::content_blocking::CbRule>, Vec<String>), ()> {
         self.0.borrow().clone().into_content_blocking()
@@ -139,7 +139,7 @@ struct ContentBlockingConversionResult {
 fn filter_set_into_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
-    match this.into_content_blocking() {
+    match this.content_blocking_rules() {
         Ok((cb_rules, filters_used)) => {
             let r = ContentBlockingConversionResult {
                 content_blocking_rules: cb_rules,
@@ -147,7 +147,7 @@ fn filter_set_into_content_blocking(mut cx: FunctionContext) -> JsResult<JsValue
             };
             json_ffi::to_js(&mut cx, &r)
         }
-        Err(_) => return Ok(JsUndefined::new(&mut cx).upcast()),
+        Err(_) => Ok(JsUndefined::new(&mut cx).upcast()),
     }
 }
 
@@ -262,7 +262,7 @@ fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
     let serialized_handle = cx.argument::<JsArrayBuffer>(1)?;
 
     if let Ok(mut engine) = this.0.lock() {
-        let _result = engine.deserialize(&serialized_handle.as_slice(&mut cx));
+        let _result = engine.deserialize(serialized_handle.as_slice(&cx));
     }
 
     Ok(JsNull::new(&mut cx))
@@ -340,13 +340,13 @@ fn ublock_resources(mut cx: FunctionContext) -> JsResult<JsValue> {
     };
 
     let mut resources = assemble_web_accessible_resources(
-        &Path::new(&web_accessible_resource_dir),
-        &Path::new(&redirect_resources_path),
+        Path::new(&web_accessible_resource_dir),
+        Path::new(&redirect_resources_path),
     );
     if let Some(scriptlets_path) = scriptlets_path {
         #[allow(deprecated)]
         resources.extend(
-            adblock::resources::resource_assembler::assemble_scriptlet_resources(&Path::new(
+            adblock::resources::resource_assembler::assemble_scriptlet_resources(Path::new(
                 &scriptlets_path,
             )),
         );

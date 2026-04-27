@@ -192,23 +192,19 @@ impl FilterListMetadata {
     /// with valid metadata content will be added. Previously added information will not be
     /// rewritten.
     fn try_add(&mut self, line: &str) {
-        if let Some(kv) = line.strip_prefix("! ") {
-            if let Some((key, value)) = kv.split_once(": ") {
-                match key {
-                    "Homepage" if self.homepage.is_none() => {
-                        self.homepage = Some(value.to_string())
+        if let Some(kv) = line.strip_prefix("! ")
+            && let Some((key, value)) = kv.split_once(": ")
+        {
+            match key {
+                "Homepage" if self.homepage.is_none() => self.homepage = Some(value.to_string()),
+                "Title" if self.title.is_none() => self.title = Some(value.to_string()),
+                "Expires" if self.expires.is_none() => {
+                    if let Ok(expires) = ExpiresInterval::try_from(value) {
+                        self.expires = Some(expires);
                     }
-                    "Title" if self.title.is_none() => self.title = Some(value.to_string()),
-                    "Expires" if self.expires.is_none() => {
-                        if let Ok(expires) = ExpiresInterval::try_from(value) {
-                            self.expires = Some(expires);
-                        }
-                    }
-                    "Redirect" if self.redirect.is_none() => {
-                        self.redirect = Some(value.to_string())
-                    }
-                    _ => (),
                 }
+                "Redirect" if self.redirect.is_none() => self.redirect = Some(value.to_string()),
+                _ => (),
             }
         }
     }
