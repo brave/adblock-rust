@@ -519,7 +519,7 @@ impl Parser {
         let host_str: &str = if has_ignored_chars {
             &host_input.collect::<String>()
         } else {
-            for _ in host_input {}
+            host_input.for_each(drop);
             &input_str[..bytes]
         };
 
