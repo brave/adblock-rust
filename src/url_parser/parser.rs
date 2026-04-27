@@ -515,18 +515,13 @@ impl Parser {
             remaining.next();
             bytes += c.len_utf8();
         }
-        let replaced: String;
-        let host_str;
-        {
-            let host_input = input.by_ref().take(non_ignored_chars);
-            if has_ignored_chars {
-                replaced = host_input.collect();
-                host_str = &*replaced
-            } else {
-                for _ in host_input {}
-                host_str = &input_str[..bytes]
-            }
-        }
+        let host_input = input.by_ref().take(non_ignored_chars);
+        let host_str: &str = if has_ignored_chars {
+            &host_input.collect::<String>()
+        } else {
+            for _ in host_input {}
+            &input_str[..bytes]
+        };
 
         if host_str.is_ascii() {
             write!(&mut self.serialization, "{host_str}").unwrap();
