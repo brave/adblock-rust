@@ -228,7 +228,7 @@ impl CosmeticFilter {
             if location.is_ascii() {
                 hostname.push_str(location);
             } else {
-                match idna::domain_to_ascii(location) {
+                match idna::domain_to_ascii_cow(location.as_bytes(), idna::AsciiDenyList::EMPTY) {
                     Ok(x) if !x.is_empty() => hostname.push_str(&x),
                     _ => return Err(CosmeticFilterError::PunycodeError),
                 }
