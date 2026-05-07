@@ -222,6 +222,51 @@ mod blocker_tests {
     }
 
     #[test]
+    fn trailing_dot_domain() {
+        let filters = ["||dot.example.com.^", "||test.example.com^"];
+
+        let (network_filters, _) = parse_filters(filters, true, Default::default());
+
+        let blocker_options = BlockerOptions {
+            enable_optimizations: true,
+        };
+
+        let blocker = Blocker::new(network_filters, &blocker_options);
+
+        let request = Request::new(
+            "https://dot.example.com",
+            "https://dot.example.com",
+            "document",
+        )
+        .unwrap();
+        assert!(!blocker.check(&request, &Default::default()).matched);
+
+        let request = Request::new(
+            "https://dot.example.com.",
+            "https://dot.example.com.",
+            "document",
+        )
+        .unwrap();
+        assert!(blocker.check(&request, &Default::default()).matched);
+
+        let request = Request::new(
+            "https://test.example.com",
+            "https://test.example.com",
+            "document",
+        )
+        .unwrap();
+        assert!(blocker.check(&request, &Default::default()).matched);
+
+        let request = Request::new(
+            "https://test.example.com.",
+            "https://test.example.com.",
+            "document",
+        )
+        .unwrap();
+        assert!(blocker.check(&request, &Default::default()).matched);
+    }
+
+    #[test]
     fn hostname_regex_filter_works() {
         let filters = [
             "||alimc*.top^$domain=letv.com",

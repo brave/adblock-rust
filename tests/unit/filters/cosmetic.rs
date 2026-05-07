@@ -1252,4 +1252,16 @@ mod css_validation_tests {
             )])
         );
     }
+
+    #[test]
+    fn bad_style_inputs() {
+        assert!(is_valid_css_style(r#"background: red"#));
+        assert!(is_valid_css_style(r#"display: flex"#));
+        assert!(is_valid_css_style(r#"float: left; font-weight: bold"#));
+        assert!(!is_valid_css_style(r#"/* opening comment"#));
+        assert!(!is_valid_css_style(r#"\\75\\72\\6c\\28"#));
+        assert!(!is_valid_css_style(r#"background: url(https://evil.com)"#));
+        assert!(!is_valid_css_style(r#"background: UrL(https://evil.com)"#));
+        assert!(!is_valid_css_style(r#"URL(https://evil.com)"#));
+    }
 }
