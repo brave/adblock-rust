@@ -30,6 +30,11 @@ bitflags::bitflags! {
     const IS_REMOVEPARAM = 1 << 1;
     const GENERIC_HIDE = 1 << 2;
     const IS_CSP = 1 << 3;
+    const IS_REDIRECT = 1 << 4;
+
+    /// Specifies that a redirect rule should also create a corresponding block rule.
+    /// This is used to avoid returning two separate rules from `NetworkFilter::parse`.
+    const ALSO_BLOCK_REDIRECT = 1 << 5;
   }
 }
 
@@ -111,8 +116,6 @@ bitflags::bitflags! {
         const MATCH_CASE = 1 << 14;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
-        const IS_REDIRECT = 1 << 26;
-
         // Full document rules are not implied by negated types.
         const FROM_DOCUMENT = 1 << 29;
 
@@ -124,10 +127,6 @@ bitflags::bitflags! {
         const IS_EXCEPTION = 1 << 22;
         const IS_COMPLETE_REGEX = 1 << 24;
         const IS_HOSTNAME_REGEX = 1 << 28;
-
-        // Specifies that a redirect rule should also create a corresponding block rule.
-        // This is used to avoid returning two separate rules from `NetworkFilter::parse`.
-        const ALSO_BLOCK_REDIRECT = 1 << 31;
 
         // "Other" network request types
         const UNMATCHED = 1 << 25;
@@ -190,17 +189,6 @@ pub trait NetworkFilterMaskHelper {
         self.has_flag(NetworkFilterMask::MATCH_CASE)
     }
 
-
-    #[inline]
-    fn is_redirect(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_REDIRECT)
-    }
-
-    #[inline]
-    fn also_block_redirect(&self) -> bool {
-        self.has_flag(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
-    }
-
     #[inline]
     fn is_regex(&self) -> bool {
         self.has_flag(NetworkFilterMask::IS_REGEX)
@@ -215,7 +203,6 @@ pub trait NetworkFilterMaskHelper {
     fn is_plain(&self) -> bool {
         !self.is_regex()
     }
-
 
     #[inline]
     fn third_party(&self) -> bool {
@@ -509,12 +496,12 @@ impl NetworkFilter {
                     }
                     NetworkFilterOption::Tag(value) => tag = Some(value),
                     NetworkFilterOption::Redirect(value) => {
-                        mask.set(NetworkFilterMask::IS_REDIRECT, true);
-                        mask.set(NetworkFilterMask::ALSO_BLOCK_REDIRECT, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REDIRECT, true);
+                        features_mask.set(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::RedirectRule(value) => {
-                        mask.set(NetworkFilterMask::IS_REDIRECT, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REDIRECT, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Removeparam(value) => {
@@ -935,6 +922,16 @@ impl NetworkFilter {
     pub fn is_csp(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::IS_CSP)
+    }
+
+    pub fn is_redirect(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REDIRECT)
+    }
+
+    pub fn also_block_redirect(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT)
     }
 
     #[cfg(test)]
