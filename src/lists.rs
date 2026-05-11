@@ -285,7 +285,6 @@ impl FilterSet {
         self,
     ) -> Result<(Vec<crate::content_blocking::CbRule>, Vec<String>), ()> {
         use crate::content_blocking;
-        use crate::filters::network::NetworkFilterMaskHelper;
         use std::collections::HashSet;
 
         if !self.debug {
@@ -296,7 +295,7 @@ impl FilterSet {
         let mut bad_filter_ids = HashSet::new();
         for filter in self.network_filters.iter() {
             if filter.is_badfilter() {
-                bad_filter_ids.insert(filter.get_id_without_badfilter());
+                bad_filter_ids.insert(filter.get_id());
             }
         }
 
