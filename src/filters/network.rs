@@ -28,6 +28,7 @@ bitflags::bitflags! {
   pub struct NetworkFilterFeaturesMask: u32 {
     const BAD_FILTER = 1 << 0;
     const IS_REMOVEPARAM = 1 << 1;
+    const GENERIC_HIDE = 1 << 2;
   }
 }
 
@@ -110,7 +111,6 @@ bitflags::bitflags! {
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const IS_REDIRECT = 1 << 26;
-        const GENERIC_HIDE = 1 << 30;
 
         // Full document rules are not implied by negated types.
         const FROM_DOCUMENT = 1 << 29;
@@ -203,11 +203,6 @@ pub trait NetworkFilterMaskHelper {
     #[inline]
     fn also_block_redirect(&self) -> bool {
         self.has_flag(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
-    }
-
-    #[inline]
-    fn is_generic_hide(&self) -> bool {
-        self.has_flag(NetworkFilterMask::GENERIC_HIDE)
     }
 
     #[inline]
@@ -543,7 +538,7 @@ impl NetworkFilter {
                         modifier_option = value;
                     }
                     NetworkFilterOption::Generichide => {
-                        mask.set(NetworkFilterMask::GENERIC_HIDE, true)
+                        features_mask.set(NetworkFilterFeaturesMask::GENERIC_HIDE, true)
                     }
                     NetworkFilterOption::Document => {
                         cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true)
@@ -763,7 +758,7 @@ impl NetworkFilter {
             })
             .transpose();
 
-        if mask.contains(NetworkFilterMask::GENERIC_HIDE) && !parsed.exception {
+        if features_mask.contains(NetworkFilterFeaturesMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
@@ -938,6 +933,11 @@ impl NetworkFilter {
     pub fn is_removeparam(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+    }
+
+    pub fn is_generic_hide(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::GENERIC_HIDE)
     }
 
     #[cfg(test)]

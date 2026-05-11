@@ -317,7 +317,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             if v.is_redirect() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
             }
-            if v.mask.contains(NetworkFilterMask::GENERIC_HIDE) {
+            if v.is_generic_hide() {
                 return Err(CbRuleCreationFailure::NetworkGenerichideUnsupported);
             }
             debug_assert!(
