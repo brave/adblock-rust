@@ -114,7 +114,7 @@ pub mod fb {
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<u32>(NetworkFilter::VT_MASK, Some(0))
+                    .get::<u32>(NetworkFilter::VT_MASK, Some(540221439))
                     .unwrap()
             }
         }
@@ -262,7 +262,7 @@ pub mod fb {
         #[inline]
         fn default() -> Self {
             NetworkFilterArgs {
-                mask: 0,
+                mask: 540221439,
                 opt_domains: None,
                 opt_not_domains: None,
                 patterns: None,
@@ -281,7 +281,8 @@ pub mod fb {
     impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NetworkFilterBuilder<'a, 'b, A> {
         #[inline]
         pub fn add_mask(&mut self, mask: u32) {
-            self.fbb_.push_slot::<u32>(NetworkFilter::VT_MASK, mask, 0);
+            self.fbb_
+                .push_slot::<u32>(NetworkFilter::VT_MASK, mask, 540221439);
         }
         #[inline]
         pub fn add_opt_domains(
@@ -387,7 +388,7 @@ pub mod fb {
     impl Default for NetworkFilterT {
         fn default() -> Self {
             Self {
-                mask: 0,
+                mask: 540221439,
                 opt_domains: None,
                 opt_not_domains: None,
                 patterns: None,
