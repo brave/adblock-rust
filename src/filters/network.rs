@@ -21,6 +21,9 @@ use crate::utils::{self, Hash, TokensBuffer};
 static VALID_PARAM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
 bitflags::bitflags! {
+  /// Features that are properties used to classify the filter, but not stored
+  /// in the flatbuffer serialized format. For that reason, not available
+  /// for FlatNetworkFilter (use NetworkFilterMask instead).
   #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
   pub struct NetworkFilterFeaturesMask: u32 {
     const BAD_FILTER = 1 << 0;
@@ -107,7 +110,6 @@ bitflags::bitflags! {
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const IS_REDIRECT = 1 << 26;
-        const UNUSED_BAD_FILTER = 1 << 27;
         const GENERIC_HIDE = 1 << 30;
 
         // Full document rules are not implied by negated types.
@@ -930,7 +932,7 @@ impl NetworkFilter {
     }
 
     pub fn is_badfilter(&self) -> bool {
-        self.features_mask.bits() & NetworkFilterFeaturesMask::BAD_FILTER.bits() != 0
+        self.features_mask.contains(NetworkFilterFeaturesMask::BAD_FILTER)
     }
 
     #[cfg(test)]
