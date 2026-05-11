@@ -7,9 +7,7 @@ use flatbuffers::ForwardsUOffset;
 use crate::filters::fb_network::FlatNetworkFilter;
 use crate::filters::filter_data_context::FilterDataContext;
 use crate::filters::flatbuffer_generated::fb;
-use crate::filters::network::{
-    NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper, NetworkMatchable,
-};
+use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkMatchable};
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
 use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
@@ -41,13 +39,6 @@ impl fmt::Display for CheckResult {
         } else {
             write!(f, "{}", self.filter_mask)
         }
-    }
-}
-
-impl NetworkFilterMaskHelper for CheckResult {
-    #[inline]
-    fn has_flag(&self, v: NetworkFilterMask) -> bool {
-        self.filter_mask.contains(v)
     }
 }
 
