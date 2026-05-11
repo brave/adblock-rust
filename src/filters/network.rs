@@ -21,6 +21,16 @@ use crate::utils::{self, Hash, TokensBuffer};
 /// For now, only support `$removeparam` with simple alphanumeric/dash/underscore patterns.
 static VALID_PARAM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap());
 
+bitflags::bitflags! {
+  /// Features that are properties used to classify the filter, but not stored
+  /// in the flatbuffer serialized format. For that reason, not available
+  /// for FlatNetworkFilter (use NetworkFilterMask instead).
+  #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
+  pub struct NetworkFilterFeaturesMask: u32 {
+    const BAD_FILTER = 1 << 0;
+  }
+}
+
 #[non_exhaustive]
 #[derive(Debug, Error, PartialEq, Clone)]
 pub enum NetworkFilterError {
@@ -101,7 +111,6 @@ bitflags::bitflags! {
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const IS_REDIRECT = 1 << 26;
-        const BAD_FILTER = 1 << 27;
         const GENERIC_HIDE = 1 << 30;
 
         // Full document rules are not implied by negated types.
@@ -200,11 +209,6 @@ pub trait NetworkFilterMaskHelper {
     #[inline]
     fn also_block_redirect(&self) -> bool {
         self.has_flag(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
-    }
-
-    #[inline]
-    fn is_badfilter(&self) -> bool {
-        self.has_flag(NetworkFilterMask::BAD_FILTER)
     }
 
     #[inline]
@@ -380,6 +384,7 @@ impl FilterPart {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkFilter {
     pub mask: NetworkFilterMask,
+    pub features_mask: NetworkFilterFeaturesMask,
     pub filter: FilterPart,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
@@ -446,6 +451,7 @@ impl NetworkFilter {
             | NetworkFilterMask::FIRST_PARTY
             | NetworkFilterMask::FROM_HTTPS
             | NetworkFilterMask::FROM_HTTP;
+        let mut features_mask: NetworkFilterFeaturesMask = Default::default();
 
         // Temporary masks for positive (e.g.: $script) and negative (e.g.: $~script)
         // content type options.
@@ -505,7 +511,9 @@ impl NetworkFilter {
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
-                    NetworkFilterOption::Badfilter => mask.set(NetworkFilterMask::BAD_FILTER, true),
+                    NetworkFilterOption::Badfilter => {
+                        features_mask.set(NetworkFilterFeaturesMask::BAD_FILTER, true)
+                    }
                     NetworkFilterOption::Important => {
                         mask.set(NetworkFilterMask::IS_IMPORTANT, true)
                     }
@@ -802,6 +810,7 @@ impl NetworkFilter {
             },
             hostname: hostname_decoded?,
             mask,
+            features_mask,
             opt_domains,
             opt_not_domains,
             tag,
@@ -836,19 +845,6 @@ impl NetworkFilter {
         // Parse it as a `||hostname^` rule.
         let rule = format!("||{hostname}^");
         NetworkFilter::parse(&rule, debug, Default::default())
-    }
-
-    pub fn get_id_without_badfilter(&self) -> Hash {
-        let mut mask = self.mask;
-        mask.set(NetworkFilterMask::BAD_FILTER, false);
-        compute_filter_id(
-            self.modifier_option.as_deref(),
-            mask,
-            self.filter.string_view().as_deref(),
-            self.hostname.as_deref(),
-            self.opt_domains.as_ref(),
-            self.opt_not_domains.as_ref(),
-        )
     }
 
     pub fn get_id(&self) -> Hash {
@@ -935,6 +931,11 @@ impl NetworkFilter {
 
             FilterTokens::Other(tokens_buffer.as_slice())
         }
+    }
+
+    pub fn is_badfilter(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::BAD_FILTER)
     }
 
     #[cfg(test)]

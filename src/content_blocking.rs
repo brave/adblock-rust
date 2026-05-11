@@ -1,7 +1,9 @@
 //! Transforms filter rules into content blocking syntax used on iOS and MacOS.
 
 use crate::filters::cosmetic::CosmeticFilter;
-use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper};
+use crate::filters::network::{
+    NetworkFilter, NetworkFilterFeaturesMask, NetworkFilterMask, NetworkFilterMaskHelper,
+};
 use crate::lists::ParsedFilter;
 
 use memchr::{memchr as find_char, memmem};
@@ -319,7 +321,8 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 return Err(CbRuleCreationFailure::NetworkGenerichideUnsupported);
             }
             debug_assert!(
-                !v.mask.contains(NetworkFilterMask::BAD_FILTER),
+                !v.features_mask
+                    .contains(NetworkFilterFeaturesMask::BAD_FILTER),
                 "BAD_FILTER should be filtered out"
             );
             if v.is_csp() {
