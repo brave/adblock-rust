@@ -228,7 +228,7 @@ impl NetworkRulesBuilder {
         // Collect badfilter ids in advance.
         for filter in network_filters.iter() {
             if filter.is_badfilter() {
-                badfilter_ids.insert(filter.get_id_without_badfilter());
+                badfilter_ids.insert(filter.get_id());
             }
         }
 

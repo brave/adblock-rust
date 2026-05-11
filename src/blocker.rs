@@ -211,7 +211,7 @@ impl Blocker {
             }
             None => None,
             // If matched an important filter, exceptions don't atter
-            Some(f) if f.is_important() => None,
+            Some(f) if f.filter_mask.is_important() => None,
             Some(_) => self
                 .exceptions()
                 .check(request, &self.tags_enabled, &mut regex_manager),
@@ -227,7 +227,7 @@ impl Blocker {
         let redirect_resource = {
             let mut exceptions = vec![];
             for redirect_filter in redirect_filters.iter() {
-                if redirect_filter.is_exception() {
+                if redirect_filter.filter_mask.is_exception() {
                     if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
                         exceptions.push(redirect);
                     }
@@ -235,7 +235,7 @@ impl Blocker {
             }
             let mut resource_and_priority = None;
             for redirect_filter in redirect_filters.iter() {
-                if !redirect_filter.is_exception() {
+                if !redirect_filter.filter_mask.is_exception() {
                     if let Some(redirect) = redirect_filter.modifier_option.as_ref() {
                         if !exceptions.contains(&redirect) {
                             // parse redirect + priority
@@ -278,7 +278,7 @@ impl Blocker {
         let important = filter.is_some()
             && filter
                 .as_ref()
-                .map(|f| f.is_important())
+                .map(|f| f.filter_mask.is_important())
                 .unwrap_or_else(|| false);
 
         let rewritten_url = if important {
@@ -410,8 +410,8 @@ impl Blocker {
         let mut enabled_directives: HashSet<&str> = HashSet::new();
 
         for filter in filters.iter() {
-            if filter.is_exception() {
-                if filter.is_csp() {
+            if filter.filter_mask.is_exception() {
+                if filter.filter_mask.is_csp() {
                     if let Some(csp_directive) = &filter.modifier_option {
                         disabled_directives.insert(csp_directive);
                     } else {
@@ -420,7 +420,7 @@ impl Blocker {
                         return None;
                     }
                 }
-            } else if filter.is_csp() {
+            } else if filter.filter_mask.is_csp() {
                 if let Some(csp_directive) = &filter.modifier_option {
                     enabled_directives.insert(csp_directive);
                 }
