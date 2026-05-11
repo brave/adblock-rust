@@ -38,11 +38,12 @@ pub mod fb {
         pub const VT_MASK: flatbuffers::VOffsetT = 4;
         pub const VT_OPT_DOMAINS: flatbuffers::VOffsetT = 6;
         pub const VT_OPT_NOT_DOMAINS: flatbuffers::VOffsetT = 8;
-        pub const VT_PATTERNS: flatbuffers::VOffsetT = 10;
-        pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 12;
-        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 14;
-        pub const VT_TAG: flatbuffers::VOffsetT = 16;
-        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 18;
+        pub const VT_SINGLE_PATTERN: flatbuffers::VOffsetT = 10;
+        pub const VT_MULTI_PATTERNS: flatbuffers::VOffsetT = 12;
+        pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 14;
+        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 16;
+        pub const VT_TAG: flatbuffers::VOffsetT = 18;
+        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 20;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -71,8 +72,11 @@ pub mod fb {
             if let Some(x) = args.modifier_option {
                 builder.add_modifier_option(x);
             }
-            if let Some(x) = args.patterns {
-                builder.add_patterns(x);
+            if let Some(x) = args.multi_patterns {
+                builder.add_multi_patterns(x);
+            }
+            if let Some(x) = args.single_pattern {
+                builder.add_single_pattern(x);
             }
             if let Some(x) = args.opt_not_domains {
                 builder.add_opt_not_domains(x);
@@ -88,8 +92,9 @@ pub mod fb {
             let mask = self.mask();
             let opt_domains = self.opt_domains().map(|x| x.into_iter().collect());
             let opt_not_domains = self.opt_not_domains().map(|x| x.into_iter().collect());
-            let patterns = self
-                .patterns()
+            let single_pattern = self.single_pattern().map(|x| x.to_string());
+            let multi_patterns = self
+                .multi_patterns()
                 .map(|x| x.iter().map(|s| s.to_string()).collect());
             let modifier_option = self.modifier_option().map(|x| x.to_string());
             let hostname = self.hostname().map(|x| x.to_string());
@@ -99,7 +104,8 @@ pub mod fb {
                 mask,
                 opt_domains,
                 opt_not_domains,
-                patterns,
+                single_pattern,
+                multi_patterns,
                 modifier_option,
                 hostname,
                 tag,
@@ -148,7 +154,19 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn patterns(
+        pub fn single_pattern(&self) -> Option<&'a str> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(
+                    NetworkFilter::VT_SINGLE_PATTERN,
+                    None,
+                )
+            }
+        }
+        #[inline]
+        pub fn multi_patterns(
             &self,
         ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
             // Safety:
@@ -157,7 +175,7 @@ pub mod fb {
             unsafe {
                 self._tab.get::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
-                >>(NetworkFilter::VT_PATTERNS, None)
+                >>(NetworkFilter::VT_MULTI_PATTERNS, None)
             }
         }
         #[inline]
@@ -223,9 +241,14 @@ pub mod fb {
                     Self::VT_OPT_NOT_DOMAINS,
                     false,
                 )?
+                .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                    "single_pattern",
+                    Self::VT_SINGLE_PATTERN,
+                    false,
+                )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
-                >>("patterns", Self::VT_PATTERNS, false)?
+                >>("multi_patterns", Self::VT_MULTI_PATTERNS, false)?
                 .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
                     "modifier_option",
                     Self::VT_MODIFIER_OPTION,
@@ -250,7 +273,8 @@ pub mod fb {
         pub mask: u32,
         pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
-        pub patterns: Option<
+        pub single_pattern: Option<flatbuffers::WIPOffset<&'a str>>,
+        pub multi_patterns: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
         >,
         pub modifier_option: Option<flatbuffers::WIPOffset<&'a str>>,
@@ -265,7 +289,8 @@ pub mod fb {
                 mask: 540221439,
                 opt_domains: None,
                 opt_not_domains: None,
-                patterns: None,
+                single_pattern: None,
+                multi_patterns: None,
                 modifier_option: None,
                 hostname: None,
                 tag: None,
@@ -305,15 +330,22 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_patterns(
+        pub fn add_single_pattern(&mut self, single_pattern: flatbuffers::WIPOffset<&'b str>) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_SINGLE_PATTERN,
+                single_pattern,
+            );
+        }
+        #[inline]
+        pub fn add_multi_patterns(
             &mut self,
-            patterns: flatbuffers::WIPOffset<
+            multi_patterns: flatbuffers::WIPOffset<
                 flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_PATTERNS,
-                patterns,
+                NetworkFilter::VT_MULTI_PATTERNS,
+                multi_patterns,
             );
         }
         #[inline]
@@ -365,7 +397,8 @@ pub mod fb {
             ds.field("mask", &self.mask());
             ds.field("opt_domains", &self.opt_domains());
             ds.field("opt_not_domains", &self.opt_not_domains());
-            ds.field("patterns", &self.patterns());
+            ds.field("single_pattern", &self.single_pattern());
+            ds.field("multi_patterns", &self.multi_patterns());
             ds.field("modifier_option", &self.modifier_option());
             ds.field("hostname", &self.hostname());
             ds.field("tag", &self.tag());
@@ -379,7 +412,8 @@ pub mod fb {
         pub mask: u32,
         pub opt_domains: Option<Vec<u32>>,
         pub opt_not_domains: Option<Vec<u32>>,
-        pub patterns: Option<Vec<String>>,
+        pub single_pattern: Option<String>,
+        pub multi_patterns: Option<Vec<String>>,
         pub modifier_option: Option<String>,
         pub hostname: Option<String>,
         pub tag: Option<String>,
@@ -391,7 +425,8 @@ pub mod fb {
                 mask: 540221439,
                 opt_domains: None,
                 opt_not_domains: None,
-                patterns: None,
+                single_pattern: None,
+                multi_patterns: None,
                 modifier_option: None,
                 hostname: None,
                 tag: None,
@@ -407,7 +442,8 @@ pub mod fb {
             let mask = self.mask;
             let opt_domains = self.opt_domains.as_ref().map(|x| _fbb.create_vector(x));
             let opt_not_domains = self.opt_not_domains.as_ref().map(|x| _fbb.create_vector(x));
-            let patterns = self.patterns.as_ref().map(|x| {
+            let single_pattern = self.single_pattern.as_ref().map(|x| _fbb.create_string(x));
+            let multi_patterns = self.multi_patterns.as_ref().map(|x| {
                 let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
                 _fbb.create_vector(&w)
             });
@@ -421,7 +457,8 @@ pub mod fb {
                     mask,
                     opt_domains,
                     opt_not_domains,
-                    patterns,
+                    single_pattern,
+                    multi_patterns,
                     modifier_option,
                     hostname,
                     tag,

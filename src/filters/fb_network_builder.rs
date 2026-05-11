@@ -81,15 +81,22 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
             .as_ref()
             .map(|s| builder.create_string(s));
 
-        let patterns = if network_filter.filter.iter().len() > 0 {
-            let offsets: Vec<WIPOffset<&str>> = network_filter
-                .filter
-                .iter()
-                .map(|s| builder.create_string(s))
-                .collect();
-            Some(FlatSerialize::serialize(offsets, builder))
+        let mut filter_iter = network_filter.filter.iter();
+        let filter_count = filter_iter.len();
+
+        // Use single_pattern for the common case of 0 or 1 patterns to avoid
+        // the overhead of a FlatBuffers vector (extra table + offset indirection).
+        let (single_pattern, multi_patterns) = if filter_count <= 1 {
+            let single = filter_iter.next().map(|s| builder.create_string(s));
+            (single, None)
         } else {
-            None
+            (
+                None,
+                Some(FlatSerialize::serialize(
+                    filter_iter.collect::<Vec<_>>(),
+                    builder,
+                )),
+            )
         };
 
         let raw_line = network_filter
@@ -101,7 +108,8 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
             builder.raw_builder(),
             &fb::NetworkFilterArgs {
                 mask: network_filter.mask.bits(),
-                patterns,
+                single_pattern,
+                multi_patterns,
                 modifier_option,
                 opt_domains,
                 opt_not_domains,
