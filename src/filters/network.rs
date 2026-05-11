@@ -29,6 +29,7 @@ bitflags::bitflags! {
     const BAD_FILTER = 1 << 0;
     const IS_REMOVEPARAM = 1 << 1;
     const GENERIC_HIDE = 1 << 2;
+    const IS_CSP = 1 << 3;
   }
 }
 
@@ -121,7 +122,6 @@ bitflags::bitflags! {
         const IS_RIGHT_ANCHOR = 1 << 20;
         const IS_HOSTNAME_ANCHOR = 1 << 21;
         const IS_EXCEPTION = 1 << 22;
-        const IS_CSP = 1 << 23;
         const IS_COMPLETE_REGEX = 1 << 24;
         const IS_HOSTNAME_REGEX = 1 << 28;
 
@@ -190,10 +190,6 @@ pub trait NetworkFilterMaskHelper {
         self.has_flag(NetworkFilterMask::MATCH_CASE)
     }
 
-    #[inline]
-    fn is_important(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_IMPORTANT)
-    }
 
     #[inline]
     fn is_redirect(&self) -> bool {
@@ -220,10 +216,6 @@ pub trait NetworkFilterMaskHelper {
         !self.is_regex()
     }
 
-    #[inline]
-    fn is_csp(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_CSP)
-    }
 
     #[inline]
     fn third_party(&self) -> bool {
@@ -530,10 +522,10 @@ impl NetworkFilter {
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Csp(value) => {
-                        mask.set(NetworkFilterMask::IS_CSP, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
                         // subdocument and document rules. Rules do not match against document
-                        // requests by default, so this must be explictly added.
+                        // requests by default, so this must be explicitly added.
                         mask.set(NetworkFilterMask::FROM_DOCUMENT, true);
                         modifier_option = value;
                     }
@@ -938,6 +930,11 @@ impl NetworkFilter {
     pub fn is_generic_hide(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::GENERIC_HIDE)
+    }
+
+    pub fn is_csp(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_CSP)
     }
 
     #[cfg(test)]
