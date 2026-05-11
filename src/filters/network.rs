@@ -190,6 +190,11 @@ pub trait NetworkFilterMaskHelper {
     }
 
     #[inline]
+    fn is_important(&self) -> bool {
+        self.has_flag(NetworkFilterMask::IS_IMPORTANT)
+    }
+
+    #[inline]
     fn is_regex(&self) -> bool {
         self.has_flag(NetworkFilterMask::IS_REGEX)
     }
