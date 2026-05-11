@@ -932,7 +932,8 @@ impl NetworkFilter {
     }
 
     pub fn is_badfilter(&self) -> bool {
-        self.features_mask.contains(NetworkFilterFeaturesMask::BAD_FILTER)
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::BAD_FILTER)
     }
 
     #[cfg(test)]
