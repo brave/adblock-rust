@@ -27,6 +27,7 @@ bitflags::bitflags! {
   #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
   pub struct NetworkFilterFeaturesMask: u32 {
     const BAD_FILTER = 1 << 0;
+    const IS_REMOVEPARAM = 1 << 1;
   }
 }
 
@@ -106,7 +107,6 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const IS_REMOVEPARAM = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         const IS_REDIRECT = 1 << 26;
@@ -198,11 +198,6 @@ pub trait NetworkFilterMaskHelper {
     #[inline]
     fn is_redirect(&self) -> bool {
         self.has_flag(NetworkFilterMask::IS_REDIRECT)
-    }
-
-    #[inline]
-    fn is_removeparam(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_REMOVEPARAM)
     }
 
     #[inline]
@@ -536,7 +531,7 @@ impl NetworkFilter {
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Removeparam(value) => {
-                        mask.set(NetworkFilterMask::IS_REMOVEPARAM, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REMOVEPARAM, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Csp(value) => {
@@ -587,7 +582,7 @@ impl NetworkFilter {
         // The negated types will be applied later.
         //
         // This doesn't apply to removeparam filters.
-        if !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+        if !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
             && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES)
                 != NetworkFilterMask::NONE
         {
@@ -596,7 +591,7 @@ impl NetworkFilter {
         // If no positive types were set, then the filter should apply to all network types.
         if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() {
             // Removeparam is again a special case.
-            if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+            if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
                     | NetworkFilterMask::FROM_SUBDOCUMENT
                     | NetworkFilterMask::FROM_XMLHTTPREQUEST;
@@ -772,7 +767,7 @@ impl NetworkFilter {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
-        if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) && parsed.exception {
+        if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) && parsed.exception {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
 
@@ -791,7 +786,7 @@ impl NetworkFilter {
             && mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
-            && !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+            && !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
         {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
@@ -901,7 +896,11 @@ impl NetworkFilter {
             }
         }
 
-        if tokens_buffer.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+        if tokens_buffer.is_empty()
+            && self
+                .features_mask
+                .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+        {
             if let Some(removeparam) = &self.modifier_option {
                 if VALID_PARAM.is_match(removeparam) {
                     utils::tokenize_to(&removeparam.to_ascii_lowercase(), tokens_buffer);
@@ -934,6 +933,11 @@ impl NetworkFilter {
     pub fn is_badfilter(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::BAD_FILTER)
+    }
+
+    pub fn is_removeparam(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
     }
 
     #[cfg(test)]
