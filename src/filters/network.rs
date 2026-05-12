@@ -821,6 +821,7 @@ impl NetworkFilter {
         compute_filter_id(
             self.modifier_option.as_deref(),
             self.mask,
+            self.features_mask,
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
@@ -978,12 +979,17 @@ pub(crate) trait NetworkMatchable {
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,
+    features_mask: NetworkFilterFeaturesMask,
     filter: Option<&str>,
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits());
+
+    // Exclude BAD_FILTER from the hash
+    let features_mask_bits = features_mask.bits() & !NetworkFilterFeaturesMask::BAD_FILTER.bits();
+    hash = hash.wrapping_mul(33) ^ Hash::from(features_mask_bits);
 
     if let Some(s) = modifier_option {
         let chars = s.chars();
