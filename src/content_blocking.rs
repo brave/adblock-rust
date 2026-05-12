@@ -1,9 +1,7 @@
 //! Transforms filter rules into content blocking syntax used on iOS and MacOS.
 
 use crate::filters::cosmetic::CosmeticFilter;
-use crate::filters::network::{
-    NetworkFilter, NetworkFilterFeaturesMask, NetworkFilterMask, NetworkFilterMaskHelper,
-};
+use crate::filters::network::{NetworkFilter, NetworkFilterFeaturesMask, NetworkFilterMask};
 use crate::lists::ParsedFilter;
 
 use memchr::{memchr as find_char, memmem};
@@ -317,7 +315,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             if v.is_redirect() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
             }
-            if v.mask.contains(NetworkFilterMask::GENERIC_HIDE) {
+            if v.is_generic_hide() {
                 return Err(CbRuleCreationFailure::NetworkGenerichideUnsupported);
             }
             debug_assert!(
