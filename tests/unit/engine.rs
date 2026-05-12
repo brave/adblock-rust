@@ -221,8 +221,8 @@ mod tests {
         #[cfg(feature = "debug-info")]
         {
             let debug_info = engine.get_debug_info();
-            let low_bound = 9_000_000;
-            let high_bound = 9_500_000;
+            let low_bound = 8_700_000;
+            let high_bound = 9_200_000;
             assert!(
                 debug_info.flatbuffer_size >= low_bound,
                 "Expected size >= {} bytes, got {}",
@@ -237,9 +237,9 @@ mod tests {
             );
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            11452175769852090292
+            1278886013448413771
         } else {
-            9645570723907119088
+            6460458707531433656
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
