@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778624251964,
+  "lastUpdate": 1778622470698,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -44,10 +44,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -92,10 +92,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -140,10 +140,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -188,10 +188,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -236,10 +236,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -284,10 +284,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41409969,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -332,10 +332,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -380,10 +380,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -428,10 +428,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -476,10 +476,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -524,10 +524,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -572,10 +572,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41408849,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -620,10 +620,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 41762172,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -668,10 +668,10 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -716,34 +716,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523455,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604571,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68096,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -788,34 +788,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875324,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523455,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604571,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68096,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -860,34 +860,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536643,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875308,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523423,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604539,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68064,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -932,34 +932,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536643,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875308,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523439,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604555,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68080,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1004,34 +1004,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875324,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523439,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604555,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68080,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1082,34 +1082,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523471,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1160,34 +1160,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 21536659,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523471,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1238,34 +1238,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1316,34 +1316,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1394,34 +1394,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1472,34 +1472,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1550,34 +1550,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 72875340,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604603,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68144,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1628,34 +1628,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604603,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68144,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1706,34 +1706,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604603,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68144,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1784,34 +1784,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1862,34 +1862,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68128,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -1940,34 +1940,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604603,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68144,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2018,34 +2018,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604603,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68144,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2096,34 +2096,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 15931083,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 65242636,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1523457,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2604587,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68112,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2174,34 +2174,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 16225933,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1514650,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66070,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2252,34 +2252,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 16225933,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1514650,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505576,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66054,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2330,34 +2330,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 16225933,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1514650,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505576,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66038,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2408,34 +2408,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 16225933,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1514650,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66070,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2486,34 +2486,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 16225933,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1514650,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505576,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66038,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2564,34 +2564,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 16225933,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1514650,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66070,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           }
         ]
       },
@@ -2642,34 +2642,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18831613,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66139,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -2732,34 +2732,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505576,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66123,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -2822,34 +2822,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66139,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -2912,34 +2912,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66155,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3002,34 +3002,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66155,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3092,34 +3092,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505576,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66123,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3182,34 +3182,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66155,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3272,34 +3272,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 17549140,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64817658,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1515544,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2505592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 66155,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3362,34 +3362,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18858505,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961309,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616130,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551938,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68835,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3452,34 +3452,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344519,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961309,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616114,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551922,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68848,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3542,34 +3542,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344519,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961309,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616130,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551938,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68864,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3632,34 +3632,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344503,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961277,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616082,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551890,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68816,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3722,34 +3722,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344519,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961309,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616130,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551938,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68864,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3812,34 +3812,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344503,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961277,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616082,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551890,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68816,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3902,34 +3902,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344519,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961309,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616130,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551938,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68864,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -3992,34 +3992,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 18344503,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961277,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1616082,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2551890,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 68816,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4082,34 +4082,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11287711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961277,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1635258,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2562777,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69244,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4172,34 +4172,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11315127,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961277,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1635258,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2562777,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69244,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4262,34 +4262,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11315127,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961277,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1635258,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2562777,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69244,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4352,34 +4352,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11315143,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 66961309,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1635306,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2562825,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69292,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4442,34 +4442,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11499344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 67489115,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1660477,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4532,34 +4532,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11499344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 67489115,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1660477,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4622,34 +4622,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11499344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 67489115,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1660477,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4712,34 +4712,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212224,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 67489115,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1610823,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4802,34 +4802,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212224,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 64057431,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1610823,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4892,34 +4892,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212240,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62257223,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1491074,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666974,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71385,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -4982,34 +4982,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212240,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62256263,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1362341,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666974,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71385,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5072,34 +5072,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212240,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62256263,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1362341,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666974,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71385,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5162,34 +5162,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212224,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62256231,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1362293,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5252,34 +5252,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212224,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62256247,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1362325,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666958,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71369,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5342,34 +5342,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212224,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62256231,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1362293,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666926,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71337,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5432,34 +5432,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212216,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 62258783,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1362674,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666974,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71393,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5522,34 +5522,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212216,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63149135,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231721,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666990,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71425,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5612,34 +5612,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212216,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63149135,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231721,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2666990,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71425,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5702,34 +5702,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10212216,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63149135,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231721,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2645938,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71016,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5792,34 +5792,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692696,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71591,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5882,34 +5882,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71607,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -5972,34 +5972,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71607,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6062,34 +6062,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71607,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6152,34 +6152,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71607,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6242,34 +6242,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1231711,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 71607,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6332,34 +6332,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 996170,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69464,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6422,34 +6422,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 996170,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692712,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69464,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6512,34 +6512,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 996170,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2692696,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69432,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6602,34 +6602,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 996170,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2282164,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69311,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6692,34 +6692,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 996170,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2282164,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69311,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6782,34 +6782,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10213344,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 60612235,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 996170,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2282164,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 69311,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6872,34 +6872,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -6962,34 +6962,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7052,34 +7052,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7142,34 +7142,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7232,34 +7232,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7322,34 +7322,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7412,34 +7412,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7502,34 +7502,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316776,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70149,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7592,34 +7592,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7682,34 +7682,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7772,34 +7772,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7862,34 +7862,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10630445,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61948094,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030640,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -7952,34 +7952,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8042,34 +8042,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8132,34 +8132,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950730,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030612,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316744,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70117,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8222,34 +8222,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8312,34 +8312,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8402,34 +8402,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8492,34 +8492,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8582,34 +8582,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8672,34 +8672,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1030644,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8762,34 +8762,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 969673,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8852,34 +8852,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 969673,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -8942,34 +8942,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 10633093,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 61950746,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 969673,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2316792,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 70181,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9032,34 +9032,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11354704,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63576624,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1014074,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2612608,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 74219,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9122,34 +9122,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11354704,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63576624,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1014074,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2612608,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 74219,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9212,34 +9212,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11354704,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63576624,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1014074,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2612592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 74187,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9302,34 +9302,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11354704,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63576624,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1014074,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2612592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 74203,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9392,34 +9392,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11354704,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63576624,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 1014074,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2612592,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 74187,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9482,34 +9482,34 @@ window.BENCHMARK_DATA = {
             "unit": "ns/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial",
+            "name": "memory-usage-final/brave-list-initial",
             "value": 11354704,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/max",
+            "name": "memory-usage-max/brave-list-initial/max",
             "value": 63576624,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-initial/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
             "value": 983703,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests",
+            "name": "memory-usage-final/brave-list-1000-requests",
             "value": 2612608,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
-            "name": "memory-usage/brave-list-1000-requests/alloc-count",
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
             "value": 74219,
-            "range": "± 3",
-            "unit": "ns/iter"
+            "range": "± 0",
+            "unit": "B/iter"
           },
           {
             "name": "url_cosmetic_resources/brave-list",
@@ -9521,84 +9521,6 @@ window.BENCHMARK_DATA = {
             "name": "cosmetic-class-id-match/brave-list",
             "value": 3477527,
             "range": "± 941705",
-            "unit": "ns/iter"
-          }
-        ]
-      },
-      {
-        "commit": {
-          "author": {
-            "email": "22821309+antonok-edm@users.noreply.github.com",
-            "name": "Anton Lazarev",
-            "username": "antonok-edm"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0cbb2327c0894a729c2c7f7999fdeacdbeb5af64",
-          "message": "Merge pull request #636 from brave/memory-usage-formatter\n\nUse custom formatters for memory usage benchmarks",
-          "timestamp": "2026-05-12T15:12:31-07:00",
-          "tree_id": "1d8b7107ebbcaffb6a84ebfcba3d31d4136e91ff",
-          "url": "https://github.com/brave/adblock-rust/commit/0cbb2327c0894a729c2c7f7999fdeacdbeb5af64"
-        },
-        "date": 1778624250882,
-        "tool": "cargo",
-        "benches": [
-          {
-            "name": "rule-match-browserlike/brave-list",
-            "value": 2283057316,
-            "range": "± 10083094",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "rule-match-first-request/brave-list",
-            "value": 1251054,
-            "range": "± 8025",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "blocker_new/brave-list",
-            "value": 152885381,
-            "range": "± 2019946",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "blocker_new/brave-list-deserialize",
-            "value": 30380507,
-            "range": "± 638747",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "memory-usage-final/brave-list-initial",
-            "value": 11354668,
-            "range": "± 0",
-            "unit": "B/iter"
-          },
-          {
-            "name": "memory-usage-final/brave-list-1000-requests",
-            "value": 2612449,
-            "range": "± 0",
-            "unit": "B/iter"
-          },
-          {
-            "name": "memory-usage-max/brave-list-initial/max",
-            "value": 63576547,
-            "range": "± 0",
-            "unit": "B/iter"
-          },
-          {
-            "name": "url_cosmetic_resources/brave-list",
-            "value": 200080,
-            "range": "± 1372",
-            "unit": "ns/iter"
-          },
-          {
-            "name": "cosmetic-class-id-match/brave-list",
-            "value": 3311106,
-            "range": "± 892548",
             "unit": "ns/iter"
           }
         ]
