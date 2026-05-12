@@ -332,8 +332,8 @@ impl ExactSizeIterator for FilterPartIterator<'_> {
     fn len(&self) -> usize {
         match self.filter_part {
             FilterPart::Empty => 0,
-            FilterPart::Simple(_) => 1,
-            FilterPart::AnyOf(vec) => vec.len(),
+            FilterPart::Simple(_) => 1usize.saturating_sub(self.index),
+            FilterPart::AnyOf(vec) => vec.len().saturating_sub(self.index),
         }
     }
 }

@@ -18,7 +18,11 @@ table NetworkFilter {
   opt_domains: [uint32];
   opt_not_domains: [uint32];
 
-  patterns: [string];
+  // A union-like storage for pattern. Prefer |single_pattern| where
+  // possible for performance concerns.
+  single_pattern: string;
+  multi_patterns: [string];
+
   modifier_option: string;
   hostname: string;
 

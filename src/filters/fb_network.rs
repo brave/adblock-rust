@@ -8,24 +8,37 @@ use crate::regex_manager::RegexManager;
 use crate::request::Request;
 
 use crate::filters::flatbuffer_generated::fb;
+
 /// A list of string parts that can be matched against a URL.
-pub(crate) struct FlatPatterns<'a> {
-    patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+pub(crate) enum FlatPatterns<'a> {
+    /// No patterns to match
+    Empty,
+    /// Memory-usage optimization - ~95% of filters have <= 1 pattern. Special-casing avoids the
+    /// need to hold an extra pointer and vector length.
+    Single(&'a str),
+    /// More than 1 pattern to match
+    Multi(flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>),
 }
 
 impl<'a> FlatPatterns<'a> {
     #[inline(always)]
     pub fn new(
-        patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        single_pattern: Option<&'a str>,
+        multi_patterns: Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
     ) -> Self {
-        Self { patterns }
+        if let Some(single_pattern) = single_pattern {
+            FlatPatterns::Single(single_pattern)
+        } else if let Some(patterns) = multi_patterns {
+            FlatPatterns::Multi(patterns)
+        } else {
+            FlatPatterns::Empty
+        }
     }
 
     #[inline(always)]
     pub fn iter(&self) -> FlatPatternsIterator<'_> {
         FlatPatternsIterator {
             patterns: self,
-            len: self.patterns.map_or(0, |d| d.len()),
             index: 0,
         }
     }
@@ -34,7 +47,6 @@ impl<'a> FlatPatterns<'a> {
 /// Iterator over [FlatPatterns].
 pub(crate) struct FlatPatternsIterator<'a> {
     patterns: &'a FlatPatterns<'a>,
-    len: usize,
     index: usize,
 }
 
@@ -43,21 +55,37 @@ impl<'a> Iterator for FlatPatternsIterator<'a> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.patterns.patterns.and_then(|fi| {
-            if self.index < self.len {
-                self.index += 1;
-                Some(fi.get(self.index - 1))
-            } else {
-                None
+        match &self.patterns {
+            FlatPatterns::Empty => None,
+            FlatPatterns::Single(s) => {
+                if self.index == 0 {
+                    self.index += 1;
+                    Some(*s)
+                } else {
+                    None
+                }
             }
-        })
+            FlatPatterns::Multi(v) => {
+                if self.index < v.len() {
+                    let result = v.get(self.index);
+                    self.index += 1;
+                    Some(result)
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
 impl ExactSizeIterator for FlatPatternsIterator<'_> {
     #[inline(always)]
     fn len(&self) -> usize {
-        self.len
+        match &self.patterns {
+            FlatPatterns::Empty => 0,
+            FlatPatterns::Single(_) => 1_usize.saturating_sub(self.index),
+            FlatPatterns::Multi(v) => v.len().saturating_sub(self.index),
+        }
     }
 }
 
@@ -123,7 +151,10 @@ impl<'a> FlatNetworkFilter<'a> {
 
     #[inline(always)]
     pub fn patterns(&self) -> FlatPatterns<'_> {
-        FlatPatterns::new(self.fb_filter.patterns())
+        FlatPatterns::new(
+            self.fb_filter.single_pattern(),
+            self.fb_filter.multi_patterns(),
+        )
     }
 
     #[inline(always)]
