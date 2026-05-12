@@ -13,7 +13,7 @@ use crate::filters::network::NetworkFilterMaskHelper;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize, WIPFlatVec};
 use crate::optimizer;
-use crate::utils::{to_short_hash, Hash, ShortHash};
+use crate::utils::{Hash, ShortHash, to_short_hash};
 
 use super::flat::fb;
 
@@ -97,7 +97,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
             .as_ref()
             .map(|v| builder.create_string(v.as_str()));
 
-        let network_filter = fb::NetworkFilter::create(
+        fb::NetworkFilter::create(
             builder.raw_builder(),
             &fb::NetworkFilterArgs {
                 mask: network_filter.mask.bits(),
@@ -109,9 +109,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for &NetworkFilter {
                 tag,
                 raw_line,
             },
-        );
-
-        network_filter
+        )
     }
 }
 

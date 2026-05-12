@@ -28,8 +28,10 @@ pub mod fb_test {
         type Inner = TestUIntMap<'a>;
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-            Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+            unsafe {
+                Self {
+                    _tab: flatbuffers::Table::new(buf, loc),
+                }
             }
         }
     }
@@ -223,8 +225,10 @@ pub mod fb_test {
         type Inner = TestStringMap<'a>;
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-            Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+            unsafe {
+                Self {
+                    _tab: flatbuffers::Table::new(buf, loc),
+                }
             }
         }
     }
@@ -428,8 +432,10 @@ pub mod fb_test {
         type Inner = TestRoot<'a>;
         #[inline]
         unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-            Self {
-                _tab: flatbuffers::Table::new(buf, loc),
+            unsafe {
+                Self {
+                    _tab: flatbuffers::Table::new(buf, loc),
+                }
             }
         }
     }
@@ -758,14 +764,14 @@ pub mod fb_test {
     /// # Safety
     /// Callers must trust the given bytes do indeed contain a valid `TestRoot`.
     pub unsafe fn root_as_test_root_unchecked(buf: &[u8]) -> TestRoot {
-        flatbuffers::root_unchecked::<TestRoot>(buf)
+        unsafe { flatbuffers::root_unchecked::<TestRoot>(buf) }
     }
     #[inline]
     /// Assumes, without verification, that a buffer of bytes contains a size prefixed TestRoot and returns it.
     /// # Safety
     /// Callers must trust the given bytes do indeed contain a valid size prefixed `TestRoot`.
     pub unsafe fn size_prefixed_root_as_test_root_unchecked(buf: &[u8]) -> TestRoot {
-        flatbuffers::size_prefixed_root_unchecked::<TestRoot>(buf)
+        unsafe { flatbuffers::size_prefixed_root_unchecked::<TestRoot>(buf) }
     }
     #[inline]
     pub fn finish_test_root_buffer<'a, 'b, A: flatbuffers::Allocator + 'a>(

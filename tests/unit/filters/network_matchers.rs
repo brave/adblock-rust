@@ -265,7 +265,11 @@ mod match_tests {
             "https://www1.swatchseries.to/sw.js",
             true,
         );
-        filter_match_url("||imp*.tradedoubler.com^", "https://impde.tradedoubler.com/imp?type(js)g(22608602)a(1725113)epi(30148500144427100033372010772028)preurl(https://pixel.mathtag.com/event/js?mt_id=1160537&mt_adid=166882&mt_exem=&mt_excl=&v1=&v2=&v3=&s1=&s2=&s3=&mt_nsync=1&redirect=https%3A%2F%2Fad28.ad-srv.net%2Fc%2Fczqwm6dm6kagr2j%3Ftprde%3D)768489806", true);
+        filter_match_url(
+            "||imp*.tradedoubler.com^",
+            "https://impde.tradedoubler.com/imp?type(js)g(22608602)a(1725113)epi(30148500144427100033372010772028)preurl(https://pixel.mathtag.com/event/js?mt_id=1160537&mt_adid=166882&mt_exem=&mt_excl=&v1=&v2=&v3=&s1=&s2=&s3=&mt_nsync=1&redirect=https%3A%2F%2Fad28.ad-srv.net%2Fc%2Fczqwm6dm6kagr2j%3Ftprde%3D)768489806",
+            true,
+        );
     }
 
     #[test]
@@ -321,10 +325,12 @@ mod match_tests {
         assert!(network_filter.matches_test(
             &request::Request::new("ws://example.com", "https://4shared.com", "websocket").unwrap()
         ));
-        assert!(network_filter.matches_test(
-            &request::Request::new("wss://example.com", "https://4shared.com", "websocket")
-                .unwrap()
-        ));
+        assert!(
+            network_filter.matches_test(
+                &request::Request::new("wss://example.com", "https://4shared.com", "websocket")
+                    .unwrap()
+            )
+        );
         assert!(!network_filter.matches_test(
             &request::Request::new("http://example.com", "https://4shared.com", "script").unwrap()
         ));
@@ -339,14 +345,18 @@ mod match_tests {
         assert!(network_filter.matches_test(
             &request::Request::new("wss://example.com", "https://4shared.com", "script").unwrap()
         ));
-        assert!(!network_filter.matches_test(
-            &request::Request::new("http://example.com", "https://4shared.com", "websocket")
-                .unwrap()
-        ));
-        assert!(!network_filter.matches_test(
-            &request::Request::new("https://example.com", "https://4shared.com", "websocket")
-                .unwrap()
-        ));
+        assert!(
+            !network_filter.matches_test(
+                &request::Request::new("http://example.com", "https://4shared.com", "websocket")
+                    .unwrap()
+            )
+        );
+        assert!(
+            !network_filter.matches_test(
+                &request::Request::new("https://example.com", "https://4shared.com", "websocket")
+                    .unwrap()
+            )
+        );
     }
 
     fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
@@ -484,26 +494,38 @@ mod match_tests {
             assert!(network_filter.matches_test(
                 &request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()
             ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
-                    .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new(
-                    "http://example.net/adv",
-                    "http://subfoo.foo.example.com",
-                    ""
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
+                        .unwrap()
                 )
-                .unwrap()
-            ));
-            assert!(network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://subfoo.foo.example.com",
+                        ""
+                    )
                     .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://anotherexample.com", "")
+                )
+            );
+            assert!(
+                network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+                        .unwrap()
+                )
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://anotherexample.com",
+                        ""
+                    )
                     .unwrap()
-            ));
+                )
+            );
         }
         {
             let network_filter = NetworkFilter::parse(
@@ -515,26 +537,38 @@ mod match_tests {
             assert!(!network_filter.matches_test(
                 &request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()
             ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
-                    .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new(
-                    "http://example.net/adv",
-                    "http://subfoo.foo.example.com",
-                    ""
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
+                        .unwrap()
                 )
-                .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://subfoo.foo.example.com",
+                        ""
+                    )
                     .unwrap()
-            ));
-            assert!(network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://anotherexample.com", "")
+                )
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+                        .unwrap()
+                )
+            );
+            assert!(
+                network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://anotherexample.com",
+                        ""
+                    )
                     .unwrap()
-            ));
+                )
+            );
         }
         {
             let network_filter = NetworkFilter::parse(
@@ -546,26 +580,38 @@ mod match_tests {
             assert!(network_filter.matches_test(
                 &request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()
             ));
-            assert!(network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
-                    .unwrap()
-            ));
-            assert!(network_filter.matches_test(
-                &request::Request::new(
-                    "http://example.net/adv",
-                    "http://subfoo.foo.example.com",
-                    ""
+            assert!(
+                network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
+                        .unwrap()
                 )
-                .unwrap()
-            ));
-            assert!(network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+            );
+            assert!(
+                network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://subfoo.foo.example.com",
+                        ""
+                    )
                     .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://anotherexample.com", "")
+                )
+            );
+            assert!(
+                network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+                        .unwrap()
+                )
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://anotherexample.com",
+                        ""
+                    )
                     .unwrap()
-            ));
+                )
+            );
         }
         {
             let network_filter = NetworkFilter::parse(
@@ -577,26 +623,38 @@ mod match_tests {
             assert!(!network_filter.matches_test(
                 &request::Request::new("http://example.net/adv", "http://example.com", "").unwrap()
             ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
-                    .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new(
-                    "http://example.net/adv",
-                    "http://subfoo.foo.example.com",
-                    ""
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://foo.example.com", "")
+                        .unwrap()
                 )
-                .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://subfoo.foo.example.com",
+                        ""
+                    )
                     .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://anotherexample.com", "")
+                )
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://bar.example.com", "")
+                        .unwrap()
+                )
+            );
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new(
+                        "http://example.net/adv",
+                        "http://anotherexample.com",
+                        ""
+                    )
                     .unwrap()
-            ));
+                )
+            );
         }
         {
             let network_filter =
@@ -607,10 +665,12 @@ mod match_tests {
             assert!(!network_filter.matches_test(
                 &request::Request::new("http://example.net/adv", "http://foo.com", "").unwrap()
             ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.net/adv", "http://subfoo.foo.com", "")
-                    .unwrap()
-            ));
+            assert!(
+                !network_filter.matches_test(
+                    &request::Request::new("http://example.net/adv", "http://subfoo.foo.com", "")
+                        .unwrap()
+                )
+            );
             assert!(network_filter.matches_test(
                 &request::Request::new("http://example.net/adv", "http://bar.com", "").unwrap()
             ));

@@ -2,7 +2,7 @@
 mod tests {
     use super::super::*;
 
-    use crate::{request, Engine};
+    use crate::{Engine, request};
 
     use mock_instant::thread_local::MockClock;
 

@@ -1,8 +1,8 @@
 mod legacy_test_filters {
+    use adblock::Engine;
     use adblock::filters::network::NetworkFilter;
     use adblock::filters::network::NetworkFilterMask;
     use adblock::request::Request;
-    use adblock::Engine;
 
     fn test_filter<'a>(
         raw_filter: &str,
@@ -315,8 +315,8 @@ mod legacy_test_filters {
 }
 
 mod legacy_check_match {
-    use adblock::request::Request;
     use adblock::Engine;
+    use adblock::request::Request;
 
     fn check_match<'a>(
         rules: &[&'a str],
@@ -501,8 +501,8 @@ mod legacy_check_match {
 }
 
 mod legacy_check_options {
-    use adblock::request::Request;
     use adblock::Engine;
+    use adblock::request::Request;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
         let engine = Engine::from_rules(rules, Default::default()); // first one with the provided rules
@@ -844,9 +844,9 @@ mod legacy_check_options {
 }
 
 mod legacy_misc_tests {
+    use adblock::Engine;
     use adblock::filters::network::NetworkFilter;
     use adblock::request::Request;
-    use adblock::Engine;
 
     #[test]
     fn demo_app() {

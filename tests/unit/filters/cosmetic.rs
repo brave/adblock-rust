@@ -960,41 +960,37 @@ mod matching_tests {
                 return false;
             }
 
-            if let Some(ref filter_not_hostnames) = self.not_hostnames {
-                if request_hostnames
+            if let Some(ref filter_not_hostnames) = self.not_hostnames
+                && request_hostnames
                     .iter()
                     .any(|hash| bin_lookup(filter_not_hostnames, *hash))
-                {
-                    return false;
-                }
+            {
+                return false;
             }
 
-            if let Some(ref filter_not_entities) = self.not_entities {
-                if request_entities
+            if let Some(ref filter_not_entities) = self.not_entities
+                && request_entities
                     .iter()
                     .any(|hash| bin_lookup(filter_not_entities, *hash))
-                {
-                    return false;
-                }
+            {
+                return false;
             }
 
             if self.hostnames.is_some() || self.entities.is_some() {
-                if let Some(ref filter_hostnames) = self.hostnames {
-                    if request_hostnames
+                if let Some(ref filter_hostnames) = self.hostnames
+                    && request_hostnames
                         .iter()
                         .any(|hash| bin_lookup(filter_hostnames, *hash))
-                    {
-                        return true;
-                    }
+                {
+                    return true;
                 }
 
-                if let Some(ref filter_entities) = self.entities {
-                    if request_entities
+                if let Some(ref filter_entities) = self.entities
+                    && request_entities
                         .iter()
                         .any(|hash| bin_lookup(filter_entities, *hash))
-                    {
-                        return true;
-                    }
+                {
+                    return true;
                 }
 
                 return false;
@@ -1213,33 +1209,38 @@ mod css_validation_tests {
     #[test]
     fn bad_selector_inputs() {
         assert!(validate_css_selector(r#"rm -rf ./*"#, false).is_err());
-        assert!(validate_css_selector(
-            r#"javascript:alert("All pseudo-classes are valid")"#,
-            false
-        )
-        .is_ok());
-        assert!(validate_css_selector(
-            r#"javascript:alert("But opening comments are still forbidden" /*)"#,
-            false
-        )
-        .is_err());
+        assert!(
+            validate_css_selector(r#"javascript:alert("All pseudo-classes are valid")"#, false)
+                .is_ok()
+        );
+        assert!(
+            validate_css_selector(
+                r#"javascript:alert("But opening comments are still forbidden" /*)"#,
+                false
+            )
+            .is_err()
+        );
         assert!(validate_css_selector(r#"This is not a CSS selector."#, false).is_err());
         assert!(validate_css_selector(r#"./malware.sh"#, false).is_err());
         assert!(validate_css_selector(r#"https://safesite.ru"#, false).is_err());
-        assert!(validate_css_selector(
-            r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#,
-            false
-        )
-        .is_err());
+        assert!(
+            validate_css_selector(
+                r#"(function(){var e=60;return String.fromCharCode(e.charCodeAt(0))})();"#,
+                false
+            )
+            .is_err()
+        );
         assert!(validate_css_selector(r#"#!/usr/bin/sh"#, false).is_err());
         assert!(validate_css_selector(r#"input,input/*"#, false).is_err());
         // Accept a closing comment within a string. It should still be impossible to create an
         // opening comment to match it.
-        assert!(validate_css_selector(
-            r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#,
-            false
-        )
-        .is_ok());
+        assert!(
+            validate_css_selector(
+                r#"input[x="*/{}*{background:url(https://hackvertor.co.uk/images/logo.gif)}"]"#,
+                false
+            )
+            .is_ok()
+        );
     }
 
     #[test]

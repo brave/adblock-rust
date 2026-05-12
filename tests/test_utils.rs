@@ -5,7 +5,7 @@
 pub fn rules_from_lists(
     lists: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> impl Iterator<Item = String> {
-    fn read_file_lines(filename: &str) -> impl Iterator<Item = String> {
+    fn read_file_lines(filename: &str) -> impl Iterator<Item = String> + use<> {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 

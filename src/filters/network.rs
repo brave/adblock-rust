@@ -869,12 +869,10 @@ impl NetworkFilter {
         if self.opt_domains.is_some()
             && self.opt_not_domains.is_none()
             && self.opt_domains.as_ref().map(|d| d.len()) == Some(1)
+            && let Some(domains) = self.opt_domains.as_ref()
+            && let Some(domain) = domains.first()
         {
-            if let Some(domains) = self.opt_domains.as_ref() {
-                if let Some(domain) = domains.first() {
-                    tokens_buffer.push(*domain);
-                }
-            }
+            tokens_buffer.push(*domain);
         }
 
         // Get tokens from filter
@@ -905,22 +903,22 @@ impl NetworkFilter {
             }
         }
 
-        if tokens_buffer.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
-            if let Some(removeparam) = &self.modifier_option {
-                if VALID_PARAM.is_match(removeparam) {
-                    utils::tokenize_to(&removeparam.to_ascii_lowercase(), tokens_buffer);
-                }
-            }
+        if tokens_buffer.is_empty()
+            && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+            && let Some(removeparam) = &self.modifier_option
+            && VALID_PARAM.is_match(removeparam)
+        {
+            utils::tokenize_to(&removeparam.to_ascii_lowercase(), tokens_buffer);
         }
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
         if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
         {
-            if let Some(opt_domains) = self.opt_domains.as_ref() {
-                if !opt_domains.is_empty() {
-                    return FilterTokens::OptDomains(opt_domains);
-                }
+            if let Some(opt_domains) = self.opt_domains.as_ref()
+                && !opt_domains.is_empty()
+            {
+                return FilterTokens::OptDomains(opt_domains);
             }
             FilterTokens::Empty
         } else {

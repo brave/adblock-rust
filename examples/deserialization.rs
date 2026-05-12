@@ -1,11 +1,11 @@
-use adblock::{request::Request, Engine};
+use adblock::{Engine, request::Request};
 
 use serde::Deserialize;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::BufReader;
+use std::io::prelude::*;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
