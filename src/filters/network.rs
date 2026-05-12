@@ -28,6 +28,14 @@ bitflags::bitflags! {
   #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
   pub struct NetworkFilterFeaturesMask: u32 {
     const BAD_FILTER = 1 << 0;
+    const IS_REMOVEPARAM = 1 << 1;
+    const GENERIC_HIDE = 1 << 2;
+    const IS_CSP = 1 << 3;
+    const IS_REDIRECT = 1 << 4;
+
+    /// Specifies that a redirect rule should also create a corresponding block rule.
+    /// This is used to avoid returning two separate rules from `NetworkFilter::parse`.
+    const ALSO_BLOCK_REDIRECT = 1 << 5;
   }
 }
 
@@ -107,12 +115,8 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
-        const IS_REMOVEPARAM = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
-        const IS_REDIRECT = 1 << 26;
-        const GENERIC_HIDE = 1 << 30;
-
         // Full document rules are not implied by negated types.
         const FROM_DOCUMENT = 1 << 29;
 
@@ -122,13 +126,8 @@ bitflags::bitflags! {
         const IS_RIGHT_ANCHOR = 1 << 20;
         const IS_HOSTNAME_ANCHOR = 1 << 21;
         const IS_EXCEPTION = 1 << 22;
-        const IS_CSP = 1 << 23;
         const IS_COMPLETE_REGEX = 1 << 24;
         const IS_HOSTNAME_REGEX = 1 << 28;
-
-        // Specifies that a redirect rule should also create a corresponding block rule.
-        // This is used to avoid returning two separate rules from `NetworkFilter::parse`.
-        const ALSO_BLOCK_REDIRECT = 1 << 31;
 
         // "Other" network request types
         const UNMATCHED = 1 << 25;
@@ -197,26 +196,6 @@ pub trait NetworkFilterMaskHelper {
     }
 
     #[inline]
-    fn is_redirect(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_REDIRECT)
-    }
-
-    #[inline]
-    fn is_removeparam(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_REMOVEPARAM)
-    }
-
-    #[inline]
-    fn also_block_redirect(&self) -> bool {
-        self.has_flag(NetworkFilterMask::ALSO_BLOCK_REDIRECT)
-    }
-
-    #[inline]
-    fn is_generic_hide(&self) -> bool {
-        self.has_flag(NetworkFilterMask::GENERIC_HIDE)
-    }
-
-    #[inline]
     fn is_regex(&self) -> bool {
         self.has_flag(NetworkFilterMask::IS_REGEX)
     }
@@ -229,11 +208,6 @@ pub trait NetworkFilterMaskHelper {
     #[inline]
     fn is_plain(&self) -> bool {
         !self.is_regex()
-    }
-
-    #[inline]
-    fn is_csp(&self) -> bool {
-        self.has_flag(NetworkFilterMask::IS_CSP)
     }
 
     #[inline]
@@ -528,28 +502,28 @@ impl NetworkFilter {
                     }
                     NetworkFilterOption::Tag(value) => tag = Some(value),
                     NetworkFilterOption::Redirect(value) => {
-                        mask.set(NetworkFilterMask::IS_REDIRECT, true);
-                        mask.set(NetworkFilterMask::ALSO_BLOCK_REDIRECT, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REDIRECT, true);
+                        features_mask.set(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::RedirectRule(value) => {
-                        mask.set(NetworkFilterMask::IS_REDIRECT, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REDIRECT, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Removeparam(value) => {
-                        mask.set(NetworkFilterMask::IS_REMOVEPARAM, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REMOVEPARAM, true);
                         modifier_option = Some(value);
                     }
                     NetworkFilterOption::Csp(value) => {
-                        mask.set(NetworkFilterMask::IS_CSP, true);
+                        features_mask.set(NetworkFilterFeaturesMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
                         // subdocument and document rules. Rules do not match against document
-                        // requests by default, so this must be explictly added.
+                        // requests by default, so this must be explicitly added.
                         mask.set(NetworkFilterMask::FROM_DOCUMENT, true);
                         modifier_option = value;
                     }
                     NetworkFilterOption::Generichide => {
-                        mask.set(NetworkFilterMask::GENERIC_HIDE, true)
+                        features_mask.set(NetworkFilterFeaturesMask::GENERIC_HIDE, true)
                     }
                     NetworkFilterOption::Document => {
                         cpt_mask_positive.set(NetworkFilterMask::FROM_DOCUMENT, true)
@@ -588,7 +562,7 @@ impl NetworkFilter {
         // The negated types will be applied later.
         //
         // This doesn't apply to removeparam filters.
-        if !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+        if !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
             && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES)
                 != NetworkFilterMask::NONE
         {
@@ -597,7 +571,7 @@ impl NetworkFilter {
         // If no positive types were set, then the filter should apply to all network types.
         if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() {
             // Removeparam is again a special case.
-            if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+            if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
                     | NetworkFilterMask::FROM_SUBDOCUMENT
                     | NetworkFilterMask::FROM_XMLHTTPREQUEST;
@@ -772,11 +746,11 @@ impl NetworkFilter {
             })
             .transpose();
 
-        if mask.contains(NetworkFilterMask::GENERIC_HIDE) && !parsed.exception {
+        if features_mask.contains(NetworkFilterFeaturesMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
 
-        if mask.contains(NetworkFilterMask::IS_REMOVEPARAM) && parsed.exception {
+        if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) && parsed.exception {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
 
@@ -795,7 +769,7 @@ impl NetworkFilter {
             && mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
-            && !mask.contains(NetworkFilterMask::IS_REMOVEPARAM)
+            && !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
         {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
@@ -851,6 +825,7 @@ impl NetworkFilter {
         compute_filter_id(
             self.modifier_option.as_deref(),
             self.mask,
+            self.features_mask,
             self.filter.string_view().as_deref(),
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
@@ -903,7 +878,11 @@ impl NetworkFilter {
             }
         }
 
-        if tokens_buffer.is_empty() && self.mask.contains(NetworkFilterMask::IS_REMOVEPARAM) {
+        if tokens_buffer.is_empty()
+            && self
+                .features_mask
+                .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+        {
             if let Some(removeparam) = &self.modifier_option {
                 if VALID_PARAM.is_match(removeparam) {
                     utils::tokenize_to(&removeparam.to_ascii_lowercase(), tokens_buffer);
@@ -936,6 +915,31 @@ impl NetworkFilter {
     pub fn is_badfilter(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::BAD_FILTER)
+    }
+
+    pub fn is_removeparam(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+    }
+
+    pub fn is_generic_hide(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::GENERIC_HIDE)
+    }
+
+    pub fn is_csp(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_CSP)
+    }
+
+    pub fn is_redirect(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REDIRECT)
+    }
+
+    pub fn also_block_redirect(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT)
     }
 
     #[cfg(test)]
@@ -977,12 +981,17 @@ pub(crate) trait NetworkMatchable {
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,
+    features_mask: NetworkFilterFeaturesMask,
     filter: Option<&str>,
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
     let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits());
+
+    // Exclude BAD_FILTER from the hash
+    let features_mask_bits = features_mask.bits() & !NetworkFilterFeaturesMask::BAD_FILTER.bits();
+    hash = hash.wrapping_mul(33) ^ Hash::from(features_mask_bits);
 
     if let Some(s) = modifier_option {
         let chars = s.chars();
