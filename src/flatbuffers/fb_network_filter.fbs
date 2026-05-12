@@ -7,7 +7,10 @@
 namespace fb;
 
 table NetworkFilter {
-  mask: uint32;  // NetworkFilterMask (network.rs)
+  // NetworkFilterMask (network.rs).
+  // Default = DEFAULT_OPTIONS | IS_HOSTNAME_ANCHOR | IS_RIGHT_ANCHOR | FROM_DOCUMENT
+  // (the most common mask, covering ~50% of filters).
+  mask: uint32 = 540221439;  // 0x20331FFF
 
   /// These arrays contain sorted (ascending) indices in the |unique_domains_hashes|
   /// instead of the hashes themselves. This approach saves memory, as there
