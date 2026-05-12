@@ -11,8 +11,12 @@ use crate::filters::flatbuffer_generated::fb;
 
 /// A list of string parts that can be matched against a URL.
 pub(crate) enum FlatPatterns<'a> {
+    /// No patterns to match
     Empty,
+    /// Memory-usage optimization - ~95% of filters have <= 1 pattern. Special-casing avoids the
+    /// need to hold an extra pointer and vector length.
     Single(&'a str),
+    /// More than 1 pattern to match
     Multi(flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>),
 }
 
