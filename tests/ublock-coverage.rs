@@ -48,7 +48,7 @@ fn get_blocker_engine() -> Engine {
         "data/regression-testing/easyprivacy.txt",
     ]);
 
-    Engine::from_text_parametrised(rules, Default::default(), true, false)
+    Engine::new_with_list_text_parametrised(rules, Default::default(), true, false)
 }
 
 fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
@@ -67,14 +67,14 @@ fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<s
         rules.push('\n');
     }
 
-    Engine::from_text_parametrised(rules, Default::default(), true, false)
+    Engine::new_with_list_text_parametrised(rules, Default::default(), true, false)
 }
 
 #[test]
 fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
-        let engine = Engine::from_text("||www.facebook.com/*/plugin", Default::default());
+        let engine = Engine::new_with_list_text("||www.facebook.com/*/plugin", Default::default());
 
         let request =
             Request::new("https://www.facebook.com/v3.2/plugins/comments.ph", "", "").unwrap();
@@ -88,7 +88,7 @@ fn check_specific_rules() {
         use std::path::Path;
 
         // exceptions have no effect if important filter matches
-        let mut engine = Engine::from_text(
+        let mut engine = Engine::new_with_list_text(
             "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com",
             Default::default(),
         );

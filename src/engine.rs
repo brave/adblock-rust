@@ -68,71 +68,28 @@ pub struct EngineDebugInfo {
 
 impl Default for Engine {
     fn default() -> Self {
-        Self::from_filter_set(FilterSet::new(false), false)
+        Self::new_with_filter_set(FilterSet::new(false), false)
     }
 }
 
 impl Engine {
-    /// Loads rules in a single format, enabling optimizations and discarding debug information.
-    #[deprecated(since = "0.13.0", note = "Use `from_text` instead")]
-    pub fn from_rules(
-        rules: impl IntoIterator<Item = impl AsRef<str>>,
-        opts: ParseOptions,
-    ) -> Self {
-        let text = rules.into_iter().fold(String::new(), |mut acc, rule| {
-            acc.push_str(rule.as_ref());
-            acc.push('\n');
-            acc
-        });
-        Self::from_text_parametrised(text, opts, false, true)
+    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
+    #[doc(hidden)]
+    pub fn new_with_list_text(list_text: impl Into<String>, opts: ParseOptions) -> Self {
+        Self::new_with_list_text_parametrised(list_text.into(), opts, false, true)
     }
 
-    /// Loads rules, enabling optimizations and including debug information.
-    #[deprecated(since = "0.13.0", note = "Use `from_text` instead")]
-    pub fn from_rules_debug(
-        rules: impl IntoIterator<Item = impl AsRef<str>>,
-        opts: ParseOptions,
-    ) -> Self {
-        let text = rules.into_iter().fold(String::new(), |mut acc, rule| {
-            acc.push_str(rule.as_ref());
-            acc.push('\n');
-            acc
-        });
-        Self::from_text_parametrised(text, opts, true, true)
-    }
-
-    #[deprecated(since = "0.13.0", note = "Use `from_text_parametrised` instead")]
-    pub fn from_rules_parametrised(
-        filter_rules: impl IntoIterator<Item = impl AsRef<str>>,
-        opts: ParseOptions,
-        debug: bool,
-        optimize: bool,
-    ) -> Self {
-        let text = filter_rules
-            .into_iter()
-            .fold(String::new(), |mut acc, rule| {
-                acc.push_str(rule.as_ref());
-                acc.push('\n');
-                acc
-            });
-        let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filter_list(text, opts);
-        Self::from_filter_set(filter_set, optimize)
-    }
-
-    pub fn from_text(text: impl Into<String>, opts: ParseOptions) -> Self {
-        Self::from_text_parametrised(text.into(), opts, false, true)
-    }
-
-    pub fn from_text_parametrised(
-        text: impl Into<String>,
+    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
+    #[doc(hidden)]
+    pub fn new_with_list_text_parametrised(
+        list_text: impl Into<String>,
         opts: ParseOptions,
         debug: bool,
         optimize: bool,
     ) -> Self {
         let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filter_list(text.into(), opts);
-        Self::from_filter_set(filter_set, optimize)
+        filter_set.add_filter_list(list_text.into(), opts);
+        Self::new_with_filter_set(filter_set, optimize)
     }
 
     #[cfg(test)]
@@ -145,6 +102,7 @@ impl Engine {
         self.filter_data_context
     }
 
+    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
     #[doc(hidden)]
     pub fn new_with_parsed_rules(
         network_filters: Vec<NetworkFilter>,
@@ -167,7 +125,7 @@ impl Engine {
 
     /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
     /// rules from multiple sources.
-    pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
+    pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
         let (engine, _) = Self::from_filter_set_with_metadata(set, optimize);
         engine
     }
@@ -183,7 +141,7 @@ impl Engine {
 
         for list_source in set.list_sources {
             let mut metadata = FilterListMetadata::default();
-            for line in list_source.lines.lines() {
+            for line in list_source.list_text.lines() {
                 let parsed_line = parse_filter_line(line, set.debug, list_source.parse_options);
                 match parsed_line {
                     Ok(ParsedLine::ParsedFilter(parsed_filter)) => match parsed_filter {

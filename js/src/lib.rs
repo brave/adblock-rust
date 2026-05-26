@@ -149,9 +149,9 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
                     config.optimize.unwrap_or(true)
                 }
             };
-            EngineInternal::from_filter_set(rules, optimize)
+            EngineInternal::new_with_filter_set(rules, optimize)
         }
-        None => EngineInternal::from_filter_set(rules, true),
+        None => EngineInternal::new_with_filter_set(rules, true),
     };
     Ok(cx.boxed(Engine(Mutex::new(engine_internal))))
 }

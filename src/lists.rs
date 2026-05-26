@@ -71,7 +71,7 @@ impl Default for ParseOptions {
 
 #[derive(Clone)]
 pub(crate) struct ListSource {
-    pub(crate) lines: String,
+    pub(crate) list_text: String,
     pub(crate) parse_options: ParseOptions,
 }
 
@@ -220,9 +220,9 @@ impl FilterSet {
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
-    pub fn add_filter_list(&mut self, filter_list: String, opts: ParseOptions) {
+    pub fn add_filter_list(&mut self, list_text: String, opts: ParseOptions) {
         self.list_sources.push(ListSource {
-            lines: filter_list,
+            list_text,
             parse_options: opts,
         });
     }
@@ -235,13 +235,13 @@ impl FilterSet {
         filters: impl IntoIterator<Item = impl AsRef<str>>,
         opts: ParseOptions,
     ) {
-        let lines = filters.into_iter().fold(String::new(), |mut acc, rule| {
+        let list_text = filters.into_iter().fold(String::new(), |mut acc, rule| {
             acc.push_str(rule.as_ref());
             acc.push('\n');
             acc
         });
         self.list_sources.push(ListSource {
-            lines,
+            list_text,
             parse_options: opts,
         });
     }
@@ -275,10 +275,10 @@ impl FilterSet {
         let mut network_filters = vec![];
         let mut cosmetic_filters = vec![];
         for list_source in self.list_sources.iter() {
-            let lines = list_source.lines.lines();
+            let list_text = list_source.list_text.lines();
             let parse_options = list_source.parse_options;
             let (list_network_filters, list_cosmetic_filters) =
-                parse_filters(lines, self.debug, parse_options);
+                parse_filters(list_text, self.debug, parse_options);
             network_filters.extend(list_network_filters);
             cosmetic_filters.extend(list_cosmetic_filters);
         }

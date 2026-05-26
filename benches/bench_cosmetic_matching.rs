@@ -10,7 +10,7 @@ pub fn make_engine() -> Engine {
     let rules = test_utils::rules_from_lists(["data/brave/brave-main-list.txt"]);
     let resource_json = std::fs::read_to_string("data/brave/brave-resources.json").unwrap();
     let resource_list: Vec<Resource> = serde_json::from_str(&resource_json).unwrap();
-    let mut engine = Engine::from_text_parametrised(rules, Default::default(), true, true);
+    let mut engine = Engine::new_with_list_text_parametrised(rules, Default::default(), true, true);
     engine.use_resources(resource_list);
     engine
 }

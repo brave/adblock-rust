@@ -138,7 +138,7 @@ impl CosmeticFilterCache {
 
         let mut filter_set = FilterSet::new(false);
         filter_set.add_filters(rules, Default::default());
-        let engine = Engine::from_filter_set(filter_set, true);
+        let engine = Engine::new_with_filter_set(filter_set, true);
         engine.cosmetic_cache()
     }
 

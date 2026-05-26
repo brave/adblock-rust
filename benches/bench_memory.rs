@@ -148,7 +148,7 @@ fn bench_memory_usage(c: &mut Criterion) {
             for _ in 0..iters {
                 ALLOCATOR.reset();
                 let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
-                let mut engine = Engine::from_text(rules, Default::default());
+                let mut engine = Engine::new_with_list_text(rules, Default::default());
                 let resource_json =
                     std::fs::read_to_string("data/brave/brave-resources.json").unwrap();
                 let resource_list: Vec<Resource> = serde_json::from_str(&resource_json).unwrap();

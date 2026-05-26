@@ -21,7 +21,7 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_text(filters.join("\n"), Default::default());
+        let mut engine = Engine::new_with_list_text(filters.join("\n"), Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
 
@@ -55,7 +55,7 @@ mod tests {
             ("https://brave.com/about", true),
         ];
 
-        let mut engine = Engine::from_text(filters.join("\n"), Default::default());
+        let mut engine = Engine::new_with_list_text(filters.join("\n"), Default::default());
         engine.enable_tags(&["brian", "stuff"]);
         engine.disable_tags(&["stuff"]);
 
@@ -87,7 +87,7 @@ mod tests {
             ("https://brianbondy.com/advert", true),
         ];
 
-        let engine = Engine::from_text(filters.join("\n"), Default::default());
+        let engine = Engine::new_with_list_text(filters.join("\n"), Default::default());
 
         url_results.into_iter().for_each(|(url, expected_result)| {
             let request = Request::new(url, "", "").unwrap();
@@ -117,7 +117,7 @@ mod tests {
             ("https://brianbondy.com/advert", false),
         ];
 
-        let mut engine = Engine::from_text(filters.join("\n"), Default::default());
+        let mut engine = Engine::new_with_list_text(filters.join("\n"), Default::default());
         engine.enable_tags(&["brian", "stuff"]);
 
         url_results.into_iter().for_each(|(url, expected_result)| {
@@ -150,7 +150,7 @@ mod tests {
             ("https://brave.com/about", false),
         ];
 
-        let mut engine = Engine::from_text(filters.join("\n"), Default::default());
+        let mut engine = Engine::new_with_list_text(filters.join("\n"), Default::default());
         engine.enable_tags(&["stuff"]);
         engine.enable_tags(&["brian"]);
         let serialized = engine.serialize();
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_simple() {
-        let mut engine = Engine::from_text("ad-banner", Default::default());
+        let mut engine = Engine::new_with_list_text("ad-banner", Default::default());
         let data = engine.serialize().to_vec();
         const EXPECTED_HASH: u64 = 16556115079021991714;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn deserialization_generate_tags() {
-        let mut engine = Engine::from_text("ad-banner$tag=abc", Default::default());
+        let mut engine = Engine::new_with_list_text("ad-banner$tag=abc", Default::default());
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
         const EXPECTED_HASH: u64 = 4864047469838009851;
@@ -200,7 +200,8 @@ mod tests {
 
     #[test]
     fn deserialization_generate_resources() {
-        let mut engine = Engine::from_text("ad-banner$redirect=nooptext", Default::default());
+        let mut engine =
+            Engine::new_with_list_text("ad-banner$redirect=nooptext", Default::default());
 
         engine.use_resources([
             Resource::simple("nooptext", MimeType::TextPlain, ""),
@@ -215,7 +216,8 @@ mod tests {
     #[test]
     fn deserialization_brave_list() {
         let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
-        let mut engine = Engine::from_text_parametrised(rules, Default::default(), false, true);
+        let mut engine =
+            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
         let data = engine.serialize().to_vec();
 
         #[cfg(feature = "debug-info")]
@@ -249,7 +251,7 @@ mod tests {
 
     #[test]
     fn redirect_resource_insertion_works() {
-        let mut engine = Engine::from_text(
+        let mut engine = Engine::new_with_list_text(
             ["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"].join("\n"),
             Default::default(),
         );
@@ -295,7 +297,7 @@ mod tests {
     fn document() {
         let filters = ["||example.com$document", "@@||sub.example.com$document"];
 
-        let engine = Engine::from_text(filters.join("\n"), Default::default());
+        let engine = Engine::new_with_list_text(filters.join("\n"), Default::default());
 
         assert!(
             engine
@@ -328,7 +330,7 @@ mod tests {
     #[test]
     fn implicit_all() {
         {
-            let engine = Engine::from_text("||example.com^", Default::default());
+            let engine = Engine::new_with_list_text("||example.com^", Default::default());
             assert!(
                 engine
                     .check_network_request(
@@ -339,7 +341,8 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text("||example.com^$first-party", Default::default());
+            let engine =
+                Engine::new_with_list_text("||example.com^$first-party", Default::default());
             assert!(
                 engine
                     .check_network_request(
@@ -350,7 +353,7 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text("||example.com^$script", Default::default());
+            let engine = Engine::new_with_list_text("||example.com^$script", Default::default());
             assert!(
                 !engine
                     .check_network_request(
@@ -361,7 +364,7 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text("||example.com^$~script", Default::default());
+            let engine = Engine::new_with_list_text("||example.com^$~script", Default::default());
             assert!(
                 !engine
                     .check_network_request(
@@ -372,7 +375,7 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 ["||example.com^$document", "@@||example.com^$generichide"].join("\n"),
                 Default::default(),
             );
@@ -386,7 +389,7 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 "example.com",
                 ParseOptions {
                     format: FilterFormat::Hosts,
@@ -403,7 +406,7 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text("||example.com/path", Default::default());
+            let engine = Engine::new_with_list_text("||example.com/path", Default::default());
             assert!(
                 !engine
                     .check_network_request(
@@ -418,7 +421,7 @@ mod tests {
             );
         }
         {
-            let engine = Engine::from_text("||example.com/path^", Default::default());
+            let engine = Engine::new_with_list_text("||example.com/path^", Default::default());
             assert!(
                 !engine
                     .check_network_request(
@@ -436,7 +439,7 @@ mod tests {
 
     #[test]
     fn explicit_all() {
-        let engine = Engine::from_text(
+        let engine = Engine::new_with_list_text(
             "*$all,domain=rarvinzp.click|ytrqcxat.click",
             Default::default(),
         );
@@ -484,7 +487,7 @@ mod tests {
             ("https://example2.com/test.html", vec![".block"], true),
         ];
 
-        let engine = Engine::from_text(filters, Default::default());
+        let engine = Engine::new_with_list_text(filters, Default::default());
 
         url_results
             .into_iter()
@@ -508,7 +511,7 @@ mod tests {
             "||addthis.com^$important,3p,domain=~missingkids.com|~missingkids.org|~sainsburys.jobs|~sitecore.com|~amd.com",
             "||addthis.com/*/addthis_widget.js$script,redirect=addthis.com/addthis_widget.js",
         ], Default::default());
-        let mut engine = Engine::from_filter_set(filter_set, false);
+        let mut engine = Engine::new_with_filter_set(filter_set, false);
 
         engine.use_resources([Resource::simple(
             "addthis.com/addthis_widget.js",
@@ -526,14 +529,14 @@ mod tests {
     fn check_match_case_regex_filtering() {
         {
             // match case without regex is discarded
-            let engine = Engine::from_text("ad.png$match-case", Default::default());
+            let engine = Engine::new_with_list_text("ad.png$match-case", Default::default());
             let request =
                 Request::new("https://example.com/ad.png", "https://example.com", "image").unwrap();
             assert!(!engine.check_network_request(&request).matched);
         }
         {
             // /^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#,
                 Default::default(),
             );
@@ -569,7 +572,7 @@ mod tests {
         }*/
         {
             // /^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 r#"/^http:\/\/[a-z]{5}\.[a-z]{5}\.com\/[a-z]{10}\.apk$/$doc,match-case,domain=com"#,
                 Default::default(),
             );
@@ -619,7 +622,7 @@ mod tests {
         }*/
         {
             // /^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 r#"/^https?:\/\/[a-z]{8,15}\.top\/[a-z]{4,}\.json$/$xhr,3p,match-case"#,
                 Default::default(),
             );
@@ -660,7 +663,7 @@ mod tests {
         }*/
         {
             // /^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 r#"/^https?:\/\/cdn\.[a-z]{4,6}\.xyz\/app\.js$/$script,3p,match-case"#,
                 Default::default(),
             );
@@ -683,7 +686,7 @@ mod tests {
         }*/
         {
             // /^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case
-            let engine = Engine::from_text(
+            let engine = Engine::new_with_list_text(
                 r#"/^https:\/\/cdn\.jsdelivr\.net\/npm\/[-a-z_]{4,22}@latest\/dist\/script\.min\.js$/$script,3p,match-case"#,
                 Default::default(),
             );
@@ -784,7 +787,7 @@ mod tests {
             },
         );
 
-        let mut engine = Engine::from_filter_set(filter_set, true);
+        let mut engine = Engine::new_with_filter_set(filter_set, true);
         engine.use_resources(resources);
 
         fn wrap_try(scriptlet_content: &str) -> String {
@@ -873,7 +876,7 @@ mod tests {
             r#"example.com##+js(trusted-set-local-storage-item, "test"test, 3)"#,
         ], Default::default());
 
-        let mut engine = Engine::from_filter_set(filter_set, true);
+        let mut engine = Engine::new_with_filter_set(filter_set, true);
         engine.use_resources(resources);
 
         assert_eq!(engine.url_cosmetic_resources("https://dailymail.co.uk").injected_script, r#"function trustedSetLocalStorageItem(key = '', value = '') { setLocalStorageItemFn('local', true, key, value); }

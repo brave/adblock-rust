@@ -120,7 +120,7 @@ fn check_engine_matching() {
         }
         for filter in req.filters {
             let opts = ParseOptions::default();
-            let mut engine = Engine::from_text(filter.clone(), opts);
+            let mut engine = Engine::new_with_list_text(filter.clone(), opts);
             let resources = build_resources_from_filters(std::slice::from_ref(&filter));
             engine.use_resources(resources);
 
@@ -213,7 +213,7 @@ fn check_rule_matching_browserlike() {
 
     let requests = load_requests();
     let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-    let engine = Engine::from_text(rules, Default::default());
+    let engine = Engine::new_with_list_text(rules, Default::default());
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";
