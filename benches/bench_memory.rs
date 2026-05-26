@@ -236,8 +236,12 @@ impl criterion::measurement::ValueFormatter for MemoryFormatter {
     }
 }
 
-fn bench_cb(run_requests: &[&TestRequest], b: &mut Bencher<MemoryAllocated>) {
-    b.iter(|| {
+fn bench_cb(
+    run_requests: &[&TestRequest],
+    metric: MemoryAllocated,
+    b: &mut Bencher<MemoryAllocated>,
+) {
+    let single_run = || {
         ALLOCATOR.reset();
         let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
         let mut engine = Engine::from_rules(rules, Default::default());
@@ -253,10 +257,18 @@ fn bench_cb(run_requests: &[&TestRequest], b: &mut Bencher<MemoryAllocated>) {
             }
         }
 
+        ALLOCATOR.freeze();
+        let result = metric.metric();
         // Prevent engine from being optimized
         std::hint::black_box(&engine);
-
-        ALLOCATOR.freeze();
+        result
+    };
+    b.iter_custom(|iters| {
+        let mut total = 0usize;
+        for _ in 0..iters {
+            total += single_run();
+        }
+        total
     });
 }
 
@@ -266,16 +278,20 @@ fn bench_current_memory_usage(c: &mut Criterion<MemoryAllocated>) {
 
     let mut group = c.benchmark_group("memory-usage-final");
     group
-        .bench_function("brave-list-initial", |b| bench_cb(&[], b))
+        .bench_function("brave-list-initial", |b| {
+            bench_cb(&[], MemoryAllocated::Current, b)
+        })
         .bench_function("brave-list-1000-requests", |b| {
-            bench_cb(&first_1000_requests, b)
+            bench_cb(&first_1000_requests, MemoryAllocated::Current, b)
         });
     group.finish();
 }
 
 fn bench_max_memory_usage(c: &mut Criterion<MemoryAllocated>) {
     let mut group = c.benchmark_group("memory-usage-max");
-    group.bench_function("brave-list-initial/max", |b| bench_cb(&[], b));
+    group.bench_function("brave-list-initial/max", |b| {
+        bench_cb(&[], MemoryAllocated::Max, b)
+    });
     group.finish();
 }
 
@@ -285,9 +301,11 @@ fn bench_allocation_count(c: &mut Criterion<MemoryAllocated>) {
 
     let mut group = c.benchmark_group("memory-usage-alloc-count");
     group
-        .bench_function("brave-list-initial/alloc-count", |b| bench_cb(&[], b))
+        .bench_function("brave-list-initial/alloc-count", |b| {
+            bench_cb(&[], MemoryAllocated::AllocCount, b)
+        })
         .bench_function("brave-list-1000-requests/alloc-count", |b| {
-            bench_cb(&first_1000_requests, b)
+            bench_cb(&first_1000_requests, MemoryAllocated::AllocCount, b)
         });
     group.finish();
 }
