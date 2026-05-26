@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use crate::Engine;
 
     #[test]
     fn parse_hosts_style() {
@@ -293,7 +294,9 @@ mod tests {
         ];
 
         let mut filter_set = FilterSet::new(false);
-        let metadata = filter_set.add_filters(list, ParseOptions::default());
+        filter_set.add_filters(list, ParseOptions::default());
+        let (_, mut metadata_list) = Engine::from_filter_set_with_metadata(filter_set, false);
+        let metadata = metadata_list.pop().unwrap();
 
         assert_eq!(metadata.title, Some("0131 Block List".to_string()));
         assert_eq!(
@@ -322,7 +325,9 @@ mod tests {
         ];
 
         let mut filter_set = FilterSet::new(false);
-        let metadata = filter_set.add_filters(list, ParseOptions::default());
+        filter_set.add_filters(list, ParseOptions::default());
+        let (_, mut metadata_list) = Engine::from_filter_set_with_metadata(filter_set, false);
+        let metadata = metadata_list.pop().unwrap();
 
         assert_eq!(metadata.title, Some("ABPVN Advanced".to_string()));
         assert_eq!(

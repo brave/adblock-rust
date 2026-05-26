@@ -1,4 +1,4 @@
-use adblock::{Engine, FilterSet};
+use adblock::Engine;
 use criterion::*;
 use tokio::runtime::Runtime;
 
@@ -86,8 +86,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
 
 /// Loads the supplied rules, and the test set of resources, into a Engine
 fn get_preloaded_engine(rules: Vec<NetworkFilter>) -> Engine {
-    let filter_set = FilterSet::new_with_rules(rules, vec![], false);
-    Engine::from_filter_set(filter_set, true /* optimize */)
+    Engine::new_with_parsed_rules(rules, vec![], true)
 }
 
 fn get_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Vec<Resource> {

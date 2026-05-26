@@ -124,8 +124,8 @@ fn get_all_filters() -> &'static adblock::lists::FilterSet {
                 .await
                 .iter()
                 .for_each(|(format, list)| {
-                    filter_set.add_filters(
-                        list.lines().map(|s| s.to_owned()).collect::<Vec<_>>(),
+                    filter_set.add_filter_list(
+                        list.clone(),
                         adblock::lists::ParseOptions {
                             format: *format,
                             ..Default::default()

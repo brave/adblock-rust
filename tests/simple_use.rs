@@ -10,7 +10,7 @@ fn check_simple_use() {
         "-advertisement/script.",
     ];
 
-    let engine = Engine::from_rules(rules, Default::default());
+    let engine = Engine::from_text(rules.join("\n"), Default::default());
 
     let request = Request::new(
         "http://example.com/-advertisement-icon.",

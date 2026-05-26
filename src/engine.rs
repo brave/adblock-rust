@@ -4,17 +4,19 @@ use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::cosmetic_filter_cache_builder::CosmeticFilterCacheBuilder;
 use crate::data_format::{deserialize_dat_file, serialize_dat_file, DeserializationError};
-use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::fb_network_builder::NetworkRulesBuilder;
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
-use crate::filters::network::NetworkFilter;
 use crate::flatbuffers::containers::flat_serialize::FlatSerialize;
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
-use crate::lists::{FilterSet, ParseOptions};
+use crate::lists::{
+    parse_filter_line, FilterListMetadata, FilterSet, ParseOptions, ParsedFilter, ParsedLine,
+};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
+
+use crate::filters::{cosmetic::CosmeticFilter, network::NetworkFilter};
 
 use std::collections::HashSet;
 
@@ -72,31 +74,64 @@ impl Default for Engine {
 
 impl Engine {
     /// Loads rules in a single format, enabling optimizations and discarding debug information.
+    #[deprecated(since = "0.13.0", note = "Use `from_text` instead")]
     pub fn from_rules(
         rules: impl IntoIterator<Item = impl AsRef<str>>,
         opts: ParseOptions,
     ) -> Self {
-        let mut filter_set = FilterSet::new(false);
-        filter_set.add_filters(rules, opts);
-        Self::from_filter_set(filter_set, true)
+        let text = rules.into_iter().fold(String::new(), |mut acc, rule| {
+            acc.push_str(rule.as_ref());
+            acc.push('\n');
+            acc
+        });
+        Self::from_text_parametrised(text, opts, false, true)
     }
 
     /// Loads rules, enabling optimizations and including debug information.
+    #[deprecated(since = "0.13.0", note = "Use `from_text` instead")]
     pub fn from_rules_debug(
         rules: impl IntoIterator<Item = impl AsRef<str>>,
         opts: ParseOptions,
     ) -> Self {
-        Self::from_rules_parametrised(rules, opts, true, true)
+        let text = rules.into_iter().fold(String::new(), |mut acc, rule| {
+            acc.push_str(rule.as_ref());
+            acc.push('\n');
+            acc
+        });
+        Self::from_text_parametrised(text, opts, true, true)
     }
 
+    #[deprecated(since = "0.13.0", note = "Use `from_text_parametrised` instead")]
     pub fn from_rules_parametrised(
         filter_rules: impl IntoIterator<Item = impl AsRef<str>>,
         opts: ParseOptions,
         debug: bool,
         optimize: bool,
     ) -> Self {
+        let text = filter_rules
+            .into_iter()
+            .fold(String::new(), |mut acc, rule| {
+                acc.push_str(rule.as_ref());
+                acc.push('\n');
+                acc
+            });
         let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filters(filter_rules, opts);
+        filter_set.add_filter_list(text, opts);
+        Self::from_filter_set(filter_set, optimize)
+    }
+
+    pub fn from_text(text: impl Into<String>, opts: ParseOptions) -> Self {
+        Self::from_text_parametrised(text.into(), opts, false, true)
+    }
+
+    pub fn from_text_parametrised(
+        text: impl Into<String>,
+        opts: ParseOptions,
+        debug: bool,
+        optimize: bool,
+    ) -> Self {
+        let mut filter_set = FilterSet::new(debug);
+        filter_set.add_filter_list(text.into(), opts);
         Self::from_filter_set(filter_set, optimize)
     }
 
@@ -110,15 +145,12 @@ impl Engine {
         self.filter_data_context
     }
 
-    /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
-    /// rules from multiple sources.
-    pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
-        let FilterSet {
-            network_filters,
-            cosmetic_filters,
-            ..
-        } = set;
-
+    #[doc(hidden)]
+    pub fn new_with_parsed_rules(
+        network_filters: Vec<NetworkFilter>,
+        cosmetic_filters: Vec<CosmeticFilter>,
+        optimize: bool,
+    ) -> Self {
         let memory = make_flatbuffer(network_filters, cosmetic_filters, optimize);
 
         let filter_data_context = FilterDataContext::new(memory);
@@ -131,6 +163,49 @@ impl Engine {
             resources: ResourceStorage::default(),
             filter_data_context,
         }
+    }
+
+    /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
+    /// rules from multiple sources.
+    pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
+        let (engine, _) = Self::from_filter_set_with_metadata(set, optimize);
+        engine
+    }
+
+    #[doc(hidden)]
+    pub fn from_filter_set_with_metadata(
+        set: FilterSet,
+        optimize: bool,
+    ) -> (Self, Vec<FilterListMetadata>) {
+        let mut metadata_list = vec![];
+        let mut network_filters = vec![];
+        let mut cosmetic_filters = vec![];
+
+        for list_source in set.list_sources {
+            let mut metadata = FilterListMetadata::default();
+            for line in list_source.lines.lines() {
+                let parsed_line = parse_filter_line(line, set.debug, list_source.parse_options);
+                match parsed_line {
+                    Ok(ParsedLine::ParsedFilter(parsed_filter)) => match parsed_filter {
+                        ParsedFilter::Network(filter) => {
+                            network_filters.push(filter);
+                        }
+                        ParsedFilter::Cosmetic(filter) => cosmetic_filters.push(filter),
+                    },
+                    Ok(ParsedLine::Metadata(item)) => {
+                        metadata.add_metadata(item);
+                    }
+                    Err(error) => {
+                        metadata.add_error(error);
+                    }
+                }
+            }
+            metadata_list.push(metadata);
+        }
+        (
+            Self::new_with_parsed_rules(network_filters, cosmetic_filters, optimize),
+            metadata_list,
+        )
     }
 
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by

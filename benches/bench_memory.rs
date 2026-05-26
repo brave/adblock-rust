@@ -124,10 +124,10 @@ impl From<&TestRequest> for Request {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    let requests_str = rules_from_lists(&["data/requests.json"]);
+    let requests_str = rules_from_lists(["data/requests.json"]);
     let reqs: Vec<TestRequest> = requests_str
-        .into_iter()
-        .map(|r| serde_json::from_str(&r))
+        .lines()
+        .map(serde_json::from_str)
         .filter_map(Result::ok)
         .collect();
     reqs
@@ -147,8 +147,8 @@ fn bench_memory_usage(c: &mut Criterion) {
         b.iter_custom(|iters| {
             for _ in 0..iters {
                 ALLOCATOR.reset();
-                let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-                let mut engine = Engine::from_rules(rules, Default::default());
+                let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
+                let mut engine = Engine::from_text(rules, Default::default());
                 let resource_json =
                     std::fs::read_to_string("data/brave/brave-resources.json").unwrap();
                 let resource_list: Vec<Resource> = serde_json::from_str(&resource_json).unwrap();
