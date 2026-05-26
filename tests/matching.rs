@@ -190,10 +190,10 @@ fn check_rule_matching_browserlike() {
     }
 
     fn load_requests() -> Vec<TestRequest> {
-        let requests_str = rules_from_lists(&["data/requests.json"]);
+        let requests_str = rules_from_lists(["data/requests.json"]);
         requests_str
-            .into_iter()
-            .filter_map(|r| serde_json::from_str(&r).ok())
+            .lines()
+            .filter_map(|r| serde_json::from_str(r).ok())
             .collect()
     }
 
@@ -213,7 +213,7 @@ fn check_rule_matching_browserlike() {
 
     let requests = load_requests();
     let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-    let engine = Engine::from_rules(rules, Default::default());
+    let engine = Engine::from_text(rules, Default::default());
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";
