@@ -177,32 +177,25 @@ pub struct FilterListMetadata {
     /// the same as the current address, meaning that it can be used to enforce the "canonical"
     /// address of the filter list.
     pub redirect: Option<String>,
-
-    /// Errors that occurred while parsing the filter list.
-    pub errors: Vec<FilterParseError>,
 }
 
 impl FilterListMetadata {
     pub(crate) fn add_metadata(&mut self, metadata: ParsedMetadata) {
         match metadata {
-            ParsedMetadata::Homepage(value) => {
+            ParsedMetadata::Homepage(value) if self.homepage.is_none() => {
                 self.homepage = Some(value);
             }
-            ParsedMetadata::Title(value) => {
+            ParsedMetadata::Title(value) if self.title.is_none() => {
                 self.title = Some(value);
             }
-            ParsedMetadata::Expires(value) => {
+            ParsedMetadata::Expires(value) if self.expires.is_none() => {
                 self.expires = Some(value);
             }
-            ParsedMetadata::Redirect(value) => {
+            ParsedMetadata::Redirect(value) if self.redirect.is_none() => {
                 self.redirect = Some(value);
             }
-            ParsedMetadata::Unknown => (),
+            _ => (),
         }
-    }
-
-    pub(crate) fn add_error(&mut self, error: FilterParseError) {
-        self.errors.push(error);
     }
 }
 

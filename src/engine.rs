@@ -123,15 +123,14 @@ impl Engine {
         }
     }
 
-    /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
-    /// rules from multiple sources.
+    /// Loads rules from the given `FilterSet`.
     pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
         let (engine, _) = Self::from_filter_set_with_metadata(set, optimize);
         engine
     }
 
     #[doc(hidden)]
-    pub fn from_filter_set_with_metadata(
+    pub(crate) fn from_filter_set_with_metadata(
         set: FilterSet,
         optimize: bool,
     ) -> (Self, Vec<FilterListMetadata>) {
@@ -153,9 +152,7 @@ impl Engine {
                     Ok(ParsedLine::Metadata(item)) => {
                         metadata.add_metadata(item);
                     }
-                    Err(error) => {
-                        metadata.add_error(error);
-                    }
+                    Err(_) => {}
                 }
             }
             metadata_list.push(metadata);
