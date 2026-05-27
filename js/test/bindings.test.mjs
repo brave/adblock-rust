@@ -48,6 +48,22 @@ describe('FilterSet.addFilters', () => {
         assert.equal(cosmetic.hide_selectors.length, 0);
     });
 
+    it("Legacy addFilters syntax works", () => {
+      const fs = new FilterSet();
+      fs.addFilters(["||example.com^", "example.com##.ad"], {
+        rule_types: RuleTypes.NETWORK_ONLY,
+      });
+      const engine = new Engine(fs, true);
+      assert.equal(
+        engine.check(
+          "https://example.com/test.js",
+          "https://pub.com",
+          "script",
+        ),
+        true,
+      );
+    });
+
     it('COSMETIC_ONLY skips network rules', () => {
         const fs = new FilterSet();
         fs.addFilters(

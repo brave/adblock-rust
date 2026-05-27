@@ -51,6 +51,31 @@ mod json_ffi {
     }
 }
 
+fn console_warn<'a, C: Context<'a>>(cx: &mut C, message: &str) -> NeonResult<()> {
+    let console: Handle<JsObject> = cx.global().get(cx, "console")?;
+    let warn: Handle<JsFunction> = console.get(cx, "warn")?;
+    let msg = JsString::new(cx, message).upcast::<JsValue>();
+    warn.call(cx, console, [msg])?;
+    Ok(())
+}
+
+/// Accepts a single filter list string, or a deprecated array of list strings (joined with `\n`).
+fn filter_rules_from_js<'a, C: Context<'a>>(
+    cx: &mut C,
+    input: Handle<JsValue>,
+) -> NeonResult<String> {
+    if input.downcast::<JsArray, _>(cx).is_ok() {
+        console_warn(
+            cx,
+            "FilterSet.addFilters: passing an array of strings is deprecated; \
+             pass a single newline-separated filter list string instead.",
+        )?;
+        let parts: Vec<String> = json_ffi::from_js(cx, input)?;
+        return Ok(parts.join("\n"));
+    }
+    json_ffi::from_js(cx, input)
+}
+
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
     pub optimize: Option<bool>,
@@ -91,7 +116,6 @@ fn create_filter_set(mut cx: FunctionContext) -> JsResult<JsBox<FilterSet>> {
 fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
-    // Take the first argument, which must be an array
     let rules_handle: Handle<JsValue> = cx.argument(1)?;
     // Second argument is optional parse options. All fields are optional. ParseOptions::default()
     // if unspecified.
@@ -100,7 +124,7 @@ fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
         None => ParseOptions::default(),
     };
 
-    let rules: String = json_ffi::from_js(&mut cx, rules_handle)?;
+    let rules: String = filter_rules_from_js(&mut cx, rules_handle)?;
 
     let metadata = this.add_filters(rules, parse_opts);
 
