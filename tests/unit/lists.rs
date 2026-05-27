@@ -397,18 +397,18 @@ mod tests {
         {
             let input = "example.com##.selector";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
+            assert!(matches!(result, Ok(ParsedLine::Cosmetic(..))));
         }
         {
             let input = "9gag.com#?#article:-abp-has(.promoted)";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
+            assert!(matches!(result, Ok(ParsedLine::Cosmetic(..))));
         }
         #[cfg(feature = "css-validation")]
         {
             let input = "sportowefakty.wp.pl#@?#body > [class]:not([id]):matches-css(position: fixed):matches-css(top: 0px)";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
+            assert!(matches!(result, Ok(ParsedLine::Cosmetic(..))));
         }
         {
             let input =

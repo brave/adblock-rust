@@ -180,18 +180,18 @@ pub struct FilterListMetadata {
 }
 
 impl FilterListMetadata {
-    pub(crate) fn add_metadata(&mut self, metadata: ParsedMetadata) {
-        match metadata {
-            ParsedMetadata::Homepage(value) if self.homepage.is_none() => {
+    pub(crate) fn add_metadata(&mut self, item: ParsedLine) {
+        match item {
+            ParsedLine::Homepage(value) if self.homepage.is_none() => {
                 self.homepage = Some(value);
             }
-            ParsedMetadata::Title(value) if self.title.is_none() => {
+            ParsedLine::Title(value) if self.title.is_none() => {
                 self.title = Some(value);
             }
-            ParsedMetadata::Expires(value) if self.expires.is_none() => {
+            ParsedLine::Expires(value) if self.expires.is_none() => {
                 self.expires = Some(value);
             }
-            ParsedMetadata::Redirect(value) if self.redirect.is_none() => {
+            ParsedLine::Redirect(value) if self.redirect.is_none() => {
                 self.redirect = Some(value);
             }
             _ => (),
@@ -341,7 +341,7 @@ impl FilterSet {
 }
 
 /// Denotes the format of a particular list resource, which affects how its rules should be parsed.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum FilterFormat {
     /// Rules should be parsed in ABP/uBO-style format.
     Standard,
@@ -376,33 +376,26 @@ pub enum FilterType {
     NotSupported,
 }
 
-/// Successful result of parsing a single filter rule
-pub enum ParsedFilter {
+/// Successful result of parsing a single line from a filter list
+pub enum ParsedLine {
     Network(NetworkFilter),
     Cosmetic(CosmeticFilter),
-}
-
-pub enum ParsedMetadata {
     Homepage(String),
     Title(String),
     Expires(ExpiresInterval),
     Redirect(String),
-    Unknown,
-}
-pub enum ParsedLine {
-    ParsedFilter(ParsedFilter),
-    Metadata(ParsedMetadata),
+    UnknownMetadata,
 }
 
-impl From<NetworkFilter> for ParsedFilter {
+impl From<NetworkFilter> for ParsedLine {
     fn from(v: NetworkFilter) -> Self {
-        ParsedFilter::Network(v)
+        ParsedLine::Network(v)
     }
 }
 
-impl From<CosmeticFilter> for ParsedFilter {
+impl From<CosmeticFilter> for ParsedLine {
     fn from(v: CosmeticFilter) -> Self {
-        ParsedFilter::Cosmetic(v)
+        ParsedLine::Cosmetic(v)
     }
 }
 
@@ -433,12 +426,33 @@ impl From<CosmeticFilterError> for FilterParseError {
     }
 }
 
-/// Parse a single filter rule
+/// Parse a single line from a filter list
 pub fn parse_filter(
     line: &str,
     debug: bool,
     opts: ParseOptions,
-) -> Result<ParsedFilter, FilterParseError> {
+) -> Result<ParsedLine, FilterParseError> {
+    if opts.format == FilterFormat::Standard {
+        if let Some(kv) = line.strip_prefix("! ") {
+            if let Some((key, value)) = kv.split_once(": ") {
+                return Ok(match key {
+                    "Homepage" => ParsedLine::Homepage(value.to_string()),
+                    "Title" => ParsedLine::Title(value.to_string()),
+                    "Expires" => {
+                        if let Ok(expires) = ExpiresInterval::try_from(value) {
+                            ParsedLine::Expires(expires)
+                        } else {
+                            return Err(FilterParseError::InvalidExpiresInterval);
+                        }
+                    }
+                    "Redirect" => ParsedLine::Redirect(value.to_string()),
+                    _ => ParsedLine::UnknownMetadata,
+                });
+            }
+            return Ok(ParsedLine::UnknownMetadata);
+        }
+    }
+
     let filter = line.trim();
 
     if filter.is_empty() {
@@ -509,50 +523,20 @@ pub fn parse_filter(
     }
 }
 
-pub(crate) fn parse_filter_line(
-    line: &str,
-    debug: bool,
-    opts: ParseOptions,
-) -> Result<ParsedLine, FilterParseError> {
-    if let Some(kv) = line.strip_prefix("! ") {
-        if let Some((key, value)) = kv.split_once(": ") {
-            let metadata = match key {
-                "Homepage" => ParsedMetadata::Homepage(value.to_string()),
-                "Title" => ParsedMetadata::Title(value.to_string()),
-                "Expires" => {
-                    if let Ok(expires) = ExpiresInterval::try_from(value) {
-                        ParsedMetadata::Expires(expires)
-                    } else {
-                        return Err(FilterParseError::InvalidExpiresInterval);
-                    }
-                }
-                "Redirect" => ParsedMetadata::Redirect(value.to_string()),
-                _ => ParsedMetadata::Unknown,
-            };
-            return Ok(ParsedLine::Metadata(metadata));
-        }
-        return Err(FilterParseError::Unsupported);
-    }
-
-    let parsed_filter = parse_filter(line, debug, opts)?;
-    Ok(ParsedLine::ParsedFilter(parsed_filter))
-}
-
 /// Parse an entire list of filters, ignoring any errors
 pub fn parse_filters(
     list: impl IntoIterator<Item = impl AsRef<str>>,
     debug: bool,
     opts: ParseOptions,
 ) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
-    let list_iter = list.into_iter();
-
-    let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
-        .map(|line| parse_filter(line.as_ref(), debug, opts))
-        .filter_map(Result::ok)
-        .partition_map(|filter| match filter {
-            ParsedFilter::Network(f) => Either::Left(f),
-            ParsedFilter::Cosmetic(f) => Either::Right(f),
-        });
+    let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
+        .into_iter()
+        .filter_map(|line| match parse_filter(line.as_ref(), debug, opts) {
+            Ok(ParsedLine::Network(f)) => Some(Either::Left(f)),
+            Ok(ParsedLine::Cosmetic(f)) => Some(Either::Right(f)),
+            _ => None,
+        })
+        .partition_map(|x| x);
 
     (network_filters, cosmetic_filters)
 }

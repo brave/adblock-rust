@@ -9,9 +9,7 @@ use crate::filters::fb_network_builder::NetworkRulesBuilder;
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
 use crate::flatbuffers::containers::flat_serialize::FlatSerialize;
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
-use crate::lists::{
-    parse_filter_line, FilterListMetadata, FilterSet, ParseOptions, ParsedFilter, ParsedLine,
-};
+use crate::lists::{parse_filter, FilterListMetadata, FilterSet, ParseOptions, ParsedLine};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
@@ -141,17 +139,11 @@ impl Engine {
         for list_source in set.list_sources {
             let mut metadata = FilterListMetadata::default();
             for line in list_source.list_text.lines() {
-                let parsed_line = parse_filter_line(line, set.debug, list_source.parse_options);
+                let parsed_line = parse_filter(line, set.debug, list_source.parse_options);
                 match parsed_line {
-                    Ok(ParsedLine::ParsedFilter(parsed_filter)) => match parsed_filter {
-                        ParsedFilter::Network(filter) => {
-                            network_filters.push(filter);
-                        }
-                        ParsedFilter::Cosmetic(filter) => cosmetic_filters.push(filter),
-                    },
-                    Ok(ParsedLine::Metadata(item)) => {
-                        metadata.add_metadata(item);
-                    }
+                    Ok(ParsedLine::Network(filter)) => network_filters.push(filter),
+                    Ok(ParsedLine::Cosmetic(filter)) => cosmetic_filters.push(filter),
+                    Ok(item) => metadata.add_metadata(item),
                     Err(_) => {}
                 }
             }
