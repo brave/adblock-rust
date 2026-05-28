@@ -219,7 +219,10 @@ impl FilterSet {
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
     pub fn add_filter_list(&mut self, list_text: String, opts: ParseOptions) -> FilterListMetadata {
-        let metadata = read_list_metadata(&list_text);
+        let metadata = match opts.format {
+            FilterFormat::Standard => read_list_metadata(&list_text),
+            FilterFormat::Hosts => FilterListMetadata::default(),
+        };
         self.list_sources.push(ListSource {
             list_text,
             parse_options: opts,
