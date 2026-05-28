@@ -227,8 +227,6 @@ pub enum CbRuleCreationFailure {
     FromNotSupported,
     /// Content blocking rules cannot support procedural cosmetic filter operators.
     ProceduralCosmeticFiltersUnsupported,
-    /// The parsed line is a metadata entry, not a filter rule.
-    NotAFilterRule,
 }
 
 impl TryFrom<ParsedLine> for CbRuleEquivalent {
@@ -238,7 +236,6 @@ impl TryFrom<ParsedLine> for CbRuleEquivalent {
         match v {
             ParsedLine::Network(f) => f.try_into(),
             ParsedLine::Cosmetic(f) => Ok(Self::SingleRule(f.try_into()?)),
-            _ => Err(CbRuleCreationFailure::NotAFilterRule),
         }
     }
 }

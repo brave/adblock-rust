@@ -87,7 +87,7 @@ impl FilterSet {
     fn new(debug: bool) -> Self {
         Self(RefCell::new(FilterSetInternal::new(debug)))
     }
-    fn add_filters(&self, rules: String, opts: ParseOptions) {
+    fn add_filters(&self, rules: String, opts: ParseOptions) -> adblock::lists::FilterListMetadata {
         self.0.borrow_mut().add_filter_list(rules, opts)
     }
 

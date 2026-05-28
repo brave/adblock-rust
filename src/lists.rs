@@ -87,15 +87,24 @@ pub struct FilterSet {
 }
 
 /// Collects metadata for the list by reading just until the first non-comment line.
-#[cfg(test)]
 pub fn read_list_metadata(list: &str) -> FilterListMetadata {
-    use crate::Engine;
-
-    let mut filter_set = FilterSet::new(false);
-    filter_set.add_filter_list(list.to_string(), ParseOptions::default());
-    let (_, mut metadata) = Engine::from_filter_set_with_metadata(filter_set, false);
-    assert_eq!(metadata.len(), 1);
-    metadata.pop().unwrap()
+    let mut metadata = FilterListMetadata::default();
+    let mut chars_read = 0;
+    for line in list.lines() {
+        if chars_read > 1024 {
+            break; // stop parsing metadata
+        }
+        chars_read += line.len();
+        if line.starts_with("[") {
+            continue;
+        }
+        if let Some(comment_content) = line.strip_prefix("!") {
+            metadata.try_add_metadata(comment_content);
+        } else {
+            break; // stop parsing metadata
+        }
+    }
+    metadata
 }
 
 impl Default for FilterSet {
@@ -113,7 +122,7 @@ impl Default for FilterSet {
 }
 
 /// Corresponds to the `expires` field of `FilterListMetadata`.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize, Clone)]
 pub enum ExpiresInterval {
     Hours(u16),
     Days(u8),
@@ -156,7 +165,7 @@ impl TryFrom<&str> for ExpiresInterval {
 
 /// Includes information about any "special comments" as described by
 /// <https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments>
-#[derive(Default)]
+#[derive(Default, Clone, Serialize)]
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked
     /// as filter list homepage.
@@ -180,21 +189,17 @@ pub struct FilterListMetadata {
 }
 
 impl FilterListMetadata {
-    pub(crate) fn add_metadata(&mut self, item: ParsedLine) {
-        match item {
-            ParsedLine::Homepage(value) if self.homepage.is_none() => {
-                self.homepage = Some(value);
+    pub(crate) fn try_add_metadata(&mut self, metadata: &str) {
+        if let Some((key, value)) = metadata.trim().split_once(": ") {
+            match key {
+                "Homepage" if self.homepage.is_none() => self.homepage = Some(value.to_string()),
+                "Title" if self.title.is_none() => self.title = Some(value.to_string()),
+                "Expires" if self.expires.is_none() => {
+                    self.expires = Some(ExpiresInterval::try_from(value).unwrap())
+                }
+                "Redirect" if self.redirect.is_none() => self.redirect = Some(value.to_string()),
+                _ => (),
             }
-            ParsedLine::Title(value) if self.title.is_none() => {
-                self.title = Some(value);
-            }
-            ParsedLine::Expires(value) if self.expires.is_none() => {
-                self.expires = Some(value);
-            }
-            ParsedLine::Redirect(value) if self.redirect.is_none() => {
-                self.redirect = Some(value);
-            }
-            _ => (),
         }
     }
 }
@@ -213,11 +218,13 @@ impl FilterSet {
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
-    pub fn add_filter_list(&mut self, list_text: String, opts: ParseOptions) {
+    pub fn add_filter_list(&mut self, list_text: String, opts: ParseOptions) -> FilterListMetadata {
+        let metadata = read_list_metadata(&list_text);
         self.list_sources.push(ListSource {
             list_text,
             parse_options: opts,
         });
+        metadata
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
@@ -380,11 +387,6 @@ pub enum FilterType {
 pub enum ParsedLine {
     Network(NetworkFilter),
     Cosmetic(CosmeticFilter),
-    Homepage(String),
-    Title(String),
-    Expires(ExpiresInterval),
-    Redirect(String),
-    UnknownMetadata,
 }
 
 impl From<NetworkFilter> for ParsedLine {
@@ -432,27 +434,6 @@ pub fn parse_filter(
     debug: bool,
     opts: ParseOptions,
 ) -> Result<ParsedLine, FilterParseError> {
-    if opts.format == FilterFormat::Standard {
-        if let Some(kv) = line.strip_prefix("! ") {
-            if let Some((key, value)) = kv.split_once(": ") {
-                return Ok(match key {
-                    "Homepage" => ParsedLine::Homepage(value.to_string()),
-                    "Title" => ParsedLine::Title(value.to_string()),
-                    "Expires" => {
-                        if let Ok(expires) = ExpiresInterval::try_from(value) {
-                            ParsedLine::Expires(expires)
-                        } else {
-                            return Err(FilterParseError::InvalidExpiresInterval);
-                        }
-                    }
-                    "Redirect" => ParsedLine::Redirect(value.to_string()),
-                    _ => ParsedLine::UnknownMetadata,
-                });
-            }
-            return Ok(ParsedLine::UnknownMetadata);
-        }
-    }
-
     let filter = line.trim();
 
     if filter.is_empty() {

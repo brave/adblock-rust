@@ -9,7 +9,7 @@ use crate::filters::fb_network_builder::NetworkRulesBuilder;
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
 use crate::flatbuffers::containers::flat_serialize::FlatSerialize;
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
-use crate::lists::{parse_filter, FilterListMetadata, FilterSet, ParseOptions, ParsedLine};
+use crate::lists::{parse_filter, FilterSet, ParseOptions, ParsedLine};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
@@ -123,36 +123,20 @@ impl Engine {
 
     /// Loads rules from the given `FilterSet`.
     pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
-        let (engine, _) = Self::from_filter_set_with_metadata(set, optimize);
-        engine
-    }
-
-    #[doc(hidden)]
-    pub(crate) fn from_filter_set_with_metadata(
-        set: FilterSet,
-        optimize: bool,
-    ) -> (Self, Vec<FilterListMetadata>) {
-        let mut metadata_list = vec![];
         let mut network_filters = vec![];
         let mut cosmetic_filters = vec![];
 
         for list_source in set.list_sources {
-            let mut metadata = FilterListMetadata::default();
             for line in list_source.list_text.lines() {
                 let parsed_line = parse_filter(line, set.debug, list_source.parse_options);
                 match parsed_line {
                     Ok(ParsedLine::Network(filter)) => network_filters.push(filter),
                     Ok(ParsedLine::Cosmetic(filter)) => cosmetic_filters.push(filter),
-                    Ok(item) => metadata.add_metadata(item),
                     Err(_) => {}
                 }
             }
-            metadata_list.push(metadata);
         }
-        (
-            Self::new_with_parsed_rules(network_filters, cosmetic_filters, optimize),
-            metadata_list,
-        )
+        Self::new_with_parsed_rules(network_filters, cosmetic_filters, optimize)
     }
 
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by
