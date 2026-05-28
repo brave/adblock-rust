@@ -82,18 +82,12 @@ mod cosmetic_cache_tests {
     use crate::resources::Resource;
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 
-    fn cache_from_rules(rules: Vec<&str>) -> CosmeticFilterCache {
-        let parsed_rules = rules
-            .iter()
-            .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
-            .collect::<Vec<_>>();
-
-        CosmeticFilterCache::from_rules(parsed_rules)
-    }
-
     #[test]
     fn exceptions() {
-        let cfcache = cache_from_rules(vec!["~example.com##.item", "sub.example.com#@#.item2"]);
+        let cfcache = CosmeticFilterCache::from_rules(vec![
+            "~example.com##.item",
+            "sub.example.com#@#.item2",
+        ]);
         let resources = ResourceStorage::default();
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "test.com", false);
@@ -111,7 +105,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn exceptions2() {
-        let cfcache = cache_from_rules(vec!["example.com,~sub.example.com##.item"]);
+        let cfcache = CosmeticFilterCache::from_rules(vec!["example.com,~sub.example.com##.item"]);
         let resources = ResourceStorage::default();
 
         let out = cfcache.hostname_cosmetic_resources(&resources, "test.com", false);
@@ -130,7 +124,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn style_exceptions() {
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com,~sub.example.com##.element:style(background: #fff)",
             "sub.test.example.com#@#.element:style(background: #fff)",
             "a1.sub.example.com##.element",
@@ -195,7 +189,7 @@ mod cosmetic_cache_tests {
     fn script_exceptions() {
         use crate::resources::{MimeType, ResourceType};
 
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com,~sub.example.com##+js(set-constant.js, atob, trueFunc)",
             "sub.test.example.com#@#+js(set-constant.js, atob, trueFunc)",
             "cosmetic.net##+js(nowebrtc.js)",
@@ -259,7 +253,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn remove_exceptions() {
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com,~sub.example.com##.element:remove()",
             "sub.test.example.com#@#.element:remove()",
             "a1.sub.example.com##.element",
@@ -308,7 +302,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn abp_style_injection_remove() {
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com##.element {remove: true;}",
             r#"chip.de##.ft-charts-main > div:not(.List):not(.caps) {remove:true;}"#,
         ]);
@@ -341,7 +335,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn remove_attr_exceptions() {
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com,~sub.example.com##.element:remove-attr(style)",
             "sub.test.example.com#@#.element:remove-attr(style)",
             "a1.sub.example.com##.element",
@@ -404,7 +398,7 @@ mod cosmetic_cache_tests {
 
     #[test]
     fn remove_class_exceptions() {
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com,~sub.example.com##.element:remove-class(overlay)",
             "sub.test.example.com#@#.element:remove-class(overlay)",
             "a1.sub.example.com##.element",
@@ -468,7 +462,7 @@ mod cosmetic_cache_tests {
     #[test]
     #[cfg(feature = "css-validation")]
     fn procedural_actions() {
-        let cfcache = cache_from_rules(vec![
+        let cfcache = CosmeticFilterCache::from_rules(vec![
             "example.com##div:has(video):remove()",
             "example.com##div:has-text(Ad):remove()",
             "example.com##div:has-text(Sponsored) > p",
@@ -534,12 +528,7 @@ mod cosmetic_cache_tests {
             "##.children .including #simple-id",
             "##a.a-class",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(
-            rules
-                .iter()
-                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
-                .collect::<Vec<_>>(),
-        );
+        let cfcache = CosmeticFilterCache::from_rules(rules);
 
         let out = cfcache.hidden_class_id_selectors(["with"], EMPTY, &HashSet::default());
         assert_eq!(out, Vec::<String>::new());
@@ -597,12 +586,7 @@ mod cosmetic_cache_tests {
             "example.*#@#.a-class",
             "~test.com###test-element",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(
-            rules
-                .iter()
-                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
-                .collect::<Vec<_>>(),
-        );
+        let cfcache = CosmeticFilterCache::from_rules(rules);
         let resources = ResourceStorage::default();
         let exceptions = cfcache
             .hostname_cosmetic_resources(&resources, "example.co.uk", false)
@@ -657,12 +641,7 @@ mod cosmetic_cache_tests {
             "example.com#@#div > p",
             "~example.com##a[href=\"notbad.com\"]",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(
-            rules
-                .iter()
-                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
-                .collect::<Vec<_>>(),
-        );
+        let cfcache = CosmeticFilterCache::from_rules(rules);
         let resources = ResourceStorage::default();
 
         let hide_selectors = cfcache
@@ -692,12 +671,7 @@ mod cosmetic_cache_tests {
             "toolforge.org##+js(abort-on-property-read, noAdBlockers)",
             "github.io##div.adToBlock",
         ];
-        let cfcache = CosmeticFilterCache::from_rules(
-            rules
-                .iter()
-                .map(|r| CosmeticFilter::parse(r, false, Default::default()).unwrap())
-                .collect::<Vec<_>>(),
-        );
+        let cfcache = CosmeticFilterCache::from_rules(rules);
         let resources = ResourceStorage::in_memory_from_resources([Resource {
             name: "abort-on-property-read.js".into(),
             aliases: vec!["aopr".to_string()],

@@ -834,14 +834,18 @@ mod shared_storage_tests {
 
         let shared_storage = Rc::new(in_memory_storage);
 
-        let mut engine1 =
-            crate::Engine::from_rules(["example1.com##+js(test-scriptlet)"], Default::default());
+        let mut engine1 = crate::Engine::new_with_list_text(
+            "example1.com##+js(test-scriptlet)",
+            Default::default(),
+        );
         engine1.use_resource_storage(BraveCoreResourceStorage {
             shared_storage: Rc::clone(&shared_storage),
         });
 
-        let mut engine2 =
-            crate::Engine::from_rules(["example2.com##+js(test-scriptlet)"], Default::default());
+        let mut engine2 = crate::Engine::new_with_list_text(
+            "example2.com##+js(test-scriptlet)",
+            Default::default(),
+        );
         engine2.use_resource_storage(BraveCoreResourceStorage {
             shared_storage: Rc::clone(&shared_storage),
         });

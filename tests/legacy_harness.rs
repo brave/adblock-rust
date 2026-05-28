@@ -34,7 +34,7 @@ mod legacy_test_filters {
             filter.filter
         );
 
-        let engine = Engine::from_rules_debug([raw_filter], Default::default());
+        let engine = Engine::new_with_list_text(raw_filter, Default::default());
 
         for to_block in blocked {
             assert!(
@@ -306,8 +306,8 @@ mod legacy_test_filters {
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
         let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "https://this-is-always-third-party.com", "script").unwrap();
-        let engine = Engine::from_rules_debug(
-            ["||googlesyndication.com/safeframe/$third-party,script"],
+        let engine = Engine::new_with_list_text(
+            "||googlesyndication.com/safeframe/$third-party,script",
             Default::default(),
         );
         assert!(engine.check_network_request(&request).matched);
@@ -324,7 +324,7 @@ mod legacy_check_match {
         not_blocked: &[&'a str],
         tags: &[&'a str],
     ) {
-        let mut engine = Engine::from_rules(rules, Default::default()); // first one with the provided rules
+        let mut engine = Engine::new_with_list_text(rules.join("\n"), Default::default()); // first one with the provided rules
         engine.use_tags(tags);
 
         let mut engine_deserialized = Engine::default(); // second empty
@@ -395,11 +395,12 @@ mod legacy_check_match {
         {
             // Explicitly write out the full case instead of using check_match helper
             // or tweaking it to allow passing in the source domain for this one case
-            let engine = Engine::from_rules(
+            let engine = Engine::new_with_list_text(
                 [
                     "/ads/freewheel/*",
                     "@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com",
-                ],
+                ]
+                .join("\n"),
                 Default::default(),
             );
             let mut engine_deserialized = Engine::default(); // second empty
@@ -505,7 +506,7 @@ mod legacy_check_options {
     use adblock::Engine;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
-        let engine = Engine::from_rules(rules, Default::default()); // first one with the provided rules
+        let engine = Engine::new_with_list_text(rules.join("\n"), Default::default()); // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
             let request = Request::new(url, source_url, request_type).unwrap();
@@ -851,8 +852,8 @@ mod legacy_misc_tests {
     #[test]
     fn demo_app() {
         // Demo app test
-        let engine = Engine::from_rules(
-            ["||googlesyndication.com/safeframe/$third-party"],
+        let engine = Engine::new_with_list_text(
+            "||googlesyndication.com/safeframe/$third-party",
             Default::default(),
         );
 
@@ -882,12 +883,13 @@ mod legacy_misc_tests {
 
     #[test]
     fn serialization_tests() {
-        let engine = Engine::from_rules_parametrised(
+        let engine = Engine::new_with_list_text_parametrised(
             [
                 "||googlesyndication.com$third-party",
                 "@@||googlesyndication.ca",
                 "a$explicitcancel",
-            ],
+            ]
+            .join("\n"),
             Default::default(),
             true,
             false,
@@ -974,12 +976,15 @@ mod legacy_misc_tests {
 
     #[test]
     fn find_matching_filters() {
-        let engine = Engine::from_rules_debug(
+        let engine = Engine::new_with_list_text_parametrised(
             [
                 "||googlesyndication.com/safeframe/$third-party",
                 "||brianbondy.com/ads",
-            ],
+            ]
+            .join("\n"),
             Default::default(),
+            true,
+            true,
         );
 
         let current_page_frame = "http://slashdot.org";
@@ -1018,13 +1023,16 @@ mod legacy_misc_tests {
 
     #[test]
     fn find_matching_filters_exceptions() {
-        let engine = Engine::from_rules_debug(
+        let engine = Engine::new_with_list_text_parametrised(
             [
                 "||googlesyndication.com/safeframe/$third-party",
                 "||brianbondy.com/ads",
                 "@@safeframe",
-            ],
+            ]
+            .join("\n"),
             Default::default(),
+            true,
+            true,
         );
 
         let current_page_frame = "http://slashdot.org";
@@ -1056,9 +1064,11 @@ mod legacy_misc_tests {
     #[test]
     fn matches_with_filter_info_preserves_important() {
         // exceptions have not effect if important filter matches
-        let engine = Engine::from_rules_debug(
-            ["||brianbondy.com^$important", "@@||brianbondy.com^"],
+        let engine = Engine::new_with_list_text_parametrised(
+            ["||brianbondy.com^$important", "@@||brianbondy.com^"].join("\n"),
             Default::default(),
+            true,
+            true,
         );
 
         let request =

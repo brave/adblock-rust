@@ -693,7 +693,7 @@ mod match_tests {
         {
             use crate::Engine;
             let filter = r#"/^https?:\/\/([0-9a-z\-]+\.)?(9anime|animeland|animenova|animeplus|animetoon|animewow|gamestorrent|goodanime|gogoanime|igg-games|kimcartoon|memecenter|readcomiconline|toonget|toonova|watchcartoononline)\.[a-z]{2,4}\/(?!([Ee]xternal|[Ii]mages|[Ss]cripts|[Uu]ploads|ac|ajax|assets|combined|content|cov|cover|(img\/bg)|(img\/icon)|inc|jwplayer|player|playlist-cat-rss|static|thumbs|wp-content|wp-includes)\/)(.*)/$image,other,script,~third-party,xmlhttprequest,domain=~animeland.hu"#;
-            let engine = Engine::from_rules(vec![filter], Default::default());
+            let engine = Engine::new_with_list_text(filter, Default::default());
             let url = "https://9anime.to/watch/episode-1";
             let source = "https://9anime.to";
             let request = request::Request::new(url, source, "script").unwrap();

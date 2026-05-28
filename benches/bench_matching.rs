@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use adblock::request::Request;
 use adblock::url_parser::parse_url;
-use adblock::{Engine, FilterSet};
+use adblock::Engine;
 
 #[path = "../tests/test_utils.rs"]
 mod test_utils;
@@ -25,23 +25,13 @@ impl From<&TestRequest> for Request {
 }
 
 fn load_requests() -> Vec<TestRequest> {
-    let requests_str = rules_from_lists(&["data/requests.json"]);
+    let requests_str = rules_from_lists(["data/requests.json"]);
     let reqs: Vec<TestRequest> = requests_str
-        .into_iter()
-        .map(|r| serde_json::from_str(&r))
+        .lines()
+        .map(serde_json::from_str)
         .filter_map(Result::ok)
         .collect();
     reqs
-}
-
-fn get_engine(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
-    let (network_filters, cosmetic_filters) =
-        adblock::lists::parse_filters(rules, false, Default::default());
-
-    Engine::from_filter_set(
-        FilterSet::new_with_rules(network_filters, cosmetic_filters, false),
-        true,
-    )
 }
 
 fn bench_rule_matching(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) {
@@ -112,21 +102,21 @@ fn rule_match(c: &mut Criterion) {
     group.sample_size(10);
 
     group.bench_function("el+ep", move |b| {
-        let rules = rules_from_lists(&[
+        let rules = rules_from_lists([
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let engine = Engine::from_rules(rules, Default::default());
+        let engine = Engine::new_with_list_text(rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &elep_req))
     });
     group.bench_function("easylist", move |b| {
-        let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
-        let engine = Engine::from_rules(rules, Default::default());
+        let rules = rules_from_lists(["data/easylist.to/easylist/easylist.txt"]);
+        let engine = Engine::new_with_list_text(rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
-        let rules = rules_from_lists(&["data/slim-list.txt"]);
-        let engine = Engine::from_rules(rules, Default::default());
+        let rules = rules_from_lists(["data/slim-list.txt"]);
+        let engine = Engine::new_with_list_text(rules, Default::default());
         b.iter(|| bench_rule_matching(&engine, &slim_req))
     });
 
@@ -136,7 +126,7 @@ fn rule_match(c: &mut Criterion) {
 fn rule_match_parsed_el(c: &mut Criterion) {
     let mut group = c.benchmark_group("rule-match-parsed");
 
-    let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
+    let rules = rules_from_lists(["data/easylist.to/easylist/easylist.txt"]);
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
         .into_iter()
@@ -144,7 +134,7 @@ fn rule_match_parsed_el(c: &mut Criterion) {
         .filter_map(Result::ok)
         .collect();
     let requests_len = requests_parsed.len() as u64;
-    let engine = get_engine(rules);
+    let engine = Engine::new_with_list_text(rules, Default::default());
 
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(10);
@@ -159,11 +149,11 @@ fn rule_match_parsed_el(c: &mut Criterion) {
 fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let mut group = c.benchmark_group("rule-match-parsed");
 
-    let full_rules = rules_from_lists(&[
+    let full_rules = rules_from_lists([
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
     ]);
-    let engine = get_engine(full_rules);
+    let engine = Engine::new_with_list_text(full_rules, Default::default());
 
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
@@ -173,8 +163,8 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
         .collect();
     let requests_len = requests_parsed.len() as u64;
 
-    let slim_rules = rules_from_lists(&["data/slim-list.txt"]);
-    let slim_engine = get_engine(slim_rules);
+    let slim_rules = rules_from_lists(["data/slim-list.txt"]);
+    let slim_engine = Engine::new_with_list_text(slim_rules, Default::default());
 
     let requests_copy = load_requests();
     let requests_parsed_copy: Vec<_> = requests_copy
@@ -245,26 +235,30 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
     let requests = requests_parsed(&requests);
 
     group.bench_function("el+ep", |b| {
-        let rules = rules_from_lists(&[
+        let rules = rules_from_lists([
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        let engine =
+            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("el", |b| {
-        let rules = rules_from_lists(&["data/easylist.to/easylist/easylist.txt"]);
-        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        let rules = rules_from_lists(["data/easylist.to/easylist/easylist.txt"]);
+        let engine =
+            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("slimlist", |b| {
-        let rules = rules_from_lists(&["data/slim-list.txt"]);
-        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        let rules = rules_from_lists(["data/slim-list.txt"]);
+        let engine =
+            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("brave-list", |b| {
-        let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-        let engine = Engine::from_rules_parametrised(rules, Default::default(), false, true);
+        let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
+        let engine =
+            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
 
@@ -288,9 +282,9 @@ fn rule_match_first_request(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut total_time = std::time::Duration::ZERO;
             for _ in 0..iters {
-                let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
+                let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
                 let engine =
-                    Engine::from_rules_parametrised(rules, Default::default(), false, true);
+                    Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
 
                 // Measure only the matching time, skip setup and destruction
                 let start_time = std::time::Instant::now();

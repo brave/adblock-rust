@@ -77,8 +77,7 @@ fn check_filter_matching() {
                     .set(NetworkFilterMask::IS_EXCEPTION, false);
                 filters.push(original_filter);
             }
-            let filter_set = adblock::FilterSet::new_with_rules(filters, vec![], true);
-            let engine = adblock::Engine::from_filter_set(filter_set, true);
+            let engine = adblock::Engine::new_with_parsed_rules(filters, vec![], true);
 
             let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type);
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
@@ -121,7 +120,7 @@ fn check_engine_matching() {
         }
         for filter in req.filters {
             let opts = ParseOptions::default();
-            let mut engine = Engine::from_rules_debug(std::slice::from_ref(&filter), opts);
+            let mut engine = Engine::new_with_list_text(filter.clone(), opts);
             let resources = build_resources_from_filters(std::slice::from_ref(&filter));
             engine.use_resources(resources);
 
@@ -191,10 +190,10 @@ fn check_rule_matching_browserlike() {
     }
 
     fn load_requests() -> Vec<TestRequest> {
-        let requests_str = rules_from_lists(&["data/requests.json"]);
+        let requests_str = rules_from_lists(["data/requests.json"]);
         requests_str
-            .into_iter()
-            .filter_map(|r| serde_json::from_str(&r).ok())
+            .lines()
+            .filter_map(|r| serde_json::from_str(r).ok())
             .collect()
     }
 
@@ -214,7 +213,7 @@ fn check_rule_matching_browserlike() {
 
     let requests = load_requests();
     let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-    let engine = Engine::from_rules(rules, Default::default());
+    let engine = Engine::new_with_list_text(rules, Default::default());
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";

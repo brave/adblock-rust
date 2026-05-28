@@ -23,7 +23,7 @@ const { FilterSet, Engine, FilterFormat, RuleTypes, uBlockResources } =
 // ---------------------------------------------------------------------------
 
 describe('FilterSet.addFilters', () => {
-    it('parses metadata comments (title, homepage, expires, redirect)', () => {
+      it('parses metadata comments (title, homepage, expires, redirect)', () => {
         const fs = new FilterSet();
         const meta = fs.addFilters([
             '! Title: Test List',
@@ -31,16 +31,15 @@ describe('FilterSet.addFilters', () => {
             '! Expires: 2 days',
             '! Redirect: https://example.com/new-list.txt',
             '||ads.com^',
-        ]);
+        ].join('\n'));
         assert.equal(meta.title, 'Test List');
         assert.equal(meta.homepage, 'https://example.com');
         assert.ok(meta.expires != null);
         assert.equal(meta.redirect, 'https://example.com/new-list.txt');
     });
-
     it('hosts format parses IP-hostname entries', () => {
         const fs = new FilterSet();
-        fs.addFilters(['127.0.0.1 ads.example.com'], { format: FilterFormat.HOSTS });
+        fs.addFilters('127.0.0.1 ads.example.com', { format: FilterFormat.HOSTS });
         const engine = new Engine(fs, true);
         assert.equal(
             engine.check('https://ads.example.com/', 'https://pub.com', 'script'),
@@ -51,7 +50,7 @@ describe('FilterSet.addFilters', () => {
     it('NETWORK_ONLY skips cosmetic rules', () => {
         const fs = new FilterSet();
         fs.addFilters(
-            ['||example.com^', 'example.com##.ad'],
+            ['||example.com^', 'example.com##.ad'].join('\n'),
             { rule_types: RuleTypes.NETWORK_ONLY },
         );
         const engine = new Engine(fs, true);
@@ -63,10 +62,26 @@ describe('FilterSet.addFilters', () => {
         assert.equal(cosmetic.hide_selectors.length, 0);
     });
 
+    it("Legacy addFilters syntax works", () => {
+      const fs = new FilterSet();
+      fs.addFilters(["||example.com^", "example.com##.ad"], {
+        rule_types: RuleTypes.NETWORK_ONLY,
+      });
+      const engine = new Engine(fs, true);
+      assert.equal(
+        engine.check(
+          "https://example.com/test.js",
+          "https://pub.com",
+          "script",
+        ),
+        true,
+      );
+    });
+
     it('COSMETIC_ONLY skips network rules', () => {
         const fs = new FilterSet();
         fs.addFilters(
-            ['||example.com^', 'example.com##.ad'],
+            ['||example.com^', 'example.com##.ad'].join('\n'),
             { rule_types: RuleTypes.COSMETIC_ONLY },
         );
         const engine = new Engine(fs, true);
@@ -80,47 +95,13 @@ describe('FilterSet.addFilters', () => {
 });
 
 // ---------------------------------------------------------------------------
-// FilterSet.addFilter
-// ---------------------------------------------------------------------------
-
-describe('FilterSet.addFilter', () => {
-    it('returns true for a valid network filter', () => {
-        const fs = new FilterSet();
-        assert.equal(fs.addFilter('||example.com^'), true);
-    });
-
-    it('returns true for a valid cosmetic filter', () => {
-        const fs = new FilterSet();
-        assert.equal(fs.addFilter('example.com##.banner'), true);
-    });
-
-    it('returns false for an empty string', () => {
-        const fs = new FilterSet();
-        assert.equal(fs.addFilter(''), false);
-    });
-
-    it('returns false for a comment line', () => {
-        const fs = new FilterSet();
-        assert.equal(fs.addFilter('! this is a comment'), false);
-    });
-
-    it('accepts hosts format via ParseOptions', () => {
-        const fs = new FilterSet();
-        assert.equal(
-            fs.addFilter('127.0.0.1 ads.example.com', { format: FilterFormat.HOSTS }),
-            true,
-        );
-    });
-});
-
-// ---------------------------------------------------------------------------
 // FilterSet.intoContentBlocking
 // ---------------------------------------------------------------------------
 
 describe('FilterSet.intoContentBlocking', () => {
     it('converts network filters to content blocking rules with trigger/action', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^']);
+        fs.addFilters('||ads.example.com^');
         const result = fs.intoContentBlocking();
         assert.notEqual(result, undefined);
         assert.ok(result.contentBlockingRules.length > 0);
@@ -131,7 +112,7 @@ describe('FilterSet.intoContentBlocking', () => {
 
     it('returns undefined when debug=false', () => {
         const fs = new FilterSet(false);
-        fs.addFilters(['||ads.example.com^']);
+        fs.addFilters('||ads.example.com^');
         assert.equal(fs.intoContentBlocking(), undefined);
     });
 });
@@ -143,9 +124,9 @@ describe('FilterSet.intoContentBlocking', () => {
 describe('FilterSet survives Engine construction (clone semantics)', () => {
     it('FilterSet is still usable after being passed to Engine constructor', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||example.com^']);
+        fs.addFilters('||example.com^');
         const _engine = new Engine(fs, true);
-        assert.doesNotThrow(() => fs.addFilter('||another.com^'));
+        assert.doesNotThrow(() => fs.addFilters('||another.com^'));
     });
 });
 
@@ -156,7 +137,7 @@ describe('FilterSet survives Engine construction (clone semantics)', () => {
 describe('Engine.check — basic blocking', () => {
     it('blocks matching requests, allows non-matching', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^']);
+        fs.addFilters('||ads.example.com^');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/t.js', 'https://pub.com', 'script'), true);
         assert.equal(engine.check('https://safe.com/t.js', 'https://pub.com', 'script'), false);
@@ -164,7 +145,7 @@ describe('Engine.check — basic blocking', () => {
 
     it('debug=true returns BlockerResult with filter text', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^']);
+        fs.addFilters('||ads.example.com^');
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
@@ -180,7 +161,7 @@ describe('Engine.check — basic blocking', () => {
 
     it('EngineOptions object works as alternative to boolean', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||blocked.com^']);
+        fs.addFilters('||blocked.com^');
         const engine = new Engine(fs, { optimize: false });
         assert.equal(
             engine.check('https://blocked.com/img.png', 'https://pub.com', 'image'),
@@ -196,7 +177,7 @@ describe('Engine.check — basic blocking', () => {
 describe('Engine.check — exception rules', () => {
     it('exception rule prevents blocking, populates exception field', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^', '@@||ads.example.com^$domain=publisher.com']);
+        fs.addFilters(['||ads.example.com^', '@@||ads.example.com^$domain=publisher.com'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://ads.example.com/tracker.js', 'https://publisher.com', 'script', true,
@@ -208,7 +189,7 @@ describe('Engine.check — exception rules', () => {
 
     it('$important overrides exception rules', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^$important', '@@||ads.example.com^']);
+        fs.addFilters(['||ads.example.com^$important', '@@||ads.example.com^'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
@@ -226,7 +207,7 @@ describe('Engine.check — exception rules', () => {
 describe('Engine.check — $third-party and $1p modifiers', () => {
     it('$third-party rule blocks 3p, allows 1p', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||tracker.com^$third-party']);
+        fs.addFilters('||tracker.com^$third-party');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://tracker.com/t.js', 'https://other.com', 'script'), true);
         assert.equal(engine.check('https://tracker.com/t.js', 'https://tracker.com', 'script'), false);
@@ -234,7 +215,7 @@ describe('Engine.check — $third-party and $1p modifiers', () => {
 
     it('$1p rule blocks 1p, allows 3p', () => {
         const fs = new FilterSet();
-        fs.addFilters(['/bad-path$1p']);
+        fs.addFilters('/bad-path$1p');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://example.com/bad-path', 'https://example.com', 'script'), true);
         assert.equal(engine.check('https://example.com/bad-path', 'https://other.com', 'script'), false);
@@ -248,7 +229,7 @@ describe('Engine.check — $third-party and $1p modifiers', () => {
 describe('Engine.check — type-specific rules', () => {
     it('$script blocks only script requests', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^$script']);
+        fs.addFilters('||ads.example.com^$script');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/t.js', 'https://pub.com', 'script'), true);
         assert.equal(engine.check('https://ads.example.com/t.png', 'https://pub.com', 'image'), false);
@@ -256,7 +237,7 @@ describe('Engine.check — type-specific rules', () => {
 
     it('$image blocks only image requests', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^$image']);
+        fs.addFilters('||ads.example.com^$image');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/t.png', 'https://pub.com', 'image'), true);
         assert.equal(engine.check('https://ads.example.com/t.js', 'https://pub.com', 'script'), false);
@@ -264,7 +245,7 @@ describe('Engine.check — type-specific rules', () => {
 
     it('$stylesheet blocks only stylesheet requests', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^$stylesheet']);
+        fs.addFilters('||ads.example.com^$stylesheet');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/s.css', 'https://pub.com', 'stylesheet'), true);
         assert.equal(engine.check('https://ads.example.com/s.js', 'https://pub.com', 'script'), false);
@@ -272,7 +253,7 @@ describe('Engine.check — type-specific rules', () => {
 
     it('$xmlhttprequest blocks only XHR requests', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^$xmlhttprequest']);
+        fs.addFilters('||ads.example.com^$xmlhttprequest');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/api', 'https://pub.com', 'xmlhttprequest'), true);
         assert.equal(engine.check('https://ads.example.com/api', 'https://pub.com', 'image'), false);
@@ -286,7 +267,7 @@ describe('Engine.check — type-specific rules', () => {
 describe('Engine.check — $domain modifier', () => {
     it('blocks only when source matches the domain option', () => {
         const fs = new FilterSet();
-        fs.addFilters(['/ads.js$domain=publisher.com']);
+        fs.addFilters('/ads.js$domain=publisher.com');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://cdn.example.com/ads.js', 'https://publisher.com', 'script'), true);
         assert.equal(engine.check('https://cdn.example.com/ads.js', 'https://other.com', 'script'), false);
@@ -294,7 +275,7 @@ describe('Engine.check — $domain modifier', () => {
 
     it('~domain excludes the specified domain', () => {
         const fs = new FilterSet();
-        fs.addFilters(['/ads.js$domain=~safe.com']);
+        fs.addFilters('/ads.js$domain=~safe.com');
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://cdn.example.com/ads.js', 'https://safe.com', 'script'), false);
         assert.equal(engine.check('https://cdn.example.com/ads.js', 'https://other.com', 'script'), true);
@@ -308,14 +289,14 @@ describe('Engine.check — $domain modifier', () => {
 describe('Engine.check — $badfilter modifier', () => {
     it('cancels a matching blocking rule', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^', '||ads.example.com^$badfilter']);
+        fs.addFilters(['||ads.example.com^', '||ads.example.com^$badfilter'].join('\n'));
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/t.js', 'https://pub.com', 'script'), false);
     });
 
     it('does not cancel a dissimilar rule', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||ads.example.com^', '||other.com^$badfilter']);
+        fs.addFilters(['||ads.example.com^', '||other.com^$badfilter'].join('\n'));
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://ads.example.com/t.js', 'https://pub.com', 'script'), true);
     });
@@ -328,7 +309,7 @@ describe('Engine.check — $badfilter modifier', () => {
 describe('Engine.check — redirect rules', () => {
     it('redirect field is set when $redirect rule matches and resource is loaded', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^$script,redirect=noopjs']);
+        fs.addFilters('||ads.example.com^$script,redirect=noopjs');
         const engine = new Engine(fs, true);
         engine.useResources([{
             name: 'noopjs',
@@ -346,7 +327,7 @@ describe('Engine.check — redirect rules', () => {
 
     it('redirect is null when no redirect rule applies', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^']);
+        fs.addFilters('||ads.example.com^');
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
@@ -364,7 +345,7 @@ describe('Engine.check — redirect rules', () => {
 describe('Engine.check — $removeparam modifier', () => {
     it('strips the specified parameter, preserves others', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||example.com^$removeparam=tracking_id']);
+        fs.addFilters('||example.com^$removeparam=tracking_id');
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://example.com/page?tracking_id=abc&keep=1',
@@ -377,7 +358,7 @@ describe('Engine.check — $removeparam modifier', () => {
 
     it('rewritten_url is null when the parameter is absent', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||example.com^$removeparam=tracking_id']);
+        fs.addFilters('||example.com^$removeparam=tracking_id');
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://example.com/page?unrelated=1',
@@ -394,7 +375,7 @@ describe('Engine.check — $removeparam modifier', () => {
 describe('Engine.check — exception rules with tags', () => {
     it('tagged exception activates only after enableTag', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^', '@@||ads.example.com^$tag=unbreak']);
+        fs.addFilters(['||ads.example.com^', '@@||ads.example.com^$tag=unbreak'].join('\n'));
         const engine = new Engine(fs, true);
 
         const before = engine.check(
@@ -419,7 +400,7 @@ describe('Engine.check — exception rules with tags', () => {
 describe('Engine.urlCosmeticResources', () => {
     it('returns matching hide_selectors for the URL', () => {
         const fs = new FilterSet();
-        fs.addFilters(['example.com##.ad-banner', 'example.com##.sponsored-post']);
+        fs.addFilters(['example.com##.ad-banner', 'example.com##.sponsored-post'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.urlCosmeticResources('https://example.com/page');
         assert.ok(result.hide_selectors.includes('.ad-banner'));
@@ -428,7 +409,7 @@ describe('Engine.urlCosmeticResources', () => {
 
     it('returns empty hide_selectors for an unmatched URL', () => {
         const fs = new FilterSet();
-        fs.addFilters(['example.com##.ad-banner']);
+        fs.addFilters('example.com##.ad-banner');
         const engine = new Engine(fs, true);
         const result = engine.urlCosmeticResources('https://other-site.com/page');
         assert.equal(result.hide_selectors.length, 0);
@@ -436,7 +417,7 @@ describe('Engine.urlCosmeticResources', () => {
 
     it('generichide exception sets generichide=true', () => {
         const fs = new FilterSet();
-        fs.addFilters(['##.generic-ad', '@@||example.com^$generichide']);
+        fs.addFilters(['##.generic-ad', '@@||example.com^$generichide'].join('\n'));
         const engine = new Engine(fs, true);
         assert.equal(engine.urlCosmeticResources('https://example.com/page').generichide, true);
         assert.equal(engine.urlCosmeticResources('https://other.com/page').generichide, false);
@@ -444,7 +425,7 @@ describe('Engine.urlCosmeticResources', () => {
 
     it('site-specific unhide (#@#) prevents selector from appearing', () => {
         const fs = new FilterSet();
-        fs.addFilters(['example.com##.ad-banner', 'example.com#@#.ad-banner']);
+        fs.addFilters(['example.com##.ad-banner', 'example.com#@#.ad-banner'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.urlCosmeticResources('https://example.com/page');
         assert.ok(!result.hide_selectors.includes('.ad-banner'));
@@ -452,7 +433,7 @@ describe('Engine.urlCosmeticResources', () => {
 
     it('generic unhide (#@#) adds to exceptions list', () => {
         const fs = new FilterSet();
-        fs.addFilters(['##.generic-ad', 'example.com#@#.generic-ad']);
+        fs.addFilters(['##.generic-ad', 'example.com#@#.generic-ad'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.urlCosmeticResources('https://example.com/page');
         assert.ok(result.exceptions.includes('.generic-ad'));
@@ -460,7 +441,7 @@ describe('Engine.urlCosmeticResources', () => {
 
     it('negated domain (~sub.example.com) excludes subdomain', () => {
         const fs = new FilterSet();
-        fs.addFilters(['example.com,~sub.example.com##.ad']);
+        fs.addFilters('example.com,~sub.example.com##.ad');
         const engine = new Engine(fs, true);
         assert.ok(engine.urlCosmeticResources('https://example.com/page').hide_selectors.includes('.ad'));
         assert.ok(!engine.urlCosmeticResources('https://sub.example.com/page').hide_selectors.includes('.ad'));
@@ -471,7 +452,7 @@ describe('Engine.urlCosmeticResources', () => {
         fs.addFilters([
             'example.com##.items:has-text(Sponsored)',
             'example.com##.ad-banner:remove()',
-        ]);
+        ].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.urlCosmeticResources('https://example.com/page');
         assert.ok(result.procedural_actions.length >= 2);
@@ -479,7 +460,7 @@ describe('Engine.urlCosmeticResources', () => {
 
     it('scriptlet injection populates injected_script', () => {
         const fs = new FilterSet();
-        fs.addFilters(['example.com##+js(noopjs)']);
+        fs.addFilters('example.com##+js(noopjs)');
         const engine = new Engine(fs, true);
         // ##+js(noopjs) looks up "noopjs.js"; scriptlets use kind: "template"
         engine.useResources([{
@@ -500,7 +481,7 @@ describe('Engine.urlCosmeticResources', () => {
 describe('Engine.hiddenClassIdSelectors', () => {
     it('returns selectors matching class and id names', () => {
         const fs = new FilterSet();
-        fs.addFilters(['##.a-class', '###simple-id']);
+        fs.addFilters(['##.a-class', '###simple-id'].join('\n'));
         const engine = new Engine(fs, true);
         assert.ok(engine.hiddenClassIdSelectors(['a-class'], [], []).includes('.a-class'));
         assert.ok(engine.hiddenClassIdSelectors([], ['simple-id'], []).includes('#simple-id'));
@@ -508,14 +489,14 @@ describe('Engine.hiddenClassIdSelectors', () => {
 
     it('returns empty for unknown class/id names', () => {
         const fs = new FilterSet();
-        fs.addFilters(['##.a-class']);
+        fs.addFilters('##.a-class');
         const engine = new Engine(fs, true);
         assert.deepEqual(engine.hiddenClassIdSelectors(['unknown'], ['unknown'], []), []);
     });
 
     it('exceptions array filters out results', () => {
         const fs = new FilterSet();
-        fs.addFilters(['##.a-class']);
+        fs.addFilters('##.a-class');
         const engine = new Engine(fs, true);
         assert.ok(engine.hiddenClassIdSelectors(['a-class'], [], []).includes('.a-class'));
         assert.ok(!engine.hiddenClassIdSelectors(['a-class'], [], ['.a-class']).includes('.a-class'));
@@ -529,7 +510,7 @@ describe('Engine.hiddenClassIdSelectors', () => {
 describe('Engine serialization', () => {
     it('roundtrip preserves blocking and exception rules', () => {
         const fs = new FilterSet();
-        fs.addFilters(['||blocked.com^', '@@||exception.blocked.com^']);
+        fs.addFilters(['||blocked.com^', '@@||exception.blocked.com^'].join('\n'));
         const src = new Engine(fs, true);
         const buf = src.serialize();
 
@@ -542,7 +523,7 @@ describe('Engine serialization', () => {
 
     it('tag enablement is NOT serialized — must re-enable after deserialize', () => {
         const fs = new FilterSet();
-        fs.addFilters(['adv$tag=stuff', '||blocked.com^']);
+        fs.addFilters(['adv$tag=stuff', '||blocked.com^'].join('\n'));
         const src = new Engine(fs, true);
         src.enableTag('stuff');
         const buf = src.serialize();
@@ -560,7 +541,7 @@ describe('Engine serialization', () => {
 
     it('resources are NOT serialized — must reload after deserialize', () => {
         const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^$script,redirect=noopjs']);
+        fs.addFilters(['||ads.example.com^$script,redirect=noopjs'].join('\n'));
         const resource = {
             name: 'noopjs',
             aliases: [],
@@ -597,7 +578,7 @@ describe('Engine serialization', () => {
 describe('Engine tags', () => {
     it('tagged filter is inactive before enableTag, active after', () => {
         const fs = new FilterSet();
-        fs.addFilters(['adv$tag=stuff']);
+        fs.addFilters(['adv$tag=stuff'].join('\n'));
         const engine = new Engine(fs, true);
         assert.equal(engine.check('https://example.com/adv', 'https://example.com', 'other'), false);
         engine.enableTag('stuff');
@@ -607,7 +588,7 @@ describe('Engine tags', () => {
 
     it('clearTags deactivates all enabled tags', () => {
         const fs = new FilterSet();
-        fs.addFilters(['adv$tag=stuff', '||brianbondy.com/$tag=brian']);
+        fs.addFilters(['adv$tag=stuff', '||brianbondy.com/$tag=brian'].join('\n'));
         const engine = new Engine(fs, true);
         engine.enableTag('stuff');
         engine.enableTag('brian');

@@ -4,17 +4,17 @@ use crate::blocker::{Blocker, BlockerResult};
 use crate::cosmetic_filter_cache::{CosmeticFilterCache, UrlSpecificResources};
 use crate::cosmetic_filter_cache_builder::CosmeticFilterCacheBuilder;
 use crate::data_format::{deserialize_dat_file, serialize_dat_file, DeserializationError};
-use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::fb_network_builder::NetworkRulesBuilder;
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
-use crate::filters::network::NetworkFilter;
 use crate::flatbuffers::containers::flat_serialize::FlatSerialize;
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
-use crate::lists::{FilterSet, ParseOptions};
+use crate::lists::{parse_filter, FilterSet, ParseOptions, ParsedLine};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
+
+use crate::filters::{cosmetic::CosmeticFilter, network::NetworkFilter};
 
 use std::collections::HashSet;
 
@@ -66,38 +66,28 @@ pub struct EngineDebugInfo {
 
 impl Default for Engine {
     fn default() -> Self {
-        Self::from_filter_set(FilterSet::new(false), false)
+        Self::new_with_filter_set(FilterSet::new(false), false)
     }
 }
 
 impl Engine {
-    /// Loads rules in a single format, enabling optimizations and discarding debug information.
-    pub fn from_rules(
-        rules: impl IntoIterator<Item = impl AsRef<str>>,
-        opts: ParseOptions,
-    ) -> Self {
-        let mut filter_set = FilterSet::new(false);
-        filter_set.add_filters(rules, opts);
-        Self::from_filter_set(filter_set, true)
+    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
+    #[doc(hidden)]
+    pub fn new_with_list_text(list_text: impl Into<String>, opts: ParseOptions) -> Self {
+        Self::new_with_list_text_parametrised(list_text.into(), opts, false, true)
     }
 
-    /// Loads rules, enabling optimizations and including debug information.
-    pub fn from_rules_debug(
-        rules: impl IntoIterator<Item = impl AsRef<str>>,
-        opts: ParseOptions,
-    ) -> Self {
-        Self::from_rules_parametrised(rules, opts, true, true)
-    }
-
-    pub fn from_rules_parametrised(
-        filter_rules: impl IntoIterator<Item = impl AsRef<str>>,
+    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
+    #[doc(hidden)]
+    pub fn new_with_list_text_parametrised(
+        list_text: impl Into<String>,
         opts: ParseOptions,
         debug: bool,
         optimize: bool,
     ) -> Self {
         let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filters(filter_rules, opts);
-        Self::from_filter_set(filter_set, optimize)
+        filter_set.add_filter_list(list_text.into(), opts);
+        Self::new_with_filter_set(filter_set, optimize)
     }
 
     #[cfg(test)]
@@ -110,15 +100,13 @@ impl Engine {
         self.filter_data_context
     }
 
-    /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
-    /// rules from multiple sources.
-    pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
-        let FilterSet {
-            network_filters,
-            cosmetic_filters,
-            ..
-        } = set;
-
+    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
+    #[doc(hidden)]
+    pub fn new_with_parsed_rules(
+        network_filters: Vec<NetworkFilter>,
+        cosmetic_filters: Vec<CosmeticFilter>,
+        optimize: bool,
+    ) -> Self {
         let memory = make_flatbuffer(network_filters, cosmetic_filters, optimize);
 
         let filter_data_context = FilterDataContext::new(memory);
@@ -131,6 +119,24 @@ impl Engine {
             resources: ResourceStorage::default(),
             filter_data_context,
         }
+    }
+
+    /// Loads rules from the given `FilterSet`.
+    pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
+        let mut network_filters = vec![];
+        let mut cosmetic_filters = vec![];
+
+        for list_source in set.list_sources {
+            for line in list_source.list_text.lines() {
+                let parsed_line = parse_filter(line, set.debug, list_source.parse_options);
+                match parsed_line {
+                    Ok(ParsedLine::Network(filter)) => network_filters.push(filter),
+                    Ok(ParsedLine::Cosmetic(filter)) => cosmetic_filters.push(filter),
+                    Err(_) => {}
+                }
+            }
+        }
+        Self::new_with_parsed_rules(network_filters, cosmetic_filters, optimize)
     }
 
     /// Check if a request for a network resource from `url`, of type `request_type`, initiated by

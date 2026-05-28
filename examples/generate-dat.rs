@@ -5,13 +5,14 @@ use std::io::prelude::*;
 
 fn main() {
     // Rules we want to serialize
-    let rules = vec![
+    let rules = [
         String::from("||platform.twitter.com/$tag=twitter-embeds"),
         String::from("@@||platform.twitter.com/$tag=twitter-embeds"),
-    ];
+    ]
+    .join("\n");
 
     // Serialize
-    let mut engine = Engine::from_rules_debug(&rules, Default::default());
+    let mut engine = Engine::new_with_list_text(rules, Default::default());
     engine.use_tags(&["twitter-embeds"]);
 
     let request = Request::new(

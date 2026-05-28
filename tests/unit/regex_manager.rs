@@ -7,7 +7,7 @@ mod tests {
     use mock_instant::thread_local::MockClock;
 
     fn make_engine(line: &str) -> Engine {
-        Engine::from_rules(vec![line], Default::default())
+        Engine::new_with_list_text(line, Default::default())
     }
 
     fn make_request(url: &str) -> request::Request {

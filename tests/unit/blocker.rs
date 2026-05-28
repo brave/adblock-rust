@@ -2,7 +2,6 @@
 mod blocker_tests {
 
     use super::super::*;
-    use crate::lists::parse_filters;
     use crate::request::Request;
     use crate::resources::{Resource, ResourceStorage};
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
@@ -13,13 +12,11 @@ mod blocker_tests {
     fn single_slash() {
         let filters = ["/|"];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
 
         let request = Request::new(
             "https://example.com/test/",
@@ -42,13 +39,11 @@ mod blocker_tests {
         filters: impl IntoIterator<Item = impl AsRef<str>>,
         requests: &[(Request, bool)],
     ) {
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
 
         requests.iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(req, &Default::default());
@@ -78,13 +73,11 @@ mod blocker_tests {
         )
         .unwrap();
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
             "noop-0.1s.mp3",
             crate::resources::MimeType::AudioMp3,
@@ -118,13 +111,11 @@ mod blocker_tests {
         )
         .unwrap();
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
             "noop-0.1s.mp3",
             crate::resources::MimeType::AudioMp3,
@@ -153,13 +144,11 @@ mod blocker_tests {
         let request =
             Request::new("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
             "noop.txt",
             crate::resources::MimeType::TextPlain,
@@ -225,13 +214,11 @@ mod blocker_tests {
     fn trailing_dot_domain() {
         let filters = ["||dot.example.com.^", "||test.example.com^"];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
 
         let request = Request::new(
             "https://dot.example.com",
@@ -311,13 +298,11 @@ mod blocker_tests {
             ),
         ];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         let resources = ResourceStorage::default();
 
         url_results.into_iter().for_each(|(req, expected_result)| {
@@ -346,13 +331,11 @@ mod blocker_tests {
             "^first-party-only^$csp=script-src 'none',1p",
         ];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: false,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
 
         {
             // No directives should be returned for requests that are not `document` or `subdocument` content types.
@@ -540,13 +523,11 @@ mod blocker_tests {
             "$removeparam=testCase,~xhr",
         ];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
             "noopjs",
             crate::resources::MimeType::ApplicationJavascript,
@@ -938,13 +919,11 @@ mod blocker_tests {
         .map(|s| format!("*$removeparam={s}"))
         .collect::<Vec<_>>();
 
-        let (network_filters, _) = parse_filters(&filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         let resources = ResourceStorage::default();
 
         for (original, expected) in testcases.into_iter() {
@@ -968,13 +947,11 @@ mod blocker_tests {
     fn test_removeparam_same_tokens() {
         let filters = ["$removeparam=example1_", "$removeparam=example1-"];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
 
         let result = blocker.check(
             &Request::new(
@@ -1000,13 +977,11 @@ mod blocker_tests {
             "@@^exceptc20^$redirect-rule=c:20",
         ];
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options = BlockerOptions {
             enable_optimizations: true,
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new(filters, &blocker_options);
         fn simple_resource(identifier: &str) -> Resource {
             Resource::simple(
                 identifier,
@@ -1162,13 +1137,11 @@ mod blocker_tests {
             })
             .collect();
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let mut blocker = Blocker::new(filters, &blocker_options);
         let resources = Default::default();
         blocker.enable_tags(&["stuff"]);
         assert_eq!(
@@ -1215,13 +1188,11 @@ mod blocker_tests {
             })
             .collect();
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let mut blocker = Blocker::new(filters, &blocker_options);
         let resources = Default::default();
         blocker.enable_tags(&["stuff"]);
         blocker.enable_tags(&["brian"]);
@@ -1269,13 +1240,11 @@ mod blocker_tests {
             })
             .collect();
 
-        let (network_filters, _) = parse_filters(filters, true, Default::default());
-
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false, // optimizations will reduce number of rules
         };
 
-        let mut blocker = Blocker::new(network_filters, &blocker_options);
+        let mut blocker = Blocker::new(filters, &blocker_options);
         let resources = Default::default();
         blocker.enable_tags(&["brian", "stuff"]);
         assert_eq!(
@@ -1310,12 +1279,7 @@ mod blocker_tests {
             enable_optimizations: true,
         };
 
-        let mut filter_set = crate::lists::FilterSet::new(true);
-        filter_set
-            .add_filter("@@*ad_banner.png", Default::default())
-            .unwrap();
-
-        let blocker = Blocker::new(filter_set.network_filters, &blocker_options);
+        let blocker = Blocker::new(["@@*ad_banner.png"], &blocker_options);
 
         let resources = Default::default();
 
@@ -1337,12 +1301,7 @@ mod blocker_tests {
             enable_optimizations: true,
         };
 
-        let mut filter_set = crate::lists::FilterSet::new(true);
-        filter_set
-            .add_filter("@@||example.com$generichide", Default::default())
-            .unwrap();
-
-        let blocker = Blocker::new(filter_set.network_filters, &blocker_options);
+        let blocker = Blocker::new(["@@||example.com$generichide\n"], &blocker_options);
 
         assert!(blocker.check_generic_hide(
             &Request::new("https://example.com", "https://example.com", "other").unwrap()
@@ -1356,10 +1315,8 @@ mod placeholder_string_tests {
     #[test]
     fn test_constant_placeholder_string() {
         let mut filter_set = crate::lists::FilterSet::new(false);
-        filter_set
-            .add_filter("||example.com^", Default::default())
-            .unwrap();
-        let engine = crate::Engine::from_filter_set(filter_set, true);
+        filter_set.add_filter_list("||example.com^\n".to_string(), Default::default());
+        let engine = crate::Engine::new_with_filter_set(filter_set, true);
         let block = engine.check_network_request(
             &crate::request::Request::new("https://example.com", "https://example.com", "document")
                 .unwrap(),
@@ -1472,7 +1429,7 @@ mod legacy_rule_parsing_tests {
         let rules = rules_from_lists(rule_lists);
 
         let (network_filters, cosmetic_filters) = parse_filters(
-            rules,
+            rules.lines(),
             true,
             ParseOptions {
                 format,
@@ -1498,7 +1455,7 @@ mod legacy_rule_parsing_tests {
             enable_optimizations: false, // optimizations will reduce number of rules
         };
 
-        let blocker = Blocker::new(network_filters, &blocker_options);
+        let blocker = Blocker::new_with_list_text(rules, &blocker_options);
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
         assert!(

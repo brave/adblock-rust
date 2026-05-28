@@ -1,6 +1,4 @@
-use adblock::lists::{
-    FilterFormat, FilterListMetadata, FilterSet as FilterSetInternal, ParseOptions, RuleTypes,
-};
+use adblock::lists::{FilterFormat, FilterSet as FilterSetInternal, ParseOptions, RuleTypes};
 use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 use adblock::resources::Resource;
 use adblock::Engine as EngineInternal;
@@ -53,6 +51,31 @@ mod json_ffi {
     }
 }
 
+fn console_warn<'a, C: Context<'a>>(cx: &mut C, message: &str) -> NeonResult<()> {
+    let console: Handle<JsObject> = cx.global().get(cx, "console")?;
+    let warn: Handle<JsFunction> = console.get(cx, "warn")?;
+    let msg = JsString::new(cx, message).upcast::<JsValue>();
+    warn.call(cx, console, [msg])?;
+    Ok(())
+}
+
+/// Accepts a single filter list string, or a deprecated array of list strings (joined with `\n`).
+fn filter_rules_from_js<'a, C: Context<'a>>(
+    cx: &mut C,
+    input: Handle<JsValue>,
+) -> NeonResult<String> {
+    if input.downcast::<JsArray, _>(cx).is_ok() {
+        console_warn(
+            cx,
+            "FilterSet.addFilters: passing an array of strings is deprecated; \
+             pass a single newline-separated filter list string instead.",
+        )?;
+        let parts: Vec<String> = json_ffi::from_js(cx, input)?;
+        return Ok(parts.join("\n"));
+    }
+    json_ffi::from_js(cx, input)
+}
+
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
     pub optimize: Option<bool>,
@@ -64,16 +87,10 @@ impl FilterSet {
     fn new(debug: bool) -> Self {
         Self(RefCell::new(FilterSetInternal::new(debug)))
     }
-    fn add_filters(&self, rules: &[String], opts: ParseOptions) -> FilterListMetadata {
-        self.0.borrow_mut().add_filters(rules, opts)
+    fn add_filters(&self, rules: String, opts: ParseOptions) -> adblock::lists::FilterListMetadata {
+        self.0.borrow_mut().add_filter_list(rules, opts)
     }
-    fn add_filter(
-        &self,
-        filter: &str,
-        opts: ParseOptions,
-    ) -> Result<(), adblock::lists::FilterParseError> {
-        self.0.borrow_mut().add_filter(filter, opts)
-    }
+
     fn into_content_blocking(
         &self,
     ) -> Result<(Vec<adblock::content_blocking::CbRule>, Vec<String>), ()> {
@@ -99,7 +116,6 @@ fn create_filter_set(mut cx: FunctionContext) -> JsResult<JsBox<FilterSet>> {
 fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<FilterSet>>(0)?;
 
-    // Take the first argument, which must be an array
     let rules_handle: Handle<JsValue> = cx.argument(1)?;
     // Second argument is optional parse options. All fields are optional. ParseOptions::default()
     // if unspecified.
@@ -108,25 +124,11 @@ fn filter_set_add_filters(mut cx: FunctionContext) -> JsResult<JsValue> {
         None => ParseOptions::default(),
     };
 
-    let rules: Vec<String> = json_ffi::from_js(&mut cx, rules_handle)?;
+    let rules: String = filter_rules_from_js(&mut cx, rules_handle)?;
 
-    let metadata = this.add_filters(&rules, parse_opts);
+    let metadata = this.add_filters(rules, parse_opts);
 
     json_ffi::to_js(&mut cx, &metadata)
-}
-
-fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    let this = cx.argument::<JsBox<FilterSet>>(0)?;
-
-    let filter: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let parse_opts = match cx.argument_opt(2) {
-        Some(parse_opts_arg) => json_ffi::from_js(&mut cx, parse_opts_arg)?,
-        None => ParseOptions::default(),
-    };
-
-    let ok = this.add_filter(&filter, parse_opts).is_ok();
-    // Return true/false depending on whether or not the filter could be added
-    Ok(JsBoolean::new(&mut cx, ok))
 }
 
 #[derive(Serialize)]
@@ -171,9 +173,9 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
                     config.optimize.unwrap_or(true)
                 }
             };
-            EngineInternal::from_filter_set(rules, optimize)
+            EngineInternal::new_with_filter_set(rules, optimize)
         }
-        None => EngineInternal::from_filter_set(rules, true),
+        None => EngineInternal::new_with_filter_set(rules, true),
     };
     Ok(cx.boxed(Engine(Mutex::new(engine_internal))))
 }
@@ -391,7 +393,6 @@ fn build_rule_types_enum<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsObjec
 register_module!(mut m, {
     m.export_function("FilterSet_constructor", create_filter_set)?;
     m.export_function("FilterSet_addFilters", filter_set_add_filters)?;
-    m.export_function("FilterSet_addFilter", filter_set_add_filter)?;
     m.export_function(
         "FilterSet_intoContentBlocking",
         filter_set_into_content_blocking,

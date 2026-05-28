@@ -944,9 +944,7 @@ impl NetworkFilter {
 
     #[cfg(test)]
     pub(crate) fn matches_test(&self, request: &request::Request) -> bool {
-        let filter_set = crate::FilterSet::new_with_rules(vec![self.clone()], vec![], true);
-        let engine = crate::Engine::from_filter_set(filter_set, true);
-
+        let engine = crate::Engine::new_with_parsed_rules(vec![self.clone()], vec![], true);
         if self.is_exception() {
             engine.check_network_request_exceptions(request)
         } else {

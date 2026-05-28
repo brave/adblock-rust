@@ -2,7 +2,7 @@
 
 use crate::filters::cosmetic::CosmeticFilter;
 use crate::filters::network::{NetworkFilter, NetworkFilterFeaturesMask, NetworkFilterMask};
-use crate::lists::ParsedFilter;
+use crate::lists::ParsedLine;
 
 use memchr::{memchr as find_char, memmem};
 use regex::Regex;
@@ -229,13 +229,13 @@ pub enum CbRuleCreationFailure {
     ProceduralCosmeticFiltersUnsupported,
 }
 
-impl TryFrom<ParsedFilter> for CbRuleEquivalent {
+impl TryFrom<ParsedLine> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
-    fn try_from(v: ParsedFilter) -> Result<Self, Self::Error> {
+    fn try_from(v: ParsedLine) -> Result<Self, Self::Error> {
         match v {
-            ParsedFilter::Network(f) => f.try_into(),
-            ParsedFilter::Cosmetic(f) => Ok(Self::SingleRule(f.try_into()?)),
+            ParsedLine::Network(f) => f.try_into(),
+            ParsedLine::Cosmetic(f) => Ok(Self::SingleRule(f.try_into()?)),
         }
     }
 }

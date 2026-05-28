@@ -15,7 +15,7 @@ class FilterSet {
         this.boxed = blocker.FilterSet_constructor(...args);
     }
 }
-forwardClassMethods(FilterSet, ['addFilters', 'addFilter', 'intoContentBlocking']);
+forwardClassMethods(FilterSet, ['addFilters', 'intoContentBlocking']);
 
 class Engine {
     constructor(filter_set, ...args) {

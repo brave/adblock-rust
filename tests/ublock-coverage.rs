@@ -48,11 +48,11 @@ fn get_blocker_engine() -> Engine {
         "data/regression-testing/easyprivacy.txt",
     ]);
 
-    Engine::from_rules_parametrised(rules, Default::default(), true, false)
+    Engine::new_with_list_text_parametrised(rules, Default::default(), true, false)
 }
 
 fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
-    let rules = rules_from_lists([
+    let mut rules = rules_from_lists([
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
         "data/uBlockOrigin/unbreak.txt",
@@ -62,16 +62,19 @@ fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<s
         // "data/test/abpjf.txt",
     ]);
 
-    let all_rules = rules.chain(extra_rules.into_iter().map(|r| r.as_ref().to_string()));
+    for rule in extra_rules {
+        rules.push_str(rule.as_ref());
+        rules.push('\n');
+    }
 
-    Engine::from_rules_parametrised(all_rules, Default::default(), true, false)
+    Engine::new_with_list_text_parametrised(rules, Default::default(), true, false)
 }
 
 #[test]
 fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
-        let engine = Engine::from_rules_debug(["||www.facebook.com/*/plugin"], Default::default());
+        let engine = Engine::new_with_list_text("||www.facebook.com/*/plugin", Default::default());
 
         let request =
             Request::new("https://www.facebook.com/v3.2/plugins/comments.ph", "", "").unwrap();
@@ -85,10 +88,8 @@ fn check_specific_rules() {
         use std::path::Path;
 
         // exceptions have no effect if important filter matches
-        let mut engine = Engine::from_rules_debug(
-            [
-                "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com",
-            ],
+        let mut engine = Engine::new_with_list_text(
+            "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com",
             Default::default(),
         );
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
