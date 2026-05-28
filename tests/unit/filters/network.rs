@@ -1252,9 +1252,10 @@ mod parse_tests {
         let rule = "||some.primewire.c*/sw$script,1p";
         let filter = NetworkFilter::parse(rule, true, ParseOptions::default()).unwrap();
         let mut tokens_buffer = utils::TokensBuffer::default();
+        assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
         assert_eq!(
-            filter.get_tokens(&mut tokens_buffer),
-            FilterTokens::Other(&[utils::fast_hash("some"), utils::fast_hash("primewire")])
+            tokens_buffer.as_slice(),
+            &[utils::fast_hash("some"), utils::fast_hash("primewire")]
         );
     }
 }

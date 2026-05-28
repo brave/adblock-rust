@@ -77,16 +77,6 @@ pub(crate) struct CosmeticFilterCacheBuilder<'a> {
 }
 
 impl<'a> CosmeticFilterCacheBuilder<'a> {
-    pub fn from_rules(rules: Vec<CosmeticFilter>, builder: &mut EngineFlatBuilder<'a>) -> Self {
-        let mut self_ = Self::default();
-
-        for rule in rules {
-            self_.add_filter(rule, builder);
-        }
-
-        self_
-    }
-
     pub fn add_filter(&mut self, rule: CosmeticFilter, builder: &mut EngineFlatBuilder<'a>) {
         if rule.has_hostname_constraint() {
             if let Some(generic_rule) = rule.hidden_generic_rule() {
