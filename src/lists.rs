@@ -122,7 +122,7 @@ impl Default for FilterSet {
 }
 
 /// Corresponds to the `expires` field of `FilterListMetadata`.
-#[derive(Debug, PartialEq, Serialize, Clone)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum ExpiresInterval {
     Hours(u16),
     Days(u8),
@@ -165,7 +165,7 @@ impl TryFrom<&str> for ExpiresInterval {
 
 /// Includes information about any "special comments" as described by
 /// <https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments>
-#[derive(Default, Clone, Serialize)]
+#[derive(Default, Serialize)]
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked
     /// as filter list homepage.
@@ -348,7 +348,7 @@ impl FilterSet {
 }
 
 /// Denotes the format of a particular list resource, which affects how its rules should be parsed.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum FilterFormat {
     /// Rules should be parsed in ABP/uBO-style format.
     Standard,
