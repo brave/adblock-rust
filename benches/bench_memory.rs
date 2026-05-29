@@ -186,11 +186,11 @@ impl criterion::measurement::Measurement for MemoryAllocated {
     }
 }
 
-/// Just prints a number directly without units.
+/// Prints allocation counts as a dimensionless integer.
 struct RawUnitsFormatter;
 impl criterion::measurement::ValueFormatter for RawUnitsFormatter {
     fn scale_values(&self, _typ: f64, _values: &mut [f64]) -> &'static str {
-        ""
+        "allocs"
     }
 
     fn scale_throughputs(&self, _typ: f64, _tp: &Throughput, _values: &mut [f64]) -> &'static str {
@@ -198,7 +198,7 @@ impl criterion::measurement::ValueFormatter for RawUnitsFormatter {
     }
 
     fn scale_for_machines(&self, _values: &mut [f64]) -> &'static str {
-        ""
+        "allocs"
     }
 }
 
