@@ -478,11 +478,7 @@ impl NetworkFilter {
 
             options.into_iter().for_each(|option| {
                 match option {
-                    NetworkFilterOption::Domain(mut domains) => {
-                        // Some rules have duplicate domain options - avoid including duplicates
-                        // Benchmarking doesn't indicate signficant performance degradation across the entire easylist
-                        domains.sort_unstable();
-                        domains.dedup();
+                    NetworkFilterOption::Domain(domains) => {
                         let mut opt_domains_array: Vec<Hash> = vec![];
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
 
@@ -497,10 +493,14 @@ impl NetworkFilter {
 
                         if !opt_domains_array.is_empty() {
                             opt_domains_array.sort_unstable();
+                            // Some rules have duplicate domain options - avoid including duplicates
+                            opt_domains_array.dedup();
                             opt_domains = Some(opt_domains_array);
                         }
                         if !opt_not_domains_array.is_empty() {
                             opt_not_domains_array.sort_unstable();
+                            // Some rules have duplicate domain options - avoid including duplicates
+                            opt_not_domains_array.dedup();
                             opt_not_domains = Some(opt_not_domains_array);
                         }
                     }
