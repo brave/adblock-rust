@@ -53,6 +53,14 @@ mod json_ffi {
     }
 }
 
+fn string_argument(cx: &mut FunctionContext, index: i32, name: &str) -> NeonResult<String> {
+    let value = cx.argument::<JsValue>(index)?;
+    match value.downcast::<JsString, _>(cx) {
+        Ok(value) => Ok(value.value(cx)),
+        Err(_) => cx.throw_type_error(format!("{name} argument expected string")),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct EngineOptions {
     pub optimize: Option<bool>,
@@ -181,9 +189,9 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
 fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
-    let url: String = cx.argument::<JsString>(1)?.value(&mut cx);
-    let source_url: String = cx.argument::<JsString>(2)?.value(&mut cx);
-    let request_type: String = cx.argument::<JsString>(3)?.value(&mut cx);
+    let url = string_argument(&mut cx, 1, "url")?;
+    let source_url = string_argument(&mut cx, 2, "source_url")?;
+    let request_type = string_argument(&mut cx, 3, "request_type")?;
 
     let debug = match cx.argument_opt(4) {
         Some(arg) => {

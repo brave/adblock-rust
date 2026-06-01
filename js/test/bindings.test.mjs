@@ -178,6 +178,22 @@ describe('Engine.check — basic blocking', () => {
         assert.throws(() => engine.check('not a url', 'https://publisher.com', 'script'));
     });
 
+    it('throws descriptive errors for invalid argument types', () => {
+        const engine = new Engine(new FilterSet(), true);
+        assert.throws(
+            () => engine.check(undefined, 'https://publisher.com', 'script'),
+            /url argument expected string/,
+        );
+        assert.throws(
+            () => engine.check('https://example.com', undefined, 'script'),
+            /source_url argument expected string/,
+        );
+        assert.throws(
+            () => engine.check('https://example.com', 'https://publisher.com', undefined),
+            /request_type argument expected string/,
+        );
+    });
+
     it('EngineOptions object works as alternative to boolean', () => {
         const fs = new FilterSet();
         fs.addFilters(['||blocked.com^']);
