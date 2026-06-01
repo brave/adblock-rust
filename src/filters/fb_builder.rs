@@ -30,7 +30,7 @@ impl<'a> EngineFlatBuilder<'a> {
     }
 
     pub fn finish(
-        &mut self,
+        mut self,
         network_rules: WIPFlatVec<'a, NetworkFilterListBuilder, EngineFlatBuilder<'a>>,
         cosmetic_rules: WIPOffset<fb::CosmeticFilters<'_>>,
     ) -> VerifiedFlatbufferMemory {
@@ -45,7 +45,7 @@ impl<'a> EngineFlatBuilder<'a> {
             },
         );
         self.raw_builder().finish(engine, None);
-        VerifiedFlatbufferMemory::from_builder(self.raw_builder())
+        VerifiedFlatbufferMemory::from_builder(self.into_raw_builder())
     }
 }
 
@@ -56,5 +56,9 @@ impl<'a> FlatBuilder<'a> for EngineFlatBuilder<'a> {
 
     fn raw_builder(&mut self) -> &mut flatbuffers::FlatBufferBuilder<'a> {
         &mut self.fb_builder
+    }
+
+    fn into_raw_builder(self) -> flatbuffers::FlatBufferBuilder<'a> {
+        self.fb_builder
     }
 }
