@@ -165,7 +165,8 @@ impl<'a> NetworkFilterListBuilder<'a> {
         };
 
         if !self.optimize || !optimizer::is_filter_optimizable_by_patterns(&network_filter) {
-            // Serialize immediately; store offset + id for later bad-filter pruning.
+            // Serialize now (even if it matches to a bad filter later);
+            // Although store the id for later bad-filter pruning.
             let filter = FlatSerialize::serialize(network_filter, builder);
             for &token in tokens {
                 self.token_frequencies.record_usage(token);
