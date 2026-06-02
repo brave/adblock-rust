@@ -107,7 +107,7 @@ impl<I: Ord + std::hash::Hash, V> FlatMultiMapBuilder<I, V> {
         self.entries.push((key, value));
     }
 
-    pub fn retain_by_value(&mut self, retain_if: impl Fn(&V) -> bool) {
+    pub fn retain_by_value(&mut self, mut retain_if: impl FnMut(&V) -> bool) {
         self.entries.retain(|(_, value)| retain_if(value));
     }
 
