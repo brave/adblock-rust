@@ -174,7 +174,7 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
             let domain = &rule_hostname[..rule_hostname.find('/').unwrap()];
             let hostname = domain;
 
-            let raw_line = rule.raw_line.clone().unwrap();
+            let raw_line = rule.raw_line.as_deref().unwrap().to_string();
             let source_hostname = if rule.opt_domains.is_some() {
                 let domain_start = raw_line.rfind("domain=").unwrap() + "domain=".len();
                 let from_start = &raw_line[domain_start..];

@@ -2,15 +2,16 @@ use crate::filters::network::{
     FilterPart, NetworkFilter, NetworkFilterMask, NetworkFilterMaskHelper,
 };
 use itertools::*;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 trait Optimization {
-    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter;
-    fn group_by_criteria(&self, filter: &NetworkFilter) -> String;
-    fn select(&self, filter: &NetworkFilter) -> bool;
+    fn fusion<'a>(&self, filters: &[NetworkFilter<'a>]) -> NetworkFilter<'a>;
+    fn group_by_criteria(&self, filter: &NetworkFilter<'_>) -> String;
+    fn select(&self, filter: &NetworkFilter<'_>) -> bool;
 }
 
-pub fn is_filter_optimizable_by_patterns(filter: &NetworkFilter) -> bool {
+pub fn is_filter_optimizable_by_patterns(filter: &NetworkFilter<'_>) -> bool {
     filter.opt_domains.is_none()
         && filter.opt_not_domains.is_none()
         && !filter.is_hostname_anchor()
@@ -19,8 +20,8 @@ pub fn is_filter_optimizable_by_patterns(filter: &NetworkFilter) -> bool {
 }
 
 /// Fuse `NetworkFilter`s together by applying optimizations sequentially.
-pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
-    let mut optimized: Vec<NetworkFilter> = Vec::new();
+pub fn optimize<'a>(filters: Vec<NetworkFilter<'a>>) -> Vec<NetworkFilter<'a>> {
+    let mut optimized: Vec<NetworkFilter<'a>> = Vec::new();
 
     /*
     let union_domain_group = UnionDomainGroup {};
@@ -40,11 +41,11 @@ pub fn optimize(filters: Vec<NetworkFilter>) -> Vec<NetworkFilter> {
     optimized
 }
 
-fn apply_optimisation<T: Optimization>(
+fn apply_optimisation<'a, T: Optimization>(
     optimization: &T,
-    filters: Vec<NetworkFilter>,
-) -> (Vec<NetworkFilter>, Vec<NetworkFilter>) {
-    let (positive, mut negative): (Vec<NetworkFilter>, Vec<NetworkFilter>) =
+    filters: Vec<NetworkFilter<'a>>,
+) -> (Vec<NetworkFilter<'a>>, Vec<NetworkFilter<'a>>) {
+    let (positive, mut negative): (Vec<NetworkFilter<'a>>, Vec<NetworkFilter<'a>>) =
         filters.into_iter().partition_map(|f| {
             if optimization.select(&f) {
                 Either::Left(f)
@@ -53,7 +54,8 @@ fn apply_optimisation<T: Optimization>(
             }
         });
 
-    let mut to_fuse: HashMap<String, Vec<NetworkFilter>> = HashMap::with_capacity(positive.len());
+    let mut to_fuse: HashMap<String, Vec<NetworkFilter<'a>>> =
+        HashMap::with_capacity(positive.len());
     positive
         .into_iter()
         .for_each(|f| insert_dup(&mut to_fuse, optimization.group_by_criteria(&f), f));
@@ -85,7 +87,7 @@ struct SimplePatternGroup {}
 impl Optimization for SimplePatternGroup {
     // Group simple patterns, into a single filter
 
-    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
+    fn fusion<'a>(&self, filters: &[NetworkFilter<'a>]) -> NetworkFilter<'a> {
         let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
 
@@ -100,15 +102,16 @@ impl Optimization for SimplePatternGroup {
             for f in filters {
                 match &f.filter {
                     FilterPart::Empty => (),
-                    FilterPart::Simple(s) => flat_patterns.push(s.clone()),
-                    FilterPart::AnyOf(s) => flat_patterns.extend_from_slice(s),
+                    FilterPart::Simple(s) => flat_patterns.push(s.to_string()),
+                    FilterPart::AnyOf(s) => flat_patterns.extend(s.iter().cloned()),
                 }
             }
 
             if flat_patterns.is_empty() {
                 filter.filter = FilterPart::Empty;
             } else if flat_patterns.len() == 1 {
-                filter.filter = FilterPart::Simple(flat_patterns[0].clone())
+                filter.filter =
+                    FilterPart::Simple(Cow::Owned(flat_patterns.into_iter().next().unwrap()))
             } else {
                 filter.filter = FilterPart::AnyOf(flat_patterns)
             }
@@ -122,10 +125,10 @@ impl Optimization for SimplePatternGroup {
             .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 
         if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Box::new(
+            filter.raw_line = Some(Cow::Owned(
                 filters
                     .iter()
-                    .flat_map(|f| f.raw_line.clone())
+                    .flat_map(|f| f.raw_line.as_deref())
                     .join(" <+> "),
             ))
         }
@@ -133,10 +136,10 @@ impl Optimization for SimplePatternGroup {
         filter
     }
 
-    fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
+    fn group_by_criteria(&self, filter: &NetworkFilter<'_>) -> String {
         format!("{:b}:{:?}", filter.mask, filter.is_complete_regex())
     }
-    fn select(&self, filter: &NetworkFilter) -> bool {
+    fn select(&self, filter: &NetworkFilter<'_>) -> bool {
         is_filter_optimizable_by_patterns(filter)
     }
 }
@@ -145,7 +148,7 @@ impl Optimization for SimplePatternGroup {
 struct UnionDomainGroup {}
 
 impl Optimization for UnionDomainGroup {
-    fn fusion(&self, filters: &[NetworkFilter]) -> NetworkFilter {
+    fn fusion<'a>(&self, filters: &[NetworkFilter<'a>]) -> NetworkFilter<'a> {
         let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
         let mut domains = HashSet::new();
@@ -178,10 +181,10 @@ impl Optimization for UnionDomainGroup {
         }
 
         if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Box::new(
+            filter.raw_line = Some(Cow::Owned(
                 filters
                     .iter()
-                    .flat_map(|f| f.raw_line.clone())
+                    .flat_map(|f| f.raw_line.as_deref())
                     .join(" <+> "),
             ))
         }
@@ -189,7 +192,7 @@ impl Optimization for UnionDomainGroup {
         filter
     }
 
-    fn group_by_criteria(&self, filter: &NetworkFilter) -> String {
+    fn group_by_criteria(&self, filter: &NetworkFilter<'_>) -> String {
         format!(
             "{:?}:{}:{:b}:{:?}",
             filter.hostname.as_ref(),
@@ -199,7 +202,7 @@ impl Optimization for UnionDomainGroup {
         )
     }
 
-    fn select(&self, filter: &NetworkFilter) -> bool {
+    fn select(&self, filter: &NetworkFilter<'_>) -> bool {
         !filter.is_csp() && (filter.opt_domains.is_some() || filter.opt_not_domains.is_some())
     }
 }

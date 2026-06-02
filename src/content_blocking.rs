@@ -311,7 +311,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             LazyLock::new(|| Regex::new(r##"\*"##).unwrap());
         static TRAILING_SEPARATOR: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r##"\^$"##).unwrap());
-        if let Some(raw_line) = &v.raw_line {
+        if let Some(raw_line) = v.raw_line.as_deref() {
             if v.is_redirect() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
             }
@@ -603,7 +603,7 @@ impl TryFrom<CosmeticFilter> for CbRule {
             return Err(CbRuleCreationFailure::ScriptletInjectionsNotSupported);
         }
 
-        if let Some(raw_line) = &v.raw_line {
+        if let Some(raw_line) = v.raw_line.as_deref() {
             let mut hostnames_vec = vec![];
             let mut not_hostnames_vec = vec![];
 

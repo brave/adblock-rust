@@ -127,13 +127,17 @@ impl Engine {
 
     /// Loads rules from the given `FilterSet`.
     pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
+        let FilterSet {
+            debug,
+            list_sources,
+        } = set;
         let mut builder = EngineFlatBuilder::default();
         let mut network_rules_builder = NetworkRulesBuilder::new(optimize);
         let mut cosmetic_filter_cache_builder = CosmeticFilterCacheBuilder::default();
 
-        for list_source in set.list_sources {
+        for list_source in &list_sources {
             for line in list_source.list_text.lines() {
-                let parsed_line = parse_filter(line, set.debug, list_source.parse_options);
+                let parsed_line = parse_filter(line, debug, list_source.parse_options);
                 match parsed_line {
                     Ok(ParsedLine::Network(filter)) => {
                         network_rules_builder.add_filter(filter, &mut builder)
@@ -153,10 +157,10 @@ impl Engine {
         )
     }
 
-    fn new_with_builders<'a>(
-        network_rules_builder: NetworkRulesBuilder<'a>,
-        cosmetic_filter_cache_builder: CosmeticFilterCacheBuilder<'a>,
-        mut builder: EngineFlatBuilder<'a>,
+    fn new_with_builders<'fb, 'filter>(
+        network_rules_builder: NetworkRulesBuilder<'fb, 'filter>,
+        cosmetic_filter_cache_builder: CosmeticFilterCacheBuilder<'fb>,
+        mut builder: EngineFlatBuilder<'fb>,
     ) -> Self {
         let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
         let cosmetic_rules = FlatSerialize::serialize(cosmetic_filter_cache_builder, &mut builder);

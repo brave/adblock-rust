@@ -871,14 +871,14 @@ mod legacy_misc_tests {
         // Host anchor is calculated correctly
         let filter =
             NetworkFilter::parse("||test.com$third-party", false, Default::default()).unwrap();
-        assert_eq!(filter.hostname, Some(String::from("test.com")));
+        assert_eq!(filter.hostname.as_deref(), Some("test.com"));
 
         let filter =
             NetworkFilter::parse("||test.com/ok$third-party", false, Default::default()).unwrap();
-        assert_eq!(filter.hostname, Some(String::from("test.com")));
+        assert_eq!(filter.hostname.as_deref(), Some("test.com"));
 
         let filter = NetworkFilter::parse("||test.com/ok", false, Default::default()).unwrap();
-        assert_eq!(filter.hostname, Some(String::from("test.com")));
+        assert_eq!(filter.hostname.as_deref(), Some("test.com"));
     }
 
     #[test]

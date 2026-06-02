@@ -275,70 +275,74 @@ impl FilterSet {
             return Err(());
         }
 
-        let mut network_filters = vec![];
-        let mut cosmetic_filters = vec![];
-        for list_source in self.list_sources.iter() {
-            let list_text = list_source.list_text.lines();
-            let parse_options = list_source.parse_options;
-            let (list_network_filters, list_cosmetic_filters) =
-                parse_filters(list_text, self.debug, parse_options);
-            network_filters.extend(list_network_filters);
-            cosmetic_filters.extend(list_cosmetic_filters);
-        }
-
-        // Store bad filter id to skip them later.
         let mut bad_filter_ids = HashSet::new();
-        for filter in network_filters.iter() {
-            if filter.is_badfilter() {
-                bad_filter_ids.insert(filter.get_id());
+        for list_source in self.list_sources.iter() {
+            let (network_filters, _) = parse_filters(
+                list_source.list_text.lines(),
+                self.debug,
+                list_source.parse_options,
+            );
+            for filter in network_filters.iter() {
+                if filter.is_badfilter() {
+                    bad_filter_ids.insert(filter.get_id());
+                }
             }
         }
 
         let mut ignore_previous_rules = vec![];
         let mut other_rules = vec![];
-
         let mut filters_used = vec![];
 
-        network_filters.into_iter().for_each(|filter| {
-            // Don't process bad filter rules or matching bad filter rules.
-            if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
-                return;
-            }
-            let original_rule = *filter
-                .raw_line
-                .clone()
-                .expect("All rules should be in debug mode");
-            if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
-            {
-                filters_used.push(original_rule);
-                equivalent
-                    .into_iter()
-                    .for_each(|cb_rule| match &cb_rule.action.typ {
+        for list_source in self.list_sources.iter() {
+            let (network_filters, cosmetic_filters) = parse_filters(
+                list_source.list_text.lines(),
+                self.debug,
+                list_source.parse_options,
+            );
+
+            network_filters.into_iter().for_each(|filter| {
+                // Don't process bad filter rules or matching bad filter rules.
+                if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
+                    return;
+                }
+                let original_rule = filter
+                    .raw_line
+                    .as_ref()
+                    .expect("All rules should be in debug mode")
+                    .to_string();
+                if let Ok(equivalent) =
+                    TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
+                {
+                    filters_used.push(original_rule);
+                    equivalent
+                        .into_iter()
+                        .for_each(|cb_rule| match &cb_rule.action.typ {
+                            content_blocking::CbType::IgnorePreviousRules => {
+                                ignore_previous_rules.push(cb_rule)
+                            }
+                            _ => other_rules.push(cb_rule),
+                        });
+                }
+            });
+
+            cosmetic_filters.into_iter().for_each(|filter| {
+                let original_rule = *filter
+                    .raw_line
+                    .clone()
+                    .expect("All rules should be in debug mode");
+                if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
+                    filters_used.push(original_rule);
+                    match &cb_rule.action.typ {
                         content_blocking::CbType::IgnorePreviousRules => {
                             ignore_previous_rules.push(cb_rule)
                         }
                         _ => other_rules.push(cb_rule),
-                    });
-            }
-        });
+                    }
+                }
+            });
+        }
 
         let add_fp_document_exception = !filters_used.is_empty();
-
-        cosmetic_filters.into_iter().for_each(|filter| {
-            let original_rule = *filter
-                .raw_line
-                .clone()
-                .expect("All rules should be in debug mode");
-            if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
-                filters_used.push(original_rule);
-                match &cb_rule.action.typ {
-                    content_blocking::CbType::IgnorePreviousRules => {
-                        ignore_previous_rules.push(cb_rule)
-                    }
-                    _ => other_rules.push(cb_rule),
-                }
-            }
-        });
 
         other_rules.extend(ignore_previous_rules);
 
@@ -387,18 +391,18 @@ pub enum FilterType {
 }
 
 /// Successful result of parsing a single line from a filter list
-pub enum ParsedLine {
-    Network(NetworkFilter),
+pub enum ParsedLine<'a> {
+    Network(NetworkFilter<'a>),
     Cosmetic(CosmeticFilter),
 }
 
-impl From<NetworkFilter> for ParsedLine {
-    fn from(v: NetworkFilter) -> Self {
+impl From<NetworkFilter<'static>> for ParsedLine<'static> {
+    fn from(v: NetworkFilter<'static>) -> Self {
         ParsedLine::Network(v)
     }
 }
 
-impl From<CosmeticFilter> for ParsedLine {
+impl From<CosmeticFilter> for ParsedLine<'static> {
     fn from(v: CosmeticFilter) -> Self {
         ParsedLine::Cosmetic(v)
     }
@@ -432,11 +436,11 @@ impl From<CosmeticFilterError> for FilterParseError {
 }
 
 /// Parse a single line from a filter list
-pub fn parse_filter(
-    line: &str,
+pub fn parse_filter<'a>(
+    line: &'a str,
     debug: bool,
     opts: ParseOptions,
-) -> Result<ParsedLine, FilterParseError> {
+) -> Result<ParsedLine<'a>, FilterParseError> {
     let filter = line.trim();
 
     if filter.is_empty() {
@@ -447,12 +451,12 @@ pub fn parse_filter(
         FilterFormat::Standard => match (detect_filter_type(filter), opts.rule_types) {
             (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => {
                 NetworkFilter::parse(filter, debug, opts)
-                    .map(|f| f.into())
+                    .map(ParsedLine::Network)
                     .map_err(|e| e.into())
             }
             (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => {
                 CosmeticFilter::parse(filter, debug, opts.permissions)
-                    .map(|f| f.into())
+                    .map(ParsedLine::Cosmetic)
                     .map_err(|e| e.into())
             }
             _ => Err(FilterParseError::Unsupported),
@@ -501,21 +505,24 @@ pub fn parse_filter(
             }
 
             NetworkFilter::parse_hosts_style(hostname, debug)
-                .map(|f| f.into())
+                .map(ParsedLine::Network)
                 .map_err(|e| e.into())
         }
     }
 }
 
 /// Parse an entire list of filters, ignoring any errors
-pub fn parse_filters(
-    list: impl IntoIterator<Item = impl AsRef<str>>,
+pub fn parse_filters<'a, I>(
+    list: I,
     debug: bool,
     opts: ParseOptions,
-) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
+) -> (Vec<NetworkFilter<'a>>, Vec<CosmeticFilter>)
+where
+    I: IntoIterator<Item = &'a str>,
+{
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
         .into_iter()
-        .filter_map(|line| match parse_filter(line.as_ref(), debug, opts) {
+        .filter_map(|line| match parse_filter(line, debug, opts) {
             Ok(ParsedLine::Network(f)) => Some(Either::Left(f)),
             Ok(ParsedLine::Cosmetic(f)) => Some(Either::Right(f)),
             _ => None,

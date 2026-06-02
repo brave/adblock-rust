@@ -37,13 +37,13 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
         .filter_map(Result::ok)
         .filter(|f| f.is_redirect())
         .map(|f| {
-            let redirect = f.modifier_option.unwrap();
+            let redirect = f.modifier_option.unwrap().into_owned();
 
             Resource {
-                name: redirect.to_owned(),
+                name: redirect.clone(),
                 aliases: vec![],
                 kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                content: BASE64_STANDARD.encode(redirect),
+                content: BASE64_STANDARD.encode(&redirect),
                 dependencies: vec![],
                 permission: Default::default(),
             }
