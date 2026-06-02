@@ -291,9 +291,7 @@ pub enum FilterPart {
 #[derive(Debug, PartialEq)]
 pub(crate) enum FilterTokens {
     Empty,
-    /// Token data is stored in the `tokens_buffer` passed to `get_tokens`.
     OptDomains,
-    /// Token data is stored in the `tokens_buffer` passed to `get_tokens`.
     Other,
 }
 
@@ -835,6 +833,9 @@ impl NetworkFilter {
         )
     }
 
+    /// Returns the tokens that the filter matches to.
+    ///
+    /// For `!FilterTokens::Empty`, the result is stored in the given `tokens_buffer`.
     pub(crate) fn get_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
         tokens_buffer.clear();
 
@@ -901,8 +902,7 @@ impl NetworkFilter {
                         return FilterTokens::OptDomains;
                     }
                     // Too many domains to bucket individually; fall back to the catch-all
-                    // bucket (token 0). The opt_domains constraint is still enforced during
-                    // request matching, so correctness is preserved.
+                    // bucket (token 0).
                 }
             }
             FilterTokens::Empty

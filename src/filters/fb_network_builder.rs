@@ -34,7 +34,7 @@ struct NetworkFilterFlatEntry<'a> {
     id: Hash,
 }
 
-pub(crate) struct NetworkFilterListBuilder<'a> {
+struct NetworkFilterListBuilder<'a> {
     flat_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
     token_frequencies: TokenSelector,
     filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter>>,
@@ -133,7 +133,7 @@ impl<'a> NetworkFilterListBuilder<'a> {
     fn new(optimize: bool) -> Self {
         Self {
             flat_map_builder: FlatMultiMapBuilder::with_capacity(1024),
-            token_frequencies: TokenSelector::new(0),
+            token_frequencies: TokenSelector::new(1024),
             filters_to_optimize: HashMap::new(),
             tokens_buffer: TokensBuffer::default(),
             optimize,
@@ -146,22 +146,20 @@ impl<'a> NetworkFilterListBuilder<'a> {
 
         // Resolve token(s) and record frequencies up-front so the
         // serialized/optimizable branches share no token logic.
-        let mut single_token: Hash = 0;
+        let single_token: Hash;
         let tokens: &[Hash] = match multi_tokens {
-            FilterTokens::Empty => std::slice::from_ref(&single_token),
+            FilterTokens::Empty => {
+                // No tokens, add to fallback bucket (token 0)
+                &[0]
+            }
             FilterTokens::OptDomains => {
-                // tokens_buffer has been populated by get_tokens; record frequencies
-                let slice = self.tokens_buffer.as_slice();
-                for &t in slice {
-                    self.token_frequencies.record_usage(t);
-                }
-                slice
+                // tokens_buffer has been populated by get_tokens
+                self.tokens_buffer.as_slice()
             }
             FilterTokens::Other => {
                 single_token = self
                     .token_frequencies
                     .select_least_used_token(self.tokens_buffer.as_slice());
-                self.token_frequencies.record_usage(single_token);
                 std::slice::from_ref(&single_token)
             }
         };
@@ -170,22 +168,18 @@ impl<'a> NetworkFilterListBuilder<'a> {
             // Serialize immediately; store offset + id for later bad-filter pruning.
             let filter = FlatSerialize::serialize(network_filter, builder);
             for &token in tokens {
+                self.token_frequencies.record_usage(token);
                 self.flat_map_builder
                     .insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
             }
         } else {
-            // Defer to the optimizer; clone only in the multi-token (OptDomains) case.
-            if let Some((last, rest)) = tokens.split_last() {
-                for &token in rest {
-                    self.filters_to_optimize
-                        .entry(to_short_hash(token))
-                        .or_default()
-                        .push(network_filter.clone());
-                }
+            // Defer serialization to the optimizer
+            for &token in tokens {
+                self.token_frequencies.record_usage(token);
                 self.filters_to_optimize
-                    .entry(to_short_hash(*last))
+                    .entry(to_short_hash(token))
                     .or_default()
-                    .push(network_filter);
+                    .push(network_filter.clone());
             }
         }
     }
@@ -193,29 +187,29 @@ impl<'a> NetworkFilterListBuilder<'a> {
 
 impl<'a> NetworkRulesBuilder<'a> {
     pub fn new(optimize: bool) -> Self {
-        let mut lists = vec![];
-        for list_id in 0..NetworkFilterListId::Size as usize {
-            // Don't optimize removeparam, since it can fuse filters without respecting distinct
-            let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
-            lists.push(NetworkFilterListBuilder::new(optimize));
-        }
+        let lists = (0..NetworkFilterListId::Size as usize)
+            .map(|list_id| {
+                // Don't optimize removeparam, since it can fuse filters without respecting distinct
+                let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
+                NetworkFilterListBuilder::new(optimize)
+            })
+            .collect::<Vec<_>>();
         Self {
             lists,
-            bad_filter_ids: HashSet::new(),
+            bad_filter_ids: HashSet::with_capacity(1024),
         }
     }
 
-    pub fn add_rules(&mut self, filter: NetworkFilter, builder: &mut EngineFlatBuilder<'a>) {
+    pub fn add_filter(&mut self, filter: NetworkFilter, builder: &mut EngineFlatBuilder<'a>) {
         if filter.is_badfilter() {
-            // `get_id()` already excludes the BAD_FILTER bit, so this ID matches
-            // the corresponding normal filter that this badfilter is meant to cancel.
+            // Note: `get_id()` doesn't include BAD_FILTER bit.
             self.bad_filter_ids.insert(filter.get_id());
             return;
         }
 
         // Redirects are independent of blocking behavior.
         if filter.is_redirect() {
-            self.add_filter(filter.clone(), NetworkFilterListId::Redirects, builder);
+            self.add_filter_internal(filter.clone(), NetworkFilterListId::Redirects, builder);
         }
         type FilterId = NetworkFilterListId;
 
@@ -238,10 +232,10 @@ impl<'a> NetworkRulesBuilder<'a> {
             return;
         };
 
-        self.add_filter(filter, list_id, builder);
+        self.add_filter_internal(filter, list_id, builder);
     }
 
-    fn add_filter(
+    fn add_filter_internal(
         &mut self,
         network_filter: NetworkFilter,
         list_id: NetworkFilterListId,

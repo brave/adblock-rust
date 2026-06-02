@@ -112,7 +112,7 @@ impl Engine {
         let mut cosmetic_filter_cache_builder = CosmeticFilterCacheBuilder::default();
 
         for filter in network_filters {
-            network_rules_builder.add_rules(filter, &mut builder);
+            network_rules_builder.add_filter(filter, &mut builder);
         }
         for filter in cosmetic_filters {
             cosmetic_filter_cache_builder.add_filter(filter, &mut builder);
@@ -136,7 +136,7 @@ impl Engine {
                 let parsed_line = parse_filter(line, set.debug, list_source.parse_options);
                 match parsed_line {
                     Ok(ParsedLine::Network(filter)) => {
-                        network_rules_builder.add_rules(filter, &mut builder)
+                        network_rules_builder.add_filter(filter, &mut builder)
                     }
                     Ok(ParsedLine::Cosmetic(filter)) => {
                         cosmetic_filter_cache_builder.add_filter(filter, &mut builder)
