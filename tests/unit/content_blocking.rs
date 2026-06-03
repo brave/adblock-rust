@@ -666,6 +666,105 @@ mod ab2cb_tests {
     }
 
     #[test]
+    fn full_regex_supported() {
+        // Simple full regex with supported features
+        test_from_abp(
+            "/banner.*\\.jpg/",
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "banner.*\\.jpg"
+            }
+        }]"####,
+        );
+
+        // Full regex with character class
+        test_from_abp(
+            "/ad[0-9]+\\.html/",
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "ad[0-9]+\\.html"
+            }
+        }]"####,
+        );
+
+        // Full regex with groups
+        test_from_abp(
+            "/track(me)?\\./",
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "track(me)?\\."
+            }
+        }]"####,
+        );
+
+        // Full regex with left anchor
+        test_from_abp(
+            "|/https?:\\/\\/ads\\./",
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "^https?:\\/\\/ads\\."
+            }
+        }]"####,
+        );
+
+        // Full regex with right anchor
+        test_from_abp(
+            "/banner\\.jpg/|",
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "banner\\.jpg$"
+            }
+        }]"####,
+        );
+    }
+
+    #[test]
+    fn full_regex_unsupported() {
+        fn test_unsupported(abp_rule: &str) {
+            let filter = crate::lists::parse_filter(abp_rule, true, Default::default())
+                .expect("Rule under test could not be parsed");
+            match CbRuleEquivalent::try_from(filter) {
+                Ok(_) => panic!("Expected conversion to fail"),
+                Err(CbRuleCreationFailure::FullRegexUnsupported) => {}
+                Err(_) => panic!("Expected FullRegexUnsupported"),
+            }
+        }
+
+        // \\d is not supported
+        test_unsupported("/banner\\d+\\.jpg/");
+
+        // {3} quantified repetition is not supported
+        test_unsupported("/ad{3}\\.html/");
+
+        // | alternation is not supported
+        test_unsupported("/banner|ad/");
+
+        // (?:...) non-capturing group is not supported
+        test_unsupported("/(?:ab)c/");
+
+        // (?=...) lookahead is not supported
+        test_unsupported("/a(?=b)c/");
+
+        // \\b word boundary is not supported
+        test_unsupported("/word\\b/");
+    }
+
+    #[test]
     fn badfilter_cancels_matching_rules() {
         // Test that BAD_FILTER rules cancel out matching rules
         // Input: regular rule, BAD_FILTER rule, and differently modified rule
@@ -786,6 +885,27 @@ mod filterset_tests {
 
         // All 6 rules plus `ignore_previous_fp_documents()`
         assert_eq!(cb_rules.len(), 7);
+
+        Ok(())
+    }
+
+    #[test]
+    fn full_regex_in_filterset() -> Result<(), ()> {
+        let list = [
+            "/banner.*\\.jpg/",
+            "/ad[0-9]+\\.html/",
+            "/banner\\d+\\.jpg/",
+            "/ad{3}\\.html/",
+        ];
+        let mut set = FilterSet::new(true);
+        set.add_filters(list, Default::default());
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+
+        // Only the first two rules are supported; the last two use \\d and {3}
+        assert_eq!(used_rules, &list[0..2]);
+        // 2 rules plus `ignore_previous_fp_documents()`
+        assert_eq!(cb_rules.len(), 3);
 
         Ok(())
     }

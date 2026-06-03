@@ -301,6 +301,71 @@ impl Iterator for CbRuleEquivalentIterator {
     }
 }
 
+/// Check if a regex pattern only uses features supported by content-blocking syntax.
+///
+/// Content blocking syntax supports:
+/// - Literal characters
+/// - `.` (any character)
+/// - `[...]` character classes (including ranges and negation)
+/// - `?`, `+`, `*` quantifiers
+/// - `(...)` capturing groups
+/// - Escaped special characters like `\.`, `\(`, etc.
+fn is_cb_compatible_regex(pattern: &str) -> bool {
+    let mut chars = pattern.chars().peekable();
+    let mut in_char_class = false;
+    let mut paren_depth = 0;
+
+    while let Some(c) = chars.next() {
+        if in_char_class {
+            match c {
+                '\\' => {
+                    // Any escape is valid inside a character class
+                    chars.next();
+                }
+                ']' => {
+                    in_char_class = false;
+                }
+                _ => {}
+            }
+        } else {
+            match c {
+                '\\' => match chars.next() {
+                    Some('\\') | Some('.') | Some('?') | Some('+') | Some('*') | Some('(')
+                    | Some(')') | Some('[') | Some(']') | Some('^') | Some('$') | Some('-')
+                    | Some('|') | Some('{') | Some('}') | Some('/') => {}
+                    _ => return false,
+                },
+                '[' => {
+                    in_char_class = true;
+                    if chars.peek() == Some(&'^') {
+                        chars.next();
+                    }
+                    if chars.peek() == Some(&']') {
+                        chars.next(); // ] is literal when it's the first char
+                    }
+                }
+                '(' => {
+                    paren_depth += 1;
+                    if chars.peek() == Some(&'?') {
+                        return false;
+                    }
+                }
+                ')' => {
+                    if paren_depth == 0 {
+                        return false;
+                    }
+                    paren_depth -= 1;
+                }
+                '|' => return false,
+                '{' => return false,
+                _ => {}
+            }
+        }
+    }
+
+    !in_char_class && paren_depth == 0
+}
+
 impl TryFrom<NetworkFilter> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
@@ -325,9 +390,6 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             if v.is_csp() {
                 return Err(CbRuleCreationFailure::NetworkCspUnsupported);
             }
-            if v.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX) {
-                return Err(CbRuleCreationFailure::FullRegexUnsupported);
-            }
             if v.is_removeparam() {
                 return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
             }
@@ -345,86 +407,154 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
                 vec![]
             };
 
-            let url_filter = match (v.filter, v.hostname) {
-                (crate::filters::network::FilterPart::AnyOf(_), _) => {
-                    return Err(CbRuleCreationFailure::OptimizedRulesUnsupported)
-                }
-                (crate::filters::network::FilterPart::Simple(part), Some(hostname)) => {
-                    let without_trailing_separator = TRAILING_SEPARATOR.replace_all(&part, "");
-                    let escaped_special_chars =
-                        SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
-                    let with_fixed_wildcards =
-                        REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+            let is_complete_regex = v.mask.contains(NetworkFilterMask::IS_COMPLETE_REGEX);
 
-                    let mut url_filter = format!(
-                        "^[^:]+:(//)?([^/]+\\.)?{}",
-                        SPECIAL_CHARS.replace_all(&hostname, r##"\$1"##)
-                    );
-
-                    if v.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
-                        url_filter += ".*";
-                    }
-
-                    url_filter += &with_fixed_wildcards;
-
-                    if v.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
-                        url_filter += "$";
-                    }
-
-                    url_filter
-                }
-                (crate::filters::network::FilterPart::Simple(part), None) => {
-                    let without_trailing_separator = TRAILING_SEPARATOR.replace_all(&part, "");
-                    let escaped_special_chars =
-                        SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
-                    let with_fixed_wildcards =
-                        REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
-                    let mut url_filter = if v.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
-                        format!("^{with_fixed_wildcards}")
-                    } else {
-                        let scheme_part = if v
-                            .mask
-                            .contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS)
+            let url_filter = if is_complete_regex {
+                match (&v.filter, &v.hostname) {
+                    (crate::filters::network::FilterPart::Simple(part), Some(hostname)) => {
+                        if let Some(inner) =
+                            part.strip_prefix('/').and_then(|p| p.strip_suffix('/'))
                         {
-                            ""
-                        } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
-                            "^http://.*"
-                        } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
-                            "^https://.*"
-                        } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
-                            "^wss?://.*"
+                            if is_cb_compatible_regex(inner) {
+                                let mut url_filter = format!(
+                                    "^[^:]+:(//)?([^/]+\\.)?{}",
+                                    SPECIAL_CHARS.replace_all(hostname, r##"\$1"##)
+                                );
+                                if v.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
+                                    url_filter += ".*";
+                                }
+                                url_filter += inner;
+                                if v.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
+                                    url_filter += "$";
+                                }
+                                url_filter
+                            } else {
+                                return Err(CbRuleCreationFailure::FullRegexUnsupported);
+                            }
                         } else {
-                            unreachable!("Invalid scheme information");
+                            return Err(CbRuleCreationFailure::FullRegexUnsupported);
+                        }
+                    }
+                    (crate::filters::network::FilterPart::Simple(part), None) => {
+                        if let Some(inner) =
+                            part.strip_prefix('/').and_then(|p| p.strip_suffix('/'))
+                        {
+                            if is_cb_compatible_regex(inner) {
+                                let mut url_filter =
+                                    if v.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
+                                        format!("^{inner}")
+                                    } else {
+                                        let scheme_part = if v.mask.contains(
+                                            NetworkFilterMask::FROM_HTTP
+                                                | NetworkFilterMask::FROM_HTTPS,
+                                        ) {
+                                            ""
+                                        } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
+                                            "^http://.*"
+                                        } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
+                                            "^https://.*"
+                                        } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET)
+                                        {
+                                            "^wss?://.*"
+                                        } else {
+                                            unreachable!("Invalid scheme information");
+                                        };
+                                        format!("{scheme_part}{inner}")
+                                    };
+                                if v.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
+                                    url_filter += "$";
+                                }
+                                url_filter
+                            } else {
+                                return Err(CbRuleCreationFailure::FullRegexUnsupported);
+                            }
+                        } else {
+                            return Err(CbRuleCreationFailure::FullRegexUnsupported);
+                        }
+                    }
+                    _ => return Err(CbRuleCreationFailure::FullRegexUnsupported),
+                }
+            } else {
+                match (&v.filter, &v.hostname) {
+                    (crate::filters::network::FilterPart::AnyOf(_), _) => {
+                        return Err(CbRuleCreationFailure::OptimizedRulesUnsupported)
+                    }
+                    (crate::filters::network::FilterPart::Simple(part), Some(hostname)) => {
+                        let without_trailing_separator = TRAILING_SEPARATOR.replace_all(part, "");
+                        let escaped_special_chars =
+                            SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
+                        let with_fixed_wildcards =
+                            REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+
+                        let mut url_filter = format!(
+                            "^[^:]+:(//)?([^/]+\\.)?{}",
+                            SPECIAL_CHARS.replace_all(hostname, r##"\$1"##)
+                        );
+
+                        if v.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
+                            url_filter += ".*";
+                        }
+
+                        url_filter += &with_fixed_wildcards;
+
+                        if v.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
+                            url_filter += "$";
+                        }
+
+                        url_filter
+                    }
+                    (crate::filters::network::FilterPart::Simple(part), None) => {
+                        let without_trailing_separator = TRAILING_SEPARATOR.replace_all(part, "");
+                        let escaped_special_chars =
+                            SPECIAL_CHARS.replace_all(&without_trailing_separator, r##"\$1"##);
+                        let with_fixed_wildcards =
+                            REPLACE_WILDCARDS.replace_all(&escaped_special_chars, ".*");
+                        let mut url_filter = if v.mask.contains(NetworkFilterMask::IS_LEFT_ANCHOR) {
+                            format!("^{with_fixed_wildcards}")
+                        } else {
+                            let scheme_part = if v.mask.contains(
+                                NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS,
+                            ) {
+                                ""
+                            } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
+                                "^http://.*"
+                            } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
+                                "^https://.*"
+                            } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
+                                "^wss?://.*"
+                            } else {
+                                unreachable!("Invalid scheme information");
+                            };
+
+                            format!("{scheme_part}{with_fixed_wildcards}")
                         };
 
-                        format!("{scheme_part}{with_fixed_wildcards}")
-                    };
+                        if v.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
+                            url_filter += "$";
+                        }
 
-                    if v.mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR) {
-                        url_filter += "$";
+                        url_filter
                     }
-
-                    url_filter
+                    (crate::filters::network::FilterPart::Empty, Some(hostname)) => {
+                        let escaped_special_chars = SPECIAL_CHARS.replace_all(hostname, r##"\$1"##);
+                        format!("^[^:]+:(//)?([^/]+\\.)?{escaped_special_chars}")
+                    }
+                    (crate::filters::network::FilterPart::Empty, None) => if v
+                        .mask
+                        .contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS)
+                    {
+                        "^https?://"
+                    } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
+                        "^http://"
+                    } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
+                        "^https://"
+                    } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
+                        "^wss?://"
+                    } else {
+                        unreachable!("Invalid scheme information");
+                    }
+                    .to_string(),
                 }
-                (crate::filters::network::FilterPart::Empty, Some(hostname)) => {
-                    let escaped_special_chars = SPECIAL_CHARS.replace_all(&hostname, r##"\$1"##);
-                    format!("^[^:]+:(//)?([^/]+\\.)?{escaped_special_chars}")
-                }
-                (crate::filters::network::FilterPart::Empty, None) => if v
-                    .mask
-                    .contains(NetworkFilterMask::FROM_HTTP | NetworkFilterMask::FROM_HTTPS)
-                {
-                    "^https?://"
-                } else if v.mask.contains(NetworkFilterMask::FROM_HTTP) {
-                    "^http://"
-                } else if v.mask.contains(NetworkFilterMask::FROM_HTTPS) {
-                    "^https://"
-                } else if v.mask.contains(NetworkFilterMask::FROM_WEBSOCKET) {
-                    "^wss?://"
-                } else {
-                    unreachable!("Invalid scheme information");
-                }
-                .to_string(),
             };
 
             let (if_domain, unless_domain) = if v.opt_domains.is_some()
