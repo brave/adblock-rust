@@ -19,6 +19,7 @@ fn main() {
         "https://platform.twitter.com/widgets.js",
         "https://fmarier.github.io/brave-testing/social-widgets.html",
         "script",
+        "",
     )
     .unwrap();
     assert!(engine.check_network_request(&request).exception.is_some());

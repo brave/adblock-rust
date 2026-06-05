@@ -128,7 +128,7 @@ struct TestRequest {
 
 impl From<&TestRequest> for Request {
     fn from(v: &TestRequest) -> Self {
-        Request::new(&v.url, &v.frameUrl, &v.cpt).unwrap()
+        Request::new(&v.url, &v.frameUrl, &v.cpt, "").unwrap()
     }
 }
 

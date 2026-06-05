@@ -22,6 +22,7 @@ mod blocker_tests {
             "https://example.com/test/",
             "https://example.com",
             "xmlhttprequest",
+            "",
         )
         .unwrap();
         assert!(blocker.check(&request, &Default::default()).matched);
@@ -30,6 +31,7 @@ mod blocker_tests {
             "https://example.com/test",
             "https://example.com",
             "xmlhttprequest",
+            "",
         )
         .unwrap();
         assert!(!blocker.check(&request, &Default::default()).matched);
@@ -70,6 +72,7 @@ mod blocker_tests {
             "https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi",
             "https://www.imdb.com/video/13",
             "media",
+            "",
         )
         .unwrap();
 
@@ -108,6 +111,7 @@ mod blocker_tests {
             "https://imdb-video.media-imdb.com/kBOeI88k1o23eNAi",
             "https://www.imdb.com/video/13",
             "media",
+            "",
         )
         .unwrap();
 
@@ -141,8 +145,13 @@ mod blocker_tests {
             "||www3.doubleclick.net^$xmlhttprequest,redirect-rule=noop.txt,domain=lineups.fun",
         ];
 
-        let request =
-            Request::new("https://www3.doubleclick.net", "https://lineups.fun", "xhr").unwrap();
+        let request = Request::new(
+            "https://www3.doubleclick.net",
+            "https://lineups.fun",
+            "xhr",
+            "",
+        )
+        .unwrap();
 
         let blocker_options: BlockerOptions = BlockerOptions {
             enable_optimizations: false,
@@ -169,7 +178,7 @@ mod blocker_tests {
     fn badfilter_does_not_match() {
         let filters = ["||foo.com$badfilter"];
         let url_results = [(
-            Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
+            Request::new("https://foo.com", "https://bar.com", "image", "").unwrap(),
             false,
         )];
 
@@ -185,7 +194,7 @@ mod blocker_tests {
             "||foo.com$domain=foo.com|bar.com",
         ];
         let url_results = [(
-            Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
+            Request::new("https://foo.com", "https://bar.com", "image", "").unwrap(),
             false,
         )];
 
@@ -201,7 +210,7 @@ mod blocker_tests {
             "||foo.com$domain=foo.com|bar.com,image",
         ];
         let url_results = [(
-            Request::new("https://foo.com", "https://bar.com", "image").unwrap(),
+            Request::new("https://foo.com", "https://bar.com", "image", "").unwrap(),
             true,
         )];
 
@@ -224,6 +233,7 @@ mod blocker_tests {
             "https://dot.example.com",
             "https://dot.example.com",
             "document",
+            "",
         )
         .unwrap();
         assert!(!blocker.check(&request, &Default::default()).matched);
@@ -232,6 +242,7 @@ mod blocker_tests {
             "https://dot.example.com.",
             "https://dot.example.com.",
             "document",
+            "",
         )
         .unwrap();
         assert!(blocker.check(&request, &Default::default()).matched);
@@ -240,6 +251,7 @@ mod blocker_tests {
             "https://test.example.com",
             "https://test.example.com",
             "document",
+            "",
         )
         .unwrap();
         assert!(blocker.check(&request, &Default::default()).matched);
@@ -248,6 +260,7 @@ mod blocker_tests {
             "https://test.example.com.",
             "https://test.example.com.",
             "document",
+            "",
         )
         .unwrap();
         assert!(blocker.check(&request, &Default::default()).matched);
@@ -265,6 +278,7 @@ mod blocker_tests {
                     "https://r.alimc1.top/test.js",
                     "https://minisite.letv.com/",
                     "script",
+                    "",
                 )
                 .unwrap(),
                 true,
@@ -274,6 +288,7 @@ mod blocker_tests {
                     "https://www.baidu.com/test.js",
                     "https://minisite.letv.com/",
                     "script",
+                    "",
                 )
                 .unwrap(),
                 false,
@@ -283,6 +298,7 @@ mod blocker_tests {
                     "https://r.aabb.top/test.js",
                     "https://example.com/",
                     "script",
+                    "",
                 )
                 .unwrap(),
                 false,
@@ -292,6 +308,7 @@ mod blocker_tests {
                     "https://r.aabb.top/test.js",
                     "https://minisite.letv.com/",
                     "script",
+                    "",
                 )
                 .unwrap(),
                 true,
@@ -344,7 +361,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://pirateproxy.live/static/custom_ads.js",
                         "https://pirateproxy.live",
-                        "script"
+                        "script",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -355,7 +373,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://pirateproxy.live/static/custom_ads.js",
                         "https://pirateproxy.live",
-                        "image"
+                        "image",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -366,7 +385,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://pirateproxy.live/static/custom_ads.js",
                         "https://pirateproxy.live",
-                        "object"
+                        "object",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -377,14 +397,20 @@ mod blocker_tests {
             // A single directive should be returned if only one match is present in the engine, for both document and subdocument types
             assert_eq!(
                 blocker.get_csp_directives(
-                    &Request::new("https://example.com", "https://vidoza.co", "document").unwrap()
+                    &Request::new("https://example.com", "https://vidoza.co", "document", "")
+                        .unwrap()
                 ),
                 Some(String::from("worker-src 'none'"))
             );
             assert_eq!(
                 blocker.get_csp_directives(
-                    &Request::new("https://example.com", "https://vidoza.net", "subdocument")
-                        .unwrap()
+                    &Request::new(
+                        "https://example.com",
+                        "https://vidoza.net",
+                        "subdocument",
+                        ""
+                    )
+                    .unwrap()
                 ),
                 Some(String::from("worker-src 'none'"))
             );
@@ -404,7 +430,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://example.com",
                         "https://pirateproxy.live",
-                        "document"
+                        "document",
+                        ""
                     )
                     .unwrap()
                 )
@@ -414,7 +441,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://example.com",
                         "https://pirateproxy.live",
-                        "subdocument"
+                        "subdocument",
+                        ""
                     )
                     .unwrap()
                 )
@@ -424,14 +452,19 @@ mod blocker_tests {
             // A directive with an exception should not be returned
             assert_eq!(
                 blocker.get_csp_directives(
-                    &Request::new("https://1337x.to", "https://1337x.to", "document").unwrap()
+                    &Request::new("https://1337x.to", "https://1337x.to", "document", "").unwrap()
                 ),
                 Some(String::from("script-src 'self' 'unsafe-inline'"))
             );
             assert_eq!(
                 blocker.get_csp_directives(
-                    &Request::new("https://1337x.to/no-csp", "https://1337x.to", "subdocument")
-                        .unwrap()
+                    &Request::new(
+                        "https://1337x.to/no-csp",
+                        "https://1337x.to",
+                        "subdocument",
+                        ""
+                    )
+                    .unwrap()
                 ),
                 None
             );
@@ -443,7 +476,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://example.com/duplicated-directive",
                         "https://flashx.cc",
-                        "document"
+                        "document",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -454,7 +488,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://example.com/duplicated-directive",
                         "https://flashx.cc",
-                        "subdocument"
+                        "subdocument",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -468,7 +503,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://1337x.to/duplicated-directive/disable-all",
                         "https://thepiratebay10.org",
-                        "document"
+                        "document",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -479,7 +515,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://1337x.to/duplicated-directive/disable-all",
                         "https://thepiratebay10.org",
-                        "document"
+                        "document",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -493,7 +530,8 @@ mod blocker_tests {
                     &Request::new(
                         "htps://github.com/first-party-only",
                         "https://example.com",
-                        "subdocument"
+                        "subdocument",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -504,7 +542,8 @@ mod blocker_tests {
                     &Request::new(
                         "https://example.com/first-party-only",
                         "https://example.com",
-                        "document"
+                        "document",
+                        ""
                     )
                     .unwrap()
                 ),
@@ -539,6 +578,7 @@ mod blocker_tests {
                 "https://example.com?q=1&test=2#blue",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -554,6 +594,7 @@ mod blocker_tests {
                 "https://example.com?test=2&q=1#blue",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -569,6 +610,7 @@ mod blocker_tests {
                 "https://example.com?test=2#blue",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -580,7 +622,13 @@ mod blocker_tests {
         assert!(!result.matched);
 
         let result = blocker.check(
-            &Request::new("https://example.com?q=1#blue", "https://antonok.com", "xhr").unwrap(),
+            &Request::new(
+                "https://example.com?q=1#blue",
+                "https://antonok.com",
+                "xhr",
+                "",
+            )
+            .unwrap(),
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
@@ -591,6 +639,7 @@ mod blocker_tests {
                 "https://example.com?q=1&test=2",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -603,6 +652,7 @@ mod blocker_tests {
                 "https://example.com?test=2&q=1",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -611,28 +661,46 @@ mod blocker_tests {
         assert!(!result.matched);
 
         let result = blocker.check(
-            &Request::new("https://example.com?test=2", "https://antonok.com", "xhr").unwrap(),
+            &Request::new(
+                "https://example.com?test=2",
+                "https://antonok.com",
+                "xhr",
+                "",
+            )
+            .unwrap(),
             &resources,
         );
         assert_eq!(result.rewritten_url, Some("https://example.com".into()));
         assert!(!result.matched);
 
         let result = blocker.check(
-            &Request::new("https://example.com?test=2", "https://antonok.com", "image").unwrap(),
+            &Request::new(
+                "https://example.com?test=2",
+                "https://antonok.com",
+                "image",
+                "",
+            )
+            .unwrap(),
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
         let result = blocker.check(
-            &Request::new("https://example.com?q=1", "https://antonok.com", "xhr").unwrap(),
+            &Request::new("https://example.com?q=1", "https://antonok.com", "xhr", "").unwrap(),
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
         assert!(!result.matched);
 
         let result = blocker.check(
-            &Request::new("https://example.com?q=fbclid", "https://antonok.com", "xhr").unwrap(),
+            &Request::new(
+                "https://example.com?q=fbclid",
+                "https://antonok.com",
+                "xhr",
+                "",
+            )
+            .unwrap(),
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
@@ -643,6 +711,7 @@ mod blocker_tests {
                 "https://example.com?fbclid=10938&q=1&test=2",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -655,6 +724,7 @@ mod blocker_tests {
                 "https://test.com?fbclid=10938&q=1&test=2",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -670,6 +740,7 @@ mod blocker_tests {
                 "https://example.com?q1=1&q2=2&q3=3&test=2&q4=4&q5=5&fbclid=39",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -685,6 +756,7 @@ mod blocker_tests {
                 "https://example.com?q1=1&q1=2&test=2&test=3",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -700,6 +772,7 @@ mod blocker_tests {
                 "https://example.com/script.js?test=2#blue",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -719,6 +792,7 @@ mod blocker_tests {
                 "https://example.com/block/script.js?test=2",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -735,6 +809,7 @@ mod blocker_tests {
                 "https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc",
                 "https://antonok.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &resources,
@@ -747,6 +822,7 @@ mod blocker_tests {
                 "https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc",
                 "https://antonok.com",
                 "image",
+                "",
             )
             .unwrap(),
             &resources,
@@ -759,6 +835,7 @@ mod blocker_tests {
                 "https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc",
                 "https://antonok.com",
                 "subdocument",
+                "",
             )
             .unwrap(),
             &resources,
@@ -774,6 +851,7 @@ mod blocker_tests {
                 "https://example.com/Path/?Test=ABC&testcase=AbC&testCase=aBc",
                 "https://antonok.com",
                 "document",
+                "",
             )
             .unwrap(),
             &resources,
@@ -789,6 +867,7 @@ mod blocker_tests {
                 "https://example.com?Test=ABC?123&test=3#&test=4#b",
                 "https://antonok.com",
                 "document",
+                "",
             )
             .unwrap(),
             &resources,
@@ -804,6 +883,7 @@ mod blocker_tests {
                 "https://example.com?Test=ABC&testCase=5",
                 "https://antonok.com",
                 "document",
+                "",
             )
             .unwrap(),
             &resources,
@@ -819,6 +899,7 @@ mod blocker_tests {
                 "https://example.com?Test=ABC&testCase=5",
                 "https://antonok.com",
                 "image",
+                "",
             )
             .unwrap(),
             &resources,
@@ -928,7 +1009,7 @@ mod blocker_tests {
 
         for (original, expected) in testcases.into_iter() {
             let result = blocker.check(
-                &Request::new(original, "https://example.net", "xhr").unwrap(),
+                &Request::new(original, "https://example.net", "xhr", "").unwrap(),
                 &resources,
             );
             let expected = if original == expected {
@@ -958,6 +1039,7 @@ mod blocker_tests {
                 "https://example.com?example1_=1&example1-=2",
                 "https://example.com",
                 "xhr",
+                "",
             )
             .unwrap(),
             &Default::default(),
@@ -1010,6 +1092,7 @@ mod blocker_tests {
                 "https://example.net/test",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1022,6 +1105,7 @@ mod blocker_tests {
                 "https://example.net/test.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1034,6 +1118,7 @@ mod blocker_tests {
                 "https://example.com/test.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1046,6 +1131,7 @@ mod blocker_tests {
                 "https://example.com/text.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1058,6 +1144,7 @@ mod blocker_tests {
                 "https://example.com/exceptc20/text.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1070,6 +1157,7 @@ mod blocker_tests {
                 "https://example.com/exceptb10/text.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1082,6 +1170,7 @@ mod blocker_tests {
                 "https://example.com/exceptc20/exceptb10/text.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1094,6 +1183,7 @@ mod blocker_tests {
                 "https://example.com/exceptc20/exceptb10/excepta/text.txt",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1106,6 +1196,7 @@ mod blocker_tests {
                 "https://example.com/exceptc20/exceptb10/text",
                 "https://example.com",
                 "xmlhttprequest",
+                "",
             )
             .unwrap(),
             &resources,
@@ -1132,7 +1223,7 @@ mod blocker_tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
+                let request = Request::new(url, "https://example.com", "other", "").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -1183,7 +1274,7 @@ mod blocker_tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
+                let request = Request::new(url, "https://example.com", "other", "").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -1235,7 +1326,7 @@ mod blocker_tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
+                let request = Request::new(url, "https://example.com", "other", "").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -1287,6 +1378,7 @@ mod blocker_tests {
             "http://example.com/ad_banner.png",
             "https://example.com",
             "other",
+            "",
         )
         .unwrap();
 
@@ -1304,7 +1396,7 @@ mod blocker_tests {
         let blocker = Blocker::new(["@@||example.com$generichide\n"], &blocker_options);
 
         assert!(blocker.check_generic_hide(
-            &Request::new("https://example.com", "https://example.com", "other").unwrap()
+            &Request::new("https://example.com", "https://example.com", "other", "").unwrap()
         ));
     }
 }
@@ -1318,8 +1410,13 @@ mod placeholder_string_tests {
         filter_set.add_filter_list("||example.com^\n".to_string(), Default::default());
         let engine = crate::Engine::new_with_filter_set(filter_set, true);
         let block = engine.check_network_request(
-            &crate::request::Request::new("https://example.com", "https://example.com", "document")
-                .unwrap(),
+            &crate::request::Request::new(
+                "https://example.com",
+                "https://example.com",
+                "document",
+                "",
+            )
+            .unwrap(),
         );
         assert_eq!(
             block.filter,

@@ -191,7 +191,7 @@ mod tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
+                let request = Request::new(url, "https://example.com", "other", "").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -226,7 +226,7 @@ mod tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
+                let request = Request::new(url, "https://example.com", "other", "").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -254,7 +254,7 @@ mod tests {
         let request_expectations: Vec<_> = url_results
             .into_iter()
             .map(|(url, expected_result)| {
-                let request = Request::new(url, "https://example.com", "other").unwrap();
+                let request = Request::new(url, "https://example.com", "other", "").unwrap();
                 (request, expected_result)
             })
             .collect();
@@ -271,15 +271,11 @@ mod tests {
 
         let url_results = [
             (
-                Request::new("https://bit.ly/bar/", "http://123movies.com", "").unwrap(),
+                Request::new("https://bit.ly/bar/", "http://123movies.com", "", "").unwrap(),
                 true,
             ),
             (
-                Request::new(
-                    "https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer",
-                    "http://123movies.com",
-                    "xmlhttprequest",
-                )
+                Request::new("https://data.foo.com/9VjjrjU9Or2aqkb8PDiqTBnULPgeI48WmYEHkYer", "http://123movies.com", "xmlhttprequest", "")
                 .unwrap(),
                 true,
             ),

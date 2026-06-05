@@ -166,6 +166,7 @@ fn check_live_specific_urls() {
                 "https://static.scroll.com/js/scroll.js",
                 "https://www.theverge.com/",
                 "script",
+                "",
             )
             .unwrap(),
         );
@@ -182,6 +183,7 @@ fn check_live_specific_urls() {
                 "https://platform.twitter.com/widgets.js",
                 "https://fmarier.github.io/brave-testing/social-widgets.html",
                 "script",
+                "",
             )
             .unwrap(),
         );
@@ -194,11 +196,7 @@ fn check_live_specific_urls() {
     }
     {
         engine.disable_tags(&["twitter-embeds"]);
-        let checked = engine.check_network_request(&Request::new(
-            "https://imagesrv.adition.com/banners/1337/files/00/0e/6f/09/000000945929.jpg?PQgSgs13hf1fw.jpg",
-            "https://spiegel.de",
-            "image",
-        ).unwrap());
+        let checked = engine.check_network_request(&Request::new("https://imagesrv.adition.com/banners/1337/files/00/0e/6f/09/000000945929.jpg?PQgSgs13hf1fw.jpg", "https://spiegel.de", "image", "").unwrap());
         assert!(
             checked.matched,
             "Expected match, got filter {:?}, exception {:?}",
@@ -214,8 +212,9 @@ fn check_live_from_filterlists() {
     let requests = load_requests();
 
     for req in requests {
-        let checked = engine
-            .check_network_request(&Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap());
+        let checked = engine.check_network_request(
+            &Request::new(&req.url, &req.sourceUrl, &req.r#type, "").unwrap(),
+        );
         assert_eq!(
             checked.matched, req.blocked,
             "Expected match {} for {} at {}, got filter {:?}, exception {:?}",
@@ -243,6 +242,7 @@ fn check_live_redirects() {
                 "https://c.amazon-adsystem.com/aax2/amzn_ads.js",
                 "https://aussieexotics.com/",
                 "script",
+                "",
             )
             .unwrap(),
         );
@@ -261,6 +261,7 @@ fn check_live_redirects() {
                 "https://www.googletagservices.com/tag/js/gpt.js",
                 "https://tvguide.com/",
                 "script",
+                "",
             )
             .unwrap(),
         );

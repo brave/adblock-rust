@@ -299,7 +299,7 @@ impl Engine {
     /// `hidden_class_id_selectors` to obtain any stylesheets consisting of generic rules (if the
     /// returned `generichide` value is false).
     pub fn url_cosmetic_resources(&self, url: &str) -> UrlSpecificResources {
-        let request = if let Ok(request) = Request::new(url, url, "document") {
+        let request = if let Ok(request) = Request::new(url, url, "document", "") {
             request
         } else {
             return UrlSpecificResources::empty();

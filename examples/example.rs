@@ -23,6 +23,7 @@ fn main() {
         "http://example.com/-advertisement-icon.",
         "http://example.com/helloworld",
         "image",
+        "",
     )
     .unwrap();
     let blocker_result = engine.check_network_request(&request);

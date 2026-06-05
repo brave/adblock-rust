@@ -204,7 +204,7 @@ pub fn build_custom_requests(rules: Vec<NetworkFilter>) -> Vec<Request> {
 
             let source_url = format!("https://{source_hostname}");
 
-            Request::new(&url, &source_url, raw_type).unwrap()
+            Request::new(&url, &source_url, raw_type, "").unwrap()
         })
         .collect::<Vec<_>>()
 }

@@ -38,7 +38,7 @@ fn request_parsing_throughput(c: &mut Criterion) {
         b.iter(|| {
             let mut successful = 0;
             requests.iter().for_each(|r| {
-                let req: Result<Request, _> = Request::new(&r.url, &r.frameUrl, &r.cpt);
+                let req: Result<Request, _> = Request::new(&r.url, &r.frameUrl, &r.cpt, "");
                 if req.is_ok() {
                     successful += 1;
                 }
@@ -88,7 +88,7 @@ fn request_new_throughput(c: &mut Criterion) {
         b.iter(|| {
             let mut successful = 0;
             requests.iter().for_each(|r| {
-                Request::new(&r.url, &r.frameUrl, &r.cpt).ok();
+                Request::new(&r.url, &r.frameUrl, &r.cpt, "").ok();
                 successful += 1;
             });
         })

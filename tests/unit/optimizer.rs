@@ -22,6 +22,7 @@ mod optimization_tests_pattern_group {
                     ("https://example.com/".to_string() + url_path).as_str(),
                     "https://google.com",
                     "",
+                    "",
                 )
                 .unwrap(),
             );
@@ -132,6 +133,7 @@ mod optimization_tests_pattern_group {
                 &Request::new(
                     "https://example.com/v1/pixel?",
                     "https://my.leadpages.net",
+                    "",
                     ""
                 )
                 .unwrap()
@@ -148,6 +150,7 @@ mod optimization_tests_pattern_group {
                 &Request::new(
                     "https://example.com/analytics/v1/foobar",
                     "https://foo.leadpages.net",
+                    "",
                     ""
                 )
                 .unwrap()
@@ -194,21 +197,13 @@ mod optimization_tests_pattern_group {
 
             assert!(
                 filter.matches_test(
-                    &Request::new(
-                        "https://example.com/analytics-v1/foobar",
-                        "https://google.com",
-                        ""
-                    )
+                    &Request::new("https://example.com/analytics-v1/foobar", "https://google.com", "", "")
                     .unwrap()
                 ) == true
             );
             assert!(
                 filter.matches_test(
-                    &Request::new(
-                        "https://example.com/analytics-v1/foobar",
-                        "https://foo.leadpages.net",
-                        ""
-                    )
+                    &Request::new("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "", "")
                     .unwrap()
                 ) == false
             );
@@ -259,41 +254,25 @@ mod optimization_tests_pattern_group {
 
             assert!(
                 filter.matches_test(
-                    &Request::new(
-                        "https://example.com/analytics-v1/foobar",
-                        "https://google.com",
-                        ""
-                    )
+                    &Request::new("https://example.com/analytics-v1/foobar", "https://google.com", "", "")
                     .unwrap()
                 ) == true
             );
             assert!(
                 filter.matches_test(
-                    &Request::new(
-                        "https://example.com/analytics-v1/foobar",
-                        "https://example.com",
-                        ""
-                    )
+                    &Request::new("https://example.com/analytics-v1/foobar", "https://example.com", "", "")
                     .unwrap()
                 ) == true
             );
             assert!(
                 filter.matches_test(
-                    &Request::new(
-                        "https://example.com/analytics-v1/foobar",
-                        "https://exampletwo.com",
-                        ""
-                    )
+                    &Request::new("https://example.com/analytics-v1/foobar", "https://exampletwo.com", "", "")
                     .unwrap()
                 ) == true
             );
             assert!(
                 filter.matches_test(
-                    &Request::new(
-                        "https://example.com/analytics-v1/foobar",
-                        "https://foo.leadpages.net",
-                        ""
-                    )
+                    &Request::new("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "", "")
                     .unwrap()
                 ) == false
             );
@@ -319,6 +298,7 @@ mod optimization_tests_pattern_group {
             &Request::new(
                 ("https://example.com/".to_string() + url_path).as_str(),
                 "https://google.com",
+                "",
                 "",
             )
             .unwrap(),
@@ -430,6 +410,7 @@ mod optimization_tests_pattern_group {
             &Request::new(
                 "https://example.com/v1/pixel?",
                 "https://my.leadpages.net",
+                "",
                 ""
             )
             .unwrap()
@@ -446,6 +427,7 @@ mod optimization_tests_pattern_group {
             &Request::new(
                 "https://example.com/analytics/v1/foobar",
                 "https://foo.leadpages.net",
+                "",
                 ""
             )
             .unwrap()
@@ -492,21 +474,13 @@ mod optimization_tests_union_domain {
 
         assert!(
             filter.matches_test(
-                &Request::new(
-                    "https://example.com/analytics-v1/foobar",
-                    "https://google.com",
-                    ""
-                )
+                &Request::new("https://example.com/analytics-v1/foobar", "https://google.com", "", "")
                 .unwrap()
             ) == true
         );
         assert!(
             filter.matches_test(
-                &Request::new(
-                    "https://example.com/analytics-v1/foobar",
-                    "https://foo.leadpages.net",
-                    ""
-                )
+                &Request::new("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "", "")
                 .unwrap()
             ) == false
         );
@@ -557,41 +531,25 @@ mod optimization_tests_union_domain {
 
         assert!(
             filter.matches_test(
-                &Request::new(
-                    "https://example.com/analytics-v1/foobar",
-                    "https://google.com",
-                    ""
-                )
+                &Request::new("https://example.com/analytics-v1/foobar", "https://google.com", "", "")
                 .unwrap()
             ) == true
         );
         assert!(
             filter.matches_test(
-                &Request::new(
-                    "https://example.com/analytics-v1/foobar",
-                    "https://example.com",
-                    ""
-                )
+                &Request::new("https://example.com/analytics-v1/foobar", "https://example.com", "", "")
                 .unwrap()
             ) == true
         );
         assert!(
             filter.matches_test(
-                &Request::new(
-                    "https://example.com/analytics-v1/foobar",
-                    "https://exampletwo.com",
-                    ""
-                )
+                &Request::new("https://example.com/analytics-v1/foobar", "https://exampletwo.com", "", "")
                 .unwrap()
             ) == true
         );
         assert!(
             filter.matches_test(
-                &Request::new(
-                    "https://example.com/analytics-v1/foobar",
-                    "https://foo.leadpages.net",
-                    ""
-                )
+                &Request::new("https://example.com/analytics-v1/foobar", "https://foo.leadpages.net", "", "")
                 .unwrap()
             ) == false
         );

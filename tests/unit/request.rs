@@ -154,6 +154,7 @@ mod tests {
             "https://subdomain.example.com/ad",
             "https://example.com/",
             "document",
+            "",
         )
         .unwrap();
         assert!(parsed.is_https);
@@ -178,6 +179,7 @@ mod tests {
             "subdomain.example.com/ad",
             "https://example.com/",
             "document",
+            "",
         );
         assert_eq!(bad_url.err(), Some(RequestError::HostnameParseError));
     }
@@ -185,7 +187,7 @@ mod tests {
     #[test]
     fn fuzzing_errors() {
         {
-            let parsed = Request::new("https://߶", "https://example.com", "other");
+            let parsed = Request::new("https://߶", "https://example.com", "other", "");
             assert!(parsed.is_ok());
         }
         {
@@ -193,6 +195,7 @@ mod tests {
                 &format!("https://{}", std::str::from_utf8(&[9, 9, 64]).unwrap()),
                 "https://example.com",
                 "other",
+                "",
             );
             assert!(parsed.is_err());
         }

@@ -79,7 +79,7 @@ fn check_filter_matching() {
             }
             let engine = adblock::Engine::new_with_parsed_rules(filters, vec![], true);
 
-            let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type);
+            let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type, "");
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
             if let Ok(request) = request_res {
                 let result = engine.check_network_request(&request);
@@ -131,7 +131,7 @@ fn check_engine_matching() {
             );
             let network_filter = network_filter_res.unwrap();
 
-            let request = Request::new(&req.url, &req.sourceUrl, &req.r#type).unwrap();
+            let request = Request::new(&req.url, &req.sourceUrl, &req.r#type, "").unwrap();
             let result = engine.check_network_request(&request);
 
             if network_filter.is_exception() {
@@ -185,7 +185,7 @@ fn check_rule_matching_browserlike() {
 
     impl From<&TestRequest> for Request {
         fn from(v: &TestRequest) -> Self {
-            Request::new(&v.url, &v.frameUrl, &v.cpt).unwrap()
+            Request::new(&v.url, &v.frameUrl, &v.cpt, "").unwrap()
         }
     }
 

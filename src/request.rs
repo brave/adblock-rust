@@ -125,6 +125,9 @@ impl Request {
     }
 
     fn parse_method(raw_method: &str) -> Option<RequestMethod> {
+        if raw_method.is_empty() {
+            return None;
+        }
         if raw_method.eq_ignore_ascii_case("get") {
             Some(RequestMethod::Get)
         } else if raw_method.eq_ignore_ascii_case("head") {
@@ -203,18 +206,14 @@ impl Request {
     }
 
     /// Construct a new [`Request`].
-    pub fn new(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
-        Self::new_with_method(url, source_url, request_type, None)
-    }
-
-    pub fn new_with_method(
+    pub fn new(
         url: &str,
         source_url: &str,
         request_type: &str,
-        method: Option<&str>,
+        method: &str,
     ) -> Result<Request, RequestError> {
         if let Some(parsed_url) = url_parser::parse_url(url) {
-            let parsed_method = method.and_then(Self::parse_method);
+            let parsed_method = Self::parse_method(method);
             if let Some(parsed_source) = url_parser::parse_url(source_url) {
                 let source_domain = parsed_source.domain();
 
@@ -256,7 +255,7 @@ impl Request {
         source_hostname: &str,
         request_type: &str,
         third_party: bool,
-        method: Option<&str>,
+        method: &str,
     ) -> Request {
         let splitter = memchr::memchr(b':', url.as_bytes()).unwrap_or(0);
         let schema: &str = &url[..splitter];
@@ -269,7 +268,7 @@ impl Request {
             source_hostname,
             third_party,
             url.to_string(),
-            method.and_then(Self::parse_method),
+            Self::parse_method(method),
         )
     }
 }

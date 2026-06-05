@@ -20,7 +20,7 @@ struct TestRequest {
 
 impl From<&TestRequest> for Request {
     fn from(v: &TestRequest) -> Self {
-        Request::new(&v.url, &v.frameUrl, &v.cpt).unwrap()
+        Request::new(&v.url, &v.frameUrl, &v.cpt, "").unwrap()
     }
 }
 
@@ -77,7 +77,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &[ParsedRequest])
                 source_hostname,
                 request_type,
                 *third_party,
-                None,
+                "",
             ));
             if check.matched {
                 matches += 1;
@@ -131,7 +131,7 @@ fn rule_match_parsed_el(c: &mut Criterion) {
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
         .into_iter()
-        .map(|r| Request::new(&r.url, &r.frameUrl, &r.cpt))
+        .map(|r| Request::new(&r.url, &r.frameUrl, &r.cpt, ""))
         .filter_map(Result::ok)
         .collect();
     let requests_len = requests_parsed.len() as u64;
@@ -159,7 +159,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
         .into_iter()
-        .map(|r| Request::new(&r.url, &r.frameUrl, &r.cpt))
+        .map(|r| Request::new(&r.url, &r.frameUrl, &r.cpt, ""))
         .filter_map(Result::ok)
         .collect();
     let requests_len = requests_parsed.len() as u64;
@@ -170,7 +170,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let requests_copy = load_requests();
     let requests_parsed_copy: Vec<_> = requests_copy
         .into_iter()
-        .map(|r| Request::new(&r.url, &r.frameUrl, &r.cpt))
+        .map(|r| Request::new(&r.url, &r.frameUrl, &r.cpt, ""))
         .filter_map(Result::ok)
         .collect();
 
