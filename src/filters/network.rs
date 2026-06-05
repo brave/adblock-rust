@@ -173,6 +173,19 @@ bitflags::bitflags! {
     }
 }
 
+impl NetworkFilterMask {
+    #[inline]
+    pub(crate) fn check_method_allowed(self, method: Option<&request::RequestMethod>) -> bool {
+        if !self.intersects(Self::FROM_METHODS) {
+            return true;
+        }
+        let Some(method) = method else {
+            return false;
+        };
+        self.contains(Self::from(method))
+    }
+}
+
 pub trait NetworkFilterMaskHelper {
     fn has_flag(&self, v: NetworkFilterMask) -> bool;
 
@@ -265,6 +278,16 @@ impl NetworkFilterMaskHelper for NetworkFilterMask {
 impl fmt::Display for NetworkFilterMask {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:b}", &self)
+    }
+}
+
+impl From<&request::RequestMethod> for NetworkFilterMask {
+    fn from(method: &request::RequestMethod) -> NetworkFilterMask {
+        match method {
+            request::RequestMethod::Get => NetworkFilterMask::FROM_GET,
+            request::RequestMethod::Head => NetworkFilterMask::FROM_HEAD,
+            request::RequestMethod::Post => NetworkFilterMask::FROM_POST,
+        }
     }
 }
 

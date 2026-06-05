@@ -1373,7 +1373,7 @@ mod legacy_rule_parsing_tests {
     };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
     const EASY_PRIVACY: ListCounts = ListCounts {
-        filters: 55395 - 818, // total - exceptions
+        filters: 55396 - 818, // total - exceptions
         cosmetic_filters: 32,
         exceptions: 818,
         duplicates: 2,

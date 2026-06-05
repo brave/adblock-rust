@@ -21,6 +21,7 @@ mod tests {
             source_hostname,
             third_party,
             url.to_string(),
+            None,
         )
     }
 

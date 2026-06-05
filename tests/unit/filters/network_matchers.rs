@@ -473,6 +473,95 @@ mod match_tests {
     }
 
     #[test]
+    fn check_method_options_works() {
+        let url = "https://foo.com/bar";
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=post", true, Default::default()).unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("post")).unwrap();
+            assert!(check_options(&filter, &request));
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("get")).unwrap();
+            assert!(!check_options(&filter, &request));
+        }
+
+        {
+            let filter = NetworkFilter::parse("||foo$method=post|get", true, Default::default())
+                .unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("get")).unwrap();
+            assert!(check_options(&filter, &request));
+        }
+
+        {
+            let filter = NetworkFilter::parse("||foo$method=head|get", true, Default::default())
+                .unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("head")).unwrap();
+            assert!(check_options(&filter, &request));
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("post")).unwrap();
+            assert!(!check_options(&filter, &request));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=~get", true, Default::default()).unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("get")).unwrap();
+            assert!(!check_options(&filter, &request));
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("post")).unwrap();
+            assert!(check_options(&filter, &request));
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("head")).unwrap();
+            assert!(check_options(&filter, &request));
+            let request = request::Request::new(url, "", "xhr").unwrap();
+            assert!(!check_options(&filter, &request));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo", true, Default::default()).unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("post")).unwrap();
+            assert!(check_options(&filter, &request));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$xhr,method=post", true, Default::default()).unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("post")).unwrap();
+            assert!(check_options(&filter, &request));
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("get")).unwrap();
+            assert!(!check_options(&filter, &request));
+            let request =
+                request::Request::new_with_method(url, "", "script", Some("post")).unwrap();
+            assert!(!check_options(&filter, &request));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$xhr,method=get", true, Default::default()).unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("get")).unwrap();
+            assert!(check_options(&filter, &request));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$xhr,method=head", true, Default::default()).unwrap();
+            let request =
+                request::Request::new_with_method(url, "", "xhr", Some("head")).unwrap();
+            assert!(check_options(&filter, &request));
+        }
+    }
+
+    #[test]
     fn check_domain_option_subsetting_works() {
         {
             let network_filter = NetworkFilter::parse(

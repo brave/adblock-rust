@@ -5,6 +5,13 @@ use thiserror::Error;
 use crate::url_parser;
 use crate::utils;
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum RequestMethod {
+    Get,
+    Head,
+    Post,
+}
+
 /// The type of resource requested from the URL endpoint.
 #[derive(Clone, PartialEq, Debug)]
 pub enum RequestType {
@@ -79,6 +86,7 @@ fn cpt_match_type(cpt: &str) -> RequestType {
 #[derive(Clone, Debug)]
 pub struct Request {
     pub request_type: RequestType,
+    pub method: Option<RequestMethod>,
 
     pub is_http: bool,
     pub is_https: bool,
@@ -116,6 +124,18 @@ impl Request {
         &self.request_tokens
     }
 
+    fn parse_method(raw_method: &str) -> Option<RequestMethod> {
+        if raw_method.eq_ignore_ascii_case("get") {
+            Some(RequestMethod::Get)
+        } else if raw_method.eq_ignore_ascii_case("head") {
+            Some(RequestMethod::Head)
+        } else if raw_method.eq_ignore_ascii_case("post") {
+            Some(RequestMethod::Post)
+        } else {
+            None
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn from_detailed_parameters(
         raw_type: &str,
@@ -125,6 +145,7 @@ impl Request {
         source_hostname: &str,
         third_party: bool,
         original_url: String,
+        method: Option<RequestMethod>,
     ) -> Request {
         let is_http: bool;
         let is_https: bool;
@@ -167,6 +188,7 @@ impl Request {
 
         Request {
             request_type,
+            method,
             url: url.to_owned(),
             url_lower_cased: url_lower_cased.to_owned(),
             hostname: hostname.to_owned(),
@@ -182,7 +204,17 @@ impl Request {
 
     /// Construct a new [`Request`].
     pub fn new(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
+        Self::new_with_method(url, source_url, request_type, None)
+    }
+
+    pub fn new_with_method(
+        url: &str,
+        source_url: &str,
+        request_type: &str,
+        method: Option<&str>,
+    ) -> Result<Request, RequestError> {
         if let Some(parsed_url) = url_parser::parse_url(url) {
+            let parsed_method = method.and_then(Self::parse_method);
             if let Some(parsed_source) = url_parser::parse_url(source_url) {
                 let source_domain = parsed_source.domain();
 
@@ -196,6 +228,7 @@ impl Request {
                     parsed_source.hostname(),
                     third_party,
                     url.to_string(),
+                    parsed_method,
                 ))
             } else {
                 Ok(Request::from_detailed_parameters(
@@ -206,6 +239,7 @@ impl Request {
                     "",
                     true,
                     url.to_string(),
+                    parsed_method,
                 ))
             }
         } else {
@@ -234,6 +268,7 @@ impl Request {
             source_hostname,
             third_party,
             url.to_string(),
+            None,
         )
     }
 }
