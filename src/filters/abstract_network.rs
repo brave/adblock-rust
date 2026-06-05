@@ -95,7 +95,7 @@ impl NetworkFilterOption<'_> {
 pub(crate) struct AbstractNetworkFilter<'a> {
     pub(crate) exception: bool,
     pub(crate) pattern: NetworkFilterPattern,
-    pub(crate) raw_options: Option<&'a str>,
+    pub(crate) options: Option<Vec<NetworkFilterOption<'a>>>,
 }
 
 impl AbstractNetworkFilter<'_> {
@@ -113,12 +113,14 @@ impl AbstractNetworkFilter<'_> {
 
         let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
 
-        let raw_options: Option<&'a str>;
+        let mut options = None;
         if let Some(options_index) = maybe_options_index {
             filter_index_end = options_index;
-            raw_options = Some(&line[filter_index_end + 1..]);
-        } else {
-            raw_options = None;
+
+            // slicing here is safe; the first byte after '$' will be a character boundary
+            let raw_options = &line[filter_index_end + 1..];
+
+            options = Some(parse_filter_options(raw_options)?);
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
@@ -149,12 +151,12 @@ impl AbstractNetworkFilter<'_> {
                 end: filter_index_end,
                 right_anchor,
             },
-            raw_options,
+            options,
         })
     }
 }
 
-pub(crate) fn parse_filter_options<'a>(
+fn parse_filter_options<'a>(
     raw_options: &'a str,
 ) -> Result<Vec<NetworkFilterOption<'a>>, NetworkFilterError> {
     let mut result = vec![];

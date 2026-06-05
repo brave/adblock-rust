@@ -466,8 +466,7 @@ impl<'a> NetworkFilter<'a> {
             mask.set(NetworkFilterMask::IS_EXCEPTION, true);
         }
 
-        if let Some(raw_options) = parsed.raw_options {
-            let options = crate::filters::abstract_network::parse_filter_options(raw_options)?;
+        if let Some(options) = parsed.options {
             validate_options(&options)?;
 
             macro_rules! apply_content_type {
