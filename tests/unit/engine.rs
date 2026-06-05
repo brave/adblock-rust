@@ -892,4 +892,64 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
             ""
         );
     }
+
+    #[test]
+    fn method_option_blocks_post_xhr_only() {
+        let engine = Engine::new_with_list_text(
+            "||perplexity.ai/rest/metrics/collect^$xhr,1p,method=post",
+            Default::default(),
+        );
+        let url = "https://perplexity.ai/rest/metrics/collect?foo=bar";
+        let source = "https://perplexity.ai/page";
+
+        let post = Request::new_with_method(url, source, "xhr", Some("post")).unwrap();
+        assert!(
+            engine.check_network_request(&post).matched,
+            "POST xhr 1p should match"
+        );
+
+        let get = Request::new_with_method(url, source, "xhr", Some("get")).unwrap();
+        assert!(
+            !engine.check_network_request(&get).matched,
+            "GET xhr should not match method=post rule"
+        );
+
+        let post_3p =
+            Request::new_with_method(url, "https://other.com/page", "xhr", Some("post")).unwrap();
+        assert!(
+            !engine.check_network_request(&post_3p).matched,
+            "POST xhr 3p should not match 1p rule"
+        );
+
+        let post_no_method = Request::new(url, source, "xhr").unwrap();
+        assert!(
+            !engine.check_network_request(&post_no_method).matched,
+            "missing method should not match method=post rule"
+        );
+    }
+
+    #[test]
+    fn method_option_exception_head_get() {
+        let engine = Engine::new_with_list_text(
+            "||tracker.example.com^$xhr\n@@*$xhr,method=head|get,domain=app.axenthost.com,3p",
+            Default::default(),
+        );
+        let url = "https://tracker.example.com/pixel";
+        let source = "https://app.axenthost.com/page";
+
+        for method in ["get", "head"] {
+            let request =
+                Request::new_with_method(url, source, "xhr", Some(method)).unwrap();
+            assert!(
+                !engine.check_network_request(&request).matched,
+                "{method} xhr should be excepted"
+            );
+        }
+
+        let post = Request::new_with_method(url, source, "xhr", Some("post")).unwrap();
+        assert!(
+            engine.check_network_request(&post).matched,
+            "POST xhr should still be blocked"
+        );
+    }
 }

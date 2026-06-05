@@ -77,6 +77,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &[ParsedRequest])
                 source_hostname,
                 request_type,
                 *third_party,
+                None,
             ));
             if check.matched {
                 matches += 1;

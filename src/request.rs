@@ -256,6 +256,7 @@ impl Request {
         source_hostname: &str,
         request_type: &str,
         third_party: bool,
+        method: Option<&str>,
     ) -> Request {
         let splitter = memchr::memchr(b':', url.as_bytes()).unwrap_or(0);
         let schema: &str = &url[..splitter];
@@ -268,7 +269,7 @@ impl Request {
             source_hostname,
             third_party,
             url.to_string(),
-            None,
+            method.and_then(Self::parse_method),
         )
     }
 }

@@ -289,6 +289,7 @@ fn check_matching_hostnames() {
             source_host.hostname(),
             &req.r#type,
             third_party,
+            None,
         );
 
         let checked = engine.check_network_request(&request);

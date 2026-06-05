@@ -148,7 +148,7 @@ describe('Engine.check — basic blocking', () => {
         fs.addFilters('||ads.example.com^');
         const engine = new Engine(fs, true);
         const result = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true
         );
         assert.equal(result.matched, true);
         assert.equal(result.filter, '||ads.example.com^');
@@ -180,7 +180,7 @@ describe('Engine.check — exception rules', () => {
         fs.addFilters(['||ads.example.com^', '@@||ads.example.com^$domain=publisher.com'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.check(
-            'https://ads.example.com/tracker.js', 'https://publisher.com', 'script', true,
+            'https://ads.example.com/tracker.js', 'https://publisher.com', 'script', 'get', true,
         );
         assert.equal(result.matched, false);
         assert.equal(typeof result.exception, 'string');
@@ -192,7 +192,7 @@ describe('Engine.check — exception rules', () => {
         fs.addFilters(['||ads.example.com^$important', '@@||ads.example.com^'].join('\n'));
         const engine = new Engine(fs, true);
         const result = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(result.matched, true);
         assert.equal(result.important, true);
@@ -258,6 +258,27 @@ describe('Engine.check — type-specific rules', () => {
         assert.equal(engine.check('https://ads.example.com/api', 'https://pub.com', 'xmlhttprequest'), true);
         assert.equal(engine.check('https://ads.example.com/api', 'https://pub.com', 'image'), false);
     });
+
+    it('$method=post blocks only POST requests', () => {
+        const fs = new FilterSet();
+        fs.addFilters('||api.example.com^$xhr,method=post');
+        const engine = new Engine(fs, true);
+        const url = 'https://api.example.com/collect';
+        const source = 'https://pub.com';
+        assert.equal(engine.check(url, source, 'xhr', 'post'), true);
+        assert.equal(engine.check(url, source, 'xhr', 'get'), false);
+        assert.equal(engine.check(url, source, 'xhr'), false);
+    });
+
+    it('debug=true remains backward compatible as 4th boolean arg', () => {
+        const fs = new FilterSet(true);
+        fs.addFilters('||api.example.com^$xhr,method=post');
+        const engine = new Engine(fs, true);
+        const result = engine.check(
+            'https://api.example.com/collect', 'https://pub.com', 'xhr', true,
+        );
+        assert.equal(result.matched, false);
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -318,7 +339,7 @@ describe('Engine.check — redirect rules', () => {
             content: btoa('(function(){})()'),
         }]);
         const result = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(result.matched, true);
         assert.equal(result.filter, '||ads.example.com^$script,redirect=noopjs');
@@ -330,7 +351,7 @@ describe('Engine.check — redirect rules', () => {
         fs.addFilters('||ads.example.com^');
         const engine = new Engine(fs, true);
         const result = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(result.matched, true);
         assert.equal(result.filter, '||ads.example.com^');
@@ -349,7 +370,7 @@ describe('Engine.check — $removeparam modifier', () => {
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://example.com/page?tracking_id=abc&keep=1',
-            'https://other.com', 'xmlhttprequest', true,
+            'https://other.com', 'xmlhttprequest', 'get', true,
         );
         assert.ok(result.rewritten_url != null);
         assert.ok(!result.rewritten_url.includes('tracking_id'));
@@ -362,7 +383,7 @@ describe('Engine.check — $removeparam modifier', () => {
         const engine = new Engine(fs, true);
         const result = engine.check(
             'https://example.com/page?unrelated=1',
-            'https://other.com', 'xmlhttprequest', true,
+            'https://other.com', 'xmlhttprequest', 'get', true,
         );
         assert.ok(result.rewritten_url == null);
     });
@@ -379,14 +400,14 @@ describe('Engine.check — exception rules with tags', () => {
         const engine = new Engine(fs, true);
 
         const before = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(before.matched, true);
         assert.ok(before.exception == null);
 
         engine.enableTag('unbreak');
         const after = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(after.matched, false);
         assert.equal(after.exception, '@@||ads.example.com^$tag=unbreak');
@@ -557,7 +578,7 @@ describe('Engine serialization', () => {
 
         // Without reloading: redirect absent
         const without = dst.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(without.matched, true);
         assert.ok(without.redirect == null);
@@ -565,7 +586,7 @@ describe('Engine serialization', () => {
         // After reloading: redirect works
         dst.useResources([resource]);
         const withRes = dst.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', true,
+            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.ok(withRes.redirect.length > 0);
     });

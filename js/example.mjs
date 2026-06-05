@@ -37,6 +37,7 @@ console.log(engine.check(
     'http://example.com/-advertisement-icon.',
     'http://example.com/helloworld',
     'image',
+    'get',
     true,
 ));
 // No match, but still with full details
@@ -44,6 +45,7 @@ console.log(engine.check(
     'https://github.githubassets.com/assets/frameworks-64831a3d.js',
     'https://github.com/brave',
     'script',
+    'get',
     true,
 ));
 // Example that includes a redirect resource
@@ -51,6 +53,7 @@ console.log(engine.check(
     'https://bbci.co.uk/test/analytics.js',
     'https://bbc.co.uk',
     'script',
+    'get',
     true
 ));
 
