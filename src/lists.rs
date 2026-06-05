@@ -512,14 +512,11 @@ pub fn parse_filter<'a>(
 }
 
 /// Parse an entire list of filters, ignoring any errors
-pub fn parse_filters<'a, I>(
-    list: I,
+pub fn parse_filters<'a>(
+    list: impl IntoIterator<Item = &'a str>,
     debug: bool,
     opts: ParseOptions,
-) -> (Vec<NetworkFilter<'a>>, Vec<CosmeticFilter>)
-where
-    I: IntoIterator<Item = &'a str>,
-{
+) -> (Vec<NetworkFilter<'a>>, Vec<CosmeticFilter>) {
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
         .into_iter()
         .filter_map(|line| match parse_filter(line, debug, opts) {

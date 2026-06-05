@@ -421,38 +421,6 @@ fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFi
     Ok(())
 }
 
-impl NetworkFilter<'_> {
-    /// Converts a filter with borrowed fields into an owned filter.
-    #[cfg(test)]
-    pub fn into_owned(self) -> NetworkFilter<'static> {
-        NetworkFilter {
-            mask: self.mask,
-            features_mask: self.features_mask,
-            filter: self.filter.into_owned(),
-            opt_domains: self.opt_domains,
-            opt_not_domains: self.opt_not_domains,
-            modifier_option: self
-                .modifier_option
-                .map(|value| Cow::Owned(value.into_owned())),
-            hostname: self.hostname.map(|value| Cow::Owned(value.into_owned())),
-            tag: self.tag.map(|value| Cow::Owned(value.into_owned())),
-            raw_line: self.raw_line.map(|line| Cow::Owned(line.into_owned())),
-            id: self.id,
-        }
-    }
-}
-
-impl FilterPart<'_> {
-    #[cfg(test)]
-    fn into_owned(self) -> FilterPart<'static> {
-        match self {
-            FilterPart::Empty => FilterPart::Empty,
-            FilterPart::Simple(s) => FilterPart::Simple(Cow::Owned(s.into_owned())),
-            FilterPart::AnyOf(parts) => FilterPart::AnyOf(parts),
-        }
-    }
-}
-
 fn cow_ascii_lowercase<'a>(s: &'a str) -> Cow<'a, str> {
     if s.as_bytes().iter().any(|byte| byte.is_ascii_uppercase()) {
         Cow::Owned(s.to_ascii_lowercase())

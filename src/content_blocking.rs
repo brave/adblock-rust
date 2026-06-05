@@ -229,7 +229,7 @@ pub enum CbRuleCreationFailure {
     ProceduralCosmeticFiltersUnsupported,
 }
 
-impl TryFrom<ParsedLine> for CbRuleEquivalent {
+impl TryFrom<ParsedLine<'_>> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: ParsedLine) -> Result<Self, Self::Error> {
@@ -301,7 +301,7 @@ impl Iterator for CbRuleEquivalentIterator {
     }
 }
 
-impl TryFrom<NetworkFilter> for CbRuleEquivalent {
+impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: NetworkFilter) -> Result<Self, Self::Error> {

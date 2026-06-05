@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use adblock::Engine;
 use criterion::*;
 use tokio::runtime::Runtime;
@@ -56,11 +58,14 @@ async fn get_all_filters() -> Vec<String> {
 }
 
 /// Gets all rules with redirects, and modifies them to apply to resources at `a{0-n}.com/bad.js`
-fn get_redirect_rules() -> Vec<NetworkFilter> {
+fn get_redirect_rules() -> Vec<NetworkFilter<'static>> {
     let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
 
-    let filters = async_runtime.block_on(get_all_filters());
-    let (network_filters, _) = adblock::lists::parse_filters(&filters, true, Default::default());
+    // Leak the filters vec so that parsed NetworkFilter<'static> can borrow from it safely.
+    let filters: &'static [String] =
+        Box::leak(async_runtime.block_on(get_all_filters()).into_boxed_slice());
+    let (network_filters, _) =
+        adblock::lists::parse_filters(filters.iter().map(|s| s.as_str()), true, Default::default());
 
     network_filters
         .into_iter()
@@ -71,7 +76,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter> {
         .map(|(index, mut rule)| {
             rule.mask.insert(NetworkFilterMask::IS_LEFT_ANCHOR);
             rule.mask.insert(NetworkFilterMask::IS_RIGHT_ANCHOR);
-            rule.hostname = Some(format!("a{index}.com/bad.js"));
+            rule.hostname = Some(Cow::Owned(format!("a{index}.com/bad.js")));
 
             rule.filter = adblock::filters::network::FilterPart::Empty;
             rule.mask.remove(NetworkFilterMask::IS_HOSTNAME_ANCHOR);
