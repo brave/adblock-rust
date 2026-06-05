@@ -289,10 +289,10 @@ pub enum FilterPart {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum FilterTokens<'a> {
+pub(crate) enum FilterTokens {
     Empty,
-    OptDomains(&'a [Hash]),
-    Other(&'a [Hash]),
+    OptDomains,
+    Other,
 }
 
 pub struct FilterPartIterator<'a> {
@@ -833,10 +833,10 @@ impl NetworkFilter {
         )
     }
 
-    pub(crate) fn get_tokens<'a>(
-        &'a self,
-        tokens_buffer: &'a mut TokensBuffer,
-    ) -> FilterTokens<'a> {
+    /// Returns the tokens that the filter matches to.
+    ///
+    /// For `!FilterTokens::Empty`, the result is stored in the given `tokens_buffer`.
+    pub(crate) fn get_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
         tokens_buffer.clear();
 
         // If there is only one domain and no domain negation, we also use this
@@ -896,7 +896,13 @@ impl NetworkFilter {
         {
             if let Some(opt_domains) = self.opt_domains.as_ref() {
                 if !opt_domains.is_empty() {
-                    return FilterTokens::OptDomains(opt_domains);
+                    let cap = tokens_buffer.remaining_capacity();
+                    if opt_domains.len() <= cap {
+                        tokens_buffer.extend(opt_domains.iter().copied());
+                        return FilterTokens::OptDomains;
+                    }
+                    // Too many domains to bucket individually; fall back to the catch-all
+                    // bucket (token 0).
                 }
             }
             FilterTokens::Empty
@@ -908,7 +914,7 @@ impl NetworkFilter {
                 tokens_buffer.push(utils::fast_hash("https"));
             }
 
-            FilterTokens::Other(tokens_buffer.as_slice())
+            FilterTokens::Other
         }
     }
 

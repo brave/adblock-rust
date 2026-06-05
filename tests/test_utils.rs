@@ -8,5 +8,6 @@ pub fn rules_from_lists(list_files: impl IntoIterator<Item = impl AsRef<str>>) -
         contents.push_str(&std::fs::read_to_string(file.as_ref()).unwrap());
         contents.push('\n');
     }
+    contents.shrink_to_fit();
     contents
 }
