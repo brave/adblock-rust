@@ -122,17 +122,17 @@ fn get_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Vec<
             .iter()
             .filter(|f| f.is_redirect())
             .map(|f| {
-                let mut redirect = f.modifier_option.as_ref().unwrap().as_str();
+                let mut redirect = f.modifier_option.as_ref().unwrap().to_string();
                 // strip priority, if present
                 if let Some(i) = redirect.rfind(':') {
-                    redirect = &redirect[0..i];
+                    redirect.truncate(i);
                 }
 
                 Resource {
-                    name: redirect.to_owned(),
+                    name: redirect.clone(),
                     aliases: vec![],
-                    kind: ResourceType::Mime(MimeType::from_extension(redirect)),
-                    content: BASE64_STANDARD.encode(redirect),
+                    kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
+                    content: BASE64_STANDARD.encode(&redirect),
                     dependencies: vec![],
                     permission: Default::default(),
                 }
