@@ -977,7 +977,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "example.com");
+            assert_eq!(filter.raw_line.as_deref().unwrap(), "||example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -989,7 +989,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("www.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "www.example.com");
+            assert_eq!(filter.raw_line.as_deref().unwrap(), "||www.example.com^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("www.example.com".to_string());
             defaults.is_plain = true;
@@ -1001,7 +1001,10 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("malware.example.com", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "malware.example.com");
+            assert_eq!(
+                filter.raw_line.as_deref().unwrap(),
+                "||malware.example.com^"
+            );
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("malware.example.com".to_string());
             defaults.is_plain = true;
@@ -1014,7 +1017,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("Example.COM", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "Example.COM");
+            assert_eq!(filter.raw_line.as_deref().unwrap(), "||Example.COM^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("example.com".to_string());
             defaults.is_plain = true;
@@ -1027,7 +1030,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("WWW.Example.COM", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "WWW.Example.COM");
+            assert_eq!(filter.raw_line.as_deref().unwrap(), "||WWW.Example.COM^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("www.example.com".to_string());
             defaults.is_plain = true;
@@ -1040,7 +1043,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("münchen.de", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "münchen.de");
+            assert_eq!(filter.raw_line.as_deref().unwrap(), "||münchen.de^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("xn--mnchen-3ya.de".to_string());
             defaults.is_plain = true;
@@ -1053,7 +1056,7 @@ mod parse_tests {
         {
             let filter = NetworkFilter::parse_hosts_style("www.münchen.de", true).unwrap();
             assert!(filter.raw_line.is_some());
-            assert_eq!(filter.raw_line.as_deref().unwrap(), "www.münchen.de");
+            assert_eq!(filter.raw_line.as_deref().unwrap(), "||www.münchen.de^");
             let mut defaults = default_network_filter_breakdown();
             defaults.hostname = Some("www.xn--mnchen-3ya.de".to_string());
             defaults.is_plain = true;

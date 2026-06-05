@@ -754,6 +754,8 @@ impl<'a> NetworkFilter<'a> {
             None
         };
 
+        // TODO: ignore hostname anchor is not hostname provided
+
         if features_mask.contains(NetworkFilterFeaturesMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
@@ -835,13 +837,11 @@ impl<'a> NetworkFilter<'a> {
             | NetworkFilterMask::IS_HOSTNAME_ANCHOR
             | NetworkFilterMask::IS_RIGHT_ANCHOR;
 
-        let id = {
-            let mut rule = String::with_capacity(hostname.len() + 3);
-            rule.push_str("||");
-            rule.push_str(hostname);
-            rule.push('^');
-            utils::fast_hash(&rule)
-        };
+        let mut rule = String::with_capacity(hostname.len() + 3);
+        rule.push_str("||");
+        rule.push_str(hostname);
+        rule.push('^');
+        let id = utils::fast_hash(&rule);
 
         Ok(NetworkFilter {
             filter: FilterPart::Empty,
@@ -851,11 +851,7 @@ impl<'a> NetworkFilter<'a> {
             opt_domains: None,
             opt_not_domains: None,
             tag: None,
-            raw_line: if debug {
-                Some(Cow::Borrowed(hostname))
-            } else {
-                None
-            },
+            raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
             modifier_option: None,
             id,
         })

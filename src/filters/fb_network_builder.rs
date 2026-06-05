@@ -34,28 +34,26 @@ struct NetworkFilterFlatEntry<'a> {
     id: Hash,
 }
 
-pub(crate) struct NetworkFilterListBuilder<'fb, 'filter> {
-    flat_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'fb>>,
+struct NetworkFilterListBuilder<'a, 'f> {
+    flat_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
     token_frequencies: TokenSelector,
-    filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter<'filter>>>,
+    filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter<'f>>>,
     tokens_buffer: TokensBuffer,
     optimize: bool,
 }
 
-pub(crate) struct NetworkRulesBuilder<'fb, 'filter> {
-    lists: Vec<NetworkFilterListBuilder<'fb, 'filter>>,
+pub(crate) struct NetworkRulesBuilder<'a, 'f> {
+    lists: Vec<NetworkFilterListBuilder<'a, 'f>>,
     bad_filter_ids: HashSet<Hash>,
 }
 
-impl<'filter, 'builder> FlatSerialize<'builder, EngineFlatBuilder<'builder>>
-    for NetworkFilter<'filter>
-{
-    type Output = WIPOffset<fb::NetworkFilter<'builder>>;
+impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
+    type Output = WIPOffset<fb::NetworkFilter<'a>>;
 
     fn serialize(
-        network_filter: NetworkFilter<'filter>,
-        builder: &mut EngineFlatBuilder<'builder>,
-    ) -> WIPOffset<fb::NetworkFilter<'builder>> {
+        network_filter: NetworkFilter<'f>,
+        builder: &mut EngineFlatBuilder<'a>,
+    ) -> WIPOffset<fb::NetworkFilter<'a>> {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
@@ -131,7 +129,7 @@ impl<'filter, 'builder> FlatSerialize<'builder, EngineFlatBuilder<'builder>>
     }
 }
 
-impl<'fb, 'filter> NetworkFilterListBuilder<'fb, 'filter> {
+impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
     fn new(optimize: bool) -> Self {
         Self {
             flat_map_builder: FlatMultiMapBuilder::with_capacity(1024),
@@ -144,8 +142,8 @@ impl<'fb, 'filter> NetworkFilterListBuilder<'fb, 'filter> {
 
     fn add_filter(
         &mut self,
-        network_filter: NetworkFilter<'filter>,
-        builder: &mut EngineFlatBuilder<'fb>,
+        network_filter: NetworkFilter<'f>,
+        builder: &mut EngineFlatBuilder<'a>,
     ) {
         let multi_tokens = network_filter.get_tokens(&mut self.tokens_buffer);
         let id = network_filter.get_id();
@@ -192,7 +190,7 @@ impl<'fb, 'filter> NetworkFilterListBuilder<'fb, 'filter> {
     }
 }
 
-impl<'fb, 'filter> NetworkRulesBuilder<'fb, 'filter> {
+impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
     pub fn new(optimize: bool) -> Self {
         let lists = (0..NetworkFilterListId::Size as usize)
             .map(|list_id| {
@@ -207,11 +205,7 @@ impl<'fb, 'filter> NetworkRulesBuilder<'fb, 'filter> {
         }
     }
 
-    pub fn add_filter(
-        &mut self,
-        filter: NetworkFilter<'filter>,
-        builder: &mut EngineFlatBuilder<'fb>,
-    ) {
+    pub fn add_filter(&mut self, filter: NetworkFilter<'f>, builder: &mut EngineFlatBuilder<'a>) {
         if filter.is_badfilter() {
             // Note: `get_id()` doesn't include BAD_FILTER bit.
             self.bad_filter_ids.insert(filter.get_id());
@@ -248,9 +242,9 @@ impl<'fb, 'filter> NetworkRulesBuilder<'fb, 'filter> {
 
     fn add_filter_internal(
         &mut self,
-        network_filter: NetworkFilter<'filter>,
+        network_filter: NetworkFilter<'f>,
         list_id: NetworkFilterListId,
-        builder: &mut EngineFlatBuilder<'fb>,
+        builder: &mut EngineFlatBuilder<'a>,
     ) {
         self.lists[list_id as usize].add_filter(network_filter, builder);
     }
@@ -267,14 +261,11 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterFlatEntry<'a>
     }
 }
 
-impl<'fb, 'filter> FlatSerialize<'fb, EngineFlatBuilder<'fb>>
-    for NetworkRulesBuilder<'fb, 'filter>
-{
-    type Output = WIPOffset<
-        flatbuffers::Vector<'fb, flatbuffers::ForwardsUOffset<fb::NetworkFilterList<'fb>>>,
-    >;
+impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a, 'f> {
+    type Output =
+        WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<fb::NetworkFilterList<'a>>>>;
 
-    fn serialize(value: Self, builder: &mut EngineFlatBuilder<'fb>) -> Self::Output {
+    fn serialize(value: Self, builder: &mut EngineFlatBuilder<'a>) -> Self::Output {
         let mut serialized_lists = vec![];
 
         for mut rule_list in value.lists {

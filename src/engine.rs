@@ -157,10 +157,10 @@ impl Engine {
         )
     }
 
-    fn new_with_builders<'fb, 'filter>(
-        network_rules_builder: NetworkRulesBuilder<'fb, 'filter>,
-        cosmetic_filter_cache_builder: CosmeticFilterCacheBuilder<'fb>,
-        mut builder: EngineFlatBuilder<'fb>,
+    fn new_with_builders<'a, 'f>(
+        network_rules_builder: NetworkRulesBuilder<'a, 'f>,
+        cosmetic_filter_cache_builder: CosmeticFilterCacheBuilder<'a>,
+        mut builder: EngineFlatBuilder<'a>,
     ) -> Self {
         let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
         let cosmetic_rules = FlatSerialize::serialize(cosmetic_filter_cache_builder, &mut builder);

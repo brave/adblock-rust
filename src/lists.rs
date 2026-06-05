@@ -271,78 +271,80 @@ impl FilterSet {
         use crate::content_blocking;
         use std::collections::HashSet;
 
-        if !self.debug {
+        let FilterSet {
+            debug,
+            list_sources,
+        } = self;
+
+        if !debug {
             return Err(());
         }
 
+        let mut network_filters = vec![];
+        let mut cosmetic_filters = vec![];
+        for list_source in list_sources.iter() {
+            let list_text = list_source.list_text.lines();
+            let parse_options = list_source.parse_options;
+            let (list_network_filters, list_cosmetic_filters) =
+                parse_filters(list_text, debug, parse_options);
+            network_filters.extend(list_network_filters);
+            cosmetic_filters.extend(list_cosmetic_filters);
+        }
+
+        // Store bad filter id to skip them later.
         let mut bad_filter_ids = HashSet::new();
-        for list_source in self.list_sources.iter() {
-            let (network_filters, _) = parse_filters(
-                list_source.list_text.lines(),
-                self.debug,
-                list_source.parse_options,
-            );
-            for filter in network_filters.iter() {
-                if filter.is_badfilter() {
-                    bad_filter_ids.insert(filter.get_id());
-                }
+        for filter in network_filters.iter() {
+            if filter.is_badfilter() {
+                bad_filter_ids.insert(filter.get_id());
             }
         }
 
         let mut ignore_previous_rules = vec![];
         let mut other_rules = vec![];
+
         let mut filters_used = vec![];
 
-        for list_source in self.list_sources.iter() {
-            let (network_filters, cosmetic_filters) = parse_filters(
-                list_source.list_text.lines(),
-                self.debug,
-                list_source.parse_options,
-            );
-
-            network_filters.into_iter().for_each(|filter| {
-                // Don't process bad filter rules or matching bad filter rules.
-                if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
-                    return;
-                }
-                let original_rule = filter
-                    .raw_line
-                    .as_ref()
-                    .expect("All rules should be in debug mode")
-                    .to_string();
-                if let Ok(equivalent) =
-                    TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
-                {
-                    filters_used.push(original_rule);
-                    equivalent
-                        .into_iter()
-                        .for_each(|cb_rule| match &cb_rule.action.typ {
-                            content_blocking::CbType::IgnorePreviousRules => {
-                                ignore_previous_rules.push(cb_rule)
-                            }
-                            _ => other_rules.push(cb_rule),
-                        });
-                }
-            });
-
-            cosmetic_filters.into_iter().for_each(|filter| {
-                let original_rule = *filter
-                    .raw_line
-                    .clone()
-                    .expect("All rules should be in debug mode");
-                if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
-                    filters_used.push(original_rule);
-                    match &cb_rule.action.typ {
+        network_filters.into_iter().for_each(|filter| {
+            // Don't process bad filter rules or matching bad filter rules.
+            if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
+                return;
+            }
+            let original_rule = filter
+                .raw_line
+                .as_ref()
+                .expect("All rules should be in debug mode")
+                .to_string();
+            if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
+            {
+                filters_used.push(original_rule);
+                equivalent
+                    .into_iter()
+                    .for_each(|cb_rule| match &cb_rule.action.typ {
                         content_blocking::CbType::IgnorePreviousRules => {
                             ignore_previous_rules.push(cb_rule)
                         }
                         _ => other_rules.push(cb_rule),
-                    }
-                }
-            });
-        }
+                    });
+            }
+        });
 
         let add_fp_document_exception = !filters_used.is_empty();
+
+        cosmetic_filters.into_iter().for_each(|filter| {
+            let original_rule = *filter
+                .raw_line
+                .clone()
+                .expect("All rules should be in debug mode");
+            if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
+                filters_used.push(original_rule);
+                match &cb_rule.action.typ {
+                    content_blocking::CbType::IgnorePreviousRules => {
+                        ignore_previous_rules.push(cb_rule)
+                    }
+                    _ => other_rules.push(cb_rule),
+                }
+            }
+        });
 
         other_rules.extend(ignore_previous_rules);
 
