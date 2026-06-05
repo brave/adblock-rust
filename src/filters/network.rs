@@ -429,13 +429,9 @@ fn cow_ascii_lowercase<'a>(s: &'a str) -> Cow<'a, str> {
     }
 }
 
-fn decode_hostname<'a>(host: &'a str) -> Result<Cow<'a, str>, NetworkFilterError> {
-    let decoded = idna::domain_to_ascii_cow(host.as_bytes(), idna::AsciiDenyList::EMPTY)
-        .map_err(|_| NetworkFilterError::PunycodeError)?;
-    match decoded {
-        Cow::Borrowed(_) => Ok(Cow::Borrowed(host)),
-        Cow::Owned(h) => Ok(Cow::Owned(h)),
-    }
+fn decode_hostname<'a>(host: &'a [u8]) -> Result<Cow<'a, str>, NetworkFilterError> {
+    idna::domain_to_ascii_cow(host, idna::AsciiDenyList::EMPTY)
+        .map_err(|_| NetworkFilterError::PunycodeError)
 }
 
 impl<'a> NetworkFilter<'a> {
@@ -458,7 +454,7 @@ impl<'a> NetworkFilter<'a> {
         let mut cpt_mask_positive: NetworkFilterMask = NetworkFilterMask::NONE;
         let mut cpt_mask_negative: NetworkFilterMask = NetworkFilterMask::NONE;
 
-        let mut hostname: Option<Cow<'a, str>> = None;
+        let mut hostname: Option<&'a [u8]> = None;
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
@@ -665,7 +661,7 @@ impl<'a> NetworkFilter<'a> {
                         mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
                     }
 
-                    hostname = Some(decode_hostname(&pattern[..first_separator_start])?);
+                    hostname = Some(&pattern.as_bytes()[..first_separator_start]);
                     filter_index_start = first_separator_start;
 
                     // If the only symbol remaining for the selector is '^' then ignore it
@@ -687,14 +683,18 @@ impl<'a> NetworkFilter<'a> {
                 }
             } else {
                 // Look for next /
-                if let Some(i) = find_char(b'/', pattern.as_bytes()) {
-                    hostname = Some(decode_hostname(&pattern[..i])?);
-                    filter_index_start += i;
-                    mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
-                } else {
-                    hostname = Some(decode_hostname(pattern)?);
-                    filter_index_start = filter_index_end;
-                }
+                let slash_index = find_char(b'/', pattern.as_bytes());
+                slash_index
+                    .map(|i| {
+                        hostname = Some(&pattern.as_bytes()[..i]);
+                        filter_index_start += i;
+                        mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
+                    })
+                    .or_else(|| {
+                        hostname = Some(pattern.as_bytes());
+                        filter_index_start = filter_index_end;
+                        None
+                    });
             }
         }
 
@@ -757,6 +757,8 @@ impl<'a> NetworkFilter<'a> {
 
         // TODO: ignore hostname anchor is not hostname provided
 
+        let hostname_decoded = hostname.map(decode_hostname).transpose()?;
+
         if features_mask.contains(NetworkFilterFeaturesMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
         }
@@ -793,7 +795,7 @@ impl<'a> NetworkFilter<'a> {
             } else {
                 FilterPart::Empty
             },
-            hostname,
+            hostname: hostname_decoded,
             mask,
             features_mask,
             opt_domains,
@@ -827,7 +829,7 @@ impl<'a> NetworkFilter<'a> {
             return Err(NetworkFilterError::FilterParseError);
         }
 
-        let decoded_hostname = decode_hostname(hostname)?;
+        let decoded_hostname = decode_hostname(hostname.as_bytes())?;
 
         let mask = NetworkFilterMask::THIRD_PARTY
             | NetworkFilterMask::FIRST_PARTY
