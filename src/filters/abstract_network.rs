@@ -31,6 +31,13 @@ pub(crate) struct NetworkFilterPattern {
     pub(crate) right_anchor: Option<NetworkFilterRightAnchor>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum HttpMethod {
+    Get,
+    Head,
+    Post,
+}
+
 /// Any option that appears on the right side of a network filter as initiated by a `$` character.
 /// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
 /// negated using a prepended `~`.
@@ -61,6 +68,7 @@ pub(crate) enum NetworkFilterOption<'a> {
     Websocket(bool),
     Font(bool),
     All,
+    Method(Vec<(bool, HttpMethod)>),
 }
 
 impl NetworkFilterOption<'_> {
@@ -255,6 +263,35 @@ fn parse_filter_options<'a>(
             ("font", negated) => NetworkFilterOption::Font(!negated),
             ("all", true) => return Err(NetworkFilterError::NegatedAll),
             ("all", false) => NetworkFilterOption::All,
+            ("method", true) => return Err(NetworkFilterError::UnrecognisedOption),
+            ("method", false) => {
+                if value.is_empty() {
+                    return Err(NetworkFilterError::UnrecognisedOption);
+                }
+                let methods: Vec<(bool, HttpMethod)> = value
+                    .split('|')
+                    .filter_map(|method| {
+                        let (enabled, name) = if let Some(negated) = method.strip_prefix('~') {
+                            (false, negated)
+                        } else {
+                            (true, method)
+                        };
+                        if name.eq_ignore_ascii_case("get") {
+                            Some((enabled, HttpMethod::Get))
+                        } else if name.eq_ignore_ascii_case("head") {
+                            Some((enabled, HttpMethod::Head))
+                        } else if name.eq_ignore_ascii_case("post") {
+                            Some((enabled, HttpMethod::Post))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if methods.is_empty() {
+                    return Err(NetworkFilterError::UnrecognisedOption);
+                }
+                NetworkFilterOption::Method(methods)
+            }
             (_, _) => return Err(NetworkFilterError::UnrecognisedOption),
         });
     }

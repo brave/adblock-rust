@@ -35,6 +35,9 @@ mod parse_tests {
         from_websocket: bool,
         from_xml_http_request: bool,
         from_document: bool,
+        from_get: bool,
+        from_head: bool,
+        from_post: bool,
         match_case: bool,
         third_party: bool,
     }
@@ -76,6 +79,9 @@ mod parse_tests {
                 from_websocket: filter.mask.contains(NetworkFilterMask::FROM_WEBSOCKET),
                 from_xml_http_request: filter.mask.contains(NetworkFilterMask::FROM_XMLHTTPREQUEST),
                 from_document: filter.mask.contains(NetworkFilterMask::FROM_DOCUMENT),
+                from_get: filter.mask.contains(NetworkFilterMask::FROM_GET),
+                from_head: filter.mask.contains(NetworkFilterMask::FROM_HEAD),
+                from_post: filter.mask.contains(NetworkFilterMask::FROM_POST),
                 match_case: filter.match_case(),
                 third_party: filter.third_party(),
             }
@@ -115,6 +121,9 @@ mod parse_tests {
             from_websocket: true,
             from_xml_http_request: true,
             from_document: false,
+            from_get: false,
+            from_head: false,
+            from_post: false,
             match_case: false,
             third_party: true,
         }
@@ -1249,5 +1258,130 @@ mod parse_tests {
             tokens_buffer.as_slice(),
             &[utils::fast_hash("some"), utils::fast_hash("primewire")]
         );
+    }
+
+    #[test]
+    fn handles_method_options() {
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=post", true, Default::default()).unwrap();
+            let mut expected = default_network_filter_breakdown();
+            expected.hostname = Some(String::from("foo"));
+            expected.is_hostname_anchor = true;
+            expected.is_plain = true;
+            expected.from_post = true;
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=post|get", true, Default::default()).unwrap();
+            let mut expected = default_network_filter_breakdown();
+            expected.hostname = Some(String::from("foo"));
+            expected.is_hostname_anchor = true;
+            expected.is_plain = true;
+            expected.from_post = true;
+            expected.from_get = true;
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=head|get", true, Default::default()).unwrap();
+            let mut expected = default_network_filter_breakdown();
+            expected.hostname = Some(String::from("foo"));
+            expected.is_hostname_anchor = true;
+            expected.is_plain = true;
+            expected.from_head = true;
+            expected.from_get = true;
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=~get", true, Default::default()).unwrap();
+            let mut expected = default_network_filter_breakdown();
+            expected.hostname = Some(String::from("foo"));
+            expected.is_hostname_anchor = true;
+            expected.is_plain = true;
+            expected.from_head = true;
+            expected.from_post = true;
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=POST", true, Default::default()).unwrap();
+            let mut expected = default_network_filter_breakdown();
+            expected.hostname = Some(String::from("foo"));
+            expected.is_hostname_anchor = true;
+            expected.is_plain = true;
+            expected.from_post = true;
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        {
+            let filter =
+                NetworkFilter::parse("||foo$method=post|put", true, Default::default()).unwrap();
+            let mut expected = default_network_filter_breakdown();
+            expected.hostname = Some(String::from("foo"));
+            expected.is_hostname_anchor = true;
+            expected.is_plain = true;
+            expected.from_post = true;
+            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        }
+
+        for filter_text in [
+            "||lemonde.fr/*?s=$xhr,method=post",
+            "||perplexity.ai/rest/metrics/collect^$xhr,1p,method=post",
+            "||apmplus.volces.com/monitor_web/collect$xhr,method=post",
+            "@@||www.realclear*/esm/assets/js/analytics/chartbeat.js?v=$xhr,1p,method=get,domain=com|org",
+            "||pagead2.googlesyndication.com^$3p,xhr,method=head,redirect-rule=noop.js,domain=photopea.com",
+            "||void.nicopr.fr/rec$method=POST",
+        ] {
+            assert!(
+                NetworkFilter::parse(filter_text, true, Default::default()).is_ok(),
+                "failed to parse: {filter_text}"
+            );
+        }
+
+        {
+            let filter = NetworkFilter::parse(
+                "||perplexity.ai/rest/metrics/collect^$xhr,1p,method=post",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(filter.mask.contains(NetworkFilterMask::FROM_POST));
+            assert!(filter.mask.contains(NetworkFilterMask::FROM_XMLHTTPREQUEST));
+            assert!(!filter.mask.contains(NetworkFilterMask::FROM_NETWORK_TYPES));
+            assert!(filter.first_party());
+            assert!(!filter.third_party());
+        }
+
+        {
+            let filter = NetworkFilter::parse(
+                "@@*$xhr,method=head|get,domain=app.axenthost.com,3p",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(filter.is_exception());
+            assert!(filter.mask.contains(NetworkFilterMask::FROM_HEAD));
+            assert!(filter.mask.contains(NetworkFilterMask::FROM_GET));
+            assert!(!filter.mask.contains(NetworkFilterMask::FROM_POST));
+        }
+
+        for filter_text in [
+            "||foo$method=put",
+            "||foo$method=connect|delete",
+            "||foo$method=",
+            "||foo$~method=post",
+        ] {
+            assert!(
+                NetworkFilter::parse(filter_text, true, Default::default()).is_err(),
+                "expected parse error: {filter_text}"
+            );
+        }
     }
 }

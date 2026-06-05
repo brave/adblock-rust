@@ -13,7 +13,8 @@ use thiserror::Error;
 use std::fmt;
 
 use crate::filters::abstract_network::{
-    AbstractNetworkFilter, NetworkFilterLeftAnchor, NetworkFilterOption, NetworkFilterRightAnchor,
+    AbstractNetworkFilter, HttpMethod, NetworkFilterLeftAnchor, NetworkFilterOption,
+    NetworkFilterRightAnchor,
 };
 use crate::lists::ParseOptions;
 use crate::regex_manager::RegexManager;
@@ -133,6 +134,14 @@ bitflags::bitflags! {
 
         // "Other" network request types
         const UNMATCHED = 1 << 25;
+
+        const FROM_GET = 1 << 26;
+        const FROM_HEAD = 1 << 27;
+        const FROM_POST = 1 << 30;
+
+        const FROM_METHODS = Self::FROM_GET.bits() |
+            Self::FROM_HEAD.bits() |
+            Self::FROM_POST.bits();
 
         // Includes all request types that are implied by any negated types.
         const FROM_NETWORK_TYPES = Self::FROM_FONT.bits() |
@@ -455,6 +464,8 @@ impl<'a> NetworkFilter<'a> {
         // content type options.
         let mut cpt_mask_positive: NetworkFilterMask = NetworkFilterMask::NONE;
         let mut cpt_mask_negative: NetworkFilterMask = NetworkFilterMask::NONE;
+        let mut method_mask_positive: NetworkFilterMask = NetworkFilterMask::NONE;
+        let mut method_mask_negative: NetworkFilterMask = NetworkFilterMask::NONE;
 
         let mut hostname: Option<&'a [u8]> = None;
 
@@ -477,6 +488,16 @@ impl<'a> NetworkFilter<'a> {
                         cpt_mask_positive.set(NetworkFilterMask::$content_type, true);
                     } else {
                         cpt_mask_negative.set(NetworkFilterMask::$content_type, true);
+                    }
+                };
+            }
+
+            macro_rules! apply_method {
+                ($method:ident, $enabled:ident) => {
+                    if $enabled {
+                        method_mask_positive.set(NetworkFilterMask::$method, true);
+                    } else {
+                        method_mask_negative.set(NetworkFilterMask::$method, true);
                     }
                 };
             }
@@ -576,6 +597,15 @@ impl<'a> NetworkFilter<'a> {
                     }
                     NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
                     NetworkFilterOption::All => apply_content_type!(FROM_ALL_TYPES, true),
+                    NetworkFilterOption::Method(methods) => {
+                        for (enabled, method) in methods {
+                            match method {
+                                HttpMethod::Get => apply_method!(FROM_GET, enabled),
+                                HttpMethod::Head => apply_method!(FROM_HEAD, enabled),
+                                HttpMethod::Post => apply_method!(FROM_POST, enabled),
+                            }
+                        }
+                    }
                 }
             });
         }
@@ -789,6 +819,16 @@ impl<'a> NetworkFilter<'a> {
         }
         // Finally, apply any explicitly negated request types
         mask &= !cpt_mask_negative;
+
+        if !method_mask_positive.is_empty() || !method_mask_negative.is_empty() {
+            mask |= method_mask_positive;
+            if (method_mask_negative & NetworkFilterMask::FROM_METHODS) != NetworkFilterMask::NONE
+                && (method_mask_positive & NetworkFilterMask::FROM_METHODS).is_empty()
+            {
+                mask |= NetworkFilterMask::FROM_METHODS;
+            }
+            mask &= !method_mask_negative;
+        }
 
         Ok(NetworkFilter {
             filter: if let Some(simple_filter) = filter {
