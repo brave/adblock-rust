@@ -590,7 +590,7 @@ mod parse_tests {
                 NetworkFilter::parse(r#"||foo.com$csp=self bar """#, true, Default::default())
                     .unwrap();
             assert!(filter.is_csp());
-            assert_eq!(filter.modifier_option.as_deref(), Some(r#"self bar """#));
+            assert_eq!(filter.modifier_option, Some(r#"self bar """#));
         }
         {
             // parses empty CSP
@@ -717,12 +717,12 @@ mod parse_tests {
             let filter =
                 NetworkFilter::parse("||foo.com$redirect=bar.js", true, Default::default())
                     .unwrap();
-            assert_eq!(filter.modifier_option.as_deref(), Some("bar.js"));
+            assert_eq!(filter.modifier_option, Some("bar.js"));
         }
         {
             let filter =
                 NetworkFilter::parse("$redirect=bar.js", true, Default::default()).unwrap();
-            assert_eq!(filter.modifier_option.as_deref(), Some("bar.js"));
+            assert_eq!(filter.modifier_option, Some("bar.js"));
         }
         // parses ~redirect
         {
@@ -797,7 +797,7 @@ mod parse_tests {
                 NetworkFilter::parse("||foo.com^$removeparam=test", true, Default::default())
                     .unwrap();
             assert!(filter.is_removeparam());
-            assert_eq!(filter.modifier_option.as_deref(), Some("test"));
+            assert_eq!(filter.modifier_option, Some("test"));
         }
     }
 

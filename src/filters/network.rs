@@ -369,9 +369,9 @@ pub struct NetworkFilter<'a> {
     pub opt_not_domains: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
-    pub modifier_option: Option<Cow<'a, str>>,
+    pub modifier_option: Option<&'a str>,
     pub hostname: Option<Cow<'a, str>>,
-    pub(crate) tag: Option<Cow<'a, str>>,
+    pub(crate) tag: Option<&'a str>,
 
     pub raw_line: Option<Cow<'a, str>>,
 
@@ -459,8 +459,8 @@ impl<'a> NetworkFilter<'a> {
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
 
-        let mut modifier_option: Option<Cow<'a, str>> = None;
-        let mut tag: Option<Cow<'a, str>> = None;
+        let mut modifier_option: Option<&'a str> = None;
+        let mut tag: Option<&'a str> = None;
 
         if parsed.exception {
             mask.set(NetworkFilterMask::IS_EXCEPTION, true);
@@ -486,7 +486,7 @@ impl<'a> NetworkFilter<'a> {
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
 
                         for (enabled, domain) in domains {
-                            let domain_hash = utils::fast_hash(domain.as_ref());
+                            let domain_hash = utils::fast_hash(domain);
                             if !enabled {
                                 opt_not_domains_array.push(domain_hash);
                             } else {
@@ -861,7 +861,7 @@ impl<'a> NetworkFilter<'a> {
 
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.modifier_option.as_deref(),
+            self.modifier_option,
             self.mask,
             self.features_mask,
             self.filter.string_view().as_deref(),

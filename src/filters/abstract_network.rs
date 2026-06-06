@@ -1,5 +1,4 @@
 use memchr::memrchr as find_char_reverse;
-use std::borrow::Cow;
 
 use super::network::NetworkFilterError;
 
@@ -37,17 +36,17 @@ pub(crate) struct NetworkFilterPattern {
 /// negated using a prepended `~`.
 #[derive(Clone)]
 pub(crate) enum NetworkFilterOption<'a> {
-    Domain(Vec<(bool, Cow<'a, str>)>),
+    Domain(Vec<(bool, &'a str)>),
     Badfilter,
     Important,
     MatchCase,
     ThirdParty(bool),
     FirstParty(bool),
-    Tag(Cow<'a, str>),
-    Redirect(Cow<'a, str>),
-    RedirectRule(Cow<'a, str>),
-    Csp(Option<Cow<'a, str>>),
-    Removeparam(Cow<'a, str>),
+    Tag(&'a str),
+    Redirect(&'a str),
+    RedirectRule(&'a str),
+    Csp(Option<&'a str>),
+    Removeparam(&'a str),
     Generichide,
     Document,
     Image(bool),
@@ -175,13 +174,13 @@ fn parse_filter_options<'a>(
 
         result.push(match (option, negation) {
             ("domain", _) | ("from", _) => {
-                let domains: Vec<(bool, Cow<'a, str>)> = value
+                let domains: Vec<(bool, &'a str)> = value
                     .split('|')
                     .map(|domain| {
                         if let Some(negated_domain) = domain.strip_prefix('~') {
-                            (false, Cow::Borrowed(negated_domain))
+                            (false, negated_domain)
                         } else {
-                            (true, Cow::Borrowed(domain))
+                            (true, domain)
                         }
                     })
                     .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
@@ -200,7 +199,7 @@ fn parse_filter_options<'a>(
             ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
             ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
             ("tag", true) => return Err(NetworkFilterError::NegatedTag),
-            ("tag", false) => NetworkFilterOption::Tag(Cow::Borrowed(value)),
+            ("tag", false) => NetworkFilterOption::Tag(value),
             ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect", false) => {
                 // Ignore this filter if no redirection resource is specified
@@ -208,7 +207,7 @@ fn parse_filter_options<'a>(
                     return Err(NetworkFilterError::EmptyRedirection);
                 }
 
-                NetworkFilterOption::Redirect(Cow::Borrowed(value))
+                NetworkFilterOption::Redirect(value)
             }
             ("redirect-rule", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect-rule", false) => {
@@ -216,13 +215,11 @@ fn parse_filter_options<'a>(
                     return Err(NetworkFilterError::EmptyRedirection);
                 }
 
-                NetworkFilterOption::RedirectRule(Cow::Borrowed(value))
+                NetworkFilterOption::RedirectRule(value)
             }
-            ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
-                Some(Cow::Borrowed(value))
-            } else {
-                None
-            }),
+            ("csp", _) => {
+                NetworkFilterOption::Csp(if !value.is_empty() { Some(value) } else { None })
+            }
             ("removeparam", true) => return Err(NetworkFilterError::NegatedRemoveparam),
             ("removeparam", false) => {
                 if value.is_empty() {
@@ -231,7 +228,7 @@ fn parse_filter_options<'a>(
                 if !VALID_PARAM.is_match(value) {
                     return Err(NetworkFilterError::RemoveparamRegexUnsupported);
                 }
-                NetworkFilterOption::Removeparam(Cow::Borrowed(value))
+                NetworkFilterOption::Removeparam(value)
             }
             ("generichide", true) | ("ghide", true) => {
                 return Err(NetworkFilterError::NegatedGenericHide)

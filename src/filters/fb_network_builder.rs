@@ -76,18 +76,14 @@ impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
 
         let modifier_option = network_filter
             .modifier_option
-            .as_ref()
-            .map(|s| builder.create_string(s.as_ref()));
+            .map(|s| builder.create_string(s));
 
         let hostname = network_filter
             .hostname
             .as_ref()
             .map(|s| builder.create_string(s.as_ref()));
 
-        let tag = network_filter
-            .tag
-            .as_ref()
-            .map(|s| builder.create_string(s.as_ref()));
+        let tag = network_filter.tag.map(|s| builder.create_string(s));
 
         let mut filter_iter = network_filter.filter.iter();
         let filter_count = filter_iter.len();

@@ -26,7 +26,7 @@ impl From<&NetworkFilter<'_>> for CheckResult {
     fn from(filter: &NetworkFilter) -> Self {
         Self {
             filter_mask: filter.mask,
-            modifier_option: filter.modifier_option.as_ref().map(|s| s.to_string()),
+            modifier_option: filter.modifier_option.map(|s| s.to_string()),
             raw_line: filter.raw_line.as_ref().map(|line| line.to_string()),
         }
     }
