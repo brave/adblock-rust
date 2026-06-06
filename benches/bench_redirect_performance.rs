@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::sync::OnceLock;
 
 use adblock::Engine;
 use criterion::*;
@@ -57,13 +58,18 @@ async fn get_all_filters() -> Vec<String> {
         .collect()
 }
 
+static ALL_FILTERS: OnceLock<Box<[String]>> = OnceLock::new();
+
+fn all_filters() -> &'static [String] {
+    ALL_FILTERS.get_or_init(|| {
+        let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
+        async_runtime.block_on(get_all_filters()).into_boxed_slice()
+    })
+}
+
 /// Gets all rules with redirects, and modifies them to apply to resources at `a{0-n}.com/bad.js`
 fn get_redirect_rules() -> Vec<NetworkFilter<'static>> {
-    let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-
-    // Leak the filters vec so that parsed NetworkFilter<'static> can borrow from it safely.
-    let filters: &'static [String] =
-        Box::leak(async_runtime.block_on(get_all_filters()).into_boxed_slice());
+    let filters = all_filters();
     let (network_filters, _) =
         adblock::lists::parse_filters(filters.iter().map(|s| s.as_str()), true, Default::default());
 
