@@ -42,8 +42,8 @@ fn build_resources_from_filters(filters: &[String]) -> Vec<Resource> {
             Resource {
                 name: redirect.to_string(),
                 aliases: vec![],
-                kind: ResourceType::Mime(MimeType::from_extension(&redirect)),
-                content: BASE64_STANDARD.encode(&redirect),
+                kind: ResourceType::Mime(MimeType::from_extension(redirect)),
+                content: BASE64_STANDARD.encode(redirect),
                 dependencies: vec![],
                 permission: Default::default(),
             }

@@ -77,7 +77,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter<'static>> {
         .into_iter()
         .filter(NetworkFilter::is_redirect)
         .filter(NetworkFilter::also_block_redirect)
-        .filter(|rule| rule.modifier_option.as_ref().unwrap() != "none")
+        .filter(|rule| rule.modifier_option.unwrap() != "none")
         .enumerate()
         .map(|(index, mut rule)| {
             rule.mask.insert(NetworkFilterMask::IS_LEFT_ANCHOR);
