@@ -26,7 +26,8 @@ pub(crate) enum NetworkFilterRightAnchor {
 #[derive(Clone)]
 pub(crate) struct NetworkFilterPattern {
     pub(crate) left_anchor: Option<NetworkFilterLeftAnchor>,
-    pub(crate) pattern: String,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
     pub(crate) right_anchor: Option<NetworkFilterRightAnchor>,
 }
 
@@ -34,18 +35,18 @@ pub(crate) struct NetworkFilterPattern {
 /// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
 /// negated using a prepended `~`.
 #[derive(Clone)]
-pub(crate) enum NetworkFilterOption {
-    Domain(Vec<(bool, String)>),
+pub(crate) enum NetworkFilterOption<'a> {
+    Domain(Vec<(bool, &'a str)>),
     Badfilter,
     Important,
     MatchCase,
     ThirdParty(bool),
     FirstParty(bool),
-    Tag(String),
-    Redirect(String),
-    RedirectRule(String),
-    Csp(Option<String>),
-    Removeparam(String),
+    Tag(&'a str),
+    Redirect(&'a str),
+    RedirectRule(&'a str),
+    Csp(Option<&'a str>),
+    Removeparam(&'a str),
     Generichide,
     Document,
     Image(bool),
@@ -62,7 +63,7 @@ pub(crate) enum NetworkFilterOption {
     All,
 }
 
-impl NetworkFilterOption {
+impl NetworkFilterOption<'_> {
     pub fn is_content_type(&self) -> bool {
         matches!(
             self,
@@ -90,14 +91,16 @@ impl NetworkFilterOption {
 /// Abstract syntax representation of a network filter. This representation can fully specify the
 /// string representation of a filter as written, with the exception of aliased options like `1p`
 /// or `ghide`. This allows separation of concerns between parsing and interpretation.
-pub(crate) struct AbstractNetworkFilter {
+pub(crate) struct AbstractNetworkFilter<'a> {
     pub(crate) exception: bool,
     pub(crate) pattern: NetworkFilterPattern,
-    pub(crate) options: Option<Vec<NetworkFilterOption>>,
+    pub(crate) options: Option<Vec<NetworkFilterOption<'a>>>,
 }
 
-impl AbstractNetworkFilter {
-    pub(crate) fn parse(line: &str) -> Result<Self, NetworkFilterError> {
+impl AbstractNetworkFilter<'_> {
+    pub(crate) fn parse<'a>(
+        line: &'a str,
+    ) -> Result<AbstractNetworkFilter<'a>, NetworkFilterError> {
         let mut filter_index_start: usize = 0;
         let mut filter_index_end: usize = line.len();
 
@@ -139,13 +142,12 @@ impl AbstractNetworkFilter {
             None
         };
 
-        let pattern = &line[filter_index_start..filter_index_end];
-
         Ok(AbstractNetworkFilter {
             exception,
             pattern: NetworkFilterPattern {
                 left_anchor,
-                pattern: pattern.to_string(),
+                start: filter_index_start,
+                end: filter_index_end,
                 right_anchor,
             },
             options,
@@ -153,7 +155,9 @@ impl AbstractNetworkFilter {
     }
 }
 
-fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, NetworkFilterError> {
+fn parse_filter_options<'a>(
+    raw_options: &'a str,
+) -> Result<Vec<NetworkFilterOption<'a>>, NetworkFilterError> {
     let mut result = vec![];
 
     for raw_option in raw_options.split(',') {
@@ -170,13 +174,13 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
 
         result.push(match (option, negation) {
             ("domain", _) | ("from", _) => {
-                let domains: Vec<(bool, String)> = value
+                let domains: Vec<(bool, &'a str)> = value
                     .split('|')
                     .map(|domain| {
                         if let Some(negated_domain) = domain.strip_prefix('~') {
-                            (false, negated_domain.to_string())
+                            (false, negated_domain)
                         } else {
-                            (true, domain.to_string())
+                            (true, domain)
                         }
                     })
                     .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
@@ -195,7 +199,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
             ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
             ("tag", true) => return Err(NetworkFilterError::NegatedTag),
-            ("tag", false) => NetworkFilterOption::Tag(String::from(value)),
+            ("tag", false) => NetworkFilterOption::Tag(value),
             ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect", false) => {
                 // Ignore this filter if no redirection resource is specified
@@ -203,7 +207,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                     return Err(NetworkFilterError::EmptyRedirection);
                 }
 
-                NetworkFilterOption::Redirect(String::from(value))
+                NetworkFilterOption::Redirect(value)
             }
             ("redirect-rule", true) => return Err(NetworkFilterError::NegatedRedirection),
             ("redirect-rule", false) => {
@@ -211,13 +215,11 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                     return Err(NetworkFilterError::EmptyRedirection);
                 }
 
-                NetworkFilterOption::RedirectRule(String::from(value))
+                NetworkFilterOption::RedirectRule(value)
             }
-            ("csp", _) => NetworkFilterOption::Csp(if !value.is_empty() {
-                Some(String::from(value))
-            } else {
-                None
-            }),
+            ("csp", _) => {
+                NetworkFilterOption::Csp(if !value.is_empty() { Some(value) } else { None })
+            }
             ("removeparam", true) => return Err(NetworkFilterError::NegatedRemoveparam),
             ("removeparam", false) => {
                 if value.is_empty() {
@@ -226,7 +228,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                 if !VALID_PARAM.is_match(value) {
                     return Err(NetworkFilterError::RemoveparamRegexUnsupported);
                 }
-                NetworkFilterOption::Removeparam(String::from(value))
+                NetworkFilterOption::Removeparam(value)
             }
             ("generichide", true) | ("ghide", true) => {
                 return Err(NetworkFilterError::NegatedGenericHide)

@@ -271,17 +271,22 @@ impl FilterSet {
         use crate::content_blocking;
         use std::collections::HashSet;
 
-        if !self.debug {
+        let FilterSet {
+            debug,
+            list_sources,
+        } = self;
+
+        if !debug {
             return Err(());
         }
 
         let mut network_filters = vec![];
         let mut cosmetic_filters = vec![];
-        for list_source in self.list_sources.iter() {
+        for list_source in list_sources.iter() {
             let list_text = list_source.list_text.lines();
             let parse_options = list_source.parse_options;
             let (list_network_filters, list_cosmetic_filters) =
-                parse_filters(list_text, self.debug, parse_options);
+                parse_filters(list_text, debug, parse_options);
             network_filters.extend(list_network_filters);
             cosmetic_filters.extend(list_cosmetic_filters);
         }
@@ -304,10 +309,11 @@ impl FilterSet {
             if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
                 return;
             }
-            let original_rule = *filter
+            let original_rule = filter
                 .raw_line
-                .clone()
-                .expect("All rules should be in debug mode");
+                .as_ref()
+                .expect("All rules should be in debug mode")
+                .to_string();
             if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
             {
                 filters_used.push(original_rule);
@@ -387,18 +393,18 @@ pub enum FilterType {
 }
 
 /// Successful result of parsing a single line from a filter list
-pub enum ParsedLine {
-    Network(NetworkFilter),
+pub enum ParsedLine<'a> {
+    Network(NetworkFilter<'a>),
     Cosmetic(CosmeticFilter),
 }
 
-impl From<NetworkFilter> for ParsedLine {
-    fn from(v: NetworkFilter) -> Self {
+impl From<NetworkFilter<'static>> for ParsedLine<'static> {
+    fn from(v: NetworkFilter<'static>) -> Self {
         ParsedLine::Network(v)
     }
 }
 
-impl From<CosmeticFilter> for ParsedLine {
+impl From<CosmeticFilter> for ParsedLine<'static> {
     fn from(v: CosmeticFilter) -> Self {
         ParsedLine::Cosmetic(v)
     }
@@ -432,11 +438,11 @@ impl From<CosmeticFilterError> for FilterParseError {
 }
 
 /// Parse a single line from a filter list
-pub fn parse_filter(
-    line: &str,
+pub fn parse_filter<'a>(
+    line: &'a str,
     debug: bool,
     opts: ParseOptions,
-) -> Result<ParsedLine, FilterParseError> {
+) -> Result<ParsedLine<'a>, FilterParseError> {
     let filter = line.trim();
 
     if filter.is_empty() {
@@ -447,12 +453,12 @@ pub fn parse_filter(
         FilterFormat::Standard => match (detect_filter_type(filter), opts.rule_types) {
             (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => {
                 NetworkFilter::parse(filter, debug, opts)
-                    .map(|f| f.into())
+                    .map(ParsedLine::Network)
                     .map_err(|e| e.into())
             }
             (FilterType::Cosmetic, RuleTypes::All | RuleTypes::CosmeticOnly) => {
                 CosmeticFilter::parse(filter, debug, opts.permissions)
-                    .map(|f| f.into())
+                    .map(ParsedLine::Cosmetic)
                     .map_err(|e| e.into())
             }
             _ => Err(FilterParseError::Unsupported),
@@ -501,21 +507,21 @@ pub fn parse_filter(
             }
 
             NetworkFilter::parse_hosts_style(hostname, debug)
-                .map(|f| f.into())
+                .map(ParsedLine::Network)
                 .map_err(|e| e.into())
         }
     }
 }
 
 /// Parse an entire list of filters, ignoring any errors
-pub fn parse_filters(
-    list: impl IntoIterator<Item = impl AsRef<str>>,
+pub fn parse_filters<'a>(
+    list: impl IntoIterator<Item = &'a str>,
     debug: bool,
     opts: ParseOptions,
-) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
+) -> (Vec<NetworkFilter<'a>>, Vec<CosmeticFilter>) {
     let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
         .into_iter()
-        .filter_map(|line| match parse_filter(line.as_ref(), debug, opts) {
+        .filter_map(|line| match parse_filter(line, debug, opts) {
             Ok(ParsedLine::Network(f)) => Some(Either::Left(f)),
             Ok(ParsedLine::Cosmetic(f)) => Some(Either::Right(f)),
             _ => None,

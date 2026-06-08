@@ -229,7 +229,7 @@ pub enum CbRuleCreationFailure {
     ProceduralCosmeticFiltersUnsupported,
 }
 
-impl TryFrom<ParsedLine> for CbRuleEquivalent {
+impl TryFrom<ParsedLine<'_>> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: ParsedLine) -> Result<Self, Self::Error> {
@@ -301,7 +301,7 @@ impl Iterator for CbRuleEquivalentIterator {
     }
 }
 
-impl TryFrom<NetworkFilter> for CbRuleEquivalent {
+impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
     type Error = CbRuleCreationFailure;
 
     fn try_from(v: NetworkFilter) -> Result<Self, Self::Error> {
@@ -311,7 +311,7 @@ impl TryFrom<NetworkFilter> for CbRuleEquivalent {
             LazyLock::new(|| Regex::new(r##"\*"##).unwrap());
         static TRAILING_SEPARATOR: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r##"\^$"##).unwrap());
-        if let Some(raw_line) = &v.raw_line {
+        if let Some(raw_line) = v.raw_line.as_deref() {
             if v.is_redirect() {
                 return Err(CbRuleCreationFailure::NetworkRedirectUnsupported);
             }
@@ -603,7 +603,7 @@ impl TryFrom<CosmeticFilter> for CbRule {
             return Err(CbRuleCreationFailure::ScriptletInjectionsNotSupported);
         }
 
-        if let Some(raw_line) = &v.raw_line {
+        if let Some(raw_line) = v.raw_line.as_deref() {
             let mut hostnames_vec = vec![];
             let mut not_hostnames_vec = vec![];
 

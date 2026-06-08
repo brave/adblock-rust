@@ -22,12 +22,12 @@ pub struct CheckResult {
     pub raw_line: Option<String>,
 }
 
-impl From<&NetworkFilter> for CheckResult {
+impl From<&NetworkFilter<'_>> for CheckResult {
     fn from(filter: &NetworkFilter) -> Self {
         Self {
             filter_mask: filter.mask,
-            modifier_option: filter.modifier_option.clone(),
-            raw_line: filter.raw_line.clone().map(|v| *v),
+            modifier_option: filter.modifier_option.map(|s| s.to_string()),
+            raw_line: filter.raw_line.as_ref().map(|line| line.to_string()),
         }
     }
 }

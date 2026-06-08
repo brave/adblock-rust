@@ -197,11 +197,8 @@ mod tests {
     #[test]
     fn parse_filter_failed_fuzz_4() {
         // \\##+js(,\xdd\x8d
-        let parsed = parse_filter(
-            &String::from_utf8(vec![92, 35, 35, 43, 106, 115, 40, 44, 221, 141]).unwrap(),
-            true,
-            Default::default(),
-        );
+        let rule = String::from_utf8(vec![92, 35, 35, 43, 106, 115, 40, 44, 221, 141]).unwrap();
+        let parsed = parse_filter(&rule, true, Default::default());
         #[cfg(feature = "css-validation")]
         assert!(parsed.is_err());
         #[cfg(not(feature = "css-validation"))]

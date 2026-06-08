@@ -282,9 +282,9 @@ impl From<&request::RequestType> for NetworkFilterMask {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FilterPart {
+pub enum FilterPart<'a> {
     Empty,
-    Simple(String),
+    Simple(Cow<'a, str>),
     AnyOf(Vec<String>),
 }
 
@@ -296,7 +296,7 @@ pub(crate) enum FilterTokens {
 }
 
 pub struct FilterPartIterator<'a> {
-    filter_part: &'a FilterPart,
+    filter_part: &'a FilterPart<'a>,
     index: usize,
 }
 
@@ -309,14 +309,14 @@ impl<'a> Iterator for FilterPartIterator<'a> {
             FilterPart::Simple(s) => {
                 if self.index == 0 {
                     self.index += 1;
-                    Some(s.as_str())
+                    Some(s.as_ref())
                 } else {
                     None
                 }
             }
             FilterPart::AnyOf(vec) => {
                 if self.index < vec.len() {
-                    let result = Some(vec[self.index].as_str());
+                    let result = Some(vec[self.index].as_ref());
                     self.index += 1;
                     result
                 } else {
@@ -338,12 +338,17 @@ impl ExactSizeIterator for FilterPartIterator<'_> {
     }
 }
 
-impl FilterPart {
+impl FilterPart<'_> {
     pub fn string_view(&self) -> Option<String> {
         match &self {
             FilterPart::Empty => None,
-            FilterPart::Simple(s) => Some(s.clone()),
-            FilterPart::AnyOf(s) => Some(s.join("|")),
+            FilterPart::Simple(s) => Some(s.to_string()),
+            FilterPart::AnyOf(s) => Some(
+                s.iter()
+                    .map(|part| part.as_ref())
+                    .collect::<Vec<_>>()
+                    .join("|"),
+            ),
         }
     }
 
@@ -356,19 +361,19 @@ impl FilterPart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkFilter {
+pub struct NetworkFilter<'a> {
     pub mask: NetworkFilterMask,
     pub features_mask: NetworkFilterFeaturesMask,
-    pub filter: FilterPart,
+    pub filter: FilterPart<'a>,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
-    pub modifier_option: Option<String>,
-    pub hostname: Option<String>,
-    pub(crate) tag: Option<String>,
+    pub modifier_option: Option<&'a str>,
+    pub hostname: Option<Cow<'a, str>>,
+    pub(crate) tag: Option<&'a str>,
 
-    pub raw_line: Option<Box<String>>,
+    pub raw_line: Option<Cow<'a, str>>,
 
     pub id: Hash,
 }
@@ -377,21 +382,21 @@ pub struct NetworkFilter {
 // prevent field access, and don't load the ID from the serialized format.
 /// The ID of a filter is assumed to be correctly calculated for the purposes of this
 /// implementation.
-impl PartialEq for NetworkFilter {
+impl PartialEq for NetworkFilter<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
 /// Filters are sorted by ID to preserve a stable ordering of data in the serialized format.
-impl PartialOrd for NetworkFilter {
+impl PartialOrd for NetworkFilter<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.id.partial_cmp(&other.id)
     }
 }
 
 /// Ensure that no invalid option combinations were provided for a filter.
-fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilterError> {
+fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFilterError> {
     let mut has_csp = false;
     let mut has_content_type = false;
     let mut modifier_options = 0;
@@ -416,8 +421,25 @@ fn validate_options(options: &[NetworkFilterOption]) -> Result<(), NetworkFilter
     Ok(())
 }
 
-impl NetworkFilter {
-    pub fn parse(line: &str, debug: bool, _opts: ParseOptions) -> Result<Self, NetworkFilterError> {
+fn cow_ascii_lowercase<'a>(s: &'a str) -> Cow<'a, str> {
+    if s.as_bytes().iter().any(|byte| byte.is_ascii_uppercase()) {
+        Cow::Owned(s.to_ascii_lowercase())
+    } else {
+        Cow::Borrowed(s)
+    }
+}
+
+fn decode_hostname<'a>(host: &'a [u8]) -> Result<Cow<'a, str>, NetworkFilterError> {
+    idna::domain_to_ascii_cow(host, idna::AsciiDenyList::EMPTY)
+        .map_err(|_| NetworkFilterError::PunycodeError)
+}
+
+impl<'a> NetworkFilter<'a> {
+    pub fn parse(
+        line: &'a str,
+        debug: bool,
+        _opts: ParseOptions,
+    ) -> Result<Self, NetworkFilterError> {
         let parsed = AbstractNetworkFilter::parse(line)?;
 
         // Represent options as a bitmask
@@ -432,13 +454,13 @@ impl NetworkFilter {
         let mut cpt_mask_positive: NetworkFilterMask = NetworkFilterMask::NONE;
         let mut cpt_mask_negative: NetworkFilterMask = NetworkFilterMask::NONE;
 
-        let mut hostname: Option<String> = None;
+        let mut hostname: Option<&'a [u8]> = None;
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
 
-        let mut modifier_option: Option<String> = None;
-        let mut tag: Option<String> = None;
+        let mut modifier_option: Option<&'a str> = None;
+        let mut tag: Option<&'a str> = None;
 
         if parsed.exception {
             mask.set(NetworkFilterMask::IS_EXCEPTION, true);
@@ -464,7 +486,7 @@ impl NetworkFilter {
                         let mut opt_not_domains_array: Vec<Hash> = vec![];
 
                         for (enabled, domain) in domains {
-                            let domain_hash = utils::fast_hash(&domain);
+                            let domain_hash = utils::fast_hash(domain);
                             if !enabled {
                                 opt_not_domains_array.push(domain_hash);
                             } else {
@@ -597,7 +619,7 @@ impl NetworkFilter {
             end_url_anchor = true;
         }
 
-        let pattern = &parsed.pattern.pattern;
+        let pattern = &line[parsed.pattern.start..parsed.pattern.end];
 
         let is_regex = check_is_regex(pattern);
         mask.set(NetworkFilterMask::IS_REGEX, is_regex);
@@ -638,7 +660,7 @@ impl NetworkFilter {
                         mask.set(NetworkFilterMask::IS_HOSTNAME_REGEX, true);
                     }
 
-                    hostname = Some(String::from(&pattern[..first_separator_start]));
+                    hostname = Some(&pattern.as_bytes()[..first_separator_start]);
                     filter_index_start = first_separator_start;
 
                     // If the only symbol remaining for the selector is '^' then ignore it
@@ -663,12 +685,12 @@ impl NetworkFilter {
                 let slash_index = find_char(b'/', pattern.as_bytes());
                 slash_index
                     .map(|i| {
-                        hostname = Some(String::from(&pattern[..i]));
+                        hostname = Some(&pattern.as_bytes()[..i]);
                         filter_index_start += i;
                         mask.set(NetworkFilterMask::IS_LEFT_ANCHOR, true);
                     })
                     .or_else(|| {
-                        hostname = Some(String::from(pattern));
+                        hostname = Some(pattern.as_bytes());
                         filter_index_start = filter_index_end;
                         None
                     });
@@ -720,13 +742,13 @@ impl NetworkFilter {
             }
         }
 
-        let filter: Option<String> = if filter_index_end > filter_index_start {
+        let filter = if filter_index_end > filter_index_start {
             let filter_str = &pattern[filter_index_start..filter_index_end];
             mask.set(NetworkFilterMask::IS_REGEX, check_is_regex(filter_str));
             if mask.contains(NetworkFilterMask::MATCH_CASE) {
-                Some(String::from(filter_str))
+                Some(Cow::Borrowed(filter_str))
             } else {
-                Some(filter_str.to_ascii_lowercase())
+                Some(cow_ascii_lowercase(filter_str))
             }
         } else {
             None
@@ -734,17 +756,7 @@ impl NetworkFilter {
 
         // TODO: ignore hostname anchor is not hostname provided
 
-        let hostname_decoded = hostname
-            .map(|host| {
-                let hostname =
-                    idna::domain_to_ascii_cow(host.as_bytes(), idna::AsciiDenyList::EMPTY)
-                        .map_err(|_| NetworkFilterError::PunycodeError)?;
-                match hostname {
-                    Cow::Borrowed(_) => Ok(host),
-                    Cow::Owned(h) => Ok(h.to_string()),
-                }
-            })
-            .transpose();
+        let hostname_decoded = hostname.map(decode_hostname).transpose()?;
 
         if features_mask.contains(NetworkFilterFeaturesMask::GENERIC_HIDE) && !parsed.exception {
             return Err(NetworkFilterError::GenericHideWithoutException);
@@ -782,14 +794,14 @@ impl NetworkFilter {
             } else {
                 FilterPart::Empty
             },
-            hostname: hostname_decoded?,
+            hostname: hostname_decoded,
             mask,
             features_mask,
             opt_domains,
             opt_not_domains,
             tag,
             raw_line: if debug {
-                Some(Box::new(String::from(line)))
+                Some(Cow::Borrowed(line))
             } else {
                 None
             },
@@ -800,7 +812,7 @@ impl NetworkFilter {
 
     /// Given a hostname, produces an equivalent filter parsed from the form `"||hostname^"`, to
     /// emulate the behavior of hosts-style blocking.
-    pub fn parse_hosts_style(hostname: &str, debug: bool) -> Result<Self, NetworkFilterError> {
+    pub fn parse_hosts_style(hostname: &'a str, debug: bool) -> Result<Self, NetworkFilterError> {
         // Make sure the hostname doesn't contain any invalid characters
         static INVALID_CHARS: LazyLock<Regex> =
             LazyLock::new(|| Regex::new("[/^*!?$&(){}\\[\\]+=~`\\s|@,'\"><:;]").unwrap());
@@ -816,14 +828,40 @@ impl NetworkFilter {
             return Err(NetworkFilterError::FilterParseError);
         }
 
-        // Parse it as a `||hostname^` rule.
-        let rule = format!("||{hostname}^");
-        NetworkFilter::parse(&rule, debug, Default::default())
+        let decoded_hostname = decode_hostname(hostname.as_bytes())?;
+
+        let mask = NetworkFilterMask::THIRD_PARTY
+            | NetworkFilterMask::FIRST_PARTY
+            | NetworkFilterMask::FROM_HTTPS
+            | NetworkFilterMask::FROM_HTTP
+            | NetworkFilterMask::FROM_NETWORK_TYPES
+            | NetworkFilterMask::FROM_ALL_TYPES
+            | NetworkFilterMask::IS_HOSTNAME_ANCHOR
+            | NetworkFilterMask::IS_RIGHT_ANCHOR;
+
+        let mut rule = String::with_capacity(hostname.len() + 3);
+        rule.push_str("||");
+        rule.push_str(hostname);
+        rule.push('^');
+        let id = utils::fast_hash(&rule);
+
+        Ok(NetworkFilter {
+            filter: FilterPart::Empty,
+            hostname: Some(decoded_hostname),
+            mask,
+            features_mask: Default::default(),
+            opt_domains: None,
+            opt_not_domains: None,
+            tag: None,
+            raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
+            modifier_option: None,
+            id,
+        })
     }
 
     pub fn get_id(&self) -> Hash {
         compute_filter_id(
-            self.modifier_option.as_deref(),
+            self.modifier_option,
             self.mask,
             self.features_mask,
             self.filter.string_view().as_deref(),
@@ -859,7 +897,12 @@ impl NetworkFilter {
                     (self.is_plain() || self.is_regex()) && !self.is_right_anchor();
                 let skip_first_token = self.is_right_anchor();
 
-                utils::tokenize_filter_to(f, skip_first_token, skip_last_token, tokens_buffer);
+                utils::tokenize_filter_to(
+                    f.as_ref(),
+                    skip_first_token,
+                    skip_last_token,
+                    tokens_buffer,
+                );
             }
             FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
             _ => (),
@@ -868,13 +911,13 @@ impl NetworkFilter {
         // Append tokens from hostname, if any
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref() {
-                utils::tokenize_to(hostname, tokens_buffer);
+                utils::tokenize_to(hostname.as_ref(), tokens_buffer);
             }
         } else if let Some(hostname) = self.hostname.as_ref() {
             // Find last dot to tokenize the prefix
             let last_dot_pos = hostname.rfind('.');
             if let Some(last_dot_pos) = last_dot_pos {
-                utils::tokenize_to(&hostname[..last_dot_pos], tokens_buffer);
+                utils::tokenize_to(&hostname.as_ref()[..last_dot_pos], tokens_buffer);
             }
         }
 
@@ -884,7 +927,7 @@ impl NetworkFilter {
                 .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
         {
             if let Some(removeparam) = &self.modifier_option {
-                if VALID_PARAM.is_match(removeparam) {
+                if VALID_PARAM.is_match(removeparam.as_ref()) {
                     utils::tokenize_to(&removeparam.to_ascii_lowercase(), tokens_buffer);
                 }
             }
@@ -959,16 +1002,16 @@ impl NetworkFilter {
     }
 }
 
-impl NetworkFilterMaskHelper for NetworkFilter {
+impl NetworkFilterMaskHelper for NetworkFilter<'_> {
     fn has_flag(&self, v: NetworkFilterMask) -> bool {
         self.mask.contains(v)
     }
 }
 
-impl fmt::Display for NetworkFilter {
+impl fmt::Display for NetworkFilter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self.raw_line.as_ref() {
-            Some(r) => write!(f, "{}", r.clone()),
+        match self.raw_line.as_deref() {
+            Some(r) => write!(f, "{r}"),
             None => write!(f, "NetworkFilter"),
         }
     }

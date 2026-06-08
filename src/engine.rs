@@ -7,6 +7,7 @@ use crate::data_format::{deserialize_dat_file, serialize_dat_file, Deserializati
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::fb_network_builder::NetworkRulesBuilder;
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
+use crate::filters::flatbuffer_generated::fb;
 use crate::flatbuffers::containers::flat_serialize::FlatSerialize;
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{parse_filter, FilterSet, ParseOptions, ParsedLine};
@@ -118,22 +119,26 @@ impl Engine {
             cosmetic_filter_cache_builder.add_filter(filter, &mut builder);
         }
 
-        Self::new_with_builders(
-            network_rules_builder,
-            cosmetic_filter_cache_builder,
+        Self::new_with_flatbuffer_offsets(
+            FlatSerialize::serialize(network_rules_builder, &mut builder),
+            FlatSerialize::serialize(cosmetic_filter_cache_builder, &mut builder),
             builder,
         )
     }
 
     /// Loads rules from the given `FilterSet`.
     pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
+        let FilterSet {
+            debug,
+            list_sources,
+        } = set;
         let mut builder = EngineFlatBuilder::default();
         let mut network_rules_builder = NetworkRulesBuilder::new(optimize);
         let mut cosmetic_filter_cache_builder = CosmeticFilterCacheBuilder::default();
 
-        for list_source in set.list_sources {
+        for list_source in &list_sources {
             for line in list_source.list_text.lines() {
-                let parsed_line = parse_filter(line, set.debug, list_source.parse_options);
+                let parsed_line = parse_filter(line, debug, list_source.parse_options);
                 match parsed_line {
                     Ok(ParsedLine::Network(filter)) => {
                         network_rules_builder.add_filter(filter, &mut builder)
@@ -145,21 +150,23 @@ impl Engine {
                 }
             }
         }
+        let network_rules_offset = FlatSerialize::serialize(network_rules_builder, &mut builder);
+        // Drop the list sources to reduce peak memory usage.
+        drop(list_sources);
 
-        Self::new_with_builders(
-            network_rules_builder,
-            cosmetic_filter_cache_builder,
-            builder,
-        )
+        let cosmetic_rules_offset =
+            FlatSerialize::serialize(cosmetic_filter_cache_builder, &mut builder);
+
+        Self::new_with_flatbuffer_offsets(network_rules_offset, cosmetic_rules_offset, builder)
     }
 
-    fn new_with_builders<'a>(
-        network_rules_builder: NetworkRulesBuilder<'a>,
-        cosmetic_filter_cache_builder: CosmeticFilterCacheBuilder<'a>,
-        mut builder: EngineFlatBuilder<'a>,
+    fn new_with_flatbuffer_offsets<'a>(
+        network_rules: flatbuffers::WIPOffset<
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<fb::NetworkFilterList<'a>>>,
+        >,
+        cosmetic_rules: flatbuffers::WIPOffset<fb::CosmeticFilters<'a>>,
+        builder: EngineFlatBuilder<'a>,
     ) -> Self {
-        let network_rules = FlatSerialize::serialize(network_rules_builder, &mut builder);
-        let cosmetic_rules = FlatSerialize::serialize(cosmetic_filter_cache_builder, &mut builder);
         let memory = builder.finish(network_rules, cosmetic_rules);
         let filter_data_context = FilterDataContext::new(memory);
         Self {

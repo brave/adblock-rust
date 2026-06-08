@@ -34,24 +34,24 @@ struct NetworkFilterFlatEntry<'a> {
     id: Hash,
 }
 
-struct NetworkFilterListBuilder<'a> {
+struct NetworkFilterListBuilder<'a, 'f> {
     flat_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
     token_frequencies: TokenSelector,
-    filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter>>,
+    filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter<'f>>>,
     tokens_buffer: TokensBuffer,
     optimize: bool,
 }
 
-pub(crate) struct NetworkRulesBuilder<'a> {
-    lists: Vec<NetworkFilterListBuilder<'a>>,
+pub(crate) struct NetworkRulesBuilder<'a, 'f> {
+    lists: Vec<NetworkFilterListBuilder<'a, 'f>>,
     bad_filter_ids: HashSet<Hash>,
 }
 
-impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter {
+impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
     type Output = WIPOffset<fb::NetworkFilter<'a>>;
 
     fn serialize(
-        network_filter: NetworkFilter,
+        network_filter: NetworkFilter<'f>,
         builder: &mut EngineFlatBuilder<'a>,
     ) -> WIPOffset<fb::NetworkFilter<'a>> {
         let opt_domains = network_filter.opt_domains.as_ref().map(|v| {
@@ -76,18 +76,14 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter {
 
         let modifier_option = network_filter
             .modifier_option
-            .as_ref()
             .map(|s| builder.create_string(s));
 
         let hostname = network_filter
             .hostname
             .as_ref()
-            .map(|s| builder.create_string(s));
+            .map(|s| builder.create_string(s.as_ref()));
 
-        let tag = network_filter
-            .tag
-            .as_ref()
-            .map(|s| builder.create_string(s));
+        let tag = network_filter.tag.map(|s| builder.create_string(s));
 
         let mut filter_iter = network_filter.filter.iter();
         let filter_count = filter_iter.len();
@@ -110,7 +106,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter {
         let raw_line = network_filter
             .raw_line
             .as_ref()
-            .map(|v| builder.create_string(v.as_str()));
+            .map(|v| builder.create_string(v.as_ref()));
 
         fb::NetworkFilter::create(
             builder.raw_builder(),
@@ -129,7 +125,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter {
     }
 }
 
-impl<'a> NetworkFilterListBuilder<'a> {
+impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
     fn new(optimize: bool) -> Self {
         Self {
             flat_map_builder: FlatMultiMapBuilder::with_capacity(1024),
@@ -140,7 +136,11 @@ impl<'a> NetworkFilterListBuilder<'a> {
         }
     }
 
-    fn add_filter(&mut self, network_filter: NetworkFilter, builder: &mut EngineFlatBuilder<'a>) {
+    fn add_filter(
+        &mut self,
+        network_filter: NetworkFilter<'f>,
+        builder: &mut EngineFlatBuilder<'a>,
+    ) {
         let multi_tokens = network_filter.get_tokens(&mut self.tokens_buffer);
         let id = network_filter.get_id();
 
@@ -186,7 +186,7 @@ impl<'a> NetworkFilterListBuilder<'a> {
     }
 }
 
-impl<'a> NetworkRulesBuilder<'a> {
+impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
     pub fn new(optimize: bool) -> Self {
         let lists = (0..NetworkFilterListId::Size as usize)
             .map(|list_id| {
@@ -201,7 +201,7 @@ impl<'a> NetworkRulesBuilder<'a> {
         }
     }
 
-    pub fn add_filter(&mut self, filter: NetworkFilter, builder: &mut EngineFlatBuilder<'a>) {
+    pub fn add_filter(&mut self, filter: NetworkFilter<'f>, builder: &mut EngineFlatBuilder<'a>) {
         if filter.is_badfilter() {
             // Note: `get_id()` doesn't include BAD_FILTER bit.
             self.bad_filter_ids.insert(filter.get_id());
@@ -238,7 +238,7 @@ impl<'a> NetworkRulesBuilder<'a> {
 
     fn add_filter_internal(
         &mut self,
-        network_filter: NetworkFilter,
+        network_filter: NetworkFilter<'f>,
         list_id: NetworkFilterListId,
         builder: &mut EngineFlatBuilder<'a>,
     ) {
@@ -257,7 +257,7 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterFlatEntry<'a>
     }
 }
 
-impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a> {
+impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a, 'f> {
     type Output =
         WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<fb::NetworkFilterList<'a>>>>;
 
