@@ -84,14 +84,14 @@ fn blocker_new(c: &mut Criterion) {
         "data/easylist.to/easylist/easyprivacy.txt",
     ]);
     let brave_list_rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
-    let engine = Engine::new_with_list_text(brave_list_rules.clone(), Default::default());
+    let engine = Engine::new_with_list_text(brave_list_rules.clone());
     let engine_serialized = engine.serialize().to_vec();
 
     group.bench_function("el+ep", move |b| {
-        b.iter(|| Engine::new_with_list_text(easylist_rules.clone(), Default::default()))
+        b.iter(|| Engine::new_with_list_text(easylist_rules.clone()))
     });
     group.bench_function("brave-list", move |b| {
-        b.iter(|| Engine::new_with_list_text(brave_list_rules.clone(), Default::default()))
+        b.iter(|| Engine::new_with_list_text(brave_list_rules.clone()))
     });
     group.bench_function("brave-list-deserialize", move |b| {
         b.iter(|| {

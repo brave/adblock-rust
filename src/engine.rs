@@ -32,7 +32,7 @@ use std::collections::HashSet;
 ///
 /// You'll first want to combine all of your filter lists in a [`FilterSet`], which will parse list
 /// header metadata. Once all lists have been composed together, you can call
-/// [`Engine::from_filter_set`] to start using them for blocking.
+/// [`Engine::new_with_filter_set`] to start using them for blocking.
 ///
 /// You may also want to supply certain assets for `$redirect` filters and `##+js(...)` scriptlet
 /// injections. These are known as [`Resource`]s, and can be provided with
@@ -67,28 +67,17 @@ pub struct EngineDebugInfo {
 
 impl Default for Engine {
     fn default() -> Self {
-        Self::new_with_filter_set(FilterSet::new(false), false)
+        Self::new_with_filter_set(FilterSet::new(false))
     }
 }
 
 impl Engine {
     /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
     #[doc(hidden)]
-    pub fn new_with_list_text(list_text: impl Into<String>, opts: ParseOptions) -> Self {
-        Self::new_with_list_text_parametrised(list_text.into(), opts, false, true)
-    }
-
-    /// A helper for tests and benchmarks. Use [`Engine::new_with_filter_set`] instead.
-    #[doc(hidden)]
-    pub fn new_with_list_text_parametrised(
-        list_text: impl Into<String>,
-        opts: ParseOptions,
-        debug: bool,
-        optimize: bool,
-    ) -> Self {
-        let mut filter_set = FilterSet::new(debug);
-        filter_set.add_filter_list(list_text.into(), opts);
-        Self::new_with_filter_set(filter_set, optimize)
+    pub fn new_with_list_text(list_text: impl Into<String>) -> Self {
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(list_text.into(), ParseOptions::default());
+        Self::new_with_filter_set(filter_set)
     }
 
     #[cfg(test)]
@@ -106,10 +95,9 @@ impl Engine {
     pub fn new_with_parsed_rules(
         network_filters: Vec<NetworkFilter>,
         cosmetic_filters: Vec<CosmeticFilter>,
-        optimize: bool,
     ) -> Self {
         let mut builder = EngineFlatBuilder::default();
-        let mut network_rules_builder = NetworkRulesBuilder::new(optimize);
+        let mut network_rules_builder = NetworkRulesBuilder::new(true);
         let mut cosmetic_filter_cache_builder = CosmeticFilterCacheBuilder::default();
 
         for filter in network_filters {
@@ -127,11 +115,12 @@ impl Engine {
     }
 
     /// Loads rules from the given `FilterSet`.
-    pub fn new_with_filter_set(set: FilterSet, optimize: bool) -> Self {
+    pub fn new_with_filter_set(set: FilterSet) -> Self {
         let FilterSet {
             debug,
             list_sources,
         } = set;
+        let optimize = !debug;
         let mut builder = EngineFlatBuilder::default();
         let mut network_rules_builder = NetworkRulesBuilder::new(optimize);
         let mut cosmetic_filter_cache_builder = CosmeticFilterCacheBuilder::default();

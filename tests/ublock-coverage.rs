@@ -1,3 +1,4 @@
+use adblock::lists::FilterSet;
 use adblock::request::Request;
 use adblock::Engine;
 
@@ -48,7 +49,9 @@ fn get_blocker_engine() -> Engine {
         "data/regression-testing/easyprivacy.txt",
     ]);
 
-    Engine::new_with_list_text_parametrised(rules, Default::default(), true, false)
+    let mut filter_set = FilterSet::new(true);
+    filter_set.add_filter_list(rules, Default::default());
+    Engine::new_with_filter_set(filter_set)
 }
 
 fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
@@ -67,14 +70,16 @@ fn get_blocker_engine_default(extra_rules: impl IntoIterator<Item = impl AsRef<s
         rules.push('\n');
     }
 
-    Engine::new_with_list_text_parametrised(rules, Default::default(), true, false)
+    let mut filter_set = FilterSet::new(true);
+    filter_set.add_filter_list(rules, Default::default());
+    Engine::new_with_filter_set(filter_set)
 }
 
 #[test]
 fn check_specific_rules() {
     {
         // exceptions have not effect if important filter matches
-        let engine = Engine::new_with_list_text("||www.facebook.com/*/plugin", Default::default());
+        let engine = Engine::new_with_list_text("||www.facebook.com/*/plugin");
 
         let request = Request::new(
             "https://www.facebook.com/v3.2/plugins/comments.ph",
@@ -95,7 +100,6 @@ fn check_specific_rules() {
         // exceptions have no effect if important filter matches
         let mut engine = Engine::new_with_list_text(
             "||cdn.taboola.com/libtrc/*/loader.js$script,redirect=noopjs,important,domain=cnet.com",
-            Default::default(),
         );
         let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
             Path::new("data/test/fake-uBO-files/web_accessible_resources"),

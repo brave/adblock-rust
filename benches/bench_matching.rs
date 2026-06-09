@@ -107,17 +107,17 @@ fn rule_match(c: &mut Criterion) {
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let engine = Engine::new_with_list_text(rules, Default::default());
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching(&engine, &elep_req))
     });
     group.bench_function("easylist", move |b| {
         let rules = rules_from_lists(["data/easylist.to/easylist/easylist.txt"]);
-        let engine = Engine::new_with_list_text(rules, Default::default());
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching(&engine, &el_req))
     });
     group.bench_function("slimlist", move |b| {
         let rules = rules_from_lists(["data/slim-list.txt"]);
-        let engine = Engine::new_with_list_text(rules, Default::default());
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching(&engine, &slim_req))
     });
 
@@ -135,7 +135,7 @@ fn rule_match_parsed_el(c: &mut Criterion) {
         .filter_map(Result::ok)
         .collect();
     let requests_len = requests_parsed.len() as u64;
-    let engine = Engine::new_with_list_text(rules, Default::default());
+    let engine = Engine::new_with_list_text(rules);
 
     group.throughput(Throughput::Elements(requests_len));
     group.sample_size(10);
@@ -154,7 +154,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
         "data/easylist.to/easylist/easylist.txt",
         "data/easylist.to/easylist/easyprivacy.txt",
     ]);
-    let engine = Engine::new_with_list_text(full_rules, Default::default());
+    let engine = Engine::new_with_list_text(full_rules);
 
     let requests = load_requests();
     let requests_parsed: Vec<_> = requests
@@ -165,7 +165,7 @@ fn rule_match_parsed_elep_slimlist(c: &mut Criterion) {
     let requests_len = requests_parsed.len() as u64;
 
     let slim_rules = rules_from_lists(["data/slim-list.txt"]);
-    let slim_engine = Engine::new_with_list_text(slim_rules, Default::default());
+    let slim_engine = Engine::new_with_list_text(slim_rules);
 
     let requests_copy = load_requests();
     let requests_parsed_copy: Vec<_> = requests_copy
@@ -240,26 +240,22 @@ fn rule_match_browserlike_comparable(c: &mut Criterion) {
             "data/easylist.to/easylist/easylist.txt",
             "data/easylist.to/easylist/easyprivacy.txt",
         ]);
-        let engine =
-            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("el", |b| {
         let rules = rules_from_lists(["data/easylist.to/easylist/easylist.txt"]);
-        let engine =
-            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("slimlist", |b| {
         let rules = rules_from_lists(["data/slim-list.txt"]);
-        let engine =
-            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
     group.bench_function("brave-list", |b| {
         let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
-        let engine =
-            Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
+        let engine = Engine::new_with_list_text(rules);
         b.iter(|| bench_rule_matching_browserlike(&engine, &requests))
     });
 
@@ -284,8 +280,7 @@ fn rule_match_first_request(c: &mut Criterion) {
             let mut total_time = std::time::Duration::ZERO;
             for _ in 0..iters {
                 let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
-                let engine =
-                    Engine::new_with_list_text_parametrised(rules, Default::default(), false, true);
+                let engine = Engine::new_with_list_text(rules);
 
                 // Measure only the matching time, skip setup and destruction
                 let start_time = std::time::Instant::now();

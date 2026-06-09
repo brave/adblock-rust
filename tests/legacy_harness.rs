@@ -34,7 +34,7 @@ mod legacy_test_filters {
             filter.filter
         );
 
-        let engine = Engine::new_with_list_text(raw_filter, Default::default());
+        let engine = Engine::new_with_list_text(raw_filter);
 
         for to_block in blocked {
             assert!(
@@ -306,10 +306,8 @@ mod legacy_test_filters {
 
         // explicit, separate testcase construction of the "script" option as it is not the deafult
         let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "https://this-is-always-third-party.com", "script", "").unwrap();
-        let engine = Engine::new_with_list_text(
-            "||googlesyndication.com/safeframe/$third-party,script",
-            Default::default(),
-        );
+        let engine =
+            Engine::new_with_list_text("||googlesyndication.com/safeframe/$third-party,script");
         assert!(engine.check_network_request(&request).matched);
     }
 }
@@ -324,7 +322,7 @@ mod legacy_check_match {
         not_blocked: &[&'a str],
         tags: &[&'a str],
     ) {
-        let mut engine = Engine::new_with_list_text(rules.join("\n"), Default::default()); // first one with the provided rules
+        let mut engine = Engine::new_with_list_text(rules.join("\n")); // first one with the provided rules
         engine.use_tags(tags);
 
         let mut engine_deserialized = Engine::default(); // second empty
@@ -401,7 +399,6 @@ mod legacy_check_match {
                     "@@||turner.com^*/ads/freewheel/*/AdManager.js$domain=cnn.com",
                 ]
                 .join("\n"),
-                Default::default(),
             );
             let mut engine_deserialized = Engine::default(); // second empty
             {
@@ -507,7 +504,7 @@ mod legacy_check_options {
     use adblock::Engine;
 
     fn check_option_rule<'a>(rules: &[&'a str], tests: &[(&'a str, &'a str, &'a str, bool)]) {
-        let engine = Engine::new_with_list_text(rules.join("\n"), Default::default()); // first one with the provided rules
+        let engine = Engine::new_with_list_text(rules.join("\n")); // first one with the provided rules
 
         for (url, source_url, request_type, expectation) in tests {
             let request = Request::new(url, source_url, request_type, "").unwrap();
@@ -847,16 +844,25 @@ mod legacy_check_options {
 
 mod legacy_misc_tests {
     use adblock::filters::network::NetworkFilter;
+    use adblock::lists::FilterSet;
     use adblock::request::Request;
     use adblock::Engine;
+
+    fn engine_from_rules_debug(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
+        let list_text = rules.into_iter().fold(String::new(), |mut acc, rule| {
+            acc.push_str(rule.as_ref());
+            acc.push('\n');
+            acc
+        });
+        let mut filter_set = FilterSet::new(true);
+        filter_set.add_filter_list(list_text, Default::default());
+        Engine::new_with_filter_set(filter_set)
+    }
 
     #[test]
     fn demo_app() {
         // Demo app test
-        let engine = Engine::new_with_list_text(
-            "||googlesyndication.com/safeframe/$third-party",
-            Default::default(),
-        );
+        let engine = Engine::new_with_list_text("||googlesyndication.com/safeframe/$third-party");
 
         let request = Request::new(
             "http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html",
@@ -885,17 +891,11 @@ mod legacy_misc_tests {
 
     #[test]
     fn serialization_tests() {
-        let engine = Engine::new_with_list_text_parametrised(
-            [
-                "||googlesyndication.com$third-party",
-                "@@||googlesyndication.ca",
-                "a$explicitcancel",
-            ]
-            .join("\n"),
-            Default::default(),
-            true,
-            false,
-        ); // enable debugging and disable optimizations
+        let engine = engine_from_rules_debug([
+            "||googlesyndication.com$third-party",
+            "@@||googlesyndication.ca",
+            "a$explicitcancel",
+        ]);
 
         let serialized = engine.serialize().to_vec();
         let mut engine2 = Engine::default();
@@ -984,16 +984,10 @@ mod legacy_misc_tests {
 
     #[test]
     fn find_matching_filters() {
-        let engine = Engine::new_with_list_text_parametrised(
-            [
-                "||googlesyndication.com/safeframe/$third-party",
-                "||brianbondy.com/ads",
-            ]
-            .join("\n"),
-            Default::default(),
-            true,
-            true,
-        );
+        let engine = engine_from_rules_debug([
+            "||googlesyndication.com/safeframe/$third-party",
+            "||brianbondy.com/ads",
+        ]);
 
         let current_page_frame = "http://slashdot.org";
         let request_type = "script";
@@ -1033,17 +1027,11 @@ mod legacy_misc_tests {
 
     #[test]
     fn find_matching_filters_exceptions() {
-        let engine = Engine::new_with_list_text_parametrised(
-            [
-                "||googlesyndication.com/safeframe/$third-party",
-                "||brianbondy.com/ads",
-                "@@safeframe",
-            ]
-            .join("\n"),
-            Default::default(),
-            true,
-            true,
-        );
+        let engine = engine_from_rules_debug([
+            "||googlesyndication.com/safeframe/$third-party",
+            "||brianbondy.com/ads",
+            "@@safeframe",
+        ]);
 
         let current_page_frame = "http://slashdot.org";
         let request_type = "script";
@@ -1075,12 +1063,8 @@ mod legacy_misc_tests {
     #[test]
     fn matches_with_filter_info_preserves_important() {
         // exceptions have not effect if important filter matches
-        let engine = Engine::new_with_list_text_parametrised(
-            ["||brianbondy.com^$important", "@@||brianbondy.com^"].join("\n"),
-            Default::default(),
-            true,
-            true,
-        );
+        let engine =
+            engine_from_rules_debug(["||brianbondy.com^$important", "@@||brianbondy.com^"]);
 
         let request =
             Request::new("https://brianbondy.com/t", "https://test.com", "script", "").unwrap();

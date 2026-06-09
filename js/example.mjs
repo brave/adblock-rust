@@ -23,7 +23,7 @@ const resources = adblockRust.uBlockResources(
     dataPath + 'test/fake-uBO-files/scriptlets.js'
 );
 
-const engine = new adblockRust.Engine(filterSet, true);
+const engine = new adblockRust.Engine(filterSet);
 engine.useResources(resources);
 
 // Simple match

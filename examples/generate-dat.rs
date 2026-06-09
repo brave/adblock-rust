@@ -12,7 +12,7 @@ fn main() {
     .join("\n");
 
     // Serialize
-    let mut engine = Engine::new_with_list_text(rules, Default::default());
+    let mut engine = Engine::new_with_list_text(rules);
     engine.use_tags(&["twitter-embeds"]);
 
     let request = Request::new(

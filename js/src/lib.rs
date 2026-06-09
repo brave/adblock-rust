@@ -4,7 +4,7 @@ use adblock::resources::Resource;
 use adblock::Engine as EngineInternal;
 use neon::prelude::*;
 use neon::types::buffer::TypedArray as _;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::cell::RefCell;
 use std::path::Path;
 use std::sync::Mutex;
@@ -74,11 +74,6 @@ fn filter_rules_from_js<'a, C: Context<'a>>(
         return Ok(parts.join("\n"));
     }
     json_ffi::from_js(cx, input)
-}
-
-#[derive(Serialize, Deserialize)]
-struct EngineOptions {
-    pub optimize: Option<bool>,
 }
 
 #[derive(Default)]
@@ -164,19 +159,11 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
     let rules = cx.argument::<JsBox<FilterSet>>(0)?;
     let rules = rules.0.borrow().clone();
 
-    let engine_internal = match cx.argument_opt(1) {
-        Some(arg) => {
-            let optimize = match arg.downcast::<JsBoolean, _>(&mut cx) {
-                Ok(b) => b.value(&mut cx),
-                Err(_) => {
-                    let config = json_ffi::from_js::<_, EngineOptions>(&mut cx, arg)?;
-                    config.optimize.unwrap_or(true)
-                }
-            };
-            EngineInternal::new_with_filter_set(rules, optimize)
-        }
-        None => EngineInternal::new_with_filter_set(rules, true),
-    };
+    // Legacy second argument (optimize boolean or options object) is ignored; optimization
+    // follows FilterSet.debug (!debug).
+    let _ = cx.argument_opt(1);
+
+    let engine_internal = EngineInternal::new_with_filter_set(rules);
     Ok(cx.boxed(Engine(Mutex::new(engine_internal))))
 }
 
