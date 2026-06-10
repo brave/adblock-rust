@@ -164,7 +164,10 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
             }
         };
 
-        if !self.optimize || !optimizer::is_filter_optimizable_by_patterns(&network_filter) {
+        if !self.optimize
+            || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
+            || multi_tokens != FilterTokens::Empty
+        {
             // Serialize now (even if it matches to a bad filter later);
             // Although store the id for later bad-filter pruning.
             let filter = FlatSerialize::serialize(network_filter, builder);
