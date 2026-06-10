@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 trait Optimization {
-    fn fusion<'a>(&self, filters: &[NetworkFilter<'a>]) -> NetworkFilter<'a>;
+    fn fusion<'a>(&self, filters: Vec<NetworkFilter<'a>>) -> NetworkFilter<'a>;
     fn group_by_criteria(&self, filter: &NetworkFilter<'_>) -> String;
     fn select(&self, filter: &NetworkFilter<'_>) -> bool;
 }
@@ -64,7 +64,7 @@ fn apply_optimisation<'a, T: Optimization>(
     for (_, group) in to_fuse {
         if group.len() > 1 {
             // println!("Fusing {} filters together", group.len());
-            fused.push(optimization.fusion(group.as_slice()));
+            fused.push(optimization.fusion(group));
         } else {
             group.into_iter().for_each(|f| negative.push(f));
         }
@@ -87,53 +87,55 @@ struct SimplePatternGroup {}
 impl Optimization for SimplePatternGroup {
     // Group simple patterns, into a single filter
 
-    fn fusion<'a>(&self, filters: &[NetworkFilter<'a>]) -> NetworkFilter<'a> {
+    fn fusion<'a>(&self, filters: Vec<NetworkFilter<'a>>) -> NetworkFilter<'a> {
         let base_filter = &filters[0]; // FIXME: can technically panic, if filters list is empty
         let mut filter = base_filter.clone();
+
+        let is_regex = filters.iter().any(NetworkFilter::is_regex);
+        let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
+        filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
+        filter
+            .mask
+            .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
+
+        let mut combined_raw_line = String::new();
 
         // if any filter is empty (meaning matches anything), the entire combiation matches anything
         if filters
             .iter()
             .any(|f| matches!(f.filter, FilterPart::Empty))
         {
-            filter.filter = FilterPart::Empty
+            filter.filter = FilterPart::Empty;
+            filter
         } else {
-            let mut flat_patterns: Vec<String> = Vec::with_capacity(filters.len());
+            let mut flat_patterns: Vec<Cow<'a, str>> = Vec::with_capacity(filters.len());
             for f in filters {
-                match &f.filter {
+                match f.filter {
                     FilterPart::Empty => (),
-                    FilterPart::Simple(s) => flat_patterns.push(s.to_string()),
-                    FilterPart::AnyOf(s) => flat_patterns.extend(s.iter().cloned()),
+                    FilterPart::Simple(s) => flat_patterns.push(s.clone()),
+                    FilterPart::AnyOf(s) => flat_patterns.extend(s),
+                }
+                if let Some(raw_line) = f.raw_line {
+                    if !combined_raw_line.is_empty() {
+                        combined_raw_line.push_str(" <+> ");
+                    }
+
+                    combined_raw_line.push_str(raw_line.as_ref());
                 }
             }
 
             if flat_patterns.is_empty() {
                 filter.filter = FilterPart::Empty;
             } else if flat_patterns.len() == 1 {
-                filter.filter =
-                    FilterPart::Simple(Cow::Owned(flat_patterns.into_iter().next().unwrap()))
+                filter.filter = FilterPart::Simple(flat_patterns.into_iter().next().unwrap())
             } else {
                 filter.filter = FilterPart::AnyOf(flat_patterns)
             }
+
+            filter.raw_line = Some(Cow::Owned(combined_raw_line));
+
+            filter
         }
-
-        let is_regex = filters.iter().any(NetworkFilter::is_regex);
-        filter.mask.set(NetworkFilterMask::IS_REGEX, is_regex);
-        let is_complete_regex = filters.iter().any(|f| f.is_complete_regex());
-        filter
-            .mask
-            .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
-
-        if base_filter.raw_line.is_some() {
-            filter.raw_line = Some(Cow::Owned(
-                filters
-                    .iter()
-                    .flat_map(|f| f.raw_line.as_deref())
-                    .join(" <+> "),
-            ))
-        }
-
-        filter
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter<'_>) -> String {
