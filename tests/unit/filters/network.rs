@@ -129,6 +129,17 @@ mod parse_tests {
         }
     }
 
+    fn foo_method_breakdown(get: bool, head: bool, post: bool) -> NetworkFilterBreakdown {
+        let mut expected = default_network_filter_breakdown();
+        expected.hostname = Some(String::from("foo"));
+        expected.is_hostname_anchor = true;
+        expected.is_plain = true;
+        expected.from_get = get;
+        expected.from_head = head;
+        expected.from_post = post;
+        expected
+    }
+
     #[test]
     // pattern
     fn parses_plain_pattern() {
@@ -1262,83 +1273,34 @@ mod parse_tests {
 
     #[test]
     fn handles_method_options() {
-        {
-            let filter =
-                NetworkFilter::parse("||foo$method=post", true, Default::default()).unwrap();
-            let mut expected = default_network_filter_breakdown();
-            expected.hostname = Some(String::from("foo"));
-            expected.is_hostname_anchor = true;
-            expected.is_plain = true;
-            expected.from_post = true;
-            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
+        const CASES: &[(&str, bool, bool, bool)] = &[
+            ("||foo$method=post", false, false, true),
+            ("||foo$method=post|get", true, false, true),
+            ("||foo$method=head|get", true, true, false),
+            ("||foo$method=~get", false, true, true),
+            ("||foo$method=POST", false, false, true),
+            ("||foo$method=post|put", false, false, true),
+        ];
+
+        for (rule, get, head, post) in CASES {
+            let filter = NetworkFilter::parse(rule, true, Default::default()).unwrap();
+            assert_eq!(
+                foo_method_breakdown(*get, *head, *post),
+                NetworkFilterBreakdown::from(&filter),
+                "rule: {rule}",
+            );
         }
 
-        {
-            let filter =
-                NetworkFilter::parse("||foo$method=post|get", true, Default::default()).unwrap();
-            let mut expected = default_network_filter_breakdown();
-            expected.hostname = Some(String::from("foo"));
-            expected.is_hostname_anchor = true;
-            expected.is_plain = true;
-            expected.from_post = true;
-            expected.from_get = true;
-            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
-        }
-
-        {
-            let filter =
-                NetworkFilter::parse("||foo$method=head|get", true, Default::default()).unwrap();
-            let mut expected = default_network_filter_breakdown();
-            expected.hostname = Some(String::from("foo"));
-            expected.is_hostname_anchor = true;
-            expected.is_plain = true;
-            expected.from_head = true;
-            expected.from_get = true;
-            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
-        }
-
-        {
-            let filter =
-                NetworkFilter::parse("||foo$method=~get", true, Default::default()).unwrap();
-            let mut expected = default_network_filter_breakdown();
-            expected.hostname = Some(String::from("foo"));
-            expected.is_hostname_anchor = true;
-            expected.is_plain = true;
-            expected.from_head = true;
-            expected.from_post = true;
-            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
-        }
-
-        {
-            let filter =
-                NetworkFilter::parse("||foo$method=POST", true, Default::default()).unwrap();
-            let mut expected = default_network_filter_breakdown();
-            expected.hostname = Some(String::from("foo"));
-            expected.is_hostname_anchor = true;
-            expected.is_plain = true;
-            expected.from_post = true;
-            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
-        }
-
-        {
-            let filter =
-                NetworkFilter::parse("||foo$method=post|put", true, Default::default()).unwrap();
-            let mut expected = default_network_filter_breakdown();
-            expected.hostname = Some(String::from("foo"));
-            expected.is_hostname_anchor = true;
-            expected.is_plain = true;
-            expected.from_post = true;
-            assert_eq!(expected, NetworkFilterBreakdown::from(&filter));
-        }
-
-        for filter_text in [
+        const RULES: &[&str] = &[
             "||lemonde.fr/*?s=$xhr,method=post",
             "||perplexity.ai/rest/metrics/collect^$xhr,1p,method=post",
             "||apmplus.volces.com/monitor_web/collect$xhr,method=post",
             "@@||www.realclear*/esm/assets/js/analytics/chartbeat.js?v=$xhr,1p,method=get,domain=com|org",
             "||pagead2.googlesyndication.com^$3p,xhr,method=head,redirect-rule=noop.js,domain=photopea.com",
             "||void.nicopr.fr/rec$method=POST",
-        ] {
+        ];
+
+        for filter_text in RULES {
             assert!(
                 NetworkFilter::parse(filter_text, true, Default::default()).is_ok(),
                 "failed to parse: {filter_text}"
@@ -1372,12 +1334,14 @@ mod parse_tests {
             assert!(!filter.mask.contains(NetworkFilterMask::FROM_POST));
         }
 
-        for filter_text in [
+        const INVALID_RULES: &[&str] = &[
             "||foo$method=put",
             "||foo$method=connect|delete",
             "||foo$method=",
             "||foo$~method=post",
-        ] {
+        ];
+
+        for filter_text in INVALID_RULES {
             assert!(
                 NetworkFilter::parse(filter_text, true, Default::default()).is_err(),
                 "expected parse error: {filter_text}"
