@@ -203,6 +203,12 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
                 };
                 (String::new(), debug)
             } else if let Ok(debug) = arg.downcast::<JsBoolean, _>(&mut cx) {
+                console_warn(
+                    &mut cx,
+                    "Engine.check: passing debug as the 4th boolean argument is deprecated; \
+                     pass an HTTP method string as the 4th argument (use \"\" if unspecified) \
+                     and debug as an optional 5th boolean instead.",
+                )?;
                 (String::new(), debug.value(&mut cx))
             } else if let Ok(method) = arg.downcast::<JsString, _>(&mut cx) {
                 let debug = match cx.argument_opt(5) {
