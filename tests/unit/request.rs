@@ -185,6 +185,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_method_works() {
+        assert_eq!(
+            Request::new("https://example.com", "https://example.com", "xhr", "get")
+                .unwrap()
+                .method,
+            Some(RequestMethod::Get),
+        );
+        assert_eq!(
+            Request::new("https://example.com", "https://example.com", "xhr", "PUT")
+                .unwrap()
+                .method,
+            Some(RequestMethod::Put),
+        );
+        assert_eq!(
+            Request::new("https://example.com", "https://example.com", "xhr", "TRACE")
+                .unwrap()
+                .method,
+            Some(RequestMethod::Other),
+        );
+        assert_eq!(
+            Request::new("https://example.com", "https://example.com", "xhr", "")
+                .unwrap()
+                .method,
+            None,
+        );
+    }
+
+    #[test]
     fn fuzzing_errors() {
         {
             let parsed = Request::new("https://߶", "https://example.com", "other", "");

@@ -182,7 +182,11 @@ impl NetworkFilterMask {
         let Some(method) = method else {
             return false;
         };
-        self.contains(Self::from(method))
+        let method_mask = Self::from(method);
+        if method_mask.is_empty() {
+            return false;
+        }
+        self.contains(method_mask)
     }
 }
 
@@ -287,6 +291,7 @@ impl From<&request::RequestMethod> for NetworkFilterMask {
             request::RequestMethod::Get => NetworkFilterMask::FROM_GET,
             request::RequestMethod::Head => NetworkFilterMask::FROM_HEAD,
             request::RequestMethod::Post => NetworkFilterMask::FROM_POST,
+            _ => NetworkFilterMask::NONE,
         }
     }
 }

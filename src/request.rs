@@ -7,9 +7,15 @@ use crate::utils;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RequestMethod {
+    Connect,
+    Delete,
     Get,
     Head,
+    Options,
+    Patch,
     Post,
+    Put,
+    Other,
 }
 
 /// The type of resource requested from the URL endpoint.
@@ -128,15 +134,25 @@ impl Request {
         if raw_method.is_empty() {
             return None;
         }
-        if raw_method.eq_ignore_ascii_case("get") {
-            Some(RequestMethod::Get)
+        Some(if raw_method.eq_ignore_ascii_case("connect") {
+            RequestMethod::Connect
+        } else if raw_method.eq_ignore_ascii_case("delete") {
+            RequestMethod::Delete
+        } else if raw_method.eq_ignore_ascii_case("get") {
+            RequestMethod::Get
         } else if raw_method.eq_ignore_ascii_case("head") {
-            Some(RequestMethod::Head)
+            RequestMethod::Head
+        } else if raw_method.eq_ignore_ascii_case("options") {
+            RequestMethod::Options
+        } else if raw_method.eq_ignore_ascii_case("patch") {
+            RequestMethod::Patch
         } else if raw_method.eq_ignore_ascii_case("post") {
-            Some(RequestMethod::Post)
+            RequestMethod::Post
+        } else if raw_method.eq_ignore_ascii_case("put") {
+            RequestMethod::Put
         } else {
-            None
-        }
+            RequestMethod::Other
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
