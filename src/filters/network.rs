@@ -139,7 +139,7 @@ bitflags::bitflags! {
         const FROM_HEAD = 1 << 27;
         const FROM_POST = 1 << 30;
 
-        const FROM_METHODS = Self::FROM_GET.bits() |
+        const FROM_ANY_METHODS = Self::FROM_GET.bits() |
             Self::FROM_HEAD.bits() |
             Self::FROM_POST.bits();
 
@@ -176,7 +176,7 @@ bitflags::bitflags! {
 impl NetworkFilterMask {
     #[inline]
     pub(crate) fn check_method_allowed(self, method: Option<&request::RequestMethod>) -> bool {
-        if !self.intersects(Self::FROM_METHODS) {
+        if !self.intersects(Self::FROM_ANY_METHODS) {
             return true;
         }
         let Some(method) = method else {
@@ -845,10 +845,10 @@ impl<'a> NetworkFilter<'a> {
 
         if !method_mask_positive.is_empty() || !method_mask_negative.is_empty() {
             mask |= method_mask_positive;
-            if (method_mask_negative & NetworkFilterMask::FROM_METHODS) != NetworkFilterMask::NONE
-                && (method_mask_positive & NetworkFilterMask::FROM_METHODS).is_empty()
+            if (method_mask_negative & NetworkFilterMask::FROM_ANY_METHODS) != NetworkFilterMask::NONE
+                && (method_mask_positive & NetworkFilterMask::FROM_ANY_METHODS).is_empty()
             {
-                mask |= NetworkFilterMask::FROM_METHODS;
+                mask |= NetworkFilterMask::FROM_ANY_METHODS;
             }
             mask &= !method_mask_negative;
         }
