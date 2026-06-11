@@ -1347,5 +1347,19 @@ mod parse_tests {
                 "expected parse error: {filter_text}"
             );
         }
+
+        assert!(NetworkFilter::parse("@@||foo^$generichide", true, Default::default()).is_ok());
+
+        for filter_text in [
+            "@@||foo^$generichide,method=post",
+            "@@||foo^$ghide,method=get",
+            "@@||foo^$generichide,method=head|get",
+        ] {
+            assert_eq!(
+                NetworkFilter::parse(filter_text, true, Default::default()).err(),
+                Some(NetworkFilterError::MethodWithGenerichide),
+                "expected MethodWithGenerichide: {filter_text}",
+            );
+        }
     }
 }
