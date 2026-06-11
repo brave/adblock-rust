@@ -3,8 +3,10 @@
 
 use memchr::memchr as find_char;
 use regex::Regex;
+use rustc_hash::FxHasher;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::hash::Hasher;
 use std::sync::LazyLock;
 use thiserror::Error;
 
@@ -864,7 +866,7 @@ impl<'a> NetworkFilter<'a> {
             self.modifier_option,
             self.mask,
             self.features_mask,
-            self.filter.string_view().as_deref(),
+            &self.filter,
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
@@ -1025,55 +1027,61 @@ pub(crate) trait NetworkMatchable {
 // Filter parsing
 // ---------------------------------------------------------------------------
 
+#[inline]
+fn write_str_to_hasher(hasher: &mut impl Hasher, s: &str) {
+    hasher.write_usize(s.len());
+    hasher.write(s.as_bytes());
+}
+
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,
     features_mask: NetworkFilterFeaturesMask,
-    filter: Option<&str>,
+    filter: &FilterPart<'_>,
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
-    let mut hash: Hash = (5408 * 33) ^ Hash::from(mask.bits());
+    let mut hasher = FxHasher::default();
+
+    hasher.write_u64(u64::from(mask.bits()));
 
     // Exclude BAD_FILTER from the hash
     let features_mask_bits = features_mask.bits() & !NetworkFilterFeaturesMask::BAD_FILTER.bits();
-    hash = hash.wrapping_mul(33) ^ Hash::from(features_mask_bits);
+    hasher.write_u64(u64::from(features_mask_bits));
 
     if let Some(s) = modifier_option {
-        let chars = s.chars();
-        for c in chars {
-            hash = hash.wrapping_mul(33) ^ (c as Hash);
-        }
-    };
+        write_str_to_hasher(&mut hasher, s);
+    }
 
     if let Some(domains) = opt_domains {
         for d in domains {
-            hash = hash.wrapping_mul(33) ^ d;
-        }
-    };
-
-    if let Some(domains) = opt_not_domains {
-        for d in domains {
-            hash = hash.wrapping_mul(33) ^ d;
+            hasher.write_u64(*d);
         }
     }
 
-    if let Some(s) = filter {
-        let chars = s.chars();
-        for c in chars {
-            hash = hash.wrapping_mul(33) ^ (c as Hash);
+    if let Some(domains) = opt_not_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    match filter {
+        FilterPart::Empty => {}
+        FilterPart::Simple(s) => write_str_to_hasher(&mut hasher, s.as_ref()),
+        FilterPart::AnyOf(parts) => {
+            hasher.write_u64(parts.len() as u64);
+            for part in parts {
+                write_str_to_hasher(&mut hasher, part);
+            }
         }
     }
 
     if let Some(s) = hostname {
-        let chars = s.chars();
-        for c in chars {
-            hash = hash.wrapping_mul(33) ^ (c as Hash);
-        }
+        write_str_to_hasher(&mut hasher, s);
     }
 
-    hash
+    hasher.finish()
 }
 
 /// Check if the sub-string contained between the indices start and end is a
