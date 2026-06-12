@@ -38,12 +38,68 @@ pub(crate) enum HttpMethod {
     Post,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DomainValueKind {
+    Plain,
+    Entity,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ParsedDomainValue<'a> {
+    pub included: bool,
+    pub kind: DomainValueKind,
+    pub value: &'a str,
+    pub raw: &'a str,
+}
+
+fn parse_domain_option_values<'a>(
+    value: &'a str,
+) -> Result<Vec<ParsedDomainValue<'a>>, NetworkFilterError> {
+    let domains: Vec<ParsedDomainValue> = value
+        .split('|')
+        .filter_map(|domain| {
+            let (included, rest) = if let Some(negated_domain) = domain.strip_prefix('~') {
+                (false, negated_domain)
+            } else {
+                (true, domain)
+            };
+
+            if (rest.starts_with('/') && rest.ends_with('/')) || rest.is_empty() {
+                return None;
+            }
+
+            let (kind, normalized) = if let Some(entity_prefix) = rest.strip_suffix(".*") {
+                if entity_prefix.is_empty() {
+                    return None;
+                }
+                (DomainValueKind::Entity, entity_prefix)
+            } else {
+                (DomainValueKind::Plain, rest)
+            };
+
+            Some(ParsedDomainValue {
+                included,
+                kind,
+                value: normalized,
+                raw: rest,
+            })
+        })
+        .collect();
+
+    if domains.is_empty() {
+        return Err(NetworkFilterError::NoSupportedDomains);
+    }
+
+    Ok(domains)
+}
+
 /// Any option that appears on the right side of a network filter as initiated by a `$` character.
 /// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
 /// negated using a prepended `~`.
 #[derive(Clone)]
 pub(crate) enum NetworkFilterOption<'a> {
     Domain(Vec<(bool, &'a str)>),
+    To(Vec<ParsedDomainValue<'a>>),
     Badfilter,
     Important,
     MatchCase,
@@ -182,22 +238,13 @@ fn parse_filter_options<'a>(
 
         result.push(match (option, negation) {
             ("domain", _) | ("from", _) => {
-                let domains: Vec<(bool, &'a str)> = value
-                    .split('|')
-                    .map(|domain| {
-                        if let Some(negated_domain) = domain.strip_prefix('~') {
-                            (false, negated_domain)
-                        } else {
-                            (true, domain)
-                        }
-                    })
-                    .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
+                let domains = parse_domain_option_values(value)?
+                    .into_iter()
+                    .map(|entry| (entry.included, entry.raw))
                     .collect();
-                if domains.is_empty() {
-                    return Err(NetworkFilterError::NoSupportedDomains);
-                }
                 NetworkFilterOption::Domain(domains)
             }
+            ("to", _) => NetworkFilterOption::To(parse_domain_option_values(value)?),
             ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
             ("badfilter", false) => NetworkFilterOption::Badfilter,
             ("important", true) => return Err(NetworkFilterError::NegatedImportant),
@@ -297,3 +344,7 @@ fn parse_filter_options<'a>(
     }
     Ok(result)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/filters/abstract_network.rs"]
+mod unit_tests;

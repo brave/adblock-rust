@@ -382,6 +382,28 @@ mod match_tests {
                 .collect::<Vec<u32>>()
         });
 
+        let map_opt_hashes = |domains: Option<Vec<Hash>>, mapping: &mut HashMap<Hash, u32>| {
+            domains.map(|domains| {
+                domains
+                    .iter()
+                    .map(|domain| {
+                        mapping.insert(*domain, *domain as u32);
+                        *domain as u32
+                    })
+                    .collect::<Vec<u32>>()
+            })
+        };
+        let opt_to_domains = map_opt_hashes(filter.opt_to_domains.clone(), &mut mapping);
+        let opt_not_to_domains = map_opt_hashes(filter.opt_not_to_domains.clone(), &mut mapping);
+        let opt_to_entities = map_opt_hashes(filter.opt_to_entities.clone(), &mut mapping);
+        let opt_not_to_entities = map_opt_hashes(filter.opt_not_to_entities.clone(), &mut mapping);
+        let to_options = crate::filters::fb_network::ToOptionsFlags::from_bucket_parts(
+            opt_to_domains.is_some(),
+            opt_not_to_domains.is_some(),
+            opt_to_entities.is_some(),
+            opt_not_to_entities.is_some(),
+        );
+
         super::super::check_options(filter.mask, request)
             && super::super::check_included_domains_mapped(
                 opt_domains.as_deref(),
@@ -392,6 +414,22 @@ mod match_tests {
                 opt_not_domains.as_deref(),
                 request,
                 &mapping,
+            )
+            && super::super::check_included_to_options_mapped(
+                to_options,
+                opt_to_domains.as_deref(),
+                opt_to_entities.as_deref(),
+                request,
+                &mapping,
+                crate::filters::filter_data_context::ToRuleCapability::all(),
+            )
+            && super::super::check_excluded_to_options_mapped(
+                to_options,
+                opt_not_to_domains.as_deref(),
+                opt_not_to_entities.as_deref(),
+                request,
+                &mapping,
+                crate::filters::filter_data_context::ToRuleCapability::all(),
             )
     }
 
@@ -481,6 +519,133 @@ mod match_tests {
                 request::Request::new("https://foo.com/bar", "http://bar.com", "", "").unwrap();
             assert!(!check_options(&network_filter, &request));
         }
+
+        // opt-to-domain (destination hostname)
+        {
+            let network_filter =
+                NetworkFilter::parse("||foo$to=gstatic.com", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://cdn.gstatic.com/foo", "https://example.com", "", "")
+                    .unwrap();
+            assert!(check_options(&network_filter, &request));
+        }
+        {
+            let network_filter =
+                NetworkFilter::parse("||foo$to=gstatic.com", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://foo.com/bar", "https://example.com", "", "")
+                    .unwrap();
+            assert!(!check_options(&network_filter, &request));
+        }
+
+        // opt-not-to-domain
+        {
+            let network_filter =
+                NetworkFilter::parse("||foo$to=~example.it", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://foo.com/bar", "https://example.com", "", "")
+                    .unwrap();
+            assert!(check_options(&network_filter, &request));
+        }
+        {
+            let network_filter =
+                NetworkFilter::parse("||foo$to=~example.it", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://example.it/bar", "https://example.com", "", "")
+                    .unwrap();
+            assert!(!check_options(&network_filter, &request));
+        }
+
+        // opt-to-entity
+        {
+            let network_filter =
+                NetworkFilter::parse("||foo$to=google.*", true, Default::default()).unwrap();
+            let request = request::Request::new(
+                "https://www.google.co.uk/foo",
+                "https://example.com",
+                "",
+                "",
+            )
+            .unwrap();
+            assert!(check_options(&network_filter, &request));
+        }
+        {
+            let network_filter =
+                NetworkFilter::parse("||foo$to=google.*", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://foo.com/bar", "https://example.com", "", "")
+                    .unwrap();
+            assert!(!check_options(&network_filter, &request));
+        }
+    }
+
+    #[test]
+    fn check_to_option_matches_works() {
+        fn to_filter_match(
+            filter: &str,
+            url: &str,
+            source: &str,
+            request_type: &str,
+            matching: bool,
+        ) {
+            let network_filter = NetworkFilter::parse(filter, true, Default::default()).unwrap();
+            let request = request::Request::new(url, source, request_type, "").unwrap();
+            assert!(
+                network_filter.matches_test(&request) == matching,
+                "Expected match={matching} for {filter} on {url} (source={source})"
+            );
+        }
+
+        to_filter_match(
+            "*$script,from=beforeitsnews.com,to=google.*|gstatic.com",
+            "https://cdn.gstatic.com/foo.js",
+            "https://beforeitsnews.com/article",
+            "script",
+            true,
+        );
+        to_filter_match(
+            "*$script,from=beforeitsnews.com,to=google.*|gstatic.com",
+            "https://www.google.co.uk/foo.js",
+            "https://beforeitsnews.com/article",
+            "script",
+            true,
+        );
+        to_filter_match(
+            "*$script,from=beforeitsnews.com,to=google.*|gstatic.com",
+            "https://example.com/foo.js",
+            "https://beforeitsnews.com/article",
+            "script",
+            false,
+        );
+        to_filter_match(
+            "*$script,from=beforeitsnews.com,to=google.*|gstatic.com",
+            "https://cdn.gstatic.com/foo.js",
+            "https://other.com/article",
+            "script",
+            false,
+        );
+
+        to_filter_match(
+            "||it^$3p,to=~example.it",
+            "https://tracker.foo.it/path",
+            "https://example.com/page",
+            "script",
+            true,
+        );
+        to_filter_match(
+            "||it^$3p,to=~example.it",
+            "https://example.it/path",
+            "https://example.com/page",
+            "script",
+            false,
+        );
+        to_filter_match(
+            "||it^$3p,to=~example.it",
+            "https://tracker.foo.it/path",
+            "https://tracker.foo.it/page",
+            "script",
+            false,
+        );
     }
 
     #[test]

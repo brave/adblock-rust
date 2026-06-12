@@ -74,6 +74,46 @@ impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
             FlatSerialize::serialize(o, builder)
         });
 
+        let opt_to_domains = network_filter.opt_to_domains.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
+        let opt_not_to_domains = network_filter.opt_not_to_domains.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
+        let opt_to_entities = network_filter.opt_to_entities.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
+        let opt_not_to_entities = network_filter.opt_not_to_entities.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
         let modifier_option = network_filter
             .modifier_option
             .map(|s| builder.create_string(s));
@@ -117,6 +157,10 @@ impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
                 modifier_option,
                 opt_domains,
                 opt_not_domains,
+                opt_to_domains,
+                opt_not_to_domains,
+                opt_to_entities,
+                opt_not_to_entities,
                 hostname,
                 tag,
                 raw_line,

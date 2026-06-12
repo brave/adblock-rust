@@ -1,9 +1,12 @@
 //! Contains structures needed to describe network requests.
 
+use std::sync::OnceLock;
+
 use thiserror::Error;
 
+use crate::filters::cosmetic::get_entity_hashes_from_labels;
 use crate::url_parser;
-use crate::utils;
+use crate::utils::{self, HostnameHashBuffer};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RequestMethod {
@@ -89,7 +92,7 @@ fn cpt_match_type(cpt: &str) -> RequestType {
 }
 
 /// A network [`Request`], used as an interface for network blocking in the [`crate::Engine`].
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Request {
     pub request_type: RequestType,
     pub method: Option<RequestMethod>,
@@ -100,11 +103,47 @@ pub struct Request {
     pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
+    pub(crate) domain: String,
+    pub(crate) source_hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+
+    destination_suffix_hashes: OnceLock<HostnameHashBuffer>,
+    destination_entity_hashes: OnceLock<HostnameHashBuffer>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
     pub(crate) original_url: String,
+}
+
+impl Clone for Request {
+    fn clone(&self) -> Self {
+        Self {
+            request_type: self.request_type.clone(),
+            method: self.method,
+            is_http: self.is_http,
+            is_https: self.is_https,
+            is_supported: self.is_supported,
+            is_third_party: self.is_third_party,
+            url: self.url.clone(),
+            hostname: self.hostname.clone(),
+            domain: self.domain.clone(),
+            source_hostname: self.source_hostname.clone(),
+            source_hostname_hashes: self.source_hostname_hashes.clone(),
+            destination_suffix_hashes: clone_once_lock(&self.destination_suffix_hashes),
+            destination_entity_hashes: clone_once_lock(&self.destination_entity_hashes),
+            url_lower_cased: self.url_lower_cased.clone(),
+            request_tokens: self.request_tokens.clone(),
+            original_url: self.original_url.clone(),
+        }
+    }
+}
+
+fn clone_once_lock(src: &OnceLock<HostnameHashBuffer>) -> OnceLock<HostnameHashBuffer> {
+    let lock = OnceLock::new();
+    if let Some(buffer) = src.get() {
+        let _ = lock.set(buffer.clone());
+    }
+    lock
 }
 
 impl Request {
@@ -128,6 +167,76 @@ impl Request {
 
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {
         &self.request_tokens
+    }
+
+    /// Lazily computed destination suffix hashes for `$to=` plain matching.
+    pub(crate) fn destination_suffix_hashes(&self) -> Option<&[utils::Hash]> {
+        if self.hostname.is_empty() {
+            return None;
+        }
+        Some(
+            self.destination_suffix_hashes
+                .get_or_init(|| self.compute_destination_suffix_hashes())
+                .as_slice(),
+        )
+    }
+
+    /// Lazily computed destination entity hashes for `$to=google.*` style matching.
+    pub(crate) fn destination_entity_hashes(&self) -> Option<&[utils::Hash]> {
+        if self.hostname.is_empty() {
+            return None;
+        }
+        let buffer = self.destination_entity_hashes.get_or_init(|| {
+            let mut buffer = HostnameHashBuffer::new();
+            for hash in get_entity_hashes_from_labels(&self.hostname, &self.domain) {
+                if buffer.try_push(hash).is_err() {
+                    break;
+                }
+            }
+            buffer
+        });
+        if buffer.is_empty() {
+            None
+        } else {
+            Some(buffer.as_slice())
+        }
+    }
+
+    fn compute_destination_suffix_hashes(&self) -> HostnameHashBuffer {
+        let mut buffer = HostnameHashBuffer::new();
+        if self.hostname.is_empty() {
+            return buffer;
+        }
+        if self.hostname == self.source_hostname {
+            if let Some(source_hashes) = self.source_hostname_hashes.as_ref() {
+                for &hash in source_hashes {
+                    if buffer.try_push(hash).is_err() {
+                        break;
+                    }
+                }
+                return buffer;
+            }
+        }
+        Self::push_suffix_hostname_hashes(&self.hostname, &mut buffer);
+        buffer
+    }
+
+    fn push_suffix_hostname_hashes(hostname: &str, buffer: &mut HostnameHashBuffer) {
+        let _ = buffer.try_push(utils::fast_hash(hostname));
+        for (i, c) in hostname.char_indices() {
+            if c == '.' && i + 1 < hostname.len() {
+                let _ = buffer.try_push(utils::fast_hash(&hostname[i + 1..]));
+            }
+        }
+    }
+
+    fn suffix_hostname_hashes(hostname: &str) -> Option<Vec<utils::Hash>> {
+        if hostname.is_empty() {
+            return None;
+        }
+        let mut buffer = HostnameHashBuffer::new();
+        Self::push_suffix_hostname_hashes(hostname, &mut buffer);
+        Some(buffer.into_iter().collect())
     }
 
     fn parse_method(raw_method: &str) -> Option<RequestMethod> {
@@ -156,11 +265,12 @@ impl Request {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn from_detailed_parameters(
+    pub(crate) fn from_detailed_parameters(
         raw_type: &str,
         url: &str,
         schema: &str,
         hostname: &str,
+        domain: &str,
         source_hostname: &str,
         third_party: bool,
         original_url: String,
@@ -190,18 +300,7 @@ impl Request {
             }
         }
 
-        let source_hostname_hashes = if !source_hostname.is_empty() {
-            let mut hashes = Vec::with_capacity(4);
-            hashes.push(utils::fast_hash(source_hostname));
-            for (i, c) in source_hostname.char_indices() {
-                if c == '.' && i + 1 < source_hostname.len() {
-                    hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
-                }
-            }
-            Some(hashes)
-        } else {
-            None
-        };
+        let source_hostname_hashes = Self::suffix_hostname_hashes(source_hostname);
 
         let url_lower_cased = url.to_ascii_lowercase();
 
@@ -211,8 +310,12 @@ impl Request {
             url: url.to_owned(),
             url_lower_cased: url_lower_cased.to_owned(),
             hostname: hostname.to_owned(),
+            domain: domain.to_owned(),
+            source_hostname: source_hostname.to_owned(),
             request_tokens: calculate_tokens(&url_lower_cased),
             source_hostname_hashes,
+            destination_suffix_hashes: OnceLock::new(),
+            destination_entity_hashes: OnceLock::new(),
             is_third_party: third_party,
             is_http,
             is_https,
@@ -240,6 +343,7 @@ impl Request {
                     &parsed_url.url,
                     parsed_url.schema(),
                     parsed_url.hostname(),
+                    parsed_url.domain(),
                     parsed_source.hostname(),
                     third_party,
                     url.to_string(),
@@ -251,6 +355,7 @@ impl Request {
                     &parsed_url.url,
                     parsed_url.schema(),
                     parsed_url.hostname(),
+                    parsed_url.domain(),
                     "",
                     true,
                     url.to_string(),
@@ -275,17 +380,26 @@ impl Request {
     ) -> Request {
         let splitter = memchr::memchr(b':', url.as_bytes()).unwrap_or(0);
         let schema: &str = &url[..splitter];
+        let (domain_start, domain_end) = url_parser::get_host_domain(hostname);
+        let domain = &hostname[domain_start..domain_end];
 
         Request::from_detailed_parameters(
             request_type,
             url,
             schema,
             hostname,
+            domain,
             source_hostname,
             third_party,
             url.to_string(),
             Self::parse_method(method),
         )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn destination_hashes_initialized(&self) -> bool {
+        self.destination_suffix_hashes.get().is_some()
+            || self.destination_entity_hashes.get().is_some()
     }
 }
 

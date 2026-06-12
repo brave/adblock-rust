@@ -17,6 +17,10 @@ table NetworkFilter {
   /// typically aren’t many unique hashes
   opt_domains: [uint32];
   opt_not_domains: [uint32];
+  opt_to_domains: [uint32];
+  opt_not_to_domains: [uint32];
+  opt_to_entities: [uint32];
+  opt_not_to_entities: [uint32];
 
   // A union-like storage for pattern. Prefer |single_pattern| where
   // possible for performance concerns.

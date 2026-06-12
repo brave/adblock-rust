@@ -33,6 +33,9 @@ fn is_allowed_filter(ch: char) -> bool {
 /// Used instread of Vec<Hash> to avoid heap allocations.
 pub(crate) type TokensBuffer = ArrayVec<Hash, 256>;
 
+/// Suffix-chain and entity hashes for a hostname (typically fewer than a dozen labels).
+pub(crate) type HostnameHashBuffer = ArrayVec<Hash, 12>;
+
 fn fast_tokenizer_no_regex(
     pattern: &str,
     is_allowed_code: &dyn Fn(char) -> bool,
