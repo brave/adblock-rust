@@ -38,12 +38,33 @@ pub(crate) enum HttpMethod {
     Post,
 }
 
+fn parse_pipe_delimited_domains<'a>(
+    value: &'a str,
+) -> Result<Vec<(bool, &'a str)>, NetworkFilterError> {
+    let domains: Vec<(bool, &'a str)> = value
+        .split('|')
+        .map(|domain| {
+            if let Some(negated_domain) = domain.strip_prefix('~') {
+                (false, negated_domain)
+            } else {
+                (true, domain)
+            }
+        })
+        .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
+        .collect();
+    if domains.is_empty() {
+        return Err(NetworkFilterError::NoSupportedDomains);
+    }
+    Ok(domains)
+}
+
 /// Any option that appears on the right side of a network filter as initiated by a `$` character.
 /// All `bool` arguments below are `true` if the option stands alone, or `false` if the option is
 /// negated using a prepended `~`.
 #[derive(Clone)]
 pub(crate) enum NetworkFilterOption<'a> {
     Domain(Vec<(bool, &'a str)>),
+    To(Vec<(bool, &'a str)>),
     Badfilter,
     Important,
     MatchCase,
@@ -182,22 +203,9 @@ fn parse_filter_options<'a>(
 
         result.push(match (option, negation) {
             ("domain", _) | ("from", _) => {
-                let domains: Vec<(bool, &'a str)> = value
-                    .split('|')
-                    .map(|domain| {
-                        if let Some(negated_domain) = domain.strip_prefix('~') {
-                            (false, negated_domain)
-                        } else {
-                            (true, domain)
-                        }
-                    })
-                    .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
-                    .collect();
-                if domains.is_empty() {
-                    return Err(NetworkFilterError::NoSupportedDomains);
-                }
-                NetworkFilterOption::Domain(domains)
+                NetworkFilterOption::Domain(parse_pipe_delimited_domains(value)?)
             }
+            ("to", _) => NetworkFilterOption::To(parse_pipe_delimited_domains(value)?),
             ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
             ("badfilter", false) => NetworkFilterOption::Badfilter,
             ("important", true) => return Err(NetworkFilterError::NegatedImportant),
@@ -297,3 +305,7 @@ fn parse_filter_options<'a>(
     }
     Ok(result)
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/filters/abstract_network.rs"]
+mod unit_tests;

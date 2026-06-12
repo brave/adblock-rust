@@ -408,6 +408,8 @@ pub struct NetworkFilter<'a> {
     pub filter: FilterPart<'a>,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
+    pub opt_to_domains: Option<Vec<Hash>>,
+    pub opt_to_not_domains: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
     pub modifier_option: Option<&'a str>,
@@ -475,6 +477,35 @@ fn decode_hostname<'a>(host: &'a [u8]) -> Result<Cow<'a, str>, NetworkFilterErro
         .map_err(|_| NetworkFilterError::PunycodeError)
 }
 
+fn apply_pipe_delimited_domains(
+    domains: Vec<(bool, &str)>,
+    opt_domains: &mut Option<Vec<Hash>>,
+    opt_not_domains: &mut Option<Vec<Hash>>,
+) {
+    let mut opt_domains_array: Vec<Hash> = vec![];
+    let mut opt_not_domains_array: Vec<Hash> = vec![];
+
+    for (enabled, domain) in domains {
+        let domain_hash = utils::fast_hash(domain);
+        if !enabled {
+            opt_not_domains_array.push(domain_hash);
+        } else {
+            opt_domains_array.push(domain_hash);
+        }
+    }
+
+    if !opt_domains_array.is_empty() {
+        opt_domains_array.sort_unstable();
+        opt_domains_array.dedup();
+        *opt_domains = Some(opt_domains_array);
+    }
+    if !opt_not_domains_array.is_empty() {
+        opt_not_domains_array.sort_unstable();
+        opt_not_domains_array.dedup();
+        *opt_not_domains = Some(opt_not_domains_array);
+    }
+}
+
 impl<'a> NetworkFilter<'a> {
     pub fn parse(
         line: &'a str,
@@ -501,6 +532,8 @@ impl<'a> NetworkFilter<'a> {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
+        let mut opt_to_domains: Option<Vec<Hash>> = None;
+        let mut opt_to_not_domains: Option<Vec<Hash>> = None;
 
         let mut modifier_option: Option<&'a str> = None;
         let mut tag: Option<&'a str> = None;
@@ -532,33 +565,21 @@ impl<'a> NetworkFilter<'a> {
                 };
             }
 
-            options.into_iter().for_each(|option| {
+            for option in options {
                 match option {
                     NetworkFilterOption::Domain(domains) => {
-                        let mut opt_domains_array: Vec<Hash> = vec![];
-                        let mut opt_not_domains_array: Vec<Hash> = vec![];
-
-                        for (enabled, domain) in domains {
-                            let domain_hash = utils::fast_hash(domain);
-                            if !enabled {
-                                opt_not_domains_array.push(domain_hash);
-                            } else {
-                                opt_domains_array.push(domain_hash);
-                            }
-                        }
-
-                        if !opt_domains_array.is_empty() {
-                            opt_domains_array.sort_unstable();
-                            // Some rules have duplicate domain options - avoid including duplicates
-                            opt_domains_array.dedup();
-                            opt_domains = Some(opt_domains_array);
-                        }
-                        if !opt_not_domains_array.is_empty() {
-                            opt_not_domains_array.sort_unstable();
-                            // Some rules have duplicate domain options - avoid including duplicates
-                            opt_not_domains_array.dedup();
-                            opt_not_domains = Some(opt_not_domains_array);
-                        }
+                        apply_pipe_delimited_domains(
+                            domains,
+                            &mut opt_domains,
+                            &mut opt_not_domains,
+                        );
+                    }
+                    NetworkFilterOption::To(domains) => {
+                        apply_pipe_delimited_domains(
+                            domains,
+                            &mut opt_to_domains,
+                            &mut opt_to_not_domains,
+                        );
                     }
                     NetworkFilterOption::Badfilter => {
                         features_mask.set(NetworkFilterFeaturesMask::BAD_FILTER, true)
@@ -637,7 +658,7 @@ impl<'a> NetworkFilter<'a> {
                         }
                     }
                 }
-            });
+            }
         }
 
         mask |= cpt_mask_positive;
@@ -878,6 +899,8 @@ impl<'a> NetworkFilter<'a> {
             features_mask,
             opt_domains,
             opt_not_domains,
+            opt_to_domains,
+            opt_to_not_domains,
             tag,
             raw_line: if debug {
                 Some(Cow::Borrowed(line))
@@ -931,6 +954,8 @@ impl<'a> NetworkFilter<'a> {
             features_mask: Default::default(),
             opt_domains: None,
             opt_not_domains: None,
+            opt_to_domains: None,
+            opt_to_not_domains: None,
             tag: None,
             raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
             modifier_option: None,
@@ -947,6 +972,8 @@ impl<'a> NetworkFilter<'a> {
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
+            self.opt_to_domains.as_ref(),
+            self.opt_to_not_domains.as_ref(),
         )
     }
 
@@ -1074,6 +1101,16 @@ impl<'a> NetworkFilter<'a> {
             .contains(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT)
     }
 
+    /// True when the filter has a `$to=` option. Matching does not apply `$to` yet.
+    pub fn has_to_option(&self) -> bool {
+        self.opt_to_domains.is_some() || self.opt_to_not_domains.is_some()
+    }
+
+    /// `$to`-only rules are not loaded into the engine until destination matching is supported.
+    pub fn is_to_only(&self) -> bool {
+        self.has_to_option() && self.opt_domains.is_none() && self.opt_not_domains.is_none()
+    }
+
     #[cfg(test)]
     pub(crate) fn matches_test(&self, request: &request::Request) -> bool {
         let engine = crate::Engine::new_with_parsed_rules(vec![self.clone()], vec![]);
@@ -1122,6 +1159,8 @@ fn compute_filter_id(
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
+    opt_to_domains: Option<&Vec<Hash>>,
+    opt_to_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
     let mut hasher = FxHasher::default();
 
@@ -1142,6 +1181,18 @@ fn compute_filter_id(
     }
 
     if let Some(domains) = opt_not_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_not_domains {
         for d in domains {
             hasher.write_u64(*d);
         }
