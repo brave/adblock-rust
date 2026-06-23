@@ -131,6 +131,44 @@ fn filter_set_add_filter(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct FilterParseResult {
+    supported: bool,
+    filter_type: Option<&'static str>,
+    error: Option<String>,
+}
+
+fn parse_filter(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let filter: String = cx.argument::<JsString>(0)?.value(&mut cx);
+    let parse_opts = match cx.argument_opt(1) {
+        Some(parse_opts_arg) => json_ffi::from_js(&mut cx, parse_opts_arg)?,
+        None => ParseOptions::default(),
+    };
+
+    // Pure check that does not mutate a FilterSet. On failure, `error` is the Display string of the
+    // underlying `FilterParseError`.
+    let result = match adblock::lists::parse_filter(&filter, false, parse_opts) {
+        Ok(adblock::lists::ParsedFilter::Network(_)) => FilterParseResult {
+            supported: true,
+            filter_type: Some("network"),
+            error: None,
+        },
+        Ok(adblock::lists::ParsedFilter::Cosmetic(_)) => FilterParseResult {
+            supported: true,
+            filter_type: Some("cosmetic"),
+            error: None,
+        },
+        Err(e) => FilterParseResult {
+            supported: false,
+            filter_type: None,
+            error: Some(e.to_string()),
+        },
+    };
+
+    json_ffi::to_js(&mut cx, &result)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ContentBlockingConversionResult {
     content_blocking_rules: Vec<adblock::content_blocking::CbRule>,
     filters_used: Vec<String>,
@@ -411,6 +449,7 @@ register_module!(mut m, {
     m.export_function("Engine_tagExists", engine_tag_exists)?;
     m.export_function("Engine_clearTags", engine_clear_tags)?;
 
+    m.export_function("parseFilter", parse_filter)?;
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;
 

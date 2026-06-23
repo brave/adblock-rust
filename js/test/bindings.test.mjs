@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const { FilterSet, Engine, FilterFormat, RuleTypes, uBlockResources } =
+const { FilterSet, Engine, FilterFormat, RuleTypes, parseFilter, uBlockResources } =
     createRequire(import.meta.url)(join(__dirname, '..', 'index.js'));
 
 // ---------------------------------------------------------------------------
@@ -110,6 +110,58 @@ describe('FilterSet.addFilter', () => {
             fs.addFilter('127.0.0.1 ads.example.com', { format: FilterFormat.HOSTS }),
             true,
         );
+    });
+});
+
+// ---------------------------------------------------------------------------
+// parseFilter
+// ---------------------------------------------------------------------------
+
+describe('parseFilter', () => {
+    it('classifies a supported network rule', () => {
+        const result = parseFilter('||example.com^');
+        assert.deepEqual(result, {
+            supported: true,
+            filterType: 'network',
+            error: null,
+        });
+    });
+
+    it('classifies a supported cosmetic rule', () => {
+        const result = parseFilter('example.com##.banner');
+        assert.deepEqual(result, {
+            supported: true,
+            filterType: 'cosmetic',
+            error: null,
+        });
+    });
+
+    it('reports the error for an unrecognised network option', () => {
+        const result = parseFilter('||example.com^$unknown-option');
+        assert.equal(result.supported, false);
+        assert.equal(result.filterType, null);
+        assert.equal(result.error, 'network filter error: unrecognised option');
+    });
+
+    it('reports the error for an unsupported/garbage rule', () => {
+        const result = parseFilter('! this is a comment');
+        assert.equal(result.supported, false);
+        assert.equal(result.filterType, null);
+        assert.equal(result.error, 'unsupported');
+    });
+
+    it('reports the error for an empty rule', () => {
+        const result = parseFilter('');
+        assert.equal(result.supported, false);
+        assert.equal(result.filterType, null);
+        assert.equal(result.error, 'empty');
+    });
+
+    it('honours ParseOptions (hosts format)', () => {
+        const result = parseFilter('127.0.0.1 ads.example.com', { format: FilterFormat.HOSTS });
+        assert.equal(result.supported, true);
+        assert.equal(result.filterType, 'network');
+        assert.equal(result.error, null);
     });
 });
 
