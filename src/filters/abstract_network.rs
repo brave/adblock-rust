@@ -164,6 +164,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
         // Check for options: option=value1|value2
         let mut option_and_values = maybe_negated_option.splitn(2, '=');
         let (option, value) = (
+            // splitn always yields at least one element, even for an empty string
             option_and_values.next().unwrap(),
             option_and_values.next().unwrap_or_default(),
         );

@@ -145,6 +145,8 @@ impl Blocker {
         #[allow(unused_mut)]
         let mut manager = self.regex_manager.borrow_mut();
         #[cfg(not(feature = "single-thread"))]
+        // A poisoned mutex means a panic occurred while the lock was held, which is
+        // unrecoverable; propagating it here would not add value.
         let mut manager = self.regex_manager.lock().unwrap();
 
         #[cfg(not(target_arch = "wasm32"))]

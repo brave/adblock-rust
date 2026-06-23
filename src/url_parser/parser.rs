@@ -529,9 +529,11 @@ impl Parser {
         }
 
         if host_str.is_ascii() {
+            // write! to a String is infallible
             write!(&mut self.serialization, "{host_str}").unwrap();
         } else {
             let encoded = idna::domain_to_ascii(host_str)?;
+            // write! to a String is infallible
             write!(&mut self.serialization, "{encoded}").unwrap();
         }
 

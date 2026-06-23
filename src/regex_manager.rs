@@ -263,6 +263,7 @@ impl RegexManager {
                     v.regex = Some(make_regexp(mask, filters));
                     self.compiled_regex_count += 1;
                 }
+                // Always Some: set to Some above if it was None
                 v.regex.as_ref().unwrap().is_match(pattern)
             }
             Entry::Vacant(e) => {
@@ -272,6 +273,7 @@ impl RegexManager {
                     last_used: self.now,
                     usage_count: 1,
                 };
+                // Always Some: the entry was just constructed with Some(...)
                 e.insert(new_entry)
                     .regex
                     .as_ref()
