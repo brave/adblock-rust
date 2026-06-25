@@ -114,13 +114,21 @@ impl Engine {
         )
     }
 
+    #[doc(hidden)]
+    pub fn new_with_filter_set_no_optimize(set: FilterSet) -> Self {
+        Self::new_with_filter_set_internal(set, false)
+    }
+
     /// Loads rules from the given `FilterSet`.
     pub fn new_with_filter_set(set: FilterSet) -> Self {
+        Self::new_with_filter_set_internal(set, true)
+    }
+
+    fn new_with_filter_set_internal(set: FilterSet, optimize: bool) -> Self {
         let FilterSet {
             debug,
             list_sources,
         } = set;
-        let optimize = !debug;
         let mut builder = EngineFlatBuilder::default();
         let mut network_rules_builder = NetworkRulesBuilder::new(optimize);
         let mut cosmetic_filter_cache_builder = CosmeticFilterCacheBuilder::default();

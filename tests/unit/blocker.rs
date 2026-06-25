@@ -1473,7 +1473,7 @@ mod legacy_rule_parsing_tests {
 
         let mut filter_set = FilterSet::new(true);
         filter_set.add_filter_list(rules, Default::default());
-        let engine = Engine::new_with_filter_set(filter_set);
+        let engine = Engine::new_with_filter_set_no_optimize(filter_set);
         let blocker = Blocker::from_context(engine.filter_data_context());
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
