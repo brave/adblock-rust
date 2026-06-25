@@ -98,7 +98,13 @@ impl Optimization for SimplePatternGroup {
             .mask
             .set(NetworkFilterMask::IS_COMPLETE_REGEX, is_complete_regex);
 
-        let mut combined_raw_line = String::new();
+        let combined_raw_line = filters
+            .iter()
+            .filter_map(|f| f.raw_line.as_deref())
+            .join(" <+> ");
+        if !combined_raw_line.is_empty() {
+            filter.raw_line = Some(Cow::Owned(combined_raw_line));
+        }
 
         // if any filter is empty (meaning matches anything), the entire combiation matches anything
         if filters
@@ -106,21 +112,13 @@ impl Optimization for SimplePatternGroup {
             .any(|f| matches!(f.filter, FilterPart::Empty))
         {
             filter.filter = FilterPart::Empty;
-            filter
         } else {
             let mut flat_patterns: Vec<Cow<'a, str>> = Vec::with_capacity(filters.len());
             for f in filters {
                 match f.filter {
                     FilterPart::Empty => (),
-                    FilterPart::Simple(s) => flat_patterns.push(s.clone()),
+                    FilterPart::Simple(s) => flat_patterns.push(s),
                     FilterPart::AnyOf(s) => flat_patterns.extend(s),
-                }
-                if let Some(raw_line) = f.raw_line {
-                    if !combined_raw_line.is_empty() {
-                        combined_raw_line.push_str(" <+> ");
-                    }
-
-                    combined_raw_line.push_str(raw_line.as_ref());
                 }
             }
 
@@ -131,11 +129,9 @@ impl Optimization for SimplePatternGroup {
             } else {
                 filter.filter = FilterPart::AnyOf(flat_patterns)
             }
-
-            filter.raw_line = Some(Cow::Owned(combined_raw_line));
-
-            filter
         }
+
+        filter
     }
 
     fn group_by_criteria(&self, filter: &NetworkFilter<'_>) -> String {

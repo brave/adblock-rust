@@ -239,9 +239,9 @@ mod tests {
             );
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            17575612365605355400
+            12514532033605239604
         } else {
-            13994449514469268008
+            2395390540565376956
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
