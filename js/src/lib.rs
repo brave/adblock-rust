@@ -159,9 +159,17 @@ fn engine_constructor(mut cx: FunctionContext) -> JsResult<JsBox<Engine>> {
     let rules = cx.argument::<JsBox<FilterSet>>(0)?;
     let rules = rules.0.borrow().clone();
 
-    // Legacy second argument (optimize boolean or options object) is ignored; optimization
-    // follows FilterSet.debug (!debug).
-    let _ = cx.argument_opt(1);
+    // The legacy second argument (optimize boolean or options object) is no longer used:
+    // optimization is always enabled via `new_with_filter_set`. Warn if a caller still passes it.
+    if let Some(arg) = cx.argument_opt(1) {
+        if !arg.is_a::<JsNull, _>(&mut cx) && !arg.is_a::<JsUndefined, _>(&mut cx) {
+            console_warn(
+                &mut cx,
+                "Engine constructor: the second argument is deprecated and ignored; \
+                 optimization is always enabled.",
+            )?;
+        }
+    }
 
     let engine_internal = EngineInternal::new_with_filter_set(rules);
     Ok(cx.boxed(Engine(Mutex::new(engine_internal))))
