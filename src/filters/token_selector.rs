@@ -73,6 +73,7 @@ impl std::hash::Hasher for PreHashedHasher {
 }
 /// Selects the optimal token for filter storage by tracking usage frequencies.
 /// Tokens that are used less frequently are preferred for better efficiency.
+#[derive(Clone)]
 pub(crate) struct TokenSelector {
     usage: HashMap<ShortHash, usize, BuildHasherDefault<PreHashedHasher>>,
 }

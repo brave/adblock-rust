@@ -448,4 +448,432 @@ mod tests {
             ));
         }
     }
+
+    #[test]
+    fn incremental_compilation_matches_vec_path() {
+        use crate::request::Request;
+        use crate::Engine;
+        use seahash::hash;
+
+        let rules = [
+            "||ads.example.com^",
+            "||tracker.example.com^",
+            "||ads.example.com^$badfilter",
+            "example.org##.ad",
+            "@@||allowed.example.com^",
+        ];
+
+        let (network_filters, cosmetic_filters) = parse_filters(rules, false, Default::default());
+        let engine_from_vec = Engine::from_filter_set(
+            FilterSet::new_with_rules(network_filters, cosmetic_filters, false),
+            true,
+        );
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(rules, Default::default());
+        let engine_incremental = Engine::from_filter_set(filter_set, true);
+
+        let requests = [
+            (
+                "https://ads.example.com/track.js",
+                "https://publisher.com",
+                "script",
+            ),
+            (
+                "https://tracker.example.com/pixel",
+                "https://publisher.com",
+                "image",
+            ),
+            (
+                "https://allowed.example.com/script.js",
+                "https://publisher.com",
+                "script",
+            ),
+        ];
+        for (url, source, cpt) in requests {
+            let request = Request::new(url, source, cpt).unwrap();
+            assert_eq!(
+                engine_from_vec.check_network_request(&request).matched,
+                engine_incremental.check_network_request(&request).matched,
+                "mismatch for {url}"
+            );
+        }
+
+        assert_eq!(
+            hash(&engine_from_vec.serialize()),
+            hash(&engine_incremental.serialize()),
+            "serialized engines should be identical"
+        );
+    }
+
+    #[test]
+    fn filter_set_clone_preserves_blocking_after_engine_construction() {
+        use crate::request::Request;
+        use crate::Engine;
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(["||blocked.example.com^"], Default::default());
+        let cloned = filter_set.clone();
+        let _engine = Engine::from_filter_set(filter_set, true);
+
+        let mut extended = cloned;
+        extended
+            .add_filter("||also-blocked.example.com^", Default::default())
+            .unwrap();
+        let engine = Engine::from_filter_set(extended, true);
+
+        let blocked = Request::new(
+            "https://also-blocked.example.com/a.js",
+            "https://page.com",
+            "script",
+        )
+        .unwrap();
+        assert!(engine.check_network_request(&blocked).matched);
+    }
+
+    #[test]
+    fn network_only_skips_cosmetic_rules() {
+        let rules = [
+            "||ads.example.com^",
+            "example.org##.ad-banner",
+            "example.net#@#.promo",
+        ];
+
+        let mut all = FilterSet::new(false);
+        all.add_filters(rules, ParseOptions::default());
+        assert_eq!(all.cosmetic_filters.len(), 2);
+
+        let mut network_only = FilterSet::new(false);
+        network_only.add_filters(
+            rules,
+            ParseOptions {
+                rule_types: RuleTypes::NetworkOnly,
+                ..Default::default()
+            },
+        );
+        assert!(network_only.cosmetic_filters.is_empty());
+        assert_eq!(
+            network_only
+                .compilation
+                .as_ref()
+                .unwrap()
+                .network_rules
+                .rule_count(),
+            1
+        );
+    }
+
+    #[test]
+    fn network_only_preserves_network_blocking() {
+        use crate::request::Request;
+        use crate::Engine;
+
+        let rules = ["||ads.example.com^", "example.org##.ad-banner"];
+
+        let engine_all = Engine::from_rules(rules, Default::default());
+        let engine_network = Engine::from_rules_network(rules, Default::default());
+
+        let request = Request::new(
+            "https://ads.example.com/track.js",
+            "https://publisher.com",
+            "script",
+        )
+        .unwrap();
+
+        assert_eq!(
+            engine_all.check_network_request(&request).matched,
+            engine_network.check_network_request(&request).matched,
+        );
+    }
+
+    #[test]
+    fn brave_streaming_matches_vec_path() {
+        use crate::lists::parse_filters;
+        use crate::test_utils::rules_from_lists;
+        use crate::Engine;
+        use seahash::hash;
+
+        let rules: Vec<String> = rules_from_lists(&["data/brave/brave-main-list.txt"]).collect();
+        let (network_filters, cosmetic_filters) =
+            parse_filters(rules.clone(), false, Default::default());
+        let engine_from_vec = Engine::from_filter_set(
+            FilterSet::new_with_rules(network_filters, cosmetic_filters, false),
+            true,
+        );
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(rules, Default::default());
+        let engine_streaming = Engine::from_filter_set(filter_set, true);
+
+        assert_eq!(
+            hash(&engine_from_vec.serialize()),
+            hash(&engine_streaming.serialize()),
+            "brave list vec and streaming paths should match"
+        );
+    }
+
+    #[test]
+    fn add_filter_list_incremental_matches_add_filters() {
+        use crate::Engine;
+        use seahash::hash;
+
+        let rules = [
+            "||ads.example.com^",
+            "||tracker.example.com^",
+            "example.org##.ad",
+            "@@||allowed.example.com^",
+        ];
+        let list_text = rules.join("\n");
+
+        let mut from_filters = FilterSet::new(false);
+        from_filters.add_filters(rules, Default::default());
+
+        let mut from_list = FilterSet::new(false);
+        from_list.add_filter_list(&list_text, Default::default());
+
+        assert_eq!(
+            from_filters.cosmetic_filters.len(),
+            from_list.cosmetic_filters.len()
+        );
+        assert_eq!(
+            from_filters
+                .compilation
+                .as_ref()
+                .unwrap()
+                .network_rules
+                .rule_count(),
+            from_list
+                .compilation
+                .as_ref()
+                .unwrap()
+                .network_rules
+                .rule_count()
+        );
+
+        let engine_filters = Engine::from_filter_set(from_filters, true);
+        let engine_list = Engine::from_filter_set(from_list, true);
+
+        assert_eq!(
+            hash(&engine_filters.serialize()),
+            hash(&engine_list.serialize()),
+            "add_filter_list and add_filters should produce identical engines"
+        );
+    }
+
+    #[test]
+    fn add_filter_list_badfilter_prescan_skips_invalidated_rule() {
+        use crate::request::Request;
+        use crate::Engine;
+
+        let list = "! Title\n||ads.example.com^\n||ads.example.com^$badfilter\n";
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(list, Default::default());
+
+        let engine = Engine::from_filter_set(filter_set, true);
+        let request = Request::new(
+            "https://ads.example.com/track.js",
+            "https://publisher.com",
+            "script",
+        )
+        .unwrap();
+
+        assert!(
+            !engine.check_network_request(&request).matched,
+            "badfilter prescan should invalidate the earlier blocking rule"
+        );
+    }
+
+    #[test]
+    fn add_filters_badfilter_removes_incrementally_routed_rule() {
+        use crate::request::Request;
+        use crate::Engine;
+
+        let rules = ["||ads.example.com^", "||ads.example.com^$badfilter"];
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(rules, Default::default());
+
+        let engine = Engine::from_filter_set(filter_set, true);
+        let request = Request::new(
+            "https://ads.example.com/track.js",
+            "https://publisher.com",
+            "script",
+        )
+        .unwrap();
+
+        assert!(
+            !engine.check_network_request(&request).matched,
+            "retroactive badfilter should remove the routed rule"
+        );
+    }
+
+    #[test]
+    fn filter_set_clone_preserves_rules_after_filter_list_engine() {
+        use crate::request::Request;
+        use crate::Engine;
+
+        let list = "||blocked.example.com^\n";
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(list, Default::default());
+        let cloned = filter_set.clone();
+        let _engine = Engine::from_filter_set(filter_set, true);
+
+        let mut extended = cloned;
+        extended
+            .add_filter("||also-blocked.example.com^", Default::default())
+            .unwrap();
+        let engine = Engine::from_filter_set(extended, true);
+
+        let blocked = Request::new(
+            "https://also-blocked.example.com/a.js",
+            "https://page.com",
+            "script",
+        )
+        .unwrap();
+        assert!(engine.check_network_request(&blocked).matched);
+    }
+
+    #[test]
+    fn incremental_compilation_without_optimize_matches_vec_path() {
+        use crate::Engine;
+        use seahash::hash;
+
+        let rules = [
+            "||ads.example.com^",
+            "||tracker.example.com^",
+            "example.org##.ad",
+        ];
+
+        let (network_filters, cosmetic_filters) = parse_filters(rules, false, Default::default());
+        let engine_from_vec = Engine::from_filter_set(
+            FilterSet::new_with_rules(network_filters, cosmetic_filters, false),
+            false,
+        );
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(rules, Default::default());
+        let engine_incremental = Engine::from_filter_set(filter_set, false);
+
+        assert_eq!(
+            hash(&engine_from_vec.serialize()),
+            hash(&engine_incremental.serialize()),
+            "optimize=false should match between vec and incremental paths"
+        );
+    }
+
+    #[test]
+    fn network_rules_routes_filters_to_specialized_lists() {
+        use crate::filters::fb_network_builder::NetworkFilterListId;
+
+        let rules = [
+            "||blocked.example.com^",
+            "@@||allowed.example.com^",
+            "||important.example.com^$important",
+            "@@||gh.example.com^$generichide",
+            "||csp.example.com^$csp=script-src 'none'",
+            "||tagged.example.com^$tag=foo",
+            "||remove.example.com^$removeparam=utm",
+            "||redirect.example.com^$redirect-rule=noop.js",
+        ];
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(rules, Default::default());
+        let network_rules = &filter_set.compilation.as_ref().unwrap().network_rules;
+
+        assert_eq!(network_rules.rule_count(), 8);
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::Filters),
+            1
+        );
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::Exceptions),
+            1
+        );
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::Importants),
+            1
+        );
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::GenericHide),
+            1
+        );
+        assert_eq!(network_rules.list_rule_count(NetworkFilterListId::Csp), 1);
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::TaggedFiltersAll),
+            1
+        );
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::RemoveParam),
+            1
+        );
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::Redirects),
+            1
+        );
+    }
+
+    #[test]
+    fn redirect_with_also_block_routes_to_filters_and_redirects() {
+        use crate::filters::fb_network_builder::NetworkFilterListId;
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filters(
+            ["||redirect.example.com^$redirect=noop.js"],
+            Default::default(),
+        );
+        let network_rules = &filter_set.compilation.as_ref().unwrap().network_rules;
+
+        assert_eq!(network_rules.rule_count(), 2);
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::Redirects),
+            1
+        );
+        assert_eq!(
+            network_rules.list_rule_count(NetworkFilterListId::Filters),
+            1
+        );
+    }
+
+    #[test]
+    fn debug_filter_set_keeps_vec_instead_of_compilation() {
+        let mut filter_set = FilterSet::new(true);
+        filter_set.add_filters(["||debug.example.com^"], Default::default());
+
+        assert!(filter_set.compilation.is_none());
+        assert_eq!(filter_set.network_filters.len(), 1);
+    }
+
+    #[test]
+    fn add_filter_list_reads_metadata_without_scanning_whole_list() {
+        let list = "! Title: Example\n! Expires: 2 days\n||ads.example.com^\n";
+        let mut filter_set = FilterSet::new(false);
+        let metadata = filter_set.add_filter_list(list, Default::default());
+
+        assert_eq!(metadata.title, Some("Example".to_string()));
+        assert_eq!(metadata.expires, Some(ExpiresInterval::Days(2)));
+    }
+
+    #[test]
+    fn network_only_add_filter_list_skips_cosmetic_rules() {
+        let list = "||ads.example.com^\nexample.org##.ad-banner\n";
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(
+            list,
+            ParseOptions {
+                rule_types: RuleTypes::NetworkOnly,
+                ..Default::default()
+            },
+        );
+
+        assert!(filter_set.cosmetic_filters.is_empty());
+        assert_eq!(
+            filter_set
+                .compilation
+                .as_ref()
+                .unwrap()
+                .network_rules
+                .rule_count(),
+            1
+        );
+    }
 }

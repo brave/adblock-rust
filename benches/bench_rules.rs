@@ -78,6 +78,12 @@ fn list_parse(c: &mut Criterion) {
     group.finish();
 }
 
+fn get_engine_from_filter_set(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
+    let mut filter_set = FilterSet::new(false);
+    filter_set.add_filters(rules, Default::default());
+    Engine::from_filter_set(filter_set, true)
+}
+
 fn get_engine(rules: impl IntoIterator<Item = impl AsRef<str>>) -> Engine {
     let (network_filters, cosmetic_filters) =
         adblock::lists::parse_filters(rules, false, Default::default());
@@ -100,12 +106,16 @@ fn blocker_new(c: &mut Criterion) {
     ])
     .collect();
     let brave_list_rules: Vec<_> = rules_from_lists(&["data/brave/brave-main-list.txt"]).collect();
+    let brave_list_rules_for_filter_set = brave_list_rules.clone();
     let engine = Engine::from_rules(&brave_list_rules, Default::default());
     let engine_serialized = engine.serialize().to_vec();
 
     group.bench_function("el+ep", move |b| b.iter(|| get_engine(&easylist_rules)));
     group.bench_function("brave-list", move |b| {
         b.iter(|| get_engine(&brave_list_rules))
+    });
+    group.bench_function("brave-list-filter-set", move |b| {
+        b.iter(|| get_engine_from_filter_set(&brave_list_rules_for_filter_set))
     });
     group.bench_function("brave-list-deserialize", move |b| {
         b.iter(|| {

@@ -248,6 +248,59 @@ mod tests {
     }
 
     #[test]
+    fn from_filter_list_matches_filter_set_path() {
+        use crate::FilterSet;
+        use seahash::hash;
+
+        let list = "! Title: Test\n||ads.example.com^\nexample.org##.ad\n";
+        let engine_from_list = Engine::from_filter_list(list, Default::default(), true);
+
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(list, Default::default());
+        let engine_from_set = Engine::from_filter_set(filter_set, true);
+
+        assert_eq!(
+            hash(&engine_from_list.serialize()),
+            hash(&engine_from_set.serialize()),
+            "from_filter_list should match FilterSet incremental path"
+        );
+    }
+
+    #[test]
+    fn from_filter_list_network_skips_cosmetic_rules() {
+        use crate::lists::RuleTypes;
+
+        let list = "||ads.example.com^\nexample.org##.ad-banner\n";
+        let engine = Engine::from_filter_list_network(
+            list,
+            ParseOptions {
+                rule_types: RuleTypes::NetworkOnly,
+                ..Default::default()
+            },
+            true,
+        );
+
+        let request = Request::new(
+            "https://ads.example.com/track.js",
+            "https://publisher.com",
+            "script",
+        )
+        .unwrap();
+
+        assert!(engine.check_network_request(&request).matched);
+
+        let hidden = engine.hidden_class_id_selectors(
+            ["ad-banner"],
+            std::iter::empty::<&str>(),
+            &std::collections::HashSet::new(),
+        );
+        assert!(
+            hidden.is_empty(),
+            "network-only engine should not include cosmetic selectors"
+        );
+    }
+
+    #[test]
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::from_rules(
             ["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"],

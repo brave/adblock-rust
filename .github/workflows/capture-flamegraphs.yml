@@ -1,0 +1,68 @@
+# Capture CPU flamegraphs for issue #541 PR evidence.
+# Trigger: gh workflow run capture-flamegraphs.yml -R Tilzen/adblock-rust
+name: Capture flamegraphs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-flamegraphs:
+    name: CPU flamegraphs (master vs PR)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: perf/incremental-filter-set-compilation
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install perf and flamegraph
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linux-tools-common linux-tools-generic librsvg2-bin
+          sudo sysctl -w kernel.perf_event_paranoid=1
+          cargo install flamegraph --locked
+
+      - name: Prepare profiling harness
+        run: |
+          mkdir -p examples docs/perf/issue-541/images
+          git show perf/incremental-filter-set-compilation:examples/profile_brave_list_cpu.rs \
+            > examples/profile_brave_list_cpu.rs
+
+      - name: Capture master CPU flamegraph
+        run: |
+          git checkout master
+          git show perf/incremental-filter-set-compilation:examples/profile_brave_list_cpu.rs \
+            > examples/profile_brave_list_cpu.rs
+          CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
+            --example profile_brave_list_cpu \
+            --output docs/perf/issue-541/images/cpu-before.svg
+
+      - name: Capture PR CPU flamegraph
+        run: |
+          rm -f examples/profile_brave_list_cpu.rs
+          git checkout perf/incremental-filter-set-compilation
+          git show perf/incremental-filter-set-compilation:examples/profile_brave_list_cpu.rs \
+            > examples/profile_brave_list_cpu.rs
+          CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
+            --example profile_brave_list_cpu \
+            --output docs/perf/issue-541/images/cpu-after.svg
+          rsvg-convert -w 1400 docs/perf/issue-541/images/cpu-before.svg \
+            -o docs/perf/issue-541/images/cpu-before.png
+          rsvg-convert -w 1400 docs/perf/issue-541/images/cpu-after.svg \
+            -o docs/perf/issue-541/images/cpu-after.png
+
+      - name: Upload flamegraph artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: issue-541-flamegraphs
+          path: |
+            docs/perf/issue-541/images/cpu-before.svg
+            docs/perf/issue-541/images/cpu-after.svg
+            docs/perf/issue-541/images/cpu-before.png
+            docs/perf/issue-541/images/cpu-after.png
+          if-no-files-found: error

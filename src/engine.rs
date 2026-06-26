@@ -81,6 +81,42 @@ impl Engine {
         Self::from_filter_set(filter_set, true)
     }
 
+    /// Loads network rules only, skipping cosmetic filters during parsing.
+    ///
+    /// Useful for Shields startup when cosmetic rules will be loaded separately or are not
+    /// needed immediately. Reduces peak memory for large lists such as `brave-main-list.txt`.
+    pub fn from_rules_network(
+        rules: impl IntoIterator<Item = impl AsRef<str>>,
+        opts: ParseOptions,
+    ) -> Self {
+        Self::from_rules(
+            rules,
+            ParseOptions {
+                rule_types: crate::lists::RuleTypes::NetworkOnly,
+                ..opts
+            },
+        )
+    }
+
+    /// Loads a full filter list string using the Shields-style API (`add_filter_list`).
+    pub fn from_filter_list(filter_list: &str, opts: ParseOptions, optimize: bool) -> Self {
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(filter_list, opts);
+        Self::from_filter_set(filter_set, optimize)
+    }
+
+    /// Network-only variant of [`Self::from_filter_list`].
+    pub fn from_filter_list_network(filter_list: &str, opts: ParseOptions, optimize: bool) -> Self {
+        Self::from_filter_list(
+            filter_list,
+            ParseOptions {
+                rule_types: crate::lists::RuleTypes::NetworkOnly,
+                ..opts
+            },
+            optimize,
+        )
+    }
+
     /// Loads rules, enabling optimizations and including debug information.
     pub fn from_rules_debug(
         rules: impl IntoIterator<Item = impl AsRef<str>>,
@@ -113,13 +149,11 @@ impl Engine {
     /// Loads rules from the given `FilterSet`. It is recommended to use a `FilterSet` when adding
     /// rules from multiple sources.
     pub fn from_filter_set(set: FilterSet, optimize: bool) -> Self {
-        let FilterSet {
-            network_filters,
-            cosmetic_filters,
-            ..
-        } = set;
-
-        let memory = make_flatbuffer(network_filters, cosmetic_filters, optimize);
+        let memory = if let Some(compilation) = set.compilation {
+            make_flatbuffer_from_compilation(compilation, set.cosmetic_filters, optimize)
+        } else {
+            make_flatbuffer(set.network_filters, set.cosmetic_filters, optimize)
+        };
 
         let filter_data_context = FilterDataContext::new(memory);
 
@@ -341,6 +375,24 @@ fn make_flatbuffer(
     let cosmetic_rules = CosmeticFilterCacheBuilder::from_rules(cosmetic_filters, &mut builder);
     let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut builder);
     builder.finish(network_rules, cosmetic_rules)
+}
+
+fn make_flatbuffer_from_compilation(
+    mut compilation: crate::lists::FilterSetCompilation,
+    mut cosmetic_filters: Vec<CosmeticFilter>,
+    optimize: bool,
+) -> VerifiedFlatbufferMemory {
+    compilation.network_rules.set_optimize(optimize);
+
+    let network_rules =
+        FlatSerialize::serialize(compilation.network_rules, &mut compilation.flat_builder);
+    cosmetic_filters.shrink_to_fit();
+    let cosmetic_rules =
+        CosmeticFilterCacheBuilder::from_rules(cosmetic_filters, &mut compilation.flat_builder);
+    let cosmetic_rules = FlatSerialize::serialize(cosmetic_rules, &mut compilation.flat_builder);
+    compilation
+        .flat_builder
+        .finish(network_rules, cosmetic_rules)
 }
 
 #[cfg(test)]

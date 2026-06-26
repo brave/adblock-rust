@@ -95,6 +95,18 @@ impl<I, V> Default for FlatMultiMapBuilder<I, V> {
     }
 }
 
+impl<I, V> Clone for FlatMultiMapBuilder<I, V>
+where
+    I: Clone,
+    V: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            entries: self.entries.clone(),
+        }
+    }
+}
+
 impl<I: Ord + std::hash::Hash, V> FlatMultiMapBuilder<I, V> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {

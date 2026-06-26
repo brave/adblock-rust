@@ -35,6 +35,7 @@ pub(crate) struct NetworkFilterListBuilder {
     optimize: bool,
 }
 
+#[derive(Clone)]
 pub(crate) struct NetworkRulesBuilder {
     lists: Vec<NetworkFilterListBuilder>,
 }
@@ -137,52 +138,47 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
         let mut token_frequencies = TokenSelector::new(rule_list.filters.len());
         let mut tokens_buffer = TokensBuffer::default();
 
-        {
-            for network_filter in rule_list.filters {
-                let flat_filter = if !rule_list.optimize
-                    || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
-                {
-                    Some(FlatSerialize::serialize(&network_filter, builder))
+        for network_filter in rule_list.filters {
+            let flat_filter = if !rule_list.optimize
+                || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
+            {
+                Some(FlatSerialize::serialize(&network_filter, builder))
+            } else {
+                None
+            };
+
+            let mut store_filter = |token: Hash| {
+                let short_token = to_short_hash(token);
+                if let Some(flat_filter) = flat_filter {
+                    filter_map_builder.insert(short_token, flat_filter);
                 } else {
-                    None
-                };
+                    optimizable
+                        .entry(short_token)
+                        .or_default()
+                        .push(network_filter.clone());
+                }
+            };
 
-                let mut store_filter = |token: Hash| {
-                    let short_token = to_short_hash(token);
-                    if let Some(flat_filter) = flat_filter {
-                        filter_map_builder.insert(short_token, flat_filter);
-                    } else {
-                        optimizable
-                            .entry(short_token)
-                            .or_default()
-                            .push(network_filter.clone());
+            let multi_tokens = network_filter.get_tokens(&mut tokens_buffer);
+            match multi_tokens {
+                FilterTokens::Empty => {
+                    store_filter(0);
+                }
+                FilterTokens::OptDomains(opt_domains) => {
+                    for &token in opt_domains.iter() {
+                        store_filter(token);
+                        token_frequencies.record_usage(token);
                     }
-                };
-
-                let multi_tokens = network_filter.get_tokens(&mut tokens_buffer);
-                match multi_tokens {
-                    FilterTokens::Empty => {
-                        // No tokens, add to fallback bucket (token 0)
-                        store_filter(0);
-                    }
-                    FilterTokens::OptDomains(opt_domains) => {
-                        // For OptDomains, each domain is treated as a separate token group
-                        for &token in opt_domains.iter() {
-                            store_filter(token);
-                            token_frequencies.record_usage(token);
-                        }
-                    }
-                    FilterTokens::Other(tokens) => {
-                        let best_token = token_frequencies.select_least_used_token(tokens);
-                        token_frequencies.record_usage(best_token);
-                        store_filter(best_token);
-                    }
+                }
+                FilterTokens::Other(tokens) => {
+                    let best_token = token_frequencies.select_least_used_token(tokens);
+                    token_frequencies.record_usage(best_token);
+                    store_filter(best_token);
                 }
             }
         }
 
         if rule_list.optimize {
-            // Sort the entries to ensure deterministic iteration order
             let mut optimizable_entries: Vec<_> = optimizable.drain().collect();
             optimizable_entries.sort_unstable_by_key(|(token, _)| *token);
 
@@ -214,18 +210,84 @@ impl<'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilterListBuilder {
 }
 
 impl NetworkRulesBuilder {
+    pub fn new_incremental() -> Self {
+        let lists = (0..NetworkFilterListId::Size as usize)
+            .map(|_| NetworkFilterListBuilder::new(false))
+            .collect();
+        Self { lists }
+    }
+
+    pub fn set_optimize(&mut self, optimize: bool) {
+        for (i, list) in self.lists.iter_mut().enumerate() {
+            list.optimize = optimize && i != NetworkFilterListId::RemoveParam as usize;
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn rule_count(&self) -> usize {
+        self.lists.iter().map(|list| list.filters.len()).sum()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn list_rule_count(&self, list_id: NetworkFilterListId) -> usize {
+        self.lists[list_id as usize].filters.len()
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        let per_list = additional / NetworkFilterListId::Size as usize;
+        for list in &mut self.lists {
+            list.filters.reserve(per_list);
+        }
+    }
+
+    pub fn remove_by_filter_id(&mut self, filter_id: Hash) {
+        for list in &mut self.lists {
+            list.filters.retain(|f| f.get_id() != filter_id);
+        }
+    }
+
+    pub fn compact(&mut self) {
+        for list in &mut self.lists {
+            list.filters.shrink_to_fit();
+        }
+    }
+
+    pub fn add_routed_network_filter(&mut self, filter: NetworkFilter) {
+        if filter.is_redirect() {
+            self.add_filter(filter.clone(), NetworkFilterListId::Redirects);
+        }
+
+        let list_id = if filter.is_csp() {
+            NetworkFilterListId::Csp
+        } else if filter.is_removeparam() {
+            NetworkFilterListId::RemoveParam
+        } else if filter.is_generic_hide() {
+            NetworkFilterListId::GenericHide
+        } else if filter.is_exception() {
+            NetworkFilterListId::Exceptions
+        } else if filter.is_important() {
+            NetworkFilterListId::Importants
+        } else if filter.tag.is_some() && !filter.is_redirect() {
+            NetworkFilterListId::TaggedFiltersAll
+        } else if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
+            NetworkFilterListId::Filters
+        } else {
+            return;
+        };
+
+        self.add_filter(filter, list_id);
+    }
+
     pub fn from_rules(network_filters: Vec<NetworkFilter>, optimize: bool) -> Self {
         let mut lists = vec![];
         for list_id in 0..NetworkFilterListId::Size as usize {
-            // Don't optimize removeparam, since it can fuse filters without respecting distinct
-            let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
-            lists.push(NetworkFilterListBuilder::new(optimize));
+            let list_optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
+            lists.push(NetworkFilterListBuilder::new(list_optimize));
         }
         let mut self_ = Self { lists };
 
         let mut badfilter_ids: HashSet<Hash> = HashSet::new();
 
-        // Collect badfilter ids in advance.
         for filter in network_filters.iter() {
             if filter.is_badfilter() {
                 badfilter_ids.insert(filter.get_id_without_badfilter());
@@ -233,40 +295,12 @@ impl NetworkRulesBuilder {
         }
 
         for filter in network_filters.into_iter() {
-            // skip any bad filters
             let filter_id = filter.get_id();
             if badfilter_ids.contains(&filter_id) || filter.is_badfilter() {
                 continue;
             }
 
-            // Redirects are independent of blocking behavior.
-            if filter.is_redirect() {
-                self_.add_filter(filter.clone(), NetworkFilterListId::Redirects);
-            }
-            type FilterId = NetworkFilterListId;
-
-            let list_id: FilterId = if filter.is_csp() {
-                FilterId::Csp
-            } else if filter.is_removeparam() {
-                FilterId::RemoveParam
-            } else if filter.is_generic_hide() {
-                FilterId::GenericHide
-            } else if filter.is_exception() {
-                FilterId::Exceptions
-            } else if filter.is_important() {
-                FilterId::Importants
-            } else if filter.tag.is_some() && !filter.is_redirect() {
-                // `tag` + `redirect` is unsupported for now.
-                FilterId::TaggedFiltersAll
-            } else if (filter.is_redirect() && filter.also_block_redirect())
-                || !filter.is_redirect()
-            {
-                FilterId::Filters
-            } else {
-                continue;
-            };
-
-            self_.add_filter(filter, list_id);
+            self_.add_routed_network_filter(filter);
         }
 
         self_

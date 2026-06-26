@@ -241,10 +241,19 @@ fn bench_cb(
     metric: MemoryAllocated,
     b: &mut Bencher<MemoryAllocated>,
 ) {
+    bench_cb_with_opts(run_requests, metric, b, Default::default());
+}
+
+fn bench_cb_with_opts(
+    run_requests: &[&TestRequest],
+    metric: MemoryAllocated,
+    b: &mut Bencher<MemoryAllocated>,
+    opts: adblock::lists::ParseOptions,
+) {
     let single_run = || {
         ALLOCATOR.reset();
         let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-        let mut engine = Engine::from_rules(rules, Default::default());
+        let mut engine = Engine::from_rules(rules, opts);
         let resource_json = std::fs::read_to_string("data/brave/brave-resources.json").unwrap();
         let resource_list: Vec<Resource> = serde_json::from_str(&resource_json).unwrap();
         std::mem::drop(resource_json);
@@ -291,6 +300,17 @@ fn bench_max_memory_usage(c: &mut Criterion<MemoryAllocated>) {
     let mut group = c.benchmark_group("memory-usage-max");
     group.bench_function("brave-list-initial/max", |b| {
         bench_cb(&[], MemoryAllocated::Max, b)
+    });
+    group.bench_function("brave-list-network-only/max", |b| {
+        bench_cb_with_opts(
+            &[],
+            MemoryAllocated::Max,
+            b,
+            adblock::lists::ParseOptions {
+                rule_types: adblock::lists::RuleTypes::NetworkOnly,
+                ..Default::default()
+            },
+        )
     });
     group.finish();
 }

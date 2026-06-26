@@ -1,10 +1,14 @@
 //! Parsing functions and collections for handling with multiple filter rules.
 
+use std::collections::HashSet;
 use std::convert::TryFrom;
 
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterError};
-use crate::filters::network::{NetworkFilter, NetworkFilterError};
+use crate::filters::fb_builder::EngineFlatBuilder;
+use crate::filters::fb_network_builder::NetworkRulesBuilder;
+use crate::filters::network::{NetworkFilter, NetworkFilterError, NetworkFilterMaskHelper};
 use crate::resources::PermissionMask;
+use crate::utils::Hash;
 
 use itertools::{Either, Itertools};
 use memchr::memchr as find_char;
@@ -74,11 +78,77 @@ impl Default for ParseOptions {
 /// To be able to efficiently handle special options like `$badfilter`, and to allow optimizations,
 /// all rules must be available when the `Engine` is first created. `FilterSet` allows assembling a
 /// compound list from multiple different sources before compiling the rules into an `Engine`.
-#[derive(Clone)]
 pub struct FilterSet {
     debug: bool,
     pub(crate) network_filters: Vec<NetworkFilter>,
     pub(crate) cosmetic_filters: Vec<CosmeticFilter>,
+    /// Incremental flatbuffer compilation state. Used when `debug` is false to avoid holding
+    /// duplicate copies of parsed network filters before engine compilation.
+    pub(crate) compilation: Option<FilterSetCompilation>,
+}
+
+/// Holds partially compiled filter state while rules are being added incrementally.
+pub(crate) struct FilterSetCompilation {
+    pub flat_builder: EngineFlatBuilder<'static>,
+    /// Network rules routed into lists during load, serialized directly at engine compilation.
+    pub network_rules: NetworkRulesBuilder,
+    pub badfilter_ids: HashSet<Hash>,
+}
+
+impl FilterSetCompilation {
+    fn new() -> Self {
+        Self {
+            flat_builder: EngineFlatBuilder::default(),
+            network_rules: NetworkRulesBuilder::new_incremental(),
+            badfilter_ids: HashSet::new(),
+        }
+    }
+
+    fn reserve_network(&mut self, additional: usize) {
+        self.network_rules.reserve(additional);
+    }
+
+    fn push_network(&mut self, network_filter: NetworkFilter) {
+        if network_filter.is_badfilter() || self.badfilter_ids.contains(&network_filter.get_id()) {
+            return;
+        }
+        self.network_rules.add_routed_network_filter(network_filter);
+    }
+
+    fn try_push_network(&mut self, network_filter: NetworkFilter) {
+        if network_filter.is_badfilter() {
+            let invalidated_id = network_filter.get_id_without_badfilter();
+            self.badfilter_ids.insert(invalidated_id);
+            self.network_rules.remove_by_filter_id(invalidated_id);
+            return;
+        }
+        if self.badfilter_ids.contains(&network_filter.get_id()) {
+            return;
+        }
+        self.network_rules.add_routed_network_filter(network_filter);
+    }
+
+    fn compact(&mut self) {
+        self.network_rules.compact();
+        self.badfilter_ids.shrink_to_fit();
+    }
+}
+
+impl Clone for FilterSet {
+    fn clone(&self) -> Self {
+        let compilation = self.compilation.as_ref().map(|c| FilterSetCompilation {
+            flat_builder: EngineFlatBuilder::default(),
+            network_rules: c.network_rules.clone(),
+            badfilter_ids: c.badfilter_ids.clone(),
+        });
+
+        Self {
+            debug: self.debug,
+            network_filters: self.network_filters.clone(),
+            cosmetic_filters: self.cosmetic_filters.clone(),
+            compilation,
+        }
+    }
 }
 
 /// Collects metadata for the list by reading just until the first non-comment line.
@@ -223,6 +293,11 @@ impl FilterSet {
             debug,
             network_filters: Vec::new(),
             cosmetic_filters: Vec::new(),
+            compilation: if debug {
+                None
+            } else {
+                Some(FilterSetCompilation::new())
+            },
         }
     }
 
@@ -237,6 +312,7 @@ impl FilterSet {
             debug,
             network_filters,
             cosmetic_filters,
+            compilation: None,
         }
     }
 
@@ -244,7 +320,42 @@ impl FilterSet {
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
     pub fn add_filter_list(&mut self, filter_list: &str, opts: ParseOptions) -> FilterListMetadata {
-        self.add_filters(filter_list.lines(), opts)
+        let metadata = read_list_metadata(filter_list);
+
+        if self.debug {
+            return self.add_filters_with_metadata(filter_list.lines(), opts, metadata);
+        }
+
+        if let Some(compilation) = self.compilation.as_mut() {
+            let line_count = filter_list.lines().count();
+            if opts.rule_types.loads_network_rules() {
+                compilation.reserve_network(line_count.saturating_mul(8) / 10);
+            }
+            if opts.rule_types.loads_cosmetic_rules() {
+                self.cosmetic_filters
+                    .reserve(line_count.saturating_mul(2) / 10);
+            }
+            extend_badfilter_ids(&mut compilation.badfilter_ids, filter_list.lines(), opts);
+        }
+
+        for line in filter_list.lines() {
+            if let Some(Ok(filter)) = try_parse_filter_line(line, self.debug, opts) {
+                match filter {
+                    ParsedFilter::Network(network_filter) => {
+                        if let Some(compilation) = self.compilation.as_mut() {
+                            compilation.push_network(network_filter);
+                        }
+                    }
+                    ParsedFilter::Cosmetic(cosmetic_filter) => {
+                        self.cosmetic_filters.push(cosmetic_filter);
+                    }
+                }
+            }
+        }
+
+        self.compact_loaded_filters();
+
+        metadata
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
@@ -254,18 +365,65 @@ impl FilterSet {
         filters: impl IntoIterator<Item = impl AsRef<str>>,
         opts: ParseOptions,
     ) -> FilterListMetadata {
-        let (metadata, parsed_network_filters, parsed_cosmetic_filters) =
-            parse_filters_with_metadata(filters, self.debug, opts);
-        self.network_filters.extend(parsed_network_filters);
-        self.cosmetic_filters.extend(parsed_cosmetic_filters);
+        self.add_filters_with_metadata(filters, opts, FilterListMetadata::default())
+    }
+
+    fn add_filters_with_metadata(
+        &mut self,
+        filters: impl IntoIterator<Item = impl AsRef<str>>,
+        opts: ParseOptions,
+        mut metadata: FilterListMetadata,
+    ) -> FilterListMetadata {
+        if self.debug {
+            let (parsed_network_filters, parsed_cosmetic_filters) =
+                collect_parsed_filters(filters, self.debug, opts, &mut metadata);
+            self.network_filters.extend(parsed_network_filters);
+            self.cosmetic_filters.extend(parsed_cosmetic_filters);
+            return metadata;
+        }
+
+        for line in filters {
+            let line = line.as_ref();
+            metadata.try_add(line);
+            if let Some(Ok(filter)) = try_parse_filter_line(line, self.debug, opts) {
+                match filter {
+                    ParsedFilter::Network(network_filter) => {
+                        if let Some(compilation) = self.compilation.as_mut() {
+                            compilation.try_push_network(network_filter);
+                        }
+                    }
+                    ParsedFilter::Cosmetic(cosmetic_filter) => {
+                        self.cosmetic_filters.push(cosmetic_filter);
+                    }
+                }
+            }
+        }
+
+        self.compact_loaded_filters();
+
         metadata
+    }
+
+    fn compact_loaded_filters(&mut self) {
+        self.cosmetic_filters.shrink_to_fit();
+        if self.debug {
+            self.network_filters.shrink_to_fit();
+        } else if let Some(compilation) = self.compilation.as_mut() {
+            compilation.compact();
+        }
     }
 
     /// Adds the string representation of a single filter rule to this `FilterSet`.
     pub fn add_filter(&mut self, filter: &str, opts: ParseOptions) -> Result<(), FilterParseError> {
         let filter_parsed = parse_filter(filter, self.debug, opts);
         match filter_parsed? {
-            ParsedFilter::Network(filter) => self.network_filters.push(filter),
+            ParsedFilter::Network(filter) => {
+                if self.debug {
+                    self.network_filters.push(filter);
+                } else if let Some(compilation) = self.compilation.as_mut() {
+                    compilation.try_push_network(filter);
+                }
+            }
             ParsedFilter::Cosmetic(filter) => self.cosmetic_filters.push(filter),
         }
         Ok(())
@@ -530,13 +688,58 @@ pub fn parse_filters_with_metadata(
     opts: ParseOptions,
 ) -> (FilterListMetadata, Vec<NetworkFilter>, Vec<CosmeticFilter>) {
     let mut metadata = FilterListMetadata::default();
+    let (network_filters, cosmetic_filters) =
+        collect_parsed_filters(list, debug, opts, &mut metadata);
+    (metadata, network_filters, cosmetic_filters)
+}
 
-    let list_iter = list.into_iter();
+fn extend_badfilter_ids(
+    badfilter_ids: &mut HashSet<Hash>,
+    lines: impl IntoIterator<Item = impl AsRef<str>>,
+    opts: ParseOptions,
+) {
+    for line in lines {
+        let line = line.as_ref();
+        if !line.contains("badfilter") {
+            continue;
+        }
+        if let Ok(ParsedFilter::Network(filter)) = parse_filter(line, false, opts) {
+            if filter.is_badfilter() {
+                badfilter_ids.insert(filter.get_id_without_badfilter());
+            }
+        }
+    }
+}
 
-    let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list_iter
-        .map(|line| {
+fn try_parse_filter_line(
+    line: &str,
+    debug: bool,
+    opts: ParseOptions,
+) -> Option<Result<ParsedFilter, FilterParseError>> {
+    let filter = line.trim();
+    if filter.is_empty() {
+        return None;
+    }
+
+    match detect_filter_type(filter) {
+        FilterType::NotSupported => None,
+        FilterType::Network if !opts.rule_types.loads_network_rules() => None,
+        FilterType::Cosmetic if !opts.rule_types.loads_cosmetic_rules() => None,
+        _ => Some(parse_filter(line, debug, opts)),
+    }
+}
+
+fn collect_parsed_filters(
+    list: impl IntoIterator<Item = impl AsRef<str>>,
+    debug: bool,
+    opts: ParseOptions,
+    metadata: &mut FilterListMetadata,
+) -> (Vec<NetworkFilter>, Vec<CosmeticFilter>) {
+    let (network_filters, cosmetic_filters): (Vec<_>, Vec<_>) = list
+        .into_iter()
+        .filter_map(|line| {
             metadata.try_add(line.as_ref());
-            parse_filter(line.as_ref(), debug, opts)
+            try_parse_filter_line(line.as_ref(), debug, opts)
         })
         .filter_map(Result::ok)
         .partition_map(|filter| match filter {
@@ -544,7 +747,7 @@ pub fn parse_filters_with_metadata(
             ParsedFilter::Cosmetic(f) => Either::Right(f),
         });
 
-    (metadata, network_filters, cosmetic_filters)
+    (network_filters, cosmetic_filters)
 }
 
 /// Given a single line, checks if this would likely be a cosmetic filter, a
