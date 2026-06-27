@@ -1076,7 +1076,7 @@ impl<'a> NetworkFilter<'a> {
 
     #[cfg(test)]
     pub(crate) fn matches_test(&self, request: &request::Request) -> bool {
-        let engine = crate::Engine::new_with_parsed_rules(vec![self.clone()], vec![], true);
+        let engine = crate::Engine::new_with_parsed_rules(vec![self.clone()], vec![]);
         if self.is_exception() {
             engine.check_network_request_exceptions(request)
         } else {

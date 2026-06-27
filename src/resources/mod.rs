@@ -59,7 +59,7 @@ use serde::{Deserialize, Serialize};
 ///     },
 /// );
 ///
-/// let mut engine = Engine::new_with_filter_set(filter_set, true);
+/// let mut engine = Engine::new_with_filter_set(filter_set);
 /// // The `trusted-set-cookie` scriptlet cannot be injected without `COOKIE_ACCESS`
 /// // permission.
 /// engine.use_resources([Resource {

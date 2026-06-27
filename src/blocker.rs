@@ -14,11 +14,6 @@ use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
 
-/// Options used when constructing a [`Blocker`].
-pub struct BlockerOptions {
-    pub enable_optimizations: bool,
-}
-
 /// Describes how a particular network request should be handled.
 #[derive(Debug, Serialize, Default)]
 pub struct BlockerResult {
@@ -450,27 +445,26 @@ impl Blocker {
     }
 
     #[cfg(test)]
-    pub fn new(
-        network_filters: impl IntoIterator<Item = impl AsRef<str>>,
-        options: &BlockerOptions,
-    ) -> Self {
-        use crate::engine::Engine;
-        use crate::FilterSet;
-
-        let mut filter_set = FilterSet::new(true);
+    pub fn new(network_filters: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+        let mut filter_set = crate::FilterSet::new(false);
         filter_set.add_filters(network_filters, Default::default());
-        let engine = Engine::new_with_filter_set(filter_set, options.enable_optimizations);
+        let engine = crate::engine::Engine::new_with_filter_set(filter_set);
         Self::from_context(engine.filter_data_context())
     }
 
     #[cfg(test)]
-    pub fn new_with_list_text(text: String, options: &BlockerOptions) -> Self {
-        use crate::engine::Engine;
-        use crate::FilterSet;
+    pub fn new_debug(network_filters: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+        let mut filter_set = crate::FilterSet::new(true);
+        filter_set.add_filters(network_filters, Default::default());
+        let engine = crate::engine::Engine::new_with_filter_set(filter_set);
+        Self::from_context(engine.filter_data_context())
+    }
 
-        let mut filter_set = FilterSet::new(true);
+    #[cfg(test)]
+    pub fn new_with_list_text(text: String) -> Self {
+        let mut filter_set = crate::FilterSet::new(false);
         filter_set.add_filter_list(text, Default::default());
-        let engine = Engine::new_with_filter_set(filter_set, options.enable_optimizations);
+        let engine = crate::engine::Engine::new_with_filter_set(filter_set);
         Self::from_context(engine.filter_data_context())
     }
 

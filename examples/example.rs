@@ -17,7 +17,7 @@ fn main() {
     let mut filter_set = FilterSet::new(debug_info);
     filter_set.add_filter_list(rules, ParseOptions::default());
 
-    let engine = Engine::new_with_filter_set(filter_set, true);
+    let engine = Engine::new_with_filter_set(filter_set);
 
     let request = Request::new(
         "http://example.com/-advertisement-icon.",

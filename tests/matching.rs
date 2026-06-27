@@ -59,11 +59,9 @@ fn check_filter_matching() {
 
     assert!(!requests.is_empty(), "List of parsed request info is empty");
 
-    let opts = ParseOptions::default();
-
     for req in requests {
         for filter in req.filters {
-            let network_filter_res = NetworkFilter::parse(&filter, true, opts);
+            let network_filter_res = NetworkFilter::parse(&filter, true, ParseOptions::default());
             assert!(
                 network_filter_res.is_ok(),
                 "Could not parse filter {filter}"
@@ -77,7 +75,7 @@ fn check_filter_matching() {
                     .set(NetworkFilterMask::IS_EXCEPTION, false);
                 filters.push(original_filter);
             }
-            let engine = adblock::Engine::new_with_parsed_rules(filters, vec![], true);
+            let engine = adblock::Engine::new_with_parsed_rules(filters, vec![]);
 
             let request_res = Request::new(&req.url, &req.sourceUrl, &req.r#type, "");
             // The dataset has cases where URL is set to just "http://" or "https://", which we do not support
@@ -119,12 +117,11 @@ fn check_engine_matching() {
             continue;
         }
         for filter in req.filters {
-            let opts = ParseOptions::default();
-            let mut engine = Engine::new_with_list_text(filter.clone(), opts);
+            let mut engine = Engine::new_with_list_text(filter.clone());
             let resources = build_resources_from_filters(std::slice::from_ref(&filter));
             engine.use_resources(resources);
 
-            let network_filter_res = NetworkFilter::parse(&filter, true, opts);
+            let network_filter_res = NetworkFilter::parse(&filter, true, ParseOptions::default());
             assert!(
                 network_filter_res.is_ok(),
                 "Could not parse filter {filter}"
@@ -213,7 +210,7 @@ fn check_rule_matching_browserlike() {
 
     let requests = load_requests();
     let rules = rules_from_lists(&["data/brave/brave-main-list.txt"]);
-    let engine = Engine::new_with_list_text(rules, Default::default());
+    let engine = Engine::new_with_list_text(rules);
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
         + "If this is expected, update the expected values in the test.";

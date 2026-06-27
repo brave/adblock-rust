@@ -97,7 +97,7 @@ fn get_redirect_rules() -> Vec<NetworkFilter<'static>> {
 
 /// Loads the supplied rules, and the test set of resources, into a Engine
 fn get_preloaded_engine(rules: Vec<NetworkFilter>) -> Engine {
-    Engine::new_with_parsed_rules(rules, vec![], true)
+    Engine::new_with_parsed_rules(rules, vec![])
 }
 
 fn get_resources_for_filters(#[allow(unused)] filters: &[NetworkFilter]) -> Vec<Resource> {

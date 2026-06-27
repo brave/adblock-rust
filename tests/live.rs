@@ -150,7 +150,7 @@ fn troubleshoot() {
 }
 
 fn get_blocker_engine() -> Engine {
-    let mut engine = Engine::new_with_filter_set(get_all_filters().clone(), true);
+    let mut engine = Engine::new_with_filter_set(get_all_filters().clone());
 
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
@@ -279,7 +279,7 @@ fn check_live_redirects() {
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
 fn stable_serialization_through_load() {
-    let engine1 = Engine::new_with_filter_set(get_all_filters().clone(), true);
+    let engine1 = Engine::new_with_filter_set(get_all_filters().clone());
     let ser1 = engine1.serialize().to_vec();
 
     let mut engine2 = Engine::default();
