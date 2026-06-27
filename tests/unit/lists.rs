@@ -427,25 +427,17 @@ mod tests {
             ));
         }
         {
+            // AdGuard `#$#` CSS injection is now parsed as a style action.
             let input = "nczas.com#$#.adsbygoogle { position: absolute!important; left: -3000px!important; }";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(
-                result,
-                Err(FilterParseError::Cosmetic(
-                    CosmeticFilterError::UnsupportedSyntax
-                ))
-            ));
+            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
         }
         {
+            // AdGuard `#@$#` is the exception form of CSS injection.
             let input =
                 "kurnik.pl#@$#.adsbygoogle { height: 1px !important; width: 1px !important; }";
             let result = parse_filter(input, true, Default::default());
-            assert!(matches!(
-                result,
-                Err(FilterParseError::Cosmetic(
-                    CosmeticFilterError::UnsupportedSyntax
-                ))
-            ));
+            assert!(matches!(result, Ok(ParsedFilter::Cosmetic(..))));
         }
     }
 }
