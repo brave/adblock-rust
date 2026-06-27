@@ -28,4 +28,5 @@ exports.FilterFormat = blocker.FilterFormat;
 exports.FilterSet = FilterSet;
 exports.RuleTypes = blocker.RuleTypes;
 exports.Engine = Engine;
+exports.parseFilter = blocker.parseFilter;
 exports.uBlockResources = blocker.uBlockResources;
