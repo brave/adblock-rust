@@ -154,6 +154,7 @@ impl<'a> CosmeticFilterCacheBuilder<'a> {
             (false, Some(selector), None) => Hide(selector),
             (true, Some(selector), None) => InjectScript((selector, rule.permission)),
             (false, selector, action) => ProceduralOrAction(
+                // ProceduralOrActionFilter only contains JSON-serializable fields
                 serde_json::to_string(&ProceduralOrActionFilter {
                     selector: selector
                         .map(|selector| vec![CosmeticFilterOperator::CssSelector(selector)])

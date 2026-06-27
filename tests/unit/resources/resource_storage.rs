@@ -339,6 +339,15 @@ mod scriptlet_storage_tests {
             resources.get_scriptlet_resource("", Default::default(), &mut vec![]),
             Err(ScriptletResourceError::MissingScriptletName),
         );
+        // Unclosed quote → parse_scriptlet_args returns None → InvalidScriptletArgs
+        assert_eq!(
+            resources.get_scriptlet_resource(
+                r#"greet, "unclosed"#,
+                Default::default(),
+                &mut vec![]
+            ),
+            Err(ScriptletResourceError::InvalidScriptletArgs),
+        );
 
         assert_eq!(
             resources.get_scriptlet_resources([(

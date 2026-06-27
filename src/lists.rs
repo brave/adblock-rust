@@ -305,46 +305,47 @@ impl FilterSet {
 
         let mut filters_used = vec![];
 
-        self.network_filters.into_iter().for_each(|filter| {
-            // Don't process bad filter rules or matching bad filter rules.
-            if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
-                return;
-            }
-            let original_rule = *filter
-                .raw_line
-                .clone()
-                .expect("All rules should be in debug mode");
-            if let Ok(equivalent) = TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
-            {
-                filters_used.push(original_rule);
-                equivalent
-                    .into_iter()
-                    .for_each(|cb_rule| match &cb_rule.action.typ {
+        self.network_filters
+            .into_iter()
+            .try_for_each(|filter| -> Result<(), ()> {
+                // Don't process bad filter rules or matching bad filter rules.
+                if bad_filter_ids.contains(&filter.get_id()) || filter.is_badfilter() {
+                    return Ok(());
+                }
+                let original_rule = *filter.raw_line.clone().ok_or(())?;
+                if let Ok(equivalent) =
+                    TryInto::<content_blocking::CbRuleEquivalent>::try_into(filter)
+                {
+                    filters_used.push(original_rule);
+                    equivalent
+                        .into_iter()
+                        .for_each(|cb_rule| match &cb_rule.action.typ {
+                            content_blocking::CbType::IgnorePreviousRules => {
+                                ignore_previous_rules.push(cb_rule)
+                            }
+                            _ => other_rules.push(cb_rule),
+                        });
+                }
+                Ok(())
+            })?;
+
+        let add_fp_document_exception = !filters_used.is_empty();
+
+        self.cosmetic_filters
+            .into_iter()
+            .try_for_each(|filter| -> Result<(), ()> {
+                let original_rule = *filter.raw_line.clone().ok_or(())?;
+                if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
+                    filters_used.push(original_rule);
+                    match &cb_rule.action.typ {
                         content_blocking::CbType::IgnorePreviousRules => {
                             ignore_previous_rules.push(cb_rule)
                         }
                         _ => other_rules.push(cb_rule),
-                    });
-            }
-        });
-
-        let add_fp_document_exception = !filters_used.is_empty();
-
-        self.cosmetic_filters.into_iter().for_each(|filter| {
-            let original_rule = *filter
-                .raw_line
-                .clone()
-                .expect("All rules should be in debug mode");
-            if let Ok(cb_rule) = TryInto::<content_blocking::CbRule>::try_into(filter) {
-                filters_used.push(original_rule);
-                match &cb_rule.action.typ {
-                    content_blocking::CbType::IgnorePreviousRules => {
-                        ignore_previous_rules.push(cb_rule)
                     }
-                    _ => other_rules.push(cb_rule),
                 }
-            }
-        });
+                Ok(())
+            })?;
 
         other_rules.extend(ignore_previous_rules);
 
