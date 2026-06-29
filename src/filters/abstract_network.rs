@@ -169,7 +169,7 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
         );
 
         result.push(match (option, negation) {
-            ("domain", _) | ("from", _) => {
+            ("domain" | "from", _) => {
                 let domains: Vec<(bool, String)> = value
                     .split('|')
                     .map(|domain| {
@@ -192,8 +192,8 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
             ("important", false) => NetworkFilterOption::Important,
             ("match-case", true) => return Err(NetworkFilterError::NegatedOptionMatchCase),
             ("match-case", false) => NetworkFilterOption::MatchCase,
-            ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
-            ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
+            ("third-party" | "3p", negated) => NetworkFilterOption::ThirdParty(!negated),
+            ("first-party" | "1p", negated) => NetworkFilterOption::FirstParty(!negated),
             ("tag", true) => return Err(NetworkFilterError::NegatedTag),
             ("tag", false) => NetworkFilterOption::Tag(String::from(value)),
             ("redirect", true) => return Err(NetworkFilterError::NegatedRedirection),
@@ -228,27 +228,19 @@ fn parse_filter_options(raw_options: &str) -> Result<Vec<NetworkFilterOption>, N
                 }
                 NetworkFilterOption::Removeparam(String::from(value))
             }
-            ("generichide", true) | ("ghide", true) => {
-                return Err(NetworkFilterError::NegatedGenericHide)
-            }
-            ("generichide", false) | ("ghide", false) => NetworkFilterOption::Generichide,
-            ("document", true) | ("doc", true) => return Err(NetworkFilterError::NegatedDocument),
-            ("document", false) | ("doc", false) => NetworkFilterOption::Document,
+            ("generichide" | "ghide", true) => return Err(NetworkFilterError::NegatedGenericHide),
+            ("generichide" | "ghide", false) => NetworkFilterOption::Generichide,
+            ("document" | "doc", true) => return Err(NetworkFilterError::NegatedDocument),
+            ("document" | "doc", false) => NetworkFilterOption::Document,
             ("image", negated) => NetworkFilterOption::Image(!negated),
             ("media", negated) => NetworkFilterOption::Media(!negated),
-            ("object", negated) | ("object-subrequest", negated) => {
-                NetworkFilterOption::Object(!negated)
-            }
+            ("object" | "object-subrequest", negated) => NetworkFilterOption::Object(!negated),
             ("other", negated) => NetworkFilterOption::Other(!negated),
-            ("ping", negated) | ("beacon", negated) => NetworkFilterOption::Ping(!negated),
+            ("ping" | "beacon", negated) => NetworkFilterOption::Ping(!negated),
             ("script", negated) => NetworkFilterOption::Script(!negated),
-            ("stylesheet", negated) | ("css", negated) => NetworkFilterOption::Stylesheet(!negated),
-            ("subdocument", negated) | ("frame", negated) => {
-                NetworkFilterOption::Subdocument(!negated)
-            }
-            ("xmlhttprequest", negated) | ("xhr", negated) => {
-                NetworkFilterOption::XmlHttpRequest(!negated)
-            }
+            ("stylesheet" | "css", negated) => NetworkFilterOption::Stylesheet(!negated),
+            ("subdocument" | "frame", negated) => NetworkFilterOption::Subdocument(!negated),
+            ("xmlhttprequest" | "xhr", negated) => NetworkFilterOption::XmlHttpRequest(!negated),
             ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
             ("font", negated) => NetworkFilterOption::Font(!negated),
             ("all", true) => return Err(NetworkFilterError::NegatedAll),
