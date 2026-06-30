@@ -13,7 +13,9 @@
     "blocking",
     "rust"
   ],
-  "main": "js/index.js",
+  "type": "module",
+  "main": "js/index.mjs",
+  "exports": "./js/index.mjs",
   "author": "Anton Lazarev <alazarev@brave.com>",
   "contributors": [
     "Andrius Aucinas"

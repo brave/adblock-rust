@@ -1,10 +1,13 @@
 // A script to update the test lists and resources.
 // Use: BRAVE_SERVICE_KEY=<key> node data/update-lists.js \
-//      <brave_list_version> <defalt_privacy_filters_version> <resource_list_version>
+//      <brave_list_version> <default_privacy_filters_version> <resource_list_version>
 
-const { execSync } = require("child_process");
-const fs = require("fs");
-const path = require("path");
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Remove readline and use command line arguments
 const args = process.argv.slice(2);

@@ -1,3 +1,6 @@
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 const blocker = require('./index.node');
 
 // Exposes the specified native method names on `className`
@@ -10,22 +13,20 @@ function forwardClassMethods(className, methods) {
     }
 }
 
-class FilterSet {
+export class FilterSet {
     constructor(...args) {
         this.boxed = blocker.FilterSet_constructor(...args);
     }
 }
 forwardClassMethods(FilterSet, ['addFilters', 'intoContentBlocking']);
 
-class Engine {
+export class Engine {
     constructor(filter_set, ...args) {
         this.boxed = blocker.Engine_constructor(filter_set.boxed, ...args);
     }
 }
 forwardClassMethods(Engine, ['check', 'urlCosmeticResources', 'hiddenClassIdSelectors', 'serialize', 'deserialize', 'enableTag', 'useResources', 'tagExists', 'clearTags']);
 
-exports.FilterFormat = blocker.FilterFormat;
-exports.FilterSet = FilterSet;
-exports.RuleTypes = blocker.RuleTypes;
-exports.Engine = Engine;
-exports.uBlockResources = blocker.uBlockResources;
+export const FilterFormat = blocker.FilterFormat;
+export const RuleTypes = blocker.RuleTypes;
+export const uBlockResources = blocker.uBlockResources;

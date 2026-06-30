@@ -1,5 +1,5 @@
 /**
- * Integration tests for the adblock-rs native Node.js addon (js/index.js).
+ * Integration tests for the adblock-rs native Node.js addon.
  *
  * These tests document the current behaviour of the Neon binding layer and
  * serve as a regression baseline for the NAPI-RS migration.
@@ -10,13 +10,12 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { FilterSet, Engine, FilterFormat, RuleTypes, uBlockResources } from '../index.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const { FilterSet, Engine, FilterFormat, RuleTypes, uBlockResources } =
-    createRequire(import.meta.url)(join(__dirname, '..', 'index.js'));
 
 // ---------------------------------------------------------------------------
 // FilterSet.addFilters

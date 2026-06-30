@@ -1,9 +1,9 @@
-import adblockRust from 'adblock-rs';
+import { FilterSet, Engine, uBlockResources } from 'adblock-rs';
 import fs from 'node:fs';
 const dataPath = '../data/'
 
 const debugInfo = true;
-const filterSet = new adblockRust.FilterSet(debugInfo);
+const filterSet = new FilterSet(debugInfo);
 
 const easylistFilters = fs.readFileSync(
     dataPath + 'easylist.to/easylist/easylist.txt',
@@ -17,13 +17,13 @@ const uboUnbreakFilters = fs.readFileSync(
 );
 filterSet.addFilters(uboUnbreakFilters);
 
-const resources = adblockRust.uBlockResources(
+const resources = uBlockResources(
     dataPath + 'test/fake-uBO-files/web_accessible_resources',
     dataPath + 'test/fake-uBO-files/redirect-resources.js',
     dataPath + 'test/fake-uBO-files/scriptlets.js'
 );
 
-const engine = new adblockRust.Engine(filterSet);
+const engine = new Engine(filterSet);
 engine.useResources(resources);
 
 // Simple match
