@@ -44,6 +44,8 @@ pub mod fb {
         pub const VT_HOSTNAME: flatbuffers::VOffsetT = 16;
         pub const VT_TAG: flatbuffers::VOffsetT = 18;
         pub const VT_RAW_LINE: flatbuffers::VOffsetT = 20;
+        pub const VT_SOURCE_INDEX: flatbuffers::VOffsetT = 22;
+        pub const VT_LINE_NUMBER: flatbuffers::VOffsetT = 24;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -60,6 +62,8 @@ pub mod fb {
             args: &'args NetworkFilterArgs<'args>,
         ) -> flatbuffers::WIPOffset<NetworkFilter<'bldr>> {
             let mut builder = NetworkFilterBuilder::new(_fbb);
+            builder.add_line_number(args.line_number);
+            builder.add_source_index(args.source_index);
             if let Some(x) = args.raw_line {
                 builder.add_raw_line(x);
             }
@@ -100,6 +104,8 @@ pub mod fb {
             let hostname = self.hostname().map(|x| x.to_string());
             let tag = self.tag().map(|x| x.to_string());
             let raw_line = self.raw_line().map(|x| x.to_string());
+            let source_index = self.source_index();
+            let line_number = self.line_number();
             NetworkFilterT {
                 mask,
                 opt_domains,
@@ -110,6 +116,8 @@ pub mod fb {
                 hostname,
                 tag,
                 raw_line,
+                source_index,
+                line_number,
             }
         }
 
@@ -220,6 +228,28 @@ pub mod fb {
                     .get::<flatbuffers::ForwardsUOffset<&str>>(NetworkFilter::VT_RAW_LINE, None)
             }
         }
+        #[inline]
+        pub fn source_index(&self) -> i32 {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<i32>(NetworkFilter::VT_SOURCE_INDEX, Some(-1))
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn line_number(&self) -> i32 {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<i32>(NetworkFilter::VT_LINE_NUMBER, Some(-1))
+                    .unwrap()
+            }
+        }
     }
 
     impl flatbuffers::Verifiable for NetworkFilter<'_> {
@@ -265,6 +295,8 @@ pub mod fb {
                     Self::VT_RAW_LINE,
                     false,
                 )?
+                .visit_field::<i32>("source_index", Self::VT_SOURCE_INDEX, false)?
+                .visit_field::<i32>("line_number", Self::VT_LINE_NUMBER, false)?
                 .finish();
             Ok(())
         }
@@ -281,6 +313,8 @@ pub mod fb {
         pub hostname: Option<flatbuffers::WIPOffset<&'a str>>,
         pub tag: Option<flatbuffers::WIPOffset<&'a str>>,
         pub raw_line: Option<flatbuffers::WIPOffset<&'a str>>,
+        pub source_index: i32,
+        pub line_number: i32,
     }
     impl<'a> Default for NetworkFilterArgs<'a> {
         #[inline]
@@ -295,6 +329,8 @@ pub mod fb {
                 hostname: None,
                 tag: None,
                 raw_line: None,
+                source_index: -1,
+                line_number: -1,
             }
         }
     }
@@ -375,6 +411,16 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_source_index(&mut self, source_index: i32) {
+            self.fbb_
+                .push_slot::<i32>(NetworkFilter::VT_SOURCE_INDEX, source_index, -1);
+        }
+        #[inline]
+        pub fn add_line_number(&mut self, line_number: i32) {
+            self.fbb_
+                .push_slot::<i32>(NetworkFilter::VT_LINE_NUMBER, line_number, -1);
+        }
+        #[inline]
         pub fn new(
             _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterBuilder<'a, 'b, A> {
@@ -403,6 +449,8 @@ pub mod fb {
             ds.field("hostname", &self.hostname());
             ds.field("tag", &self.tag());
             ds.field("raw_line", &self.raw_line());
+            ds.field("source_index", &self.source_index());
+            ds.field("line_number", &self.line_number());
             ds.finish()
         }
     }
@@ -418,6 +466,8 @@ pub mod fb {
         pub hostname: Option<String>,
         pub tag: Option<String>,
         pub raw_line: Option<String>,
+        pub source_index: i32,
+        pub line_number: i32,
     }
     impl Default for NetworkFilterT {
         fn default() -> Self {
@@ -431,6 +481,8 @@ pub mod fb {
                 hostname: None,
                 tag: None,
                 raw_line: None,
+                source_index: -1,
+                line_number: -1,
             }
         }
     }
@@ -451,6 +503,8 @@ pub mod fb {
             let hostname = self.hostname.as_ref().map(|x| _fbb.create_string(x));
             let tag = self.tag.as_ref().map(|x| _fbb.create_string(x));
             let raw_line = self.raw_line.as_ref().map(|x| _fbb.create_string(x));
+            let source_index = self.source_index;
+            let line_number = self.line_number;
             NetworkFilter::create(
                 _fbb,
                 &NetworkFilterArgs {
@@ -463,6 +517,8 @@ pub mod fb {
                     hostname,
                     tag,
                     raw_line,
+                    source_index,
+                    line_number,
                 },
             )
         }
@@ -2090,6 +2146,326 @@ pub mod fb {
             )
         }
     }
+    pub enum SourceInfoOffset {}
+    #[derive(Copy, Clone, PartialEq)]
+
+    pub struct SourceInfo<'a> {
+        pub _tab: flatbuffers::Table<'a>,
+    }
+
+    impl<'a> flatbuffers::Follow<'a> for SourceInfo<'a> {
+        type Inner = SourceInfo<'a>;
+        #[inline]
+        unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+            Self {
+                _tab: unsafe { flatbuffers::Table::new(buf, loc) },
+            }
+        }
+    }
+
+    impl<'a> SourceInfo<'a> {
+        pub const VT_TITLE: flatbuffers::VOffsetT = 4;
+        pub const VT_HOMEPAGE: flatbuffers::VOffsetT = 6;
+        pub const VT_NETWORK_FILTER_COUNT: flatbuffers::VOffsetT = 8;
+        pub const VT_COSMETIC_FILTER_COUNT: flatbuffers::VOffsetT = 10;
+        pub const VT_PARSE_ERROR: flatbuffers::VOffsetT = 12;
+        pub const VT_INVALID_LINES: flatbuffers::VOffsetT = 14;
+
+        #[inline]
+        pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+            SourceInfo { _tab: table }
+        }
+        #[allow(unused_mut)]
+        pub fn create<
+            'bldr: 'args,
+            'args: 'mut_bldr,
+            'mut_bldr,
+            A: flatbuffers::Allocator + 'bldr,
+        >(
+            _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+            args: &'args SourceInfoArgs<'args>,
+        ) -> flatbuffers::WIPOffset<SourceInfo<'bldr>> {
+            let mut builder = SourceInfoBuilder::new(_fbb);
+            if let Some(x) = args.invalid_lines {
+                builder.add_invalid_lines(x);
+            }
+            builder.add_parse_error(args.parse_error);
+            builder.add_cosmetic_filter_count(args.cosmetic_filter_count);
+            builder.add_network_filter_count(args.network_filter_count);
+            if let Some(x) = args.homepage {
+                builder.add_homepage(x);
+            }
+            if let Some(x) = args.title {
+                builder.add_title(x);
+            }
+            builder.finish()
+        }
+
+        pub fn unpack(&self) -> SourceInfoT {
+            let title = self.title().map(|x| x.to_string());
+            let homepage = self.homepage().map(|x| x.to_string());
+            let network_filter_count = self.network_filter_count();
+            let cosmetic_filter_count = self.cosmetic_filter_count();
+            let parse_error = self.parse_error();
+            let invalid_lines = self
+                .invalid_lines()
+                .map(|x| x.iter().map(|s| s.to_string()).collect());
+            SourceInfoT {
+                title,
+                homepage,
+                network_filter_count,
+                cosmetic_filter_count,
+                parse_error,
+                invalid_lines,
+            }
+        }
+
+        #[inline]
+        pub fn title(&self) -> Option<&'a str> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<&str>>(SourceInfo::VT_TITLE, None)
+            }
+        }
+        #[inline]
+        pub fn homepage(&self) -> Option<&'a str> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<&str>>(SourceInfo::VT_HOMEPAGE, None)
+            }
+        }
+        #[inline]
+        pub fn network_filter_count(&self) -> i32 {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<i32>(SourceInfo::VT_NETWORK_FILTER_COUNT, Some(0))
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn cosmetic_filter_count(&self) -> i32 {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<i32>(SourceInfo::VT_COSMETIC_FILTER_COUNT, Some(0))
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn parse_error(&self) -> i32 {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<i32>(SourceInfo::VT_PARSE_ERROR, Some(0))
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn invalid_lines(
+            &self,
+        ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>,
+                >>(SourceInfo::VT_INVALID_LINES, None)
+            }
+        }
+    }
+
+    impl flatbuffers::Verifiable for SourceInfo<'_> {
+        #[inline]
+        fn run_verifier(
+            v: &mut flatbuffers::Verifier,
+            pos: usize,
+        ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+            use self::flatbuffers::Verifiable;
+            v.visit_table(pos)?
+                .visit_field::<flatbuffers::ForwardsUOffset<&str>>("title", Self::VT_TITLE, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
+                    "homepage",
+                    Self::VT_HOMEPAGE,
+                    false,
+                )?
+                .visit_field::<i32>("network_filter_count", Self::VT_NETWORK_FILTER_COUNT, false)?
+                .visit_field::<i32>(
+                    "cosmetic_filter_count",
+                    Self::VT_COSMETIC_FILTER_COUNT,
+                    false,
+                )?
+                .visit_field::<i32>("parse_error", Self::VT_PARSE_ERROR, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<&'_ str>>,
+                >>("invalid_lines", Self::VT_INVALID_LINES, false)?
+                .finish();
+            Ok(())
+        }
+    }
+    pub struct SourceInfoArgs<'a> {
+        pub title: Option<flatbuffers::WIPOffset<&'a str>>,
+        pub homepage: Option<flatbuffers::WIPOffset<&'a str>>,
+        pub network_filter_count: i32,
+        pub cosmetic_filter_count: i32,
+        pub parse_error: i32,
+        pub invalid_lines: Option<
+            flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
+        >,
+    }
+    impl<'a> Default for SourceInfoArgs<'a> {
+        #[inline]
+        fn default() -> Self {
+            SourceInfoArgs {
+                title: None,
+                homepage: None,
+                network_filter_count: 0,
+                cosmetic_filter_count: 0,
+                parse_error: 0,
+                invalid_lines: None,
+            }
+        }
+    }
+
+    pub struct SourceInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+        fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+    }
+    impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SourceInfoBuilder<'a, 'b, A> {
+        #[inline]
+        pub fn add_title(&mut self, title: flatbuffers::WIPOffset<&'b str>) {
+            self.fbb_
+                .push_slot_always::<flatbuffers::WIPOffset<_>>(SourceInfo::VT_TITLE, title);
+        }
+        #[inline]
+        pub fn add_homepage(&mut self, homepage: flatbuffers::WIPOffset<&'b str>) {
+            self.fbb_
+                .push_slot_always::<flatbuffers::WIPOffset<_>>(SourceInfo::VT_HOMEPAGE, homepage);
+        }
+        #[inline]
+        pub fn add_network_filter_count(&mut self, network_filter_count: i32) {
+            self.fbb_.push_slot::<i32>(
+                SourceInfo::VT_NETWORK_FILTER_COUNT,
+                network_filter_count,
+                0,
+            );
+        }
+        #[inline]
+        pub fn add_cosmetic_filter_count(&mut self, cosmetic_filter_count: i32) {
+            self.fbb_.push_slot::<i32>(
+                SourceInfo::VT_COSMETIC_FILTER_COUNT,
+                cosmetic_filter_count,
+                0,
+            );
+        }
+        #[inline]
+        pub fn add_parse_error(&mut self, parse_error: i32) {
+            self.fbb_
+                .push_slot::<i32>(SourceInfo::VT_PARSE_ERROR, parse_error, 0);
+        }
+        #[inline]
+        pub fn add_invalid_lines(
+            &mut self,
+            invalid_lines: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<&'b str>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                SourceInfo::VT_INVALID_LINES,
+                invalid_lines,
+            );
+        }
+        #[inline]
+        pub fn new(
+            _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+        ) -> SourceInfoBuilder<'a, 'b, A> {
+            let start = _fbb.start_table();
+            SourceInfoBuilder {
+                fbb_: _fbb,
+                start_: start,
+            }
+        }
+        #[inline]
+        pub fn finish(self) -> flatbuffers::WIPOffset<SourceInfo<'a>> {
+            let o = self.fbb_.end_table(self.start_);
+            flatbuffers::WIPOffset::new(o.value())
+        }
+    }
+
+    impl core::fmt::Debug for SourceInfo<'_> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            let mut ds = f.debug_struct("SourceInfo");
+            ds.field("title", &self.title());
+            ds.field("homepage", &self.homepage());
+            ds.field("network_filter_count", &self.network_filter_count());
+            ds.field("cosmetic_filter_count", &self.cosmetic_filter_count());
+            ds.field("parse_error", &self.parse_error());
+            ds.field("invalid_lines", &self.invalid_lines());
+            ds.finish()
+        }
+    }
+    #[non_exhaustive]
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct SourceInfoT {
+        pub title: Option<String>,
+        pub homepage: Option<String>,
+        pub network_filter_count: i32,
+        pub cosmetic_filter_count: i32,
+        pub parse_error: i32,
+        pub invalid_lines: Option<Vec<String>>,
+    }
+    impl Default for SourceInfoT {
+        fn default() -> Self {
+            Self {
+                title: None,
+                homepage: None,
+                network_filter_count: 0,
+                cosmetic_filter_count: 0,
+                parse_error: 0,
+                invalid_lines: None,
+            }
+        }
+    }
+    impl SourceInfoT {
+        pub fn pack<'b, A: flatbuffers::Allocator + 'b>(
+            &self,
+            _fbb: &mut flatbuffers::FlatBufferBuilder<'b, A>,
+        ) -> flatbuffers::WIPOffset<SourceInfo<'b>> {
+            let title = self.title.as_ref().map(|x| _fbb.create_string(x));
+            let homepage = self.homepage.as_ref().map(|x| _fbb.create_string(x));
+            let network_filter_count = self.network_filter_count;
+            let cosmetic_filter_count = self.cosmetic_filter_count;
+            let parse_error = self.parse_error;
+            let invalid_lines = self.invalid_lines.as_ref().map(|x| {
+                let w: Vec<_> = x.iter().map(|s| _fbb.create_string(s)).collect();
+                _fbb.create_vector(&w)
+            });
+            SourceInfo::create(
+                _fbb,
+                &SourceInfoArgs {
+                    title,
+                    homepage,
+                    network_filter_count,
+                    cosmetic_filter_count,
+                    parse_error,
+                    invalid_lines,
+                },
+            )
+        }
+    }
     pub enum EngineOffset {}
     #[derive(Copy, Clone, PartialEq)]
 
@@ -2112,6 +2488,8 @@ pub mod fb {
         pub const VT_NETWORK_RULES: flatbuffers::VOffsetT = 4;
         pub const VT_UNIQUE_DOMAINS_HASHES: flatbuffers::VOffsetT = 6;
         pub const VT_COSMETIC_FILTERS: flatbuffers::VOffsetT = 8;
+        pub const VT_DEBUG: flatbuffers::VOffsetT = 10;
+        pub const VT_SOURCE_INFO: flatbuffers::VOffsetT = 12;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -2128,6 +2506,9 @@ pub mod fb {
             args: &'args EngineArgs<'args>,
         ) -> flatbuffers::WIPOffset<Engine<'bldr>> {
             let mut builder = EngineBuilder::new(_fbb);
+            if let Some(x) = args.source_info {
+                builder.add_source_info(x);
+            }
             if let Some(x) = args.cosmetic_filters {
                 builder.add_cosmetic_filters(x);
             }
@@ -2137,6 +2518,7 @@ pub mod fb {
             if let Some(x) = args.network_rules {
                 builder.add_network_rules(x);
             }
+            builder.add_debug(args.debug);
             builder.finish()
         }
 
@@ -2153,10 +2535,17 @@ pub mod fb {
                 let x = self.cosmetic_filters();
                 Box::new(x.unpack())
             };
+            let debug = self.debug();
+            let source_info = {
+                let x = self.source_info();
+                x.iter().map(|t| t.unpack()).collect()
+            };
             EngineT {
                 network_rules,
                 unique_domains_hashes,
                 cosmetic_filters,
+                debug,
+                source_info,
             }
         }
 
@@ -2207,6 +2596,32 @@ pub mod fb {
                     .unwrap()
             }
         }
+        #[inline]
+        pub fn debug(&self) -> bool {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<bool>(Engine::VT_DEBUG, Some(false))
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn source_info(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SourceInfo<'a>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SourceInfo>>,
+                    >>(Engine::VT_SOURCE_INFO, None)
+                    .unwrap()
+            }
+        }
     }
 
     impl flatbuffers::Verifiable for Engine<'_> {
@@ -2230,6 +2645,10 @@ pub mod fb {
                     Self::VT_COSMETIC_FILTERS,
                     true,
                 )?
+                .visit_field::<bool>("debug", Self::VT_DEBUG, false)?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<SourceInfo>>,
+                >>("source_info", Self::VT_SOURCE_INFO, true)?
                 .finish();
             Ok(())
         }
@@ -2242,6 +2661,12 @@ pub mod fb {
         >,
         pub unique_domains_hashes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
         pub cosmetic_filters: Option<flatbuffers::WIPOffset<CosmeticFilters<'a>>>,
+        pub debug: bool,
+        pub source_info: Option<
+            flatbuffers::WIPOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<SourceInfo<'a>>>,
+            >,
+        >,
     }
     impl<'a> Default for EngineArgs<'a> {
         #[inline]
@@ -2250,6 +2675,8 @@ pub mod fb {
                 network_rules: None,         // required field
                 unique_domains_hashes: None, // required field
                 cosmetic_filters: None,      // required field
+                debug: false,
+                source_info: None, // required field
             }
         }
     }
@@ -2293,6 +2720,20 @@ pub mod fb {
                 );
         }
         #[inline]
+        pub fn add_debug(&mut self, debug: bool) {
+            self.fbb_.push_slot::<bool>(Engine::VT_DEBUG, debug, false);
+        }
+        #[inline]
+        pub fn add_source_info(
+            &mut self,
+            source_info: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<SourceInfo<'b>>>,
+            >,
+        ) {
+            self.fbb_
+                .push_slot_always::<flatbuffers::WIPOffset<_>>(Engine::VT_SOURCE_INFO, source_info);
+        }
+        #[inline]
         pub fn new(
             _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> EngineBuilder<'a, 'b, A> {
@@ -2311,6 +2752,7 @@ pub mod fb {
                 .required(o, Engine::VT_UNIQUE_DOMAINS_HASHES, "unique_domains_hashes");
             self.fbb_
                 .required(o, Engine::VT_COSMETIC_FILTERS, "cosmetic_filters");
+            self.fbb_.required(o, Engine::VT_SOURCE_INFO, "source_info");
             flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -2321,6 +2763,8 @@ pub mod fb {
             ds.field("network_rules", &self.network_rules());
             ds.field("unique_domains_hashes", &self.unique_domains_hashes());
             ds.field("cosmetic_filters", &self.cosmetic_filters());
+            ds.field("debug", &self.debug());
+            ds.field("source_info", &self.source_info());
             ds.finish()
         }
     }
@@ -2330,6 +2774,8 @@ pub mod fb {
         pub network_rules: Vec<NetworkFilterListT>,
         pub unique_domains_hashes: Vec<u64>,
         pub cosmetic_filters: Box<CosmeticFiltersT>,
+        pub debug: bool,
+        pub source_info: Vec<SourceInfoT>,
     }
     impl Default for EngineT {
         fn default() -> Self {
@@ -2337,6 +2783,8 @@ pub mod fb {
                 network_rules: Default::default(),
                 unique_domains_hashes: Default::default(),
                 cosmetic_filters: Default::default(),
+                debug: false,
+                source_info: Default::default(),
             }
         }
     }
@@ -2358,12 +2806,20 @@ pub mod fb {
                 let x = &self.cosmetic_filters;
                 x.pack(_fbb)
             });
+            let debug = self.debug;
+            let source_info = Some({
+                let x = &self.source_info;
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
+            });
             Engine::create(
                 _fbb,
                 &EngineArgs {
                     network_rules,
                     unique_domains_hashes,
                     cosmetic_filters,
+                    debug,
+                    source_info,
                 },
             )
         }

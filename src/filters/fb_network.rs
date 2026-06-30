@@ -158,8 +158,37 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn raw_line(&self) -> Option<String> {
-        self.fb_filter.raw_line().map(|v| v.to_string())
+    pub fn raw_line(&self) -> String {
+        debug_assert!(
+            self.filter_data_context.debug,
+            "raw_line is only available in debug mode"
+        );
+        match self.fb_filter.raw_line() {
+            Some(v) => v.to_string(),
+            None => {
+                debug_assert!(false, "raw_line is not set");
+                Default::default()
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn source_index(&self) -> i32 {
+        debug_assert!(
+            self.filter_data_context.debug,
+            "raw_line is only available in debug mode"
+        );
+        self.fb_filter.source_index()
+    }
+
+    #[inline(always)]
+    pub fn line_number(&self) -> i32 {
+        debug_assert!(
+            self.filter_data_context.debug,
+            "raw_line is only available in debug mode"
+        );
+
+        self.fb_filter.line_number()
     }
 }
 

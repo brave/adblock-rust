@@ -151,7 +151,7 @@ describe('Engine.check — basic blocking', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true
         );
         assert.equal(result.matched, true);
-        assert.equal(result.filter, '||ads.example.com^');
+        assert.equal(result.filter, '0:0: ||ads.example.com^');
     });
 
     it('throws for an invalid URL', () => {
@@ -184,7 +184,7 @@ describe('Engine.check — exception rules', () => {
         );
         assert.equal(result.matched, false);
         assert.equal(typeof result.exception, 'string');
-        assert.equal(result.exception, '@@||ads.example.com^$domain=publisher.com');
+        assert.equal(result.exception, '0:1: @@||ads.example.com^$domain=publisher.com');
     });
 
     it('$important overrides exception rules', () => {
@@ -196,7 +196,7 @@ describe('Engine.check — exception rules', () => {
         );
         assert.equal(result.matched, true);
         assert.equal(result.important, true);
-        assert.equal(result.filter, '||ads.example.com^$important');
+        assert.equal(result.filter, '0:0: ||ads.example.com^$important');
     });
 });
 
@@ -342,7 +342,7 @@ describe('Engine.check — redirect rules', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(result.matched, true);
-        assert.equal(result.filter, '||ads.example.com^$script,redirect=noopjs');
+        assert.equal(result.filter, '0:0: ||ads.example.com^$script,redirect=noopjs');
         assert.ok(result.redirect.length > 0);
     });
 
@@ -354,7 +354,7 @@ describe('Engine.check — redirect rules', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(result.matched, true);
-        assert.equal(result.filter, '||ads.example.com^');
+        assert.equal(result.filter, '0:0: ||ads.example.com^');
         assert.ok(result.redirect == null);
     });
 });
@@ -410,7 +410,7 @@ describe('Engine.check — exception rules with tags', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.equal(after.matched, false);
-        assert.equal(after.exception, '@@||ads.example.com^$tag=unbreak');
+        assert.equal(after.exception, '0:1: @@||ads.example.com^$tag=unbreak');
     });
 });
 

@@ -73,6 +73,7 @@ impl Default for ParseOptions {
 pub(crate) struct ListSource {
     pub(crate) list_text: String,
     pub(crate) parse_options: ParseOptions,
+    pub(crate) metadata: FilterListMetadata,
 }
 
 /// Manages a set of rules to be added to an [`crate::Engine`].
@@ -122,7 +123,7 @@ impl Default for FilterSet {
 }
 
 /// Corresponds to the `expires` field of `FilterListMetadata`.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum ExpiresInterval {
     Hours(u16),
     Days(u8),
@@ -165,7 +166,7 @@ impl TryFrom<&str> for ExpiresInterval {
 
 /// Includes information about any "special comments" as described by
 /// <https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments>
-#[derive(Default, Serialize)]
+#[derive(Default, Clone, Serialize)]
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked
     /// as filter list homepage.
@@ -226,6 +227,7 @@ impl FilterSet {
         self.list_sources.push(ListSource {
             list_text,
             parse_options: opts,
+            metadata: metadata.clone(),
         });
         metadata
     }
@@ -246,6 +248,7 @@ impl FilterSet {
         self.list_sources.push(ListSource {
             list_text,
             parse_options: opts,
+            metadata: FilterListMetadata::default(),
         });
     }
 

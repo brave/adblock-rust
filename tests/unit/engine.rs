@@ -190,7 +190,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 3613512756023067609;
+        const EXPECTED_HASH: u64 = 8140715178533393311;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -201,7 +201,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 8313881767139358102;
+        const EXPECTED_HASH: u64 = 11267534334233315862;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -243,11 +243,23 @@ mod tests {
                 high_bound,
                 debug_info.flatbuffer_size
             );
+
+            assert_eq!(debug_info.source_info.len(), 1);
+            assert_eq!(
+                debug_info.source_info[0].title,
+                Some("uBlock filters".to_string())
+            );
+            assert_eq!(
+                debug_info.source_info[0].homepage,
+                Some("https://github.com/uBlockOrigin/uAssets".to_string())
+            );
+            assert_eq!(debug_info.source_info[0].network_filter_count, 130790);
+            assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 41855);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            5221182588908584278
+            6040525197658541449
         } else {
-            1031226837485915423
+            18282889522068993308
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");

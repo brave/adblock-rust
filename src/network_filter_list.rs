@@ -7,35 +7,39 @@ use flatbuffers::ForwardsUOffset;
 use crate::filters::fb_network::FlatNetworkFilter;
 use crate::filters::filter_data_context::FilterDataContext;
 use crate::filters::flatbuffer_generated::fb;
-use crate::filters::network::{NetworkFilter, NetworkFilterMask, NetworkMatchable};
+use crate::filters::network::{NetworkFilterMask, NetworkMatchable};
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
 use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::utils::{to_short_hash, ShortHash};
 
-/// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
-/// [NetworkFilterList] for a given request.
-pub struct CheckResult {
-    pub filter_mask: NetworkFilterMask,
-    pub modifier_option: Option<String>,
-    pub raw_line: Option<String>,
+pub struct CheckResultDebugData {
+    pub raw_line: String,
+    pub source_index: i32,
+    pub line_number: i32,
 }
 
-impl From<&NetworkFilter<'_>> for CheckResult {
-    fn from(filter: &NetworkFilter) -> Self {
-        Self {
-            filter_mask: filter.mask,
-            modifier_option: filter.modifier_option.map(|s| s.to_string()),
-            raw_line: filter.raw_line.as_ref().map(|line| line.to_string()),
-        }
-    }
+/// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
+/// [NetworkFilterList] for a given request.
+pub(crate) struct CheckResult {
+    pub filter_mask: NetworkFilterMask,
+    pub modifier_option: Option<String>,
+    pub debug_data: Option<CheckResultDebugData>,
 }
 
 impl fmt::Display for CheckResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(ref raw_line) = self.raw_line {
-            write!(f, "{raw_line}")
+        if let Some(ref debug_data) = self.debug_data {
+            if debug_data.source_index != -1 {
+                write!(
+                    f,
+                    "{}:{}: {}",
+                    debug_data.source_index, debug_data.line_number, debug_data.raw_line
+                )
+            } else {
+                write!(f, "x:x: {}", debug_data.raw_line)
+            }
         } else {
             write!(f, "{}", self.filter_mask)
         }
@@ -88,10 +92,19 @@ impl NetworkFilterList<'_> {
                     if filter.matches(request, regex_manager)
                         && filter.tag().is_none_or(|t| active_tags.contains(t))
                     {
+                        let debug_data = if self.filter_data_context.debug {
+                            Some(CheckResultDebugData {
+                                raw_line: filter.raw_line(),
+                                source_index: filter.source_index(),
+                                line_number: filter.line_number(),
+                            })
+                        } else {
+                            None
+                        };
                         return Some(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
-                            raw_line: filter.raw_line(),
+                            debug_data,
                         });
                     }
                 }
@@ -130,10 +143,19 @@ impl NetworkFilterList<'_> {
                     if filter.matches(request, regex_manager)
                         && filter.tag().is_none_or(|t| active_tags.contains(t))
                     {
+                        let debug_data = if self.filter_data_context.debug {
+                            Some(CheckResultDebugData {
+                                raw_line: filter.raw_line(),
+                                source_index: filter.source_index(),
+                                line_number: filter.line_number(),
+                            })
+                        } else {
+                            None
+                        };
                         filters.push(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
-                            raw_line: filter.raw_line(),
+                            debug_data,
                         });
                     }
                 }
