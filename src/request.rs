@@ -101,7 +101,9 @@ pub struct Request {
     pub url: String,
     pub hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) source_entity_hashes: Option<Vec<utils::Hash>>,
     pub(crate) hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) entity_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
@@ -126,7 +128,24 @@ impl Request {
     }
 
     pub(crate) fn get_to_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        self.hostname_hashes.as_ref().into_iter().flatten()
+        self.hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .filter(|h| !utils::is_generic_public_suffix_hash(**h))
+            .chain(self.url_match_tokens().iter())
+    }
+
+    /// URL tokens used for `$to` index lookups (excludes the catch-all `0` token).
+    pub(crate) fn url_match_tokens(&self) -> &[utils::Hash] {
+        let tokens = &self.request_tokens;
+        if tokens.len() > 1 && tokens.last() == Some(&0) {
+            &tokens[..tokens.len() - 1]
+        } else if tokens.len() == 1 && tokens.last() == Some(&0) {
+            &[]
+        } else {
+            tokens.as_slice()
+        }
     }
 
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {
@@ -194,6 +213,7 @@ impl Request {
         }
 
         let source_hostname_hashes = hostname_suffix_hashes(source_hostname);
+        let hostname_hashes = hostname_suffix_hashes(hostname);
 
         let url_lower_cased = url.to_ascii_lowercase();
 
@@ -205,7 +225,9 @@ impl Request {
             hostname: hostname.to_owned(),
             request_tokens: calculate_tokens(&url_lower_cased),
             source_hostname_hashes,
-            hostname_hashes: hostname_suffix_hashes(hostname),
+            source_entity_hashes: entity_suffix_hashes(source_hostname),
+            hostname_hashes,
+            entity_hashes: entity_suffix_hashes(hostname),
             is_third_party: third_party,
             is_http,
             is_https,
@@ -294,6 +316,17 @@ fn hostname_suffix_hashes(hostname: &str) -> Option<Vec<utils::Hash>> {
         }
     }
     Some(hashes)
+}
+
+fn entity_suffix_hashes(hostname: &str) -> Option<Vec<utils::Hash>> {
+    if hostname.is_empty() {
+        return None;
+    }
+    let (start, end) = crate::url_parser::get_host_domain(hostname);
+    let domain = &hostname[start..end];
+    Some(crate::filters::cosmetic::get_entity_hashes_from_labels(
+        hostname, domain,
+    ))
 }
 
 fn calculate_tokens(url_lower_cased: &str) -> Vec<utils::Hash> {

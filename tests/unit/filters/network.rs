@@ -751,7 +751,14 @@ mod parse_tests {
                 Default::default(),
             )
             .unwrap();
-            assert_eq!(filter.opt_to_domains.as_ref().map(|d| d.len()), Some(2));
+            assert_eq!(
+                filter.opt_to_entities,
+                Some(vec![utils::fast_hash("google")])
+            );
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("gstatic.com")])
+            );
         }
         {
             let filter =
@@ -799,6 +806,29 @@ mod parse_tests {
             assert_eq!(filter.opt_to_domains, None);
             assert!(!filter.is_to_only());
         }
+    }
+
+    #[test]
+    fn to_tokens_generic_suffix_uses_pattern_tokens() {
+        use crate::filters::network::FilterTokens;
+        use crate::utils::TokensBuffer;
+
+        let mut buf = TokensBuffer::default();
+        let filter = NetworkFilter::parse("//$script,3p,to=com", true, Default::default()).unwrap();
+        assert!(filter.is_to_only());
+        let tokens = filter.get_to_tokens(&mut buf);
+        assert_ne!(tokens, FilterTokens::OptDomains);
+        assert!(!buf.iter().any(|h| *h == utils::fast_hash("com")));
+
+        buf.clear();
+        let filter = NetworkFilter::parse(
+            "||ads.host-cdn.net$to=ads.host-cdn.net",
+            true,
+            Default::default(),
+        )
+        .unwrap();
+        assert_eq!(filter.get_to_tokens(&mut buf), FilterTokens::OptDomains);
+        assert!(buf.contains(&utils::fast_hash("ads.host-cdn.net")));
     }
 
     #[test]

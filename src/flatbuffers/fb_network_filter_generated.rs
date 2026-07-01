@@ -38,14 +38,18 @@ pub mod fb {
         pub const VT_MASK: flatbuffers::VOffsetT = 4;
         pub const VT_OPT_DOMAINS: flatbuffers::VOffsetT = 6;
         pub const VT_OPT_NOT_DOMAINS: flatbuffers::VOffsetT = 8;
-        pub const VT_OPT_TO_DOMAINS: flatbuffers::VOffsetT = 10;
-        pub const VT_OPT_TO_NOT_DOMAINS: flatbuffers::VOffsetT = 12;
-        pub const VT_SINGLE_PATTERN: flatbuffers::VOffsetT = 14;
-        pub const VT_MULTI_PATTERNS: flatbuffers::VOffsetT = 16;
-        pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 18;
-        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 20;
-        pub const VT_TAG: flatbuffers::VOffsetT = 22;
-        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 24;
+        pub const VT_OPT_ENTITIES: flatbuffers::VOffsetT = 10;
+        pub const VT_OPT_NOT_ENTITIES: flatbuffers::VOffsetT = 12;
+        pub const VT_OPT_TO_DOMAINS: flatbuffers::VOffsetT = 14;
+        pub const VT_OPT_TO_NOT_DOMAINS: flatbuffers::VOffsetT = 16;
+        pub const VT_OPT_TO_ENTITIES: flatbuffers::VOffsetT = 18;
+        pub const VT_OPT_TO_NOT_ENTITIES: flatbuffers::VOffsetT = 20;
+        pub const VT_SINGLE_PATTERN: flatbuffers::VOffsetT = 22;
+        pub const VT_MULTI_PATTERNS: flatbuffers::VOffsetT = 24;
+        pub const VT_MODIFIER_OPTION: flatbuffers::VOffsetT = 26;
+        pub const VT_HOSTNAME: flatbuffers::VOffsetT = 28;
+        pub const VT_TAG: flatbuffers::VOffsetT = 30;
+        pub const VT_RAW_LINE: flatbuffers::VOffsetT = 32;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -80,11 +84,23 @@ pub mod fb {
             if let Some(x) = args.single_pattern {
                 builder.add_single_pattern(x);
             }
+            if let Some(x) = args.opt_to_not_entities {
+                builder.add_opt_to_not_entities(x);
+            }
+            if let Some(x) = args.opt_to_entities {
+                builder.add_opt_to_entities(x);
+            }
             if let Some(x) = args.opt_to_not_domains {
                 builder.add_opt_to_not_domains(x);
             }
             if let Some(x) = args.opt_to_domains {
                 builder.add_opt_to_domains(x);
+            }
+            if let Some(x) = args.opt_not_entities {
+                builder.add_opt_not_entities(x);
+            }
+            if let Some(x) = args.opt_entities {
+                builder.add_opt_entities(x);
             }
             if let Some(x) = args.opt_not_domains {
                 builder.add_opt_not_domains(x);
@@ -100,8 +116,12 @@ pub mod fb {
             let mask = self.mask();
             let opt_domains = self.opt_domains().map(|x| x.into_iter().collect());
             let opt_not_domains = self.opt_not_domains().map(|x| x.into_iter().collect());
+            let opt_entities = self.opt_entities().map(|x| x.into_iter().collect());
+            let opt_not_entities = self.opt_not_entities().map(|x| x.into_iter().collect());
             let opt_to_domains = self.opt_to_domains().map(|x| x.into_iter().collect());
             let opt_to_not_domains = self.opt_to_not_domains().map(|x| x.into_iter().collect());
+            let opt_to_entities = self.opt_to_entities().map(|x| x.into_iter().collect());
+            let opt_to_not_entities = self.opt_to_not_entities().map(|x| x.into_iter().collect());
             let single_pattern = self.single_pattern().map(|x| x.to_string());
             let multi_patterns = self
                 .multi_patterns()
@@ -114,8 +134,12 @@ pub mod fb {
                 mask,
                 opt_domains,
                 opt_not_domains,
+                opt_entities,
+                opt_not_entities,
                 opt_to_domains,
                 opt_to_not_domains,
+                opt_to_entities,
+                opt_to_not_entities,
                 single_pattern,
                 multi_patterns,
                 modifier_option,
@@ -165,6 +189,33 @@ pub mod fb {
                     )
             }
         }
+        /// Entity restrictions from `$domain=` / `$from=` (e.g. `google.*`).
+        #[inline]
+        pub fn opt_entities(&self) -> Option<flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilter::VT_OPT_ENTITIES,
+                        None,
+                    )
+            }
+        }
+        #[inline]
+        pub fn opt_not_entities(&self) -> Option<flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilter::VT_OPT_NOT_ENTITIES,
+                        None,
+                    )
+            }
+        }
         /// Destination hostname restrictions from `$to=` (indices into unique_domains_hashes).
         #[inline]
         pub fn opt_to_domains(&self) -> Option<flatbuffers::Vector<'a, u32>> {
@@ -188,6 +239,33 @@ pub mod fb {
                 self._tab
                     .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
                         NetworkFilter::VT_OPT_TO_NOT_DOMAINS,
+                        None,
+                    )
+            }
+        }
+        /// Destination entity restrictions from `$to=` (e.g. `tikimall.*`).
+        #[inline]
+        pub fn opt_to_entities(&self) -> Option<flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilter::VT_OPT_TO_ENTITIES,
+                        None,
+                    )
+            }
+        }
+        #[inline]
+        pub fn opt_to_not_entities(&self) -> Option<flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilter::VT_OPT_TO_NOT_ENTITIES,
                         None,
                     )
             }
@@ -281,6 +359,16 @@ pub mod fb {
                     false,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
+                    "opt_entities",
+                    Self::VT_OPT_ENTITIES,
+                    false,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
+                    "opt_not_entities",
+                    Self::VT_OPT_NOT_ENTITIES,
+                    false,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
                     "opt_to_domains",
                     Self::VT_OPT_TO_DOMAINS,
                     false,
@@ -288,6 +376,16 @@ pub mod fb {
                 .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
                     "opt_to_not_domains",
                     Self::VT_OPT_TO_NOT_DOMAINS,
+                    false,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
+                    "opt_to_entities",
+                    Self::VT_OPT_TO_ENTITIES,
+                    false,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
+                    "opt_to_not_entities",
+                    Self::VT_OPT_TO_NOT_ENTITIES,
                     false,
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<&str>>(
@@ -322,8 +420,12 @@ pub mod fb {
         pub mask: u32,
         pub opt_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub opt_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub opt_entities: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub opt_not_entities: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub opt_to_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub opt_to_not_domains: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub opt_to_entities: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub opt_to_not_entities: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
         pub single_pattern: Option<flatbuffers::WIPOffset<&'a str>>,
         pub multi_patterns: Option<
             flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>,
@@ -340,8 +442,12 @@ pub mod fb {
                 mask: 540221439,
                 opt_domains: None,
                 opt_not_domains: None,
+                opt_entities: None,
+                opt_not_entities: None,
                 opt_to_domains: None,
                 opt_to_not_domains: None,
+                opt_to_entities: None,
+                opt_to_not_entities: None,
                 single_pattern: None,
                 multi_patterns: None,
                 modifier_option: None,
@@ -383,6 +489,26 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_opt_entities(
+            &mut self,
+            opt_entities: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_OPT_ENTITIES,
+                opt_entities,
+            );
+        }
+        #[inline]
+        pub fn add_opt_not_entities(
+            &mut self,
+            opt_not_entities: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_OPT_NOT_ENTITIES,
+                opt_not_entities,
+            );
+        }
+        #[inline]
         pub fn add_opt_to_domains(
             &mut self,
             opt_to_domains: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
@@ -400,6 +526,26 @@ pub mod fb {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 NetworkFilter::VT_OPT_TO_NOT_DOMAINS,
                 opt_to_not_domains,
+            );
+        }
+        #[inline]
+        pub fn add_opt_to_entities(
+            &mut self,
+            opt_to_entities: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_OPT_TO_ENTITIES,
+                opt_to_entities,
+            );
+        }
+        #[inline]
+        pub fn add_opt_to_not_entities(
+            &mut self,
+            opt_to_not_entities: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_OPT_TO_NOT_ENTITIES,
+                opt_to_not_entities,
             );
         }
         #[inline]
@@ -470,8 +616,12 @@ pub mod fb {
             ds.field("mask", &self.mask());
             ds.field("opt_domains", &self.opt_domains());
             ds.field("opt_not_domains", &self.opt_not_domains());
+            ds.field("opt_entities", &self.opt_entities());
+            ds.field("opt_not_entities", &self.opt_not_entities());
             ds.field("opt_to_domains", &self.opt_to_domains());
             ds.field("opt_to_not_domains", &self.opt_to_not_domains());
+            ds.field("opt_to_entities", &self.opt_to_entities());
+            ds.field("opt_to_not_entities", &self.opt_to_not_entities());
             ds.field("single_pattern", &self.single_pattern());
             ds.field("multi_patterns", &self.multi_patterns());
             ds.field("modifier_option", &self.modifier_option());
@@ -487,8 +637,12 @@ pub mod fb {
         pub mask: u32,
         pub opt_domains: Option<Vec<u32>>,
         pub opt_not_domains: Option<Vec<u32>>,
+        pub opt_entities: Option<Vec<u32>>,
+        pub opt_not_entities: Option<Vec<u32>>,
         pub opt_to_domains: Option<Vec<u32>>,
         pub opt_to_not_domains: Option<Vec<u32>>,
+        pub opt_to_entities: Option<Vec<u32>>,
+        pub opt_to_not_entities: Option<Vec<u32>>,
         pub single_pattern: Option<String>,
         pub multi_patterns: Option<Vec<String>>,
         pub modifier_option: Option<String>,
@@ -502,8 +656,12 @@ pub mod fb {
                 mask: 540221439,
                 opt_domains: None,
                 opt_not_domains: None,
+                opt_entities: None,
+                opt_not_entities: None,
                 opt_to_domains: None,
                 opt_to_not_domains: None,
+                opt_to_entities: None,
+                opt_to_not_entities: None,
                 single_pattern: None,
                 multi_patterns: None,
                 modifier_option: None,
@@ -521,9 +679,19 @@ pub mod fb {
             let mask = self.mask;
             let opt_domains = self.opt_domains.as_ref().map(|x| _fbb.create_vector(x));
             let opt_not_domains = self.opt_not_domains.as_ref().map(|x| _fbb.create_vector(x));
+            let opt_entities = self.opt_entities.as_ref().map(|x| _fbb.create_vector(x));
+            let opt_not_entities = self
+                .opt_not_entities
+                .as_ref()
+                .map(|x| _fbb.create_vector(x));
             let opt_to_domains = self.opt_to_domains.as_ref().map(|x| _fbb.create_vector(x));
             let opt_to_not_domains = self
                 .opt_to_not_domains
+                .as_ref()
+                .map(|x| _fbb.create_vector(x));
+            let opt_to_entities = self.opt_to_entities.as_ref().map(|x| _fbb.create_vector(x));
+            let opt_to_not_entities = self
+                .opt_to_not_entities
                 .as_ref()
                 .map(|x| _fbb.create_vector(x));
             let single_pattern = self.single_pattern.as_ref().map(|x| _fbb.create_string(x));
@@ -541,8 +709,12 @@ pub mod fb {
                     mask,
                     opt_domains,
                     opt_not_domains,
+                    opt_entities,
+                    opt_not_entities,
                     opt_to_domains,
                     opt_to_not_domains,
+                    opt_to_entities,
+                    opt_to_not_entities,
                     single_pattern,
                     multi_patterns,
                     modifier_option,

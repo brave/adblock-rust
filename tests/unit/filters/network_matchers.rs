@@ -2,6 +2,7 @@
 mod match_tests {
     use super::super::*;
     use crate::filters::network::*;
+    use crate::utils::Hash;
 
     #[test]
     fn is_anchored_by_hostname_works() {
@@ -360,69 +361,59 @@ mod match_tests {
         ));
     }
 
+    fn map_domain_indices(
+        domains: Option<Vec<Hash>>,
+        mapping: &mut HashMap<Hash, u32>,
+    ) -> Option<Vec<u32>> {
+        domains.map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        })
+    }
+
     fn check_options(filter: &NetworkFilter, request: &request::Request) -> bool {
         let mut mapping = HashMap::new();
-        let opt_domains = filter.opt_domains.clone().map(|domains| {
-            domains
-                .iter()
-                .map(|domain| {
-                    mapping.insert(*domain, *domain as u32);
-                    *domain as u32
-                })
-                .collect::<Vec<u32>>()
-        });
-
-        let opt_not_domains = filter.opt_not_domains.clone().map(|domains| {
-            domains
-                .iter()
-                .map(|domain| {
-                    mapping.insert(*domain, *domain as u32);
-                    *domain as u32
-                })
-                .collect::<Vec<u32>>()
-        });
-
-        let opt_to_domains = filter.opt_to_domains.clone().map(|domains| {
-            domains
-                .iter()
-                .map(|domain| {
-                    mapping.insert(*domain, *domain as u32);
-                    *domain as u32
-                })
-                .collect::<Vec<u32>>()
-        });
-
-        let opt_to_not_domains = filter.opt_to_not_domains.clone().map(|domains| {
-            domains
-                .iter()
-                .map(|domain| {
-                    mapping.insert(*domain, *domain as u32);
-                    *domain as u32
-                })
-                .collect::<Vec<u32>>()
-        });
+        let opt_domains = map_domain_indices(filter.opt_domains.clone(), &mut mapping);
+        let opt_not_domains = map_domain_indices(filter.opt_not_domains.clone(), &mut mapping);
+        let opt_entities = map_domain_indices(filter.opt_entities.clone(), &mut mapping);
+        let opt_not_entities = map_domain_indices(filter.opt_not_entities.clone(), &mut mapping);
+        let opt_to_domains = map_domain_indices(filter.opt_to_domains.clone(), &mut mapping);
+        let opt_to_not_domains =
+            map_domain_indices(filter.opt_to_not_domains.clone(), &mut mapping);
+        let opt_to_entities = map_domain_indices(filter.opt_to_entities.clone(), &mut mapping);
+        let opt_to_not_entities =
+            map_domain_indices(filter.opt_to_not_entities.clone(), &mut mapping);
 
         super::super::check_options(filter.mask, request)
             && super::super::check_included_domains_mapped(
                 opt_domains.as_deref(),
+                opt_entities.as_deref(),
                 request,
                 &mapping,
                 false,
             )
             && super::super::check_excluded_domains_mapped(
                 opt_not_domains.as_deref(),
+                opt_not_entities.as_deref(),
                 request,
                 &mapping,
                 false,
             )
             && super::super::check_included_domains_mapped(
                 opt_to_domains.as_deref(),
+                opt_to_entities.as_deref(),
                 request,
                 &mapping,
                 true,
             )
             && super::super::check_excluded_domains_mapped(
                 opt_to_not_domains.as_deref(),
+                opt_to_not_entities.as_deref(),
                 request,
                 &mapping,
                 true,
@@ -559,6 +550,53 @@ mod match_tests {
             let request = request::Request::new(
                 "https://example.com/script.js",
                 "https://other.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(&request));
+        }
+
+        // $to entity wildcard (tikimall.*) with hostname exclusion
+        {
+            let network_filter = NetworkFilter::parse(
+                "||tikimall.$doc,to=tikimall.*|~tiki.vn",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(network_filter.is_to_only());
+            assert_eq!(
+                network_filter.opt_to_entities,
+                Some(vec![utils::fast_hash("tikimall")])
+            );
+            assert_eq!(
+                network_filter.opt_to_not_domains,
+                Some(vec![utils::fast_hash("tiki.vn")])
+            );
+            assert_eq!(network_filter.opt_to_domains, None);
+
+            let request = request::Request::new(
+                "https://shop.tikimall.com/",
+                "https://example.com",
+                "document",
+                "",
+            )
+            .unwrap();
+            assert!(network_filter.matches_test(&request));
+
+            let request = request::Request::new(
+                "https://tiki.vn/",
+                "https://example.com",
+                "document",
+                "",
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(&request));
+
+            let request = request::Request::new(
+                "https://shop.tikimall.com/",
+                "https://example.com",
                 "script",
                 "",
             )

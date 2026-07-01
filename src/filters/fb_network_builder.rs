@@ -76,6 +76,26 @@ impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
             FlatSerialize::serialize(o, builder)
         });
 
+        let opt_entities = network_filter.opt_entities.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
+        let opt_not_entities = network_filter.opt_not_entities.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
         let opt_to_domains = network_filter.opt_to_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
@@ -87,6 +107,26 @@ impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
         });
 
         let opt_to_not_domains = network_filter.opt_to_not_domains.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
+        let opt_to_entities = network_filter.opt_to_entities.as_ref().map(|v| {
+            let mut o: Vec<u32> = v
+                .iter()
+                .map(|x| builder.get_or_insert_unique_domain_hash(x))
+                .collect();
+            o.sort_unstable();
+            o.dedup();
+            FlatSerialize::serialize(o, builder)
+        });
+
+        let opt_to_not_entities = network_filter.opt_to_not_entities.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| builder.get_or_insert_unique_domain_hash(x))
@@ -139,8 +179,12 @@ impl<'f, 'a> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkFilter<'f> {
                 modifier_option,
                 opt_domains,
                 opt_not_domains,
+                opt_entities,
+                opt_not_entities,
                 opt_to_domains,
                 opt_to_not_domains,
+                opt_to_entities,
+                opt_to_not_entities,
                 hostname,
                 tag,
                 raw_line,
