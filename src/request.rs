@@ -118,22 +118,15 @@ impl Request {
     }
 
     pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        let empty_hostname_hashes: &[utils::Hash] = &[];
-        let request_hostname_hashes: &[utils::Hash] =
-            if self.source_hostname_hashes.is_none() || self.is_third_party {
-                self.hostname_hashes
-                    .as_deref()
-                    .unwrap_or(empty_hostname_hashes)
-            } else {
-                empty_hostname_hashes
-            };
-
         self.source_hostname_hashes
             .as_ref()
             .into_iter()
             .flatten()
-            .chain(request_hostname_hashes.iter())
             .chain(self.get_tokens())
+    }
+
+    pub(crate) fn get_to_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
+        self.hostname_hashes.as_ref().into_iter().flatten()
     }
 
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {

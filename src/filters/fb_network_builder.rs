@@ -36,9 +36,11 @@ struct NetworkFilterFlatEntry<'a> {
 
 struct NetworkFilterListBuilder<'a, 'f> {
     flat_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
+    to_flat_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
     token_frequencies: TokenSelector,
     filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter<'f>>>,
     tokens_buffer: TokensBuffer,
+    to_tokens_buffer: TokensBuffer,
     optimize: bool,
 }
 
@@ -151,11 +153,56 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
     fn new(optimize: bool) -> Self {
         Self {
             flat_map_builder: FlatMultiMapBuilder::with_capacity(1024),
+            to_flat_map_builder: FlatMultiMapBuilder::with_capacity(64),
             token_frequencies: TokenSelector::new(1024),
             filters_to_optimize: HashMap::new(),
             tokens_buffer: TokensBuffer::default(),
+            to_tokens_buffer: TokensBuffer::default(),
             optimize,
         }
+    }
+
+    fn insert_into_map(
+        map: &mut FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
+        token_frequencies: &mut TokenSelector,
+        tokens: &[Hash],
+        filter: WIPOffset<fb::NetworkFilter<'a>>,
+        id: Hash,
+    ) {
+        for &token in tokens {
+            token_frequencies.record_usage(token);
+            map.insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
+        }
+    }
+
+    fn add_to_filter(
+        &mut self,
+        network_filter: NetworkFilter<'f>,
+        builder: &mut EngineFlatBuilder<'a>,
+    ) {
+        let multi_tokens = network_filter.get_to_tokens(&mut self.to_tokens_buffer);
+        let id = network_filter.get_id();
+
+        let single_token: Hash;
+        let tokens: &[Hash] = match multi_tokens {
+            FilterTokens::Empty => &[0],
+            FilterTokens::OptDomains => self.to_tokens_buffer.as_slice(),
+            FilterTokens::Other => {
+                single_token = self
+                    .token_frequencies
+                    .select_least_used_token(self.to_tokens_buffer.as_slice());
+                std::slice::from_ref(&single_token)
+            }
+        };
+
+        let filter = FlatSerialize::serialize(network_filter, builder);
+        Self::insert_into_map(
+            &mut self.to_flat_map_builder,
+            &mut self.token_frequencies,
+            tokens,
+            filter,
+            id,
+        );
     }
 
     fn add_filter(
@@ -163,6 +210,11 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
         network_filter: NetworkFilter<'f>,
         builder: &mut EngineFlatBuilder<'a>,
     ) {
+        if network_filter.is_to_only() {
+            self.add_to_filter(network_filter, builder);
+            return;
+        }
+
         let multi_tokens = network_filter.get_tokens(&mut self.tokens_buffer);
         let id = network_filter.get_id();
 
@@ -193,11 +245,13 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
             // Serialize now (even if it matches to a bad filter later);
             // Although store the id for later bad-filter pruning.
             let filter = FlatSerialize::serialize(network_filter, builder);
-            for &token in tokens {
-                self.token_frequencies.record_usage(token);
-                self.flat_map_builder
-                    .insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
-            }
+            Self::insert_into_map(
+                &mut self.flat_map_builder,
+                &mut self.token_frequencies,
+                tokens,
+                filter,
+                id,
+            );
         } else {
             // Defer serialization to the optimizer
             for &token in tokens {
@@ -314,14 +368,21 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a
             rule_list
                 .flat_map_builder
                 .retain_by_value(|entry| !value.bad_filter_ids.contains(&entry.id));
+            rule_list
+                .to_flat_map_builder
+                .retain_by_value(|entry| !value.bad_filter_ids.contains(&entry.id));
 
             let flat_filter_map = FlatMultiMapBuilder::finish(rule_list.flat_map_builder, builder);
+            let to_flat_filter_map =
+                FlatMultiMapBuilder::finish(rule_list.to_flat_map_builder, builder);
 
             serialized_lists.push(fb::NetworkFilterList::create(
                 builder.raw_builder(),
                 &fb::NetworkFilterListArgs {
                     filter_map_index: Some(flat_filter_map.keys),
                     filter_map_values: Some(flat_filter_map.values),
+                    to_filter_map_index: Some(to_flat_filter_map.keys),
+                    to_filter_map_values: Some(to_flat_filter_map.values),
                 },
             ));
         }

@@ -37,6 +37,9 @@ table NetworkFilter {
 table NetworkFilterList {
   filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
+  /// Separate index for `$to`-only rules, keyed by destination hostname hashes.
+  to_filter_map_index: [uint32] (required);
+  to_filter_map_values: [NetworkFilter] (required);
 }
 
 /// A table to store the most host-specific cosmetic rules.

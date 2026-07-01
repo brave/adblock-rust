@@ -54,9 +54,17 @@ type FlatNetworkFilterMap<'a> =
 impl NetworkFilterList<'_> {
     pub fn get_filter_map(&self) -> FlatNetworkFilterMap<'_> {
         let filters_list = &self.list;
-        FlatNetworkFilterMap::new(
+        FlatMultiMapView::new(
             fb_vector_to_slice(filters_list.filter_map_index()),
             filters_list.filter_map_values(),
+        )
+    }
+
+    pub fn get_to_filter_map(&self) -> FlatNetworkFilterMap<'_> {
+        let filters_list = &self.list;
+        FlatMultiMapView::new(
+            fb_vector_to_slice(filters_list.to_filter_map_index()),
+            filters_list.to_filter_map_values(),
         )
     }
 
@@ -73,18 +81,37 @@ impl NetworkFilterList<'_> {
     ) -> Option<CheckResult> {
         let filters_list = self.list;
 
-        if filters_list.filter_map_index().is_empty() {
+        if filters_list.filter_map_index().is_empty()
+            && filters_list.to_filter_map_index().is_empty()
+        {
             return None;
         }
 
         let filter_map = self.get_filter_map();
-
         for token in request.get_tokens_for_match() {
             if let Some(iter) = filter_map.get(to_short_hash(*token)) {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().is_none_or(|t| active_tags.contains(t))
+                    {
+                        return Some(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                            raw_line: filter.raw_line(),
+                        });
+                    }
+                }
+            }
+        }
+
+        let to_filter_map = self.get_to_filter_map();
+        for token in request.get_to_tokens_for_match() {
+            if let Some(iter) = to_filter_map.get(to_short_hash(*token)) {
+                for fb_filter in iter {
+                    let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
+
                     if filter.matches(request, regex_manager)
                         && filter.tag().is_none_or(|t| active_tags.contains(t))
                     {
@@ -115,18 +142,18 @@ impl NetworkFilterList<'_> {
 
         let filters_list = self.list;
 
-        if filters_list.filter_map_index().is_empty() {
+        if filters_list.filter_map_index().is_empty()
+            && filters_list.to_filter_map_index().is_empty()
+        {
             return filters;
         }
 
         let filter_map = self.get_filter_map();
-
         for token in request.get_tokens_for_match() {
             if let Some(iter) = filter_map.get(to_short_hash(*token)) {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
                         && filter.tag().is_none_or(|t| active_tags.contains(t))
                     {
@@ -139,6 +166,26 @@ impl NetworkFilterList<'_> {
                 }
             }
         }
+
+        let to_filter_map = self.get_to_filter_map();
+        for token in request.get_to_tokens_for_match() {
+            if let Some(iter) = to_filter_map.get(to_short_hash(*token)) {
+                for fb_filter in iter {
+                    let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
+
+                    if filter.matches(request, regex_manager)
+                        && filter.tag().is_none_or(|t| active_tags.contains(t))
+                    {
+                        filters.push(CheckResult {
+                            filter_mask: filter.mask,
+                            modifier_option: filter.modifier_option(),
+                            raw_line: filter.raw_line(),
+                        });
+                    }
+                }
+            }
+        }
+
         filters
     }
 }

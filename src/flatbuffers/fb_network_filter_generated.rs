@@ -573,6 +573,8 @@ pub mod fb {
     impl<'a> NetworkFilterList<'a> {
         pub const VT_FILTER_MAP_INDEX: flatbuffers::VOffsetT = 4;
         pub const VT_FILTER_MAP_VALUES: flatbuffers::VOffsetT = 6;
+        pub const VT_TO_FILTER_MAP_INDEX: flatbuffers::VOffsetT = 8;
+        pub const VT_TO_FILTER_MAP_VALUES: flatbuffers::VOffsetT = 10;
 
         #[inline]
         pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -589,6 +591,12 @@ pub mod fb {
             args: &'args NetworkFilterListArgs<'args>,
         ) -> flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
             let mut builder = NetworkFilterListBuilder::new(_fbb);
+            if let Some(x) = args.to_filter_map_values {
+                builder.add_to_filter_map_values(x);
+            }
+            if let Some(x) = args.to_filter_map_index {
+                builder.add_to_filter_map_index(x);
+            }
             if let Some(x) = args.filter_map_values {
                 builder.add_filter_map_values(x);
             }
@@ -607,9 +615,19 @@ pub mod fb {
                 let x = self.filter_map_values();
                 x.iter().map(|t| t.unpack()).collect()
             };
+            let to_filter_map_index = {
+                let x = self.to_filter_map_index();
+                x.into_iter().collect()
+            };
+            let to_filter_map_values = {
+                let x = self.to_filter_map_values();
+                x.iter().map(|t| t.unpack()).collect()
+            };
             NetworkFilterListT {
                 filter_map_index,
                 filter_map_values,
+                to_filter_map_index,
+                to_filter_map_values,
             }
         }
 
@@ -642,6 +660,36 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// Separate index for `$to`-only rules, keyed by destination hostname hashes.
+        #[inline]
+        pub fn to_filter_map_index(&self) -> flatbuffers::Vector<'a, u32> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilterList::VT_TO_FILTER_MAP_INDEX,
+                        None,
+                    )
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn to_filter_map_values(
+            &self,
+        ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<flatbuffers::ForwardsUOffset<
+                        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                    >>(NetworkFilterList::VT_TO_FILTER_MAP_VALUES, None)
+                    .unwrap()
+            }
+        }
     }
 
     impl flatbuffers::Verifiable for NetworkFilterList<'_> {
@@ -660,6 +708,14 @@ pub mod fb {
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>,
                 >>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
+                .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u32>>>(
+                    "to_filter_map_index",
+                    Self::VT_TO_FILTER_MAP_INDEX,
+                    true,
+                )?
+                .visit_field::<flatbuffers::ForwardsUOffset<
+                    flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                >>("to_filter_map_values", Self::VT_TO_FILTER_MAP_VALUES, true)?
                 .finish();
             Ok(())
         }
@@ -671,13 +727,21 @@ pub mod fb {
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
             >,
         >,
+        pub to_filter_map_index: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u32>>>,
+        pub to_filter_map_values: Option<
+            flatbuffers::WIPOffset<
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
+            >,
+        >,
     }
     impl<'a> Default for NetworkFilterListArgs<'a> {
         #[inline]
         fn default() -> Self {
             NetworkFilterListArgs {
-                filter_map_index: None,  // required field
-                filter_map_values: None, // required field
+                filter_map_index: None,     // required field
+                filter_map_values: None,    // required field
+                to_filter_map_index: None,  // required field
+                to_filter_map_values: None, // required field
             }
         }
     }
@@ -710,6 +774,28 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_to_filter_map_index(
+            &mut self,
+            to_filter_map_index: flatbuffers::WIPOffset<flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_TO_FILTER_MAP_INDEX,
+                to_filter_map_index,
+            );
+        }
+        #[inline]
+        pub fn add_to_filter_map_values(
+            &mut self,
+            to_filter_map_values: flatbuffers::WIPOffset<
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<NetworkFilter<'b>>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_TO_FILTER_MAP_VALUES,
+                to_filter_map_values,
+            );
+        }
+        #[inline]
         pub fn new(
             _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterListBuilder<'a, 'b, A> {
@@ -732,6 +818,16 @@ pub mod fb {
                 NetworkFilterList::VT_FILTER_MAP_VALUES,
                 "filter_map_values",
             );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_TO_FILTER_MAP_INDEX,
+                "to_filter_map_index",
+            );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_TO_FILTER_MAP_VALUES,
+                "to_filter_map_values",
+            );
             flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -741,6 +837,8 @@ pub mod fb {
             let mut ds = f.debug_struct("NetworkFilterList");
             ds.field("filter_map_index", &self.filter_map_index());
             ds.field("filter_map_values", &self.filter_map_values());
+            ds.field("to_filter_map_index", &self.to_filter_map_index());
+            ds.field("to_filter_map_values", &self.to_filter_map_values());
             ds.finish()
         }
     }
@@ -749,12 +847,16 @@ pub mod fb {
     pub struct NetworkFilterListT {
         pub filter_map_index: Vec<u32>,
         pub filter_map_values: Vec<NetworkFilterT>,
+        pub to_filter_map_index: Vec<u32>,
+        pub to_filter_map_values: Vec<NetworkFilterT>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
             Self {
                 filter_map_index: Default::default(),
                 filter_map_values: Default::default(),
+                to_filter_map_index: Default::default(),
+                to_filter_map_values: Default::default(),
             }
         }
     }
@@ -772,11 +874,22 @@ pub mod fb {
                 let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
+            let to_filter_map_index = Some({
+                let x = &self.to_filter_map_index;
+                _fbb.create_vector(x)
+            });
+            let to_filter_map_values = Some({
+                let x = &self.to_filter_map_values;
+                let w: Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
+            });
             NetworkFilterList::create(
                 _fbb,
                 &NetworkFilterListArgs {
                     filter_map_index,
                     filter_map_values,
+                    to_filter_map_index,
+                    to_filter_map_values,
                 },
             )
         }

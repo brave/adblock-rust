@@ -185,7 +185,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 3885650574297444680;
+        const EXPECTED_HASH: u64 = 16136290474461266556;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -195,7 +195,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 14220945538712423543;
+        const EXPECTED_HASH: u64 = 8376633912448029177;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -241,7 +241,7 @@ mod tests {
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
             12174605107991409162
         } else {
-            2093709728354176381
+            6509968941631782766
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");

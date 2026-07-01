@@ -1039,25 +1039,6 @@ impl<'a> NetworkFilter<'a> {
             }
         }
 
-        // $to= rules apply on the request hostname; bucket by those domains instead of
-        // broad pattern tokens so the filter is not checked on unrelated requests.
-        if self.opt_to_domains.is_some()
-            && self.opt_domains.is_none()
-            && self.opt_not_domains.is_none()
-        {
-            if let Some(to_domains) = self.opt_to_domains.as_ref() {
-                if !to_domains.is_empty() && self.opt_to_not_domains.is_none() {
-                    tokens_buffer.clear();
-                    let cap = tokens_buffer.remaining_capacity();
-                    if to_domains.len() <= cap {
-                        tokens_buffer.extend(to_domains.iter().copied());
-                        return FilterTokens::OptDomains;
-                    }
-                    return FilterTokens::Empty;
-                }
-            }
-        }
-
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
         if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
@@ -1088,6 +1069,24 @@ impl<'a> NetworkFilter<'a> {
                 FilterTokens::Other
             }
         }
+    }
+
+    /// Tokens for the separate `$to`-only filter index (destination hostname hashes).
+    pub(crate) fn get_to_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
+        tokens_buffer.clear();
+
+        if let Some(to_domains) = self.opt_to_domains.as_ref() {
+            if !to_domains.is_empty() && self.opt_to_not_domains.is_none() {
+                let cap = tokens_buffer.remaining_capacity();
+                if to_domains.len() <= cap {
+                    tokens_buffer.extend(to_domains.iter().copied());
+                    return FilterTokens::OptDomains;
+                }
+                return FilterTokens::Empty;
+            }
+        }
+
+        FilterTokens::Empty
     }
 
     pub fn is_badfilter(&self) -> bool {
