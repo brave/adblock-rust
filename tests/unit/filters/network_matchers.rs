@@ -382,16 +382,50 @@ mod match_tests {
                 .collect::<Vec<u32>>()
         });
 
+        let opt_to_domains = filter.opt_to_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
+        let opt_to_not_domains = filter.opt_to_not_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
         super::super::check_options(filter.mask, request)
             && super::super::check_included_domains_mapped(
                 opt_domains.as_deref(),
                 request,
                 &mapping,
+                false,
             )
             && super::super::check_excluded_domains_mapped(
                 opt_not_domains.as_deref(),
                 request,
                 &mapping,
+                false,
+            )
+            && super::super::check_included_domains_mapped(
+                opt_to_domains.as_deref(),
+                request,
+                &mapping,
+                true,
+            )
+            && super::super::check_excluded_domains_mapped(
+                opt_to_not_domains.as_deref(),
+                request,
+                &mapping,
+                true,
             )
     }
 
@@ -482,7 +516,7 @@ mod match_tests {
             assert!(!check_options(&network_filter, &request));
         }
 
-        // $to is parsed but not applied at match time
+        // $to applies to request hostname, not source
         {
             let network_filter =
                 NetworkFilter::parse("foo$to=foo.com", true, Default::default()).unwrap();
@@ -490,14 +524,14 @@ mod match_tests {
             let request =
                 request::Request::new("https://foo.com/foo", "https://example.com", "", "")
                     .unwrap();
-            assert!(!network_filter.matches_test(&request));
+            assert!(network_filter.matches_test(&request));
             let request =
                 request::Request::new("https://example.com/foo", "https://foo.com", "", "")
                     .unwrap();
             assert!(!network_filter.matches_test(&request));
         }
 
-        // $from + $to: only $from is enforced at match time
+        // $from + $to both apply (source AND destination)
         {
             let network_filter = NetworkFilter::parse(
                 "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
@@ -521,7 +555,7 @@ mod match_tests {
                 "",
             )
             .unwrap();
-            assert!(network_filter.matches_test(&request));
+            assert!(!network_filter.matches_test(&request));
             let request = request::Request::new(
                 "https://example.com/script.js",
                 "https://other.com",

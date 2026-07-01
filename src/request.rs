@@ -101,6 +101,7 @@ pub struct Request {
     pub url: String,
     pub hostname: String,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
@@ -117,12 +118,21 @@ impl Request {
     }
 
     pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        // We start matching with source_hostname_hashes for optimization,
-        // as it contains far fewer elements.
+        let empty_hostname_hashes: &[utils::Hash] = &[];
+        let request_hostname_hashes: &[utils::Hash] =
+            if self.source_hostname_hashes.is_none() || self.is_third_party {
+                self.hostname_hashes
+                    .as_deref()
+                    .unwrap_or(empty_hostname_hashes)
+            } else {
+                empty_hostname_hashes
+            };
+
         self.source_hostname_hashes
             .as_ref()
             .into_iter()
             .flatten()
+            .chain(request_hostname_hashes.iter())
             .chain(self.get_tokens())
     }
 
@@ -190,18 +200,7 @@ impl Request {
             }
         }
 
-        let source_hostname_hashes = if !source_hostname.is_empty() {
-            let mut hashes = Vec::with_capacity(4);
-            hashes.push(utils::fast_hash(source_hostname));
-            for (i, c) in source_hostname.char_indices() {
-                if c == '.' && i + 1 < source_hostname.len() {
-                    hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
-                }
-            }
-            Some(hashes)
-        } else {
-            None
-        };
+        let source_hostname_hashes = hostname_suffix_hashes(source_hostname);
 
         let url_lower_cased = url.to_ascii_lowercase();
 
@@ -213,6 +212,7 @@ impl Request {
             hostname: hostname.to_owned(),
             request_tokens: calculate_tokens(&url_lower_cased),
             source_hostname_hashes,
+            hostname_hashes: hostname_suffix_hashes(hostname),
             is_third_party: third_party,
             is_http,
             is_https,
@@ -287,6 +287,20 @@ impl Request {
             Self::parse_method(method),
         )
     }
+}
+
+fn hostname_suffix_hashes(hostname: &str) -> Option<Vec<utils::Hash>> {
+    if hostname.is_empty() {
+        return None;
+    }
+    let mut hashes = Vec::with_capacity(4);
+    hashes.push(utils::fast_hash(hostname));
+    for (i, c) in hostname.char_indices() {
+        if c == '.' && i + 1 < hostname.len() {
+            hashes.push(utils::fast_hash(&hostname[i + 1..]));
+        }
+    }
+    Some(hashes)
 }
 
 fn calculate_tokens(url_lower_cased: &str) -> Vec<utils::Hash> {

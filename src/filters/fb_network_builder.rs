@@ -233,11 +233,6 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
             return;
         }
 
-        // Parsed and stored on NetworkFilter, but not matched until $to support lands.
-        if filter.is_to_only() {
-            return;
-        }
-
         // Redirects are independent of blocking behavior.
         if filter.is_redirect() {
             self.add_filter_internal(filter.clone(), NetworkFilterListId::Redirects, builder);

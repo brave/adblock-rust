@@ -141,6 +141,20 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
+    pub fn include_to_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn exclude_to_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_not_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
     pub fn hostname(&self) -> Option<&'a str> {
         if self.mask.is_hostname_anchor() {
             self.fb_filter.hostname()
@@ -183,6 +197,7 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             self.include_domains(),
             request,
             &self.filter_data_context.unique_domains_hashes_map,
+            false,
         ) {
             return false;
         }
@@ -190,6 +205,23 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             self.exclude_domains(),
             request,
             &self.filter_data_context.unique_domains_hashes_map,
+            false,
+        ) {
+            return false;
+        }
+        if !check_included_domains_mapped(
+            self.include_to_domains(),
+            request,
+            &self.filter_data_context.unique_domains_hashes_map,
+            true,
+        ) {
+            return false;
+        }
+        if !check_excluded_domains_mapped(
+            self.exclude_to_domains(),
+            request,
+            &self.filter_data_context.unique_domains_hashes_map,
+            true,
         ) {
             return false;
         }

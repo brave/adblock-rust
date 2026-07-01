@@ -423,11 +423,18 @@ pub fn check_included_domains_mapped(
     opt_domains: Option<&[u32]>,
     request: &request::Request,
     mapping: &HashMap<Hash, u32>,
+    to_domains: bool,
 ) -> bool {
-    // Source URL must be among these domains to match
+    // Source URL must be among these domains to match ($domain/$from), or the
+    // request URL hostname for $to.
     if let Some(included_domains) = opt_domains.as_ref() {
-        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().all(|h| {
+        let host_hashes = if to_domains {
+            request.hostname_hashes.as_ref()
+        } else {
+            request.source_hostname_hashes.as_ref()
+        };
+        if let Some(host_hashes) = host_hashes {
+            if host_hashes.iter().all(|h| {
                 mapping
                     .get(h)
                     .is_none_or(|index| !utils::bin_lookup(included_domains, *index))
@@ -435,7 +442,7 @@ pub fn check_included_domains_mapped(
                 return false;
             }
         } else {
-            // If there are domain restrictions but no source hostname, we can't apply the rule
+            // If there are domain restrictions but no hostname, we can't apply the rule
             return false;
         }
     }
@@ -447,20 +454,28 @@ pub fn check_excluded_domains_mapped(
     opt_not_domains: Option<&[u32]>,
     request: &request::Request,
     mapping: &HashMap<Hash, u32>,
+    to_domains: bool,
 ) -> bool {
     if let Some(excluded_domains) = opt_not_domains.as_ref() {
-        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().any(|h| {
+        let host_hashes = if to_domains {
+            request.hostname_hashes.as_ref()
+        } else {
+            request.source_hostname_hashes.as_ref()
+        };
+        if let Some(host_hashes) = host_hashes {
+            if host_hashes.iter().any(|h| {
                 mapping
                     .get(h)
                     .is_some_and(|index| utils::bin_lookup(excluded_domains, *index))
             }) {
                 return false;
             }
-        } else {
+        } else if !to_domains {
             // If there are domain restrictions but no source hostname
             // (i.e. about:blank), apply the rule anyway.
             return true;
+        } else {
+            return false;
         }
     }
 

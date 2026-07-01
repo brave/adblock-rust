@@ -1039,6 +1039,25 @@ impl<'a> NetworkFilter<'a> {
             }
         }
 
+        // $to= rules apply on the request hostname; bucket by those domains instead of
+        // broad pattern tokens so the filter is not checked on unrelated requests.
+        if self.opt_to_domains.is_some()
+            && self.opt_domains.is_none()
+            && self.opt_not_domains.is_none()
+        {
+            if let Some(to_domains) = self.opt_to_domains.as_ref() {
+                if !to_domains.is_empty() && self.opt_to_not_domains.is_none() {
+                    tokens_buffer.clear();
+                    let cap = tokens_buffer.remaining_capacity();
+                    if to_domains.len() <= cap {
+                        tokens_buffer.extend(to_domains.iter().copied());
+                        return FilterTokens::OptDomains;
+                    }
+                    return FilterTokens::Empty;
+                }
+            }
+        }
+
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
         if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
@@ -1101,12 +1120,12 @@ impl<'a> NetworkFilter<'a> {
             .contains(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT)
     }
 
-    /// True when the filter has a `$to=` option. Matching does not apply `$to` yet.
+    /// True when the filter has a `$to=` option.
     pub fn has_to_option(&self) -> bool {
         self.opt_to_domains.is_some() || self.opt_to_not_domains.is_some()
     }
 
-    /// `$to`-only rules are not loaded into the engine until destination matching is supported.
+    /// True when the filter has `$to=` but no `$from=` / `$domain=` option.
     pub fn is_to_only(&self) -> bool {
         self.has_to_option() && self.opt_domains.is_none() && self.opt_not_domains.is_none()
     }
