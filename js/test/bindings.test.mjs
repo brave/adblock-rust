@@ -25,17 +25,18 @@ const { FilterSet, Engine, FilterFormat, RuleTypes, uBlockResources } =
 describe('FilterSet.addFilters', () => {
       it('parses metadata comments (title, homepage, expires, redirect)', () => {
         const fs = new FilterSet();
-        const meta = fs.addFilters([
+        const { source_index, metadata } = fs.addFilters([
             '! Title: Test List',
             '! Homepage: https://example.com',
             '! Expires: 2 days',
             '! Redirect: https://example.com/new-list.txt',
             '||ads.com^',
         ].join('\n'));
-        assert.equal(meta.title, 'Test List');
-        assert.equal(meta.homepage, 'https://example.com');
-        assert.ok(meta.expires != null);
-        assert.equal(meta.redirect, 'https://example.com/new-list.txt');
+        assert.equal(metadata.title, 'Test List');
+        assert.equal(source_index, 0);
+        assert.equal(metadata.homepage, 'https://example.com');
+        assert.ok(metadata.expires != null);
+        assert.equal(metadata.redirect, 'https://example.com/new-list.txt');
     });
     it('hosts format parses IP-hostname entries', () => {
         const fs = new FilterSet();

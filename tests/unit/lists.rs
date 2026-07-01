@@ -291,7 +291,11 @@ mod tests {
         .join("\n");
 
         let mut filter_set = FilterSet::new(false);
-        let metadata = filter_set.add_filter_list(list, ParseOptions::default());
+        let AddedFiltersRecord {
+            source_index,
+            metadata,
+        } = filter_set.add_filter_list(list, ParseOptions::default());
+        assert_eq!(source_index, 0);
 
         assert_eq!(metadata.title, Some("0131 Block List".to_string()));
         assert_eq!(
@@ -321,7 +325,11 @@ mod tests {
         .join("\n");
 
         let mut filter_set = FilterSet::new(false);
-        let metadata = filter_set.add_filter_list(list, ParseOptions::default());
+        let AddedFiltersRecord {
+            source_index,
+            metadata,
+        } = filter_set.add_filter_list(list, ParseOptions::default());
+        assert_eq!(source_index, 0);
 
         assert_eq!(metadata.title, Some("ABPVN Advanced".to_string()));
         assert_eq!(
