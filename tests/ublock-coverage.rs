@@ -151,6 +151,7 @@ fn check_specifics_default() {
         let checked = engine.check_network_request(&request);
         assert!(!checked.matched, "Matched on {:?}", checked.filter);
     }
+    #[allow(deprecated)]
     {
         engine.use_tags(&["fb-embeds", "twitter-embeds"]);
         let request = Request::new(

@@ -9,6 +9,7 @@ mod tests {
     use seahash::hash;
 
     #[test]
+    #[allow(deprecated)]
     fn tags_enable_adds_tags() {
         let filters = [
             "adv$tag=stuff",
@@ -43,6 +44,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn tags_disable_works() {
         let filters = [
             "adv$tag=stuff",
@@ -77,6 +79,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn exception_tags_inactive_by_default() {
         let filters = [
             "adv",
@@ -107,6 +110,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn exception_tags_works() {
         let filters = [
             "adv",
@@ -138,6 +142,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn serialization_retains_tags() {
         let filters = [
             "adv$tag=stuff",
@@ -191,6 +196,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn deserialization_generate_tags() {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);

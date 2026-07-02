@@ -316,6 +316,7 @@ mod legacy_check_match {
     use adblock::request::Request;
     use adblock::Engine;
 
+    #[allow(deprecated)]
     fn check_match<'a>(
         rules: &[&'a str],
         blocked: &[&'a str],

@@ -300,11 +300,17 @@ fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
 }
 
 fn engine_enable_tag(mut cx: FunctionContext) -> JsResult<JsNull> {
+    console_warn(
+        &mut cx,
+        "Engine.enableTag: tagged filters are deprecated; \
+         rebuild the engine with or without the relevant filters instead.",
+    )?;
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
     let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
 
     if let Ok(mut engine) = this.0.lock() {
+        #[allow(deprecated)]
         engine.enable_tags(&[&tag])
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
@@ -327,11 +333,17 @@ fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
 }
 
 fn engine_tag_exists(mut cx: FunctionContext) -> JsResult<JsBoolean> {
+    console_warn(
+        &mut cx,
+        "Engine.tagExists: tagged filters are deprecated; \
+         rebuild the engine with or without the relevant filters instead.",
+    )?;
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
     let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
 
     let result = if let Ok(engine) = this.0.lock() {
+        #[allow(deprecated)]
         engine.tag_exists(&tag)
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
@@ -340,9 +352,15 @@ fn engine_tag_exists(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 }
 
 fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
+    console_warn(
+        &mut cx,
+        "Engine.clearTags: tagged filters are deprecated; \
+         rebuild the engine with or without the relevant filters instead.",
+    )?;
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
     if let Ok(mut engine) = this.0.lock() {
+        #[allow(deprecated)]
         engine.use_tags(&[]);
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
