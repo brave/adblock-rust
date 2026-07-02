@@ -213,6 +213,7 @@ impl Engine {
     ///
     /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
     /// option.
+    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
     pub fn use_tags(&mut self, tags: &[&str]) {
         self.blocker.use_tags(tags);
     }
@@ -221,6 +222,7 @@ impl Engine {
     ///
     /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
     /// option.
+    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
     pub fn enable_tags(&mut self, tags: &[&str]) {
         self.blocker.enable_tags(tags);
     }
@@ -229,6 +231,7 @@ impl Engine {
     ///
     /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
     /// option.
+    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
     pub fn disable_tags(&mut self, tags: &[&str]) {
         self.blocker.disable_tags(tags);
     }
@@ -237,6 +240,7 @@ impl Engine {
     ///
     /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
     /// option.
+    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
     pub fn tag_exists(&self, tag: &str) -> bool {
         self.blocker.tags_enabled().contains(&tag.to_owned())
     }

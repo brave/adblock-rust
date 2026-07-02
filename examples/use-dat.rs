@@ -14,7 +14,6 @@ fn main() {
 
     // Deserialize
     engine.deserialize(&buffer).unwrap();
-    engine.use_tags(&["twitter-embeds"]);
 
     let request = Request::new(
         "https://platform.twitter.com/widgets.js",

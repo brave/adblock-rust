@@ -152,12 +152,14 @@ fn troubleshoot() {
 fn get_blocker_engine() -> Engine {
     let mut engine = Engine::new_with_filter_set(get_all_filters().clone());
 
+    #[allow(deprecated)]
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
     engine
 }
 
 #[test]
+#[allow(deprecated)]
 fn check_live_specific_urls() {
     let mut engine = get_blocker_engine();
     {

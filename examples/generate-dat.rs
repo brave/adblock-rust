@@ -6,14 +6,13 @@ use std::io::prelude::*;
 fn main() {
     // Rules we want to serialize
     let rules = [
-        String::from("||platform.twitter.com/$tag=twitter-embeds"),
-        String::from("@@||platform.twitter.com/$tag=twitter-embeds"),
+        String::from("||platform.twitter.com^"),
+        String::from("@@||platform.twitter.com^"),
     ]
     .join("\n");
 
     // Serialize
-    let mut engine = Engine::new_with_list_text(rules);
-    engine.use_tags(&["twitter-embeds"]);
+    let engine = Engine::new_with_list_text(rules);
 
     let request = Request::new(
         "https://platform.twitter.com/widgets.js",

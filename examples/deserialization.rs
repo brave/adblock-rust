@@ -51,7 +51,6 @@ fn main() {
             .expect("Deserialization failed");
         // engine = get_blocker_engine();
     }
-    engine.use_tags(&["twitter-embeds"]);
 
     println!("Sleeping");
     std::thread::sleep(std::time::Duration::from_secs(5));
