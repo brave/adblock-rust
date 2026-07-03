@@ -30,8 +30,8 @@ table NetworkFilter {
 
   // Debug mode only
   raw_line: string;
-  source_index: int32 = -1;
-  line_number: int32 = -1;
+  source_index: uint32 = 4294967295; // 0xFFFFFFFF
+  line_number: uint32 = 4294967295;  // 0xFFFFFFFF
 }
 
 table NetworkFilterList {

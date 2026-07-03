@@ -158,8 +158,8 @@ impl Engine {
                     Ok(ParsedLine::Network(filter)) => {
                         let debug_data = if debug {
                             NetworkFilterDebugData {
-                                source_index: source_index as i32,
-                                line_number: line_number as i32,
+                                source_index: source_index as u32,
+                                line_number: line_number as u32,
                             }
                         } else {
                             Default::default()

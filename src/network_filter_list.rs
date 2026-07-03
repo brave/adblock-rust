@@ -16,8 +16,8 @@ use crate::utils::{to_short_hash, ShortHash};
 
 pub struct CheckResultDebugData {
     pub raw_line: String,
-    pub source_index: i32,
-    pub line_number: i32,
+    pub source_index: Option<u32>,
+    pub line_number: Option<u32>,
 }
 
 /// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
@@ -31,11 +31,13 @@ pub(crate) struct CheckResult {
 impl fmt::Display for CheckResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if let Some(ref debug_data) = self.debug_data {
-            if debug_data.source_index != -1 {
+            if let (Some(source_index), Some(line_number)) =
+                (debug_data.source_index, debug_data.line_number)
+            {
                 write!(
                     f,
                     "{}:{}: {}",
-                    debug_data.source_index, debug_data.line_number, debug_data.raw_line
+                    source_index, line_number, debug_data.raw_line
                 )
             } else {
                 write!(f, "x:x: {}", debug_data.raw_line)

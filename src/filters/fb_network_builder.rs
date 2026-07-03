@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use flatbuffers::WIPOffset;
 
 use crate::filters::fb_builder::EngineFlatBuilder;
+use crate::filters::fb_network::NO_SOURCE_LINE_INFO;
 use crate::filters::network::{FilterTokens, NetworkFilter};
 use crate::filters::token_selector::TokenSelector;
 use crate::utils::TokensBuffer;
@@ -36,15 +37,15 @@ struct NetworkFilterFlatEntry<'a> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct NetworkFilterDebugData {
-    pub(crate) source_index: i32,
-    pub(crate) line_number: i32,
+    pub(crate) source_index: u32,
+    pub(crate) line_number: u32,
 }
 
 impl Default for NetworkFilterDebugData {
     fn default() -> Self {
         Self {
-            source_index: -1,
-            line_number: -1,
+            source_index: NO_SOURCE_LINE_INFO,
+            line_number: NO_SOURCE_LINE_INFO,
         }
     }
 }

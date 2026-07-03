@@ -9,6 +9,8 @@ use crate::request::Request;
 
 use crate::filters::flatbuffer_generated::fb;
 
+pub(crate) const NO_SOURCE_LINE_INFO: u32 = u32::MAX;
+
 /// A list of string parts that can be matched against a URL.
 pub(crate) enum FlatPatterns<'a> {
     /// No patterns to match
@@ -173,22 +175,33 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn source_index(&self) -> i32 {
+    pub fn source_index(&self) -> Option<u32> {
         debug_assert!(
             self.filter_data_context.debug,
             "raw_line is only available in debug mode"
         );
-        self.fb_filter.source_index()
+
+        let index = self.fb_filter.source_index();
+        if index == NO_SOURCE_LINE_INFO {
+            None
+        } else {
+            Some(index)
+        }
     }
 
     #[inline(always)]
-    pub fn line_number(&self) -> i32 {
+    pub fn line_number(&self) -> Option<u32> {
         debug_assert!(
             self.filter_data_context.debug,
             "raw_line is only available in debug mode"
         );
 
-        self.fb_filter.line_number()
+        let number = self.fb_filter.line_number();
+        if number == NO_SOURCE_LINE_INFO {
+            None
+        } else {
+            Some(number)
+        }
     }
 }
 

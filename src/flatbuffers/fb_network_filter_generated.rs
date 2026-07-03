@@ -229,24 +229,24 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn source_index(&self) -> i32 {
+        pub fn source_index(&self) -> u32 {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<i32>(NetworkFilter::VT_SOURCE_INDEX, Some(-1))
+                    .get::<u32>(NetworkFilter::VT_SOURCE_INDEX, Some(4294967295))
                     .unwrap()
             }
         }
         #[inline]
-        pub fn line_number(&self) -> i32 {
+        pub fn line_number(&self) -> u32 {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
-                    .get::<i32>(NetworkFilter::VT_LINE_NUMBER, Some(-1))
+                    .get::<u32>(NetworkFilter::VT_LINE_NUMBER, Some(4294967295))
                     .unwrap()
             }
         }
@@ -295,8 +295,8 @@ pub mod fb {
                     Self::VT_RAW_LINE,
                     false,
                 )?
-                .visit_field::<i32>("source_index", Self::VT_SOURCE_INDEX, false)?
-                .visit_field::<i32>("line_number", Self::VT_LINE_NUMBER, false)?
+                .visit_field::<u32>("source_index", Self::VT_SOURCE_INDEX, false)?
+                .visit_field::<u32>("line_number", Self::VT_LINE_NUMBER, false)?
                 .finish();
             Ok(())
         }
@@ -313,8 +313,8 @@ pub mod fb {
         pub hostname: Option<flatbuffers::WIPOffset<&'a str>>,
         pub tag: Option<flatbuffers::WIPOffset<&'a str>>,
         pub raw_line: Option<flatbuffers::WIPOffset<&'a str>>,
-        pub source_index: i32,
-        pub line_number: i32,
+        pub source_index: u32,
+        pub line_number: u32,
     }
     impl<'a> Default for NetworkFilterArgs<'a> {
         #[inline]
@@ -329,8 +329,8 @@ pub mod fb {
                 hostname: None,
                 tag: None,
                 raw_line: None,
-                source_index: -1,
-                line_number: -1,
+                source_index: 4294967295,
+                line_number: 4294967295,
             }
         }
     }
@@ -411,14 +411,14 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_source_index(&mut self, source_index: i32) {
+        pub fn add_source_index(&mut self, source_index: u32) {
             self.fbb_
-                .push_slot::<i32>(NetworkFilter::VT_SOURCE_INDEX, source_index, -1);
+                .push_slot::<u32>(NetworkFilter::VT_SOURCE_INDEX, source_index, 4294967295);
         }
         #[inline]
-        pub fn add_line_number(&mut self, line_number: i32) {
+        pub fn add_line_number(&mut self, line_number: u32) {
             self.fbb_
-                .push_slot::<i32>(NetworkFilter::VT_LINE_NUMBER, line_number, -1);
+                .push_slot::<u32>(NetworkFilter::VT_LINE_NUMBER, line_number, 4294967295);
         }
         #[inline]
         pub fn new(
@@ -466,8 +466,8 @@ pub mod fb {
         pub hostname: Option<String>,
         pub tag: Option<String>,
         pub raw_line: Option<String>,
-        pub source_index: i32,
-        pub line_number: i32,
+        pub source_index: u32,
+        pub line_number: u32,
     }
     impl Default for NetworkFilterT {
         fn default() -> Self {
@@ -481,8 +481,8 @@ pub mod fb {
                 hostname: None,
                 tag: None,
                 raw_line: None,
-                source_index: -1,
-                line_number: -1,
+                source_index: 4294967295,
+                line_number: 4294967295,
             }
         }
     }
