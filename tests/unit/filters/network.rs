@@ -731,6 +731,107 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_to() {
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=bar.com", true, Default::default()).unwrap();
+            assert_eq!(filter.opt_domains, None);
+            assert_eq!(filter.opt_not_domains, None);
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("bar.com")])
+            );
+            assert_eq!(filter.opt_to_not_domains, None);
+            assert!(filter.is_to_only());
+        }
+        {
+            let filter = NetworkFilter::parse(
+                "||foo.com$to=google.*|gstatic.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                filter.opt_to_entities,
+                Some(vec![utils::fast_hash("google")])
+            );
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("gstatic.com")])
+            );
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=~example.it", true, Default::default()).unwrap();
+            assert_eq!(
+                filter.opt_to_not_domains,
+                Some(vec![utils::fast_hash("example.it")])
+            );
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com$to=/^foo/", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::NoSupportedDomains));
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=/^foo/|bar.com", true, Default::default())
+                    .unwrap();
+            assert_eq!(filter.opt_to_domains.as_ref().map(|d| d.len()), Some(1));
+        }
+        {
+            let filter = NetworkFilter::parse(
+                "||foo.com$domain=bar.com,to=baz.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(filter.opt_domains, Some(vec![utils::fast_hash("bar.com")]));
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("baz.com")])
+            );
+        }
+        {
+            let filter = NetworkFilter::parse(
+                "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                filter.opt_domains,
+                Some(vec![utils::fast_hash("ovagames.com")])
+            );
+            assert!(filter.opt_to_not_domains.is_some());
+            assert_eq!(filter.opt_to_domains, None);
+            assert!(!filter.is_to_only());
+        }
+    }
+
+    #[test]
+    fn to_tokens_generic_suffix_uses_pattern_tokens() {
+        use crate::filters::network::FilterTokens;
+        use crate::utils::TokensBuffer;
+
+        let mut buf = TokensBuffer::default();
+        let filter = NetworkFilter::parse("//$script,3p,to=com", true, Default::default()).unwrap();
+        assert!(filter.is_to_only());
+        let tokens = filter.get_to_tokens(&mut buf);
+        assert_ne!(tokens, FilterTokens::OptDomains);
+        assert!(!buf.iter().any(|h| *h == utils::fast_hash("com")));
+
+        buf.clear();
+        let filter = NetworkFilter::parse(
+            "||ads.host-cdn.net$to=ads.host-cdn.net",
+            true,
+            Default::default(),
+        )
+        .unwrap();
+        assert_eq!(filter.get_to_tokens(&mut buf), FilterTokens::OptDomains);
+        assert!(buf.contains(&utils::fast_hash("ads.host-cdn.net")));
+    }
+
+    #[test]
     fn parses_redirects() {
         // parses redirect
         {

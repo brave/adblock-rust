@@ -10,7 +10,7 @@ use memchr::memmem;
 use crate::filters::network::{NetworkFilterMask, NetworkFilterMaskHelper};
 use crate::regex_manager::RegexManager;
 use crate::request;
-use crate::utils::{self, Hash};
+use crate::utils;
 use std::collections::HashMap;
 
 fn get_url_after_hostname<'a>(url: &'a str, hostname: &str) -> &'a str {
@@ -419,52 +419,152 @@ pub fn check_options(mask: NetworkFilterMask, request: &request::Request) -> boo
 }
 
 #[inline]
-pub fn check_included_domains_mapped(
-    opt_domains: Option<&[u32]>,
-    request: &request::Request,
-    mapping: &HashMap<Hash, u32>,
+fn domain_option_matches(
+    host_hashes: Option<&Vec<utils::Hash>>,
+    entity_hashes: Option<&Vec<utils::Hash>>,
+    included_domains: Option<&[u32]>,
+    included_entities: Option<&[u32]>,
+    mapping: &HashMap<utils::Hash, u32>,
 ) -> bool {
-    // Source URL must be among these domains to match
-    if let Some(included_domains) = opt_domains.as_ref() {
-        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().all(|h| {
+    let has_hostnames = included_domains.is_some_and(|d| !d.is_empty());
+    let has_entities = included_entities.is_some_and(|d| !d.is_empty());
+    if !has_hostnames && !has_entities {
+        return true;
+    }
+
+    let hostname_match = has_hostnames
+        && host_hashes.is_some_and(|host_hashes| {
+            host_hashes.iter().any(|h| {
                 mapping
                     .get(h)
-                    .is_none_or(|index| !utils::bin_lookup(included_domains, *index))
-            }) {
-                return false;
-            }
-        } else {
-            // If there are domain restrictions but no source hostname, we can't apply the rule
-            return false;
-        }
+                    .is_some_and(|index| utils::bin_lookup(included_domains.unwrap(), *index))
+            })
+        });
+    let entity_match = has_entities
+        && entity_hashes.is_some_and(|entity_hashes| {
+            entity_hashes.iter().any(|h| {
+                mapping
+                    .get(h)
+                    .is_some_and(|index| utils::bin_lookup(included_entities.unwrap(), *index))
+            })
+        });
+
+    hostname_match || entity_match
+}
+
+#[inline]
+fn domain_option_excluded(
+    host_hashes: Option<&Vec<utils::Hash>>,
+    entity_hashes: Option<&Vec<utils::Hash>>,
+    excluded_domains: Option<&[u32]>,
+    excluded_entities: Option<&[u32]>,
+    mapping: &HashMap<utils::Hash, u32>,
+) -> bool {
+    let has_hostnames = excluded_domains.is_some_and(|d| !d.is_empty());
+    let has_entities = excluded_entities.is_some_and(|d| !d.is_empty());
+    if !has_hostnames && !has_entities {
+        return false;
     }
-    true
+
+    let hostname_excluded = has_hostnames
+        && host_hashes.is_some_and(|host_hashes| {
+            host_hashes.iter().any(|h| {
+                mapping
+                    .get(h)
+                    .is_some_and(|index| utils::bin_lookup(excluded_domains.unwrap(), *index))
+            })
+        });
+    let entity_excluded = has_entities
+        && entity_hashes.is_some_and(|entity_hashes| {
+            entity_hashes.iter().any(|h| {
+                mapping
+                    .get(h)
+                    .is_some_and(|index| utils::bin_lookup(excluded_entities.unwrap(), *index))
+            })
+        });
+
+    hostname_excluded || entity_excluded
+}
+
+#[inline]
+pub fn check_included_domains_mapped(
+    opt_domains: Option<&[u32]>,
+    opt_entities: Option<&[u32]>,
+    request: &request::Request,
+    mapping: &HashMap<utils::Hash, u32>,
+    to_domains: bool,
+) -> bool {
+    // Source URL must be among these domains/entities to match ($domain/$from), or the
+    // request URL hostname for $to.
+    if opt_domains.is_none() && opt_entities.is_none() {
+        return true;
+    }
+
+    let (host_hashes, entity_hashes) = if to_domains {
+        (
+            request.hostname_hashes.as_ref(),
+            request.entity_hashes.as_ref(),
+        )
+    } else {
+        (
+            request.source_hostname_hashes.as_ref(),
+            request.source_entity_hashes.as_ref(),
+        )
+    };
+
+    if host_hashes.is_none() && entity_hashes.is_none() {
+        return false;
+    }
+
+    domain_option_matches(
+        host_hashes,
+        entity_hashes,
+        opt_domains,
+        opt_entities,
+        mapping,
+    )
 }
 
 #[inline]
 pub fn check_excluded_domains_mapped(
     opt_not_domains: Option<&[u32]>,
+    opt_not_entities: Option<&[u32]>,
     request: &request::Request,
-    mapping: &HashMap<Hash, u32>,
+    mapping: &HashMap<utils::Hash, u32>,
+    to_domains: bool,
 ) -> bool {
-    if let Some(excluded_domains) = opt_not_domains.as_ref() {
-        if let Some(source_hashes) = request.source_hostname_hashes.as_ref() {
-            if source_hashes.iter().any(|h| {
-                mapping
-                    .get(h)
-                    .is_some_and(|index| utils::bin_lookup(excluded_domains, *index))
-            }) {
-                return false;
-            }
-        } else {
-            // If there are domain restrictions but no source hostname
-            // (i.e. about:blank), apply the rule anyway.
-            return true;
-        }
+    if opt_not_domains.is_none() && opt_not_entities.is_none() {
+        return true;
     }
 
-    true
+    let (host_hashes, entity_hashes) = if to_domains {
+        (
+            request.hostname_hashes.as_ref(),
+            request.entity_hashes.as_ref(),
+        )
+    } else {
+        (
+            request.source_hostname_hashes.as_ref(),
+            request.source_entity_hashes.as_ref(),
+        )
+    };
+
+    if host_hashes.is_none() && entity_hashes.is_none() {
+        if to_domains {
+            return false;
+        }
+        // If there are domain restrictions but no source hostname
+        // (i.e. about:blank), apply the rule anyway.
+        return true;
+    }
+
+    !domain_option_excluded(
+        host_hashes,
+        entity_hashes,
+        opt_not_domains,
+        opt_not_entities,
+        mapping,
+    )
 }
 
 #[cfg(test)]

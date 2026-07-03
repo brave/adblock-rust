@@ -408,6 +408,12 @@ pub struct NetworkFilter<'a> {
     pub filter: FilterPart<'a>,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
+    pub opt_entities: Option<Vec<Hash>>,
+    pub opt_not_entities: Option<Vec<Hash>>,
+    pub opt_to_domains: Option<Vec<Hash>>,
+    pub opt_to_not_domains: Option<Vec<Hash>>,
+    pub opt_to_entities: Option<Vec<Hash>>,
+    pub opt_to_not_entities: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
     pub modifier_option: Option<&'a str>,
@@ -475,6 +481,60 @@ fn decode_hostname<'a>(host: &'a [u8]) -> Result<Cow<'a, str>, NetworkFilterErro
         .map_err(|_| NetworkFilterError::PunycodeError)
 }
 
+fn apply_pipe_delimited_domains(
+    domains: Vec<(bool, &str)>,
+    opt_domains: &mut Option<Vec<Hash>>,
+    opt_not_domains: &mut Option<Vec<Hash>>,
+    opt_entities: &mut Option<Vec<Hash>>,
+    opt_not_entities: &mut Option<Vec<Hash>>,
+) {
+    let mut opt_domains_array: Vec<Hash> = vec![];
+    let mut opt_not_domains_array: Vec<Hash> = vec![];
+    let mut opt_entities_array: Vec<Hash> = vec![];
+    let mut opt_not_entities_array: Vec<Hash> = vec![];
+
+    for (enabled, domain) in domains {
+        let is_entity = domain.ends_with(".*");
+        let domain_hash = if is_entity {
+            utils::fast_hash(&domain[..domain.len() - 2])
+        } else {
+            utils::fast_hash(domain)
+        };
+        if !enabled {
+            if is_entity {
+                opt_not_entities_array.push(domain_hash);
+            } else {
+                opt_not_domains_array.push(domain_hash);
+            }
+        } else if is_entity {
+            opt_entities_array.push(domain_hash);
+        } else {
+            opt_domains_array.push(domain_hash);
+        }
+    }
+
+    if !opt_domains_array.is_empty() {
+        opt_domains_array.sort_unstable();
+        opt_domains_array.dedup();
+        *opt_domains = Some(opt_domains_array);
+    }
+    if !opt_not_domains_array.is_empty() {
+        opt_not_domains_array.sort_unstable();
+        opt_not_domains_array.dedup();
+        *opt_not_domains = Some(opt_not_domains_array);
+    }
+    if !opt_entities_array.is_empty() {
+        opt_entities_array.sort_unstable();
+        opt_entities_array.dedup();
+        *opt_entities = Some(opt_entities_array);
+    }
+    if !opt_not_entities_array.is_empty() {
+        opt_not_entities_array.sort_unstable();
+        opt_not_entities_array.dedup();
+        *opt_not_entities = Some(opt_not_entities_array);
+    }
+}
+
 impl<'a> NetworkFilter<'a> {
     pub fn parse(
         line: &'a str,
@@ -501,6 +561,12 @@ impl<'a> NetworkFilter<'a> {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
+        let mut opt_entities: Option<Vec<Hash>> = None;
+        let mut opt_not_entities: Option<Vec<Hash>> = None;
+        let mut opt_to_domains: Option<Vec<Hash>> = None;
+        let mut opt_to_not_domains: Option<Vec<Hash>> = None;
+        let mut opt_to_entities: Option<Vec<Hash>> = None;
+        let mut opt_to_not_entities: Option<Vec<Hash>> = None;
 
         let mut modifier_option: Option<&'a str> = None;
         let mut tag: Option<&'a str> = None;
@@ -532,33 +598,25 @@ impl<'a> NetworkFilter<'a> {
                 };
             }
 
-            options.into_iter().for_each(|option| {
+            for option in options {
                 match option {
                     NetworkFilterOption::Domain(domains) => {
-                        let mut opt_domains_array: Vec<Hash> = vec![];
-                        let mut opt_not_domains_array: Vec<Hash> = vec![];
-
-                        for (enabled, domain) in domains {
-                            let domain_hash = utils::fast_hash(domain);
-                            if !enabled {
-                                opt_not_domains_array.push(domain_hash);
-                            } else {
-                                opt_domains_array.push(domain_hash);
-                            }
-                        }
-
-                        if !opt_domains_array.is_empty() {
-                            opt_domains_array.sort_unstable();
-                            // Some rules have duplicate domain options - avoid including duplicates
-                            opt_domains_array.dedup();
-                            opt_domains = Some(opt_domains_array);
-                        }
-                        if !opt_not_domains_array.is_empty() {
-                            opt_not_domains_array.sort_unstable();
-                            // Some rules have duplicate domain options - avoid including duplicates
-                            opt_not_domains_array.dedup();
-                            opt_not_domains = Some(opt_not_domains_array);
-                        }
+                        apply_pipe_delimited_domains(
+                            domains,
+                            &mut opt_domains,
+                            &mut opt_not_domains,
+                            &mut opt_entities,
+                            &mut opt_not_entities,
+                        );
+                    }
+                    NetworkFilterOption::To(domains) => {
+                        apply_pipe_delimited_domains(
+                            domains,
+                            &mut opt_to_domains,
+                            &mut opt_to_not_domains,
+                            &mut opt_to_entities,
+                            &mut opt_to_not_entities,
+                        );
                     }
                     NetworkFilterOption::Badfilter => {
                         features_mask.set(NetworkFilterFeaturesMask::BAD_FILTER, true)
@@ -637,7 +695,7 @@ impl<'a> NetworkFilter<'a> {
                         }
                     }
                 }
-            });
+            }
         }
 
         mask |= cpt_mask_positive;
@@ -878,6 +936,12 @@ impl<'a> NetworkFilter<'a> {
             features_mask,
             opt_domains,
             opt_not_domains,
+            opt_entities,
+            opt_not_entities,
+            opt_to_domains,
+            opt_to_not_domains,
+            opt_to_entities,
+            opt_to_not_entities,
             tag,
             raw_line: if debug {
                 Some(Cow::Borrowed(line))
@@ -931,6 +995,12 @@ impl<'a> NetworkFilter<'a> {
             features_mask: Default::default(),
             opt_domains: None,
             opt_not_domains: None,
+            opt_entities: None,
+            opt_not_entities: None,
+            opt_to_domains: None,
+            opt_to_not_domains: None,
+            opt_to_entities: None,
+            opt_to_not_entities: None,
             tag: None,
             raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
             modifier_option: None,
@@ -947,6 +1017,12 @@ impl<'a> NetworkFilter<'a> {
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
+            self.opt_entities.as_ref(),
+            self.opt_not_entities.as_ref(),
+            self.opt_to_domains.as_ref(),
+            self.opt_to_not_domains.as_ref(),
+            self.opt_to_entities.as_ref(),
+            self.opt_to_not_entities.as_ref(),
         )
     }
 
@@ -956,20 +1032,104 @@ impl<'a> NetworkFilter<'a> {
     pub(crate) fn get_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
         tokens_buffer.clear();
 
-        // If there is only one domain and no domain negation, we also use this
-        // domain as a token.
-        if self.opt_domains.is_some()
-            && self.opt_not_domains.is_none()
-            && self.opt_domains.as_ref().map(|d| d.len()) == Some(1)
-        {
-            if let Some(domains) = self.opt_domains.as_ref() {
-                if let Some(domain) = domains.first() {
+        // If there is only one domain/entity and no negation, we also use it as a token.
+        if self.opt_not_domains.is_none() && self.opt_not_entities.is_none() {
+            if self.opt_domains.as_ref().map(|d| d.len()) == Some(1) {
+                if let Some(domain) = self.opt_domains.as_ref().and_then(|d| d.first()) {
                     tokens_buffer.push(*domain);
+                }
+            } else if self.opt_entities.as_ref().map(|d| d.len()) == Some(1) {
+                if let Some(entity) = self.opt_entities.as_ref().and_then(|d| d.first()) {
+                    tokens_buffer.push(*entity);
                 }
             }
         }
 
-        // Get tokens from filter
+        self.append_pattern_tokens(tokens_buffer);
+
+        // If we got no tokens for the filter/hostname part, then we will dispatch
+        // this filter in multiple buckets based on the domains/entities option.
+        if tokens_buffer.is_empty()
+            && self.opt_not_domains.is_none()
+            && self.opt_not_entities.is_none()
+        {
+            let domain_tokens = self.opt_domains.as_ref().map(|d| d.as_slice());
+            let entity_tokens = self.opt_entities.as_ref().map(|d| d.as_slice());
+            let bucket_count = domain_tokens.map(|d| d.len()).unwrap_or(0)
+                + entity_tokens.map(|d| d.len()).unwrap_or(0);
+            if bucket_count > 0 {
+                let cap = tokens_buffer.remaining_capacity();
+                if bucket_count <= cap {
+                    if let Some(domains) = domain_tokens {
+                        tokens_buffer.extend(domains.iter().copied());
+                    }
+                    if let Some(entities) = entity_tokens {
+                        tokens_buffer.extend(entities.iter().copied());
+                    }
+                    return FilterTokens::OptDomains;
+                }
+                // Too many domains to bucket individually; fall back to the catch-all
+                // bucket (token 0).
+            }
+            FilterTokens::Empty
+        } else {
+            self.finalize_pattern_tokens(tokens_buffer)
+        }
+    }
+
+    /// Tokens for the separate `$to`-only filter index (destination hostname hashes).
+    pub(crate) fn get_to_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
+        tokens_buffer.clear();
+
+        if let Some(to_entities) = self.opt_to_entities.as_ref() {
+            if !to_entities.is_empty() {
+                let cap = tokens_buffer.remaining_capacity();
+                if to_entities.len() <= cap {
+                    tokens_buffer.extend(to_entities.iter().copied());
+                    return FilterTokens::OptDomains;
+                }
+                return FilterTokens::Empty;
+            }
+        }
+
+        if let Some(to_domains) = self.opt_to_domains.as_ref() {
+            if !to_domains.is_empty()
+                && self.opt_to_not_domains.is_none()
+                && self.opt_to_not_entities.is_none()
+            {
+                if to_domains
+                    .iter()
+                    .all(|h| utils::is_generic_public_suffix_hash(*h))
+                {
+                    self.append_pattern_tokens(tokens_buffer);
+                    return self.finalize_pattern_tokens(tokens_buffer);
+                }
+
+                let cap = tokens_buffer.remaining_capacity();
+                let mut specific_count = 0usize;
+                for &domain in to_domains {
+                    if !utils::is_generic_public_suffix_hash(domain) {
+                        if specific_count < cap {
+                            tokens_buffer.push(domain);
+                            specific_count += 1;
+                        } else {
+                            return FilterTokens::Empty;
+                        }
+                    }
+                }
+                if specific_count > 0 {
+                    return FilterTokens::OptDomains;
+                }
+
+                self.append_pattern_tokens(tokens_buffer);
+                return self.finalize_pattern_tokens(tokens_buffer);
+            }
+        }
+
+        FilterTokens::Empty
+    }
+
+    fn append_pattern_tokens(&self, tokens_buffer: &mut TokensBuffer) {
         match &self.filter {
             FilterPart::Simple(f) if !self.is_complete_regex() => {
                 let skip_last_token =
@@ -983,17 +1143,15 @@ impl<'a> NetworkFilter<'a> {
                     tokens_buffer,
                 );
             }
-            FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
+            FilterPart::AnyOf(_) => (),
             _ => (),
         }
 
-        // Append tokens from hostname, if any
         if !self.mask.contains(NetworkFilterMask::IS_HOSTNAME_REGEX) {
             if let Some(hostname) = self.hostname.as_ref() {
                 utils::tokenize_to(hostname.as_ref(), tokens_buffer);
             }
         } else if let Some(hostname) = self.hostname.as_ref() {
-            // Find last dot to tokenize the prefix
             let last_dot_pos = hostname.rfind('.');
             if let Some(last_dot_pos) = last_dot_pos {
                 utils::tokenize_to(&hostname.as_ref()[..last_dot_pos], tokens_buffer);
@@ -1011,36 +1169,19 @@ impl<'a> NetworkFilter<'a> {
                 }
             }
         }
+    }
 
-        // If we got no tokens for the filter/hostname part, then we will dispatch
-        // this filter in multiple buckets based on the domains option.
-        if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
-        {
-            if let Some(opt_domains) = self.opt_domains.as_ref() {
-                if !opt_domains.is_empty() {
-                    let cap = tokens_buffer.remaining_capacity();
-                    if opt_domains.len() <= cap {
-                        tokens_buffer.extend(opt_domains.iter().copied());
-                        return FilterTokens::OptDomains;
-                    }
-                    // Too many domains to bucket individually; fall back to the catch-all
-                    // bucket (token 0).
-                }
-            }
+    fn finalize_pattern_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
+        if self.for_http() && !self.for_https() {
+            tokens_buffer.push(utils::fast_hash("http"));
+        } else if self.for_https() && !self.for_http() {
+            tokens_buffer.push(utils::fast_hash("https"));
+        }
+
+        if tokens_buffer.is_empty() {
             FilterTokens::Empty
         } else {
-            // Add optional token for protocol
-            if self.for_http() && !self.for_https() {
-                tokens_buffer.push(utils::fast_hash("http"));
-            } else if self.for_https() && !self.for_http() {
-                tokens_buffer.push(utils::fast_hash("https"));
-            }
-
-            if tokens_buffer.is_empty() {
-                FilterTokens::Empty
-            } else {
-                FilterTokens::Other
-            }
+            FilterTokens::Other
         }
     }
 
@@ -1072,6 +1213,23 @@ impl<'a> NetworkFilter<'a> {
     pub fn also_block_redirect(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::ALSO_BLOCK_REDIRECT)
+    }
+
+    /// True when the filter has a `$to=` option.
+    pub fn has_to_option(&self) -> bool {
+        self.opt_to_domains.is_some()
+            || self.opt_to_not_domains.is_some()
+            || self.opt_to_entities.is_some()
+            || self.opt_to_not_entities.is_some()
+    }
+
+    /// True when the filter has `$to=` but no `$from=` / `$domain=` option.
+    pub fn is_to_only(&self) -> bool {
+        self.has_to_option()
+            && self.opt_domains.is_none()
+            && self.opt_not_domains.is_none()
+            && self.opt_entities.is_none()
+            && self.opt_not_entities.is_none()
     }
 
     #[cfg(test)]
@@ -1122,6 +1280,12 @@ fn compute_filter_id(
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
+    opt_entities: Option<&Vec<Hash>>,
+    opt_not_entities: Option<&Vec<Hash>>,
+    opt_to_domains: Option<&Vec<Hash>>,
+    opt_to_not_domains: Option<&Vec<Hash>>,
+    opt_to_entities: Option<&Vec<Hash>>,
+    opt_to_not_entities: Option<&Vec<Hash>>,
 ) -> Hash {
     let mut hasher = FxHasher::default();
 
@@ -1142,6 +1306,42 @@ fn compute_filter_id(
     }
 
     if let Some(domains) = opt_not_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_entities {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_not_entities {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_not_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_entities {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_not_entities {
         for d in domains {
             hasher.write_u64(*d);
         }

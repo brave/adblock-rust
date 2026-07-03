@@ -134,9 +134,51 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
+    pub fn include_entities(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_entities()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
     pub fn exclude_domains(&self) -> Option<&[u32]> {
         self.fb_filter
             .opt_not_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn exclude_entities(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_not_entities()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn include_to_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn include_to_entities(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_entities()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn exclude_to_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_not_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn exclude_to_entities(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_not_entities()
             .map(|data| fb_vector_to_slice(data))
     }
 
@@ -181,15 +223,37 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
         }
         if !check_included_domains_mapped(
             self.include_domains(),
+            self.include_entities(),
             request,
             &self.filter_data_context.unique_domains_hashes_map,
+            false,
         ) {
             return false;
         }
         if !check_excluded_domains_mapped(
             self.exclude_domains(),
+            self.exclude_entities(),
             request,
             &self.filter_data_context.unique_domains_hashes_map,
+            false,
+        ) {
+            return false;
+        }
+        if !check_included_domains_mapped(
+            self.include_to_domains(),
+            self.include_to_entities(),
+            request,
+            &self.filter_data_context.unique_domains_hashes_map,
+            true,
+        ) {
+            return false;
+        }
+        if !check_excluded_domains_mapped(
+            self.exclude_to_domains(),
+            self.exclude_to_entities(),
+            request,
+            &self.filter_data_context.unique_domains_hashes_map,
+            true,
         ) {
             return false;
         }

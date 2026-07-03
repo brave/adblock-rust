@@ -17,6 +17,15 @@ table NetworkFilter {
   /// typically aren’t many unique hashes
   opt_domains: [uint32];
   opt_not_domains: [uint32];
+  /// Entity restrictions from `$domain=` / `$from=` (e.g. `google.*`).
+  opt_entities: [uint32];
+  opt_not_entities: [uint32];
+  /// Destination hostname restrictions from `$to=` (indices into unique_domains_hashes).
+  opt_to_domains: [uint32];
+  opt_to_not_domains: [uint32];
+  /// Destination entity restrictions from `$to=` (e.g. `tikimall.*`).
+  opt_to_entities: [uint32];
+  opt_to_not_entities: [uint32];
 
   // A union-like storage for pattern. Prefer |single_pattern| where
   // possible for performance concerns.
@@ -34,6 +43,9 @@ table NetworkFilter {
 table NetworkFilterList {
   filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
+  /// Separate index for `$to`-only rules, keyed by destination hostname hashes.
+  to_filter_map_index: [uint32] (required);
+  to_filter_map_values: [NetworkFilter] (required);
 }
 
 /// A table to store the most host-specific cosmetic rules.

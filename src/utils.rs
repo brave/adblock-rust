@@ -126,6 +126,26 @@ pub(crate) fn bin_lookup<T: Ord>(arr: &[T], elt: T) -> bool {
     arr.binary_search(&elt).is_ok()
 }
 
+use std::collections::HashSet;
+use std::sync::LazyLock;
+
+static GENERIC_PUBLIC_SUFFIX_HASHES: LazyLock<HashSet<Hash>> = LazyLock::new(|| {
+    [
+        "com", "net", "org", "xyz", "cfd", "bid", "online", "co", "info", "pro", "rest", "top",
+        "shop", "site", "icu", "sbs", "me", "ws", "tv", "tech", "biz", "website", "cc", "io",
+        "autos", "homes", "pics", "day", "fans", "cam", "ink", "vip", "bond", "su",
+    ]
+    .iter()
+    .map(|s| fast_hash(s))
+    .collect()
+});
+
+/// True for single-label public suffixes like `com` / `net` that match almost every request.
+#[inline]
+pub(crate) fn is_generic_public_suffix_hash(hash: Hash) -> bool {
+    GENERIC_PUBLIC_SUFFIX_HASHES.contains(&hash)
+}
+
 #[cfg(test)]
 #[path = "../tests/unit/utils.rs"]
 mod unit_tests;
