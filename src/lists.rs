@@ -20,6 +20,15 @@ pub enum RuleTypes {
     CosmeticOnly,
 }
 
+/// Recorded information about a filter list that has been added to a [FilterSet].
+#[derive(Default, Clone, Serialize)]
+pub struct AddedFiltersRecord {
+    /// An index that the [crate::Engine] will use to keep track of this source
+    pub source_index: usize,
+    /// Any header information parsed from the list itself
+    pub metadata: FilterListMetadata,
+}
+
 impl RuleTypes {
     pub fn loads_network_rules(&self) -> bool {
         matches!(self, Self::All | Self::NetworkOnly)
@@ -73,6 +82,7 @@ impl Default for ParseOptions {
 pub(crate) struct ListSource {
     pub(crate) list_text: String,
     pub(crate) parse_options: ParseOptions,
+    pub(crate) metadata: FilterListMetadata,
 }
 
 /// Manages a set of rules to be added to an [`crate::Engine`].
@@ -122,7 +132,7 @@ impl Default for FilterSet {
 }
 
 /// Corresponds to the `expires` field of `FilterListMetadata`.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum ExpiresInterval {
     Hours(u16),
     Days(u8),
@@ -165,7 +175,7 @@ impl TryFrom<&str> for ExpiresInterval {
 
 /// Includes information about any "special comments" as described by
 /// <https://help.eyeo.com/adblockplus/how-to-write-filters#special-comments>
-#[derive(Default, Serialize)]
+#[derive(Default, Clone, Serialize)]
 pub struct FilterListMetadata {
     /// `! Homepage: http://example.com` - This comment determines which webpage should be linked
     /// as filter list homepage.
@@ -218,7 +228,7 @@ impl FilterSet {
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
-    pub fn add_filter_list(&mut self, list_text: String, opts: ParseOptions) -> FilterListMetadata {
+    pub fn add_filter_list(&mut self, list_text: String, opts: ParseOptions) -> AddedFiltersRecord {
         let metadata = match opts.format {
             FilterFormat::Standard => read_list_metadata(&list_text),
             FilterFormat::Hosts => FilterListMetadata::default(),
@@ -226,8 +236,12 @@ impl FilterSet {
         self.list_sources.push(ListSource {
             list_text,
             parse_options: opts,
+            metadata: metadata.clone(),
         });
-        metadata
+        AddedFiltersRecord {
+            source_index: self.list_sources.len() - 1,
+            metadata,
+        }
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed
@@ -246,6 +260,7 @@ impl FilterSet {
         self.list_sources.push(ListSource {
             list_text,
             parse_options: opts,
+            metadata: FilterListMetadata::default(),
         });
     }
 

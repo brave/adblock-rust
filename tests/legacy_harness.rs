@@ -1010,7 +1010,7 @@ mod legacy_misc_tests {
         let matched_filter = checked.filter.unwrap();
         assert_eq!(
             matched_filter,
-            "||googlesyndication.com/safeframe/$third-party"
+            "0:0: ||googlesyndication.com/safeframe/$third-party"
         );
 
         // Test when no filter is found, returns None
@@ -1055,10 +1055,10 @@ mod legacy_misc_tests {
         let matched_filter = checked.filter.unwrap();
         assert_eq!(
             matched_filter,
-            "||googlesyndication.com/safeframe/$third-party"
+            "0:0: ||googlesyndication.com/safeframe/$third-party"
         );
         let matched_exception = checked.exception.unwrap();
-        assert_eq!(matched_exception, "@@safeframe");
+        assert_eq!(matched_exception, "x:x: @@safeframe");
     }
 
     #[test]
@@ -1074,7 +1074,7 @@ mod legacy_misc_tests {
         assert!(checked.matched);
         assert!(checked.filter.is_some(), "Expected filter to match");
         let matched_filter = checked.filter.unwrap();
-        assert_eq!(matched_filter, "||brianbondy.com^$important");
+        assert_eq!(matched_filter, "0:0: ||brianbondy.com^$important");
         assert!(
             checked.exception.is_none(),
             "Expected no exception to match"

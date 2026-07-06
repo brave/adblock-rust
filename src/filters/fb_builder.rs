@@ -34,6 +34,10 @@ impl<'a> EngineFlatBuilder<'a> {
             flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<fb::NetworkFilterList<'a>>>,
         >,
         cosmetic_rules: WIPOffset<fb::CosmeticFilters<'_>>,
+        source_info_vec: WIPOffset<
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<fb::SourceInfo<'a>>>,
+        >,
+        debug: bool,
     ) -> VerifiedFlatbufferMemory {
         let unique_domains_hashes =
             Some(self.fb_builder.create_vector(&self.unique_domains_hashes));
@@ -43,6 +47,8 @@ impl<'a> EngineFlatBuilder<'a> {
                 network_rules: Some(network_rules),
                 unique_domains_hashes,
                 cosmetic_filters: Some(cosmetic_rules),
+                debug,
+                source_info: Some(source_info_vec),
             },
         );
         self.raw_builder().finish(engine, None);

@@ -9,6 +9,8 @@ use crate::request::Request;
 
 use crate::filters::flatbuffer_generated::fb;
 
+pub(crate) const NO_SOURCE_LINE_INFO: u32 = u32::MAX;
+
 /// A list of string parts that can be matched against a URL.
 pub(crate) enum FlatPatterns<'a> {
     /// No patterns to match
@@ -158,8 +160,48 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn raw_line(&self) -> Option<String> {
-        self.fb_filter.raw_line().map(|v| v.to_string())
+    pub fn raw_line(&self) -> String {
+        debug_assert!(
+            self.filter_data_context.debug,
+            "raw_line is only available in debug mode"
+        );
+        match self.fb_filter.raw_line() {
+            Some(v) => v.to_string(),
+            None => {
+                debug_assert!(false, "raw_line is not set");
+                Default::default()
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn source_index(&self) -> Option<u32> {
+        debug_assert!(
+            self.filter_data_context.debug,
+            "raw_line is only available in debug mode"
+        );
+
+        let index = self.fb_filter.source_index();
+        if index == NO_SOURCE_LINE_INFO {
+            None
+        } else {
+            Some(index)
+        }
+    }
+
+    #[inline(always)]
+    pub fn line_number(&self) -> Option<u32> {
+        debug_assert!(
+            self.filter_data_context.debug,
+            "raw_line is only available in debug mode"
+        );
+
+        let number = self.fb_filter.line_number();
+        if number == NO_SOURCE_LINE_INFO {
+            None
+        } else {
+            Some(number)
+        }
     }
 }
 
