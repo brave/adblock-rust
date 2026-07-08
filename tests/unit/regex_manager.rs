@@ -26,11 +26,9 @@ mod tests {
     fn simple_match() {
         let engine = make_engine("||geo*.hltv.org^");
 
-        assert!(
-            engine
-                .check_network_request(&make_request("https://geo2.hltv.org/"))
-                .matched
-        );
+        assert!(engine
+            .check_network_request(&make_request("https://geo2.hltv.org/"))
+            .should_block());
 
         let regex_manager = engine.borrow_regex_manager();
         assert_eq!(get_active_regex_count(&regex_manager), 1);
@@ -41,11 +39,9 @@ mod tests {
     fn discard_and_recreate() {
         let engine = make_engine("||geo*.hltv.org^");
 
-        assert!(
-            engine
-                .check_network_request(&make_request("https://geo2.hltv.org/"))
-                .matched
-        );
+        assert!(engine
+            .check_network_request(&make_request("https://geo2.hltv.org/"))
+            .should_block());
 
         {
             let regex_manager = engine.borrow_regex_manager();
@@ -75,11 +71,9 @@ mod tests {
         }
 
         // The entry is recreated, get_compiled_regex_count() increased +1.
-        assert!(
-            engine
-                .check_network_request(&make_request("https://geo2.hltv.org/"))
-                .matched
-        );
+        assert!(engine
+            .check_network_request(&make_request("https://geo2.hltv.org/"))
+            .should_block());
         let regex_manager = engine.borrow_regex_manager();
         assert_eq!(regex_manager.get_compiled_regex_count(), 2);
         assert_eq!(get_active_regex_count(&regex_manager), 1);

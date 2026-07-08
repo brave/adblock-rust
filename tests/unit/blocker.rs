@@ -20,7 +20,7 @@ mod blocker_tests {
             "",
         )
         .unwrap();
-        assert!(blocker.check(&request, &Default::default()).matched);
+        assert!(blocker.check(&request, &Default::default()).should_block());
 
         let request = Request::new(
             "https://example.com/test",
@@ -29,7 +29,7 @@ mod blocker_tests {
             "",
         )
         .unwrap();
-        assert!(!blocker.check(&request, &Default::default()).matched);
+        assert!(!blocker.check(&request, &Default::default()).should_block());
     }
 
     fn test_requests_filters(
@@ -41,12 +41,17 @@ mod blocker_tests {
         requests.iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(req, &Default::default());
             if *expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", req.url);
+                assert!(
+                    matched_rule.should_block(),
+                    "Expected match for {}",
+                    req.url
+                );
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    req.url, matched_rule.filter
+                    req.url,
+                    matched_rule.filter
                 );
             }
         });
@@ -74,14 +79,14 @@ mod blocker_tests {
         )]);
 
         let matched_rule = blocker.check(&request, &resources);
-        assert!(!matched_rule.matched);
+        assert!(!matched_rule.should_block());
         assert!(!matched_rule.important);
         assert_eq!(
             matched_rule.redirect,
             Some("data:audio/mp3;base64,bXAz".to_string())
         );
         assert_eq!(
-            matched_rule.exception,
+            matched_rule.exception.map(|f| f.to_string()),
             Some("0:1: @@||imdb-video.media-imdb.com^$domain=imdb.com".to_string())
         );
     }
@@ -108,11 +113,11 @@ mod blocker_tests {
         )]);
 
         let matched_rule = blocker.check(&request, &resources);
-        assert!(!matched_rule.matched);
+        assert!(!matched_rule.should_block());
         assert!(!matched_rule.important);
         assert_eq!(matched_rule.redirect, None);
         assert_eq!(
-            matched_rule.exception,
+            matched_rule.exception.map(|f| f.to_string()),
             Some(
                 "0:1: @@||imdb-video.media-imdb.com^$domain=imdb.com,redirect=noop-0.1s.mp3"
                     .to_string()
@@ -142,7 +147,7 @@ mod blocker_tests {
         )]);
 
         let matched_rule = blocker.check(&request, &resources);
-        assert!(matched_rule.matched);
+        assert!(matched_rule.should_block());
         assert!(!matched_rule.important);
         assert_eq!(
             matched_rule.redirect,
@@ -208,7 +213,7 @@ mod blocker_tests {
             "",
         )
         .unwrap();
-        assert!(!blocker.check(&request, &Default::default()).matched);
+        assert!(!blocker.check(&request, &Default::default()).should_block());
 
         let request = Request::new(
             "https://dot.example.com.",
@@ -217,7 +222,7 @@ mod blocker_tests {
             "",
         )
         .unwrap();
-        assert!(blocker.check(&request, &Default::default()).matched);
+        assert!(blocker.check(&request, &Default::default()).should_block());
 
         let request = Request::new(
             "https://test.example.com",
@@ -226,7 +231,7 @@ mod blocker_tests {
             "",
         )
         .unwrap();
-        assert!(blocker.check(&request, &Default::default()).matched);
+        assert!(blocker.check(&request, &Default::default()).should_block());
 
         let request = Request::new(
             "https://test.example.com.",
@@ -235,7 +240,7 @@ mod blocker_tests {
             "",
         )
         .unwrap();
-        assert!(blocker.check(&request, &Default::default()).matched);
+        assert!(blocker.check(&request, &Default::default()).should_block());
     }
 
     #[test]
@@ -293,12 +298,17 @@ mod blocker_tests {
         url_results.into_iter().for_each(|(req, expected_result)| {
             let matched_rule = blocker.check(&req, &resources);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {}", req.url);
+                assert!(
+                    matched_rule.should_block(),
+                    "Expected match for {}",
+                    req.url
+                );
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    req.url, matched_rule.filter
+                    req.url,
+                    matched_rule.filter
                 );
             }
         });
@@ -545,7 +555,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com?q=1#blue".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -561,7 +571,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com?q=1#blue".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -577,7 +587,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com#blue".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -590,7 +600,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -603,7 +613,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -616,7 +626,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -629,7 +639,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, Some("https://example.com".into()));
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -642,14 +652,14 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new("https://example.com?q=1", "https://antonok.com", "xhr", "").unwrap(),
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -662,7 +672,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -675,7 +685,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, Some("https://example.com?q=1".into()));
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -691,7 +701,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://test.com?q=1&test=2".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -707,7 +717,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com?q1=1&q2=2&q3=3&q4=4&q5=5".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -723,7 +733,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com?q1=1&q1=2".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -743,7 +753,7 @@ mod blocker_tests {
             result.redirect,
             Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -760,7 +770,7 @@ mod blocker_tests {
             result.redirect,
             Some("data:application/javascript;base64,KCgpID0+IHt9KSgp".into())
         );
-        assert!(result.matched);
+        assert!(result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -773,7 +783,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -786,7 +796,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -802,7 +812,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com/Path/?Test=ABC&testcase=AbC".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -818,7 +828,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com/Path/?Test=ABC&testcase=AbC".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -834,7 +844,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com?Test=ABC?123#&test=4#b".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -850,7 +860,7 @@ mod blocker_tests {
             result.rewritten_url,
             Some("https://example.com?Test=ABC".into())
         );
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -863,7 +873,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.rewritten_url, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
     }
 
     /// Tests ported from the previous query parameter stripping logic in brave-core
@@ -993,7 +1003,7 @@ mod blocker_tests {
             &Default::default(),
         );
         assert_eq!(result.rewritten_url, Some("https://example.com".into()));
-        assert!(!result.matched);
+        assert!(!result.should_block());
     }
 
     #[test]
@@ -1041,7 +1051,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1054,7 +1064,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, a_redirect);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1067,7 +1077,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, b_redirect);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1080,7 +1090,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, c_redirect);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1093,7 +1103,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, b_redirect);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1106,7 +1116,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, c_redirect);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1119,7 +1129,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, a_redirect);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1132,7 +1142,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
 
         let result = blocker.check(
             &Request::new(
@@ -1145,7 +1155,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, None);
-        assert!(!result.matched);
+        assert!(!result.should_block());
     }
 
     #[test]
@@ -1184,12 +1194,17 @@ mod blocker_tests {
             .for_each(|(req, expected_result)| {
                 let matched_rule = blocker.check(&req, &resources);
                 if expected_result {
-                    assert!(matched_rule.matched, "Expected match for {}", req.url);
+                    assert!(
+                        matched_rule.should_block(),
+                        "Expected match for {}",
+                        req.url
+                    );
                 } else {
                     assert!(
-                        !matched_rule.matched,
+                        !matched_rule.should_block(),
                         "Expected no match for {}, matched with {:?}",
-                        req.url, matched_rule.filter
+                        req.url,
+                        matched_rule.filter
                     );
                 }
             });
@@ -1232,12 +1247,17 @@ mod blocker_tests {
             .for_each(|(req, expected_result)| {
                 let matched_rule = blocker.check(&req, &resources);
                 if expected_result {
-                    assert!(matched_rule.matched, "Expected match for {}", req.url);
+                    assert!(
+                        matched_rule.should_block(),
+                        "Expected match for {}",
+                        req.url
+                    );
                 } else {
                     assert!(
-                        !matched_rule.matched,
+                        !matched_rule.should_block(),
                         "Expected no match for {}, matched with {:?}",
-                        req.url, matched_rule.filter
+                        req.url,
+                        matched_rule.filter
                     );
                 }
             });
@@ -1284,12 +1304,17 @@ mod blocker_tests {
             .for_each(|(req, expected_result)| {
                 let matched_rule = blocker.check(&req, &resources);
                 if expected_result {
-                    assert!(matched_rule.matched, "Expected match for {}", req.url);
+                    assert!(
+                        matched_rule.should_block(),
+                        "Expected match for {}",
+                        req.url
+                    );
                 } else {
                     assert!(
-                        !matched_rule.matched,
+                        !matched_rule.should_block(),
                         "Expected no match for {}, matched with {:?}",
-                        req.url, matched_rule.filter
+                        req.url,
+                        matched_rule.filter
                     );
                 }
             });
@@ -1310,7 +1335,7 @@ mod blocker_tests {
         .unwrap();
 
         let matched_rule = blocker.check_parameterised(&request, &resources, false, true);
-        assert!(!matched_rule.matched);
+        assert!(!matched_rule.should_block());
         assert!(matched_rule.exception.is_some());
     }
 
@@ -1341,10 +1366,7 @@ mod placeholder_string_tests {
             )
             .unwrap(),
         );
-        assert_eq!(
-            block.filter,
-            Some("100000001100110001111111111111".to_string())
-        );
+        assert_eq!(block.filter.and_then(|f| f.raw_line), None);
     }
 }
 

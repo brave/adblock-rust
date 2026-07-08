@@ -90,7 +90,7 @@ fn check_specific_rules() {
         .unwrap();
         let checked = engine.check_network_request(&request);
 
-        assert!(checked.matched);
+        assert!(checked.should_block());
     }
 
     #[cfg(feature = "resource-assembler")]
@@ -115,7 +115,7 @@ fn check_specific_rules() {
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(checked.matched);
+        assert!(checked.should_block());
         assert_eq!(checked.redirect, Some("data:application/javascript;base64,KGZ1bmN0aW9uKCkgewogICAgJ3VzZSBzdHJpY3QnOwp9KSgpOwo=".to_owned()));
     }
 }
@@ -129,27 +129,27 @@ fn check_specifics_default() {
     {
         let request = Request::new("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(checked.matched);
+        assert!(checked.should_block());
     }
     {
         let request = Request::new("https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=", "https://www.google.com/aclk?sa=l&ai=DChcSEwioqMfq5ovjAhVvte0KHXBYDKoYABAJGgJkZw&sig=AOD64_0IL5OYOIkZA7qWOBt0yRmKL4hKJw&ctype=5&q=&ved=0ahUKEwjQ88Hq5ovjAhXYiVwKHWAgB5gQww8IXg&adurl=", "main_frame", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(!checked.matched, "Matched on {:?}", checked.filter);
+        assert!(!checked.should_block(), "Matched on {:?}", checked.filter);
     }
     {
         let request = Request::new("https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=", "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChcSEwin96uLgYzjAhWH43cKHf0JA7YYABABGgJlZg&ohost=www.google.com&cid=CAASEuRoSkQKbbu2CAjK-zZJnF-wcw&sig=AOD64_1j63JqPtw22vaMasSE4aN1FRKtEw&ctype=5&q=&ved=0ahUKEwivnaWLgYzjAhUERxUIHWzYDTQQ9A4IzgI&adurl=", "main_frame", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(!checked.matched, "Matched on {:?}", checked.filter);
+        assert!(!checked.should_block(), "Matched on {:?}", checked.filter);
     }
     {
         let request = Request::new("https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf", "https://www.researchgate.net/profile/Ruofei_Zhang/publication/221653522_Bid_landscape_forecasting_in_online_Ad_exchange_marketplace/links/53f10c1f0cf2711e0c432641.pdf", "main_frame", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(!checked.matched, "Matched on {:?}", checked.filter);
+        assert!(!checked.should_block(), "Matched on {:?}", checked.filter);
     }
     {
         let request = Request::new("https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace", "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace", "main_frame", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(!checked.matched, "Matched on {:?}", checked.filter);
+        assert!(!checked.should_block(), "Matched on {:?}", checked.filter);
     }
     #[allow(deprecated)]
     {
@@ -164,7 +164,11 @@ fn check_specifics_default() {
         let checked = engine.check_network_request(&request);
         assert!(checked.exception.is_some(), "Expected exception to match");
         assert!(checked.filter.is_some(), "Expected rule to match");
-        assert!(!checked.matched, "Matched on {:?}", checked.exception)
+        assert!(
+            !checked.should_block(),
+            "Matched on {:?}",
+            checked.exception
+        )
     }
 }
 
@@ -178,7 +182,7 @@ fn check_basic_works_after_deserialization() {
     {
         let request = Request::new("https://www.youtube.com/youtubei/v1/log_event?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8", "", "", "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(checked.matched);
+        assert!(checked.should_block());
     }
 }
 
@@ -202,7 +206,7 @@ fn check_matching_equivalent() {
     for req in requests {
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type, "").unwrap();
         let checked = engine.check_network_request(&request);
-        if req.blocked == 1 && !checked.matched {
+        if req.blocked == 1 && !checked.should_block() {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
                 false_negative_rules.insert(
@@ -218,7 +222,7 @@ fn check_matching_equivalent() {
             mismatch_expected_exception += 1;
             checked.filter.as_ref().map(|f| {
                 false_negative_exceptions.insert(
-                    f.clone(),
+                    f.to_string(),
                     (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
                 )
             });
@@ -226,11 +230,11 @@ fn check_matching_equivalent() {
                 "Expected exception to match for {} at {}, type {}, got rule match {:?}",
                 req.url, req.sourceUrl, req.r#type, checked.filter
             );
-        } else if req.blocked == 0 && checked.matched {
+        } else if req.blocked == 0 && checked.should_block() {
             mismatch_expected_pass += 1;
             checked.filter.as_ref().map(|f| {
                 false_positive_rules.insert(
-                    f.clone(),
+                    f.to_string(),
                     (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
                 )
             });
@@ -291,7 +295,7 @@ fn check_matching_hostnames() {
         let checked = engine.check_network_request(&request);
         let checked_hostnames = engine.check_network_request(&preparsed_request);
 
-        assert_eq!(checked.matched, checked_hostnames.matched);
+        assert_eq!(checked.should_block(), checked_hostnames.should_block());
         assert_eq!(checked.filter, checked_hostnames.filter);
         assert_eq!(checked.exception, checked_hostnames.exception);
         assert_eq!(checked.redirect, checked_hostnames.redirect);

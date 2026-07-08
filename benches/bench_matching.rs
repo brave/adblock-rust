@@ -39,7 +39,7 @@ fn bench_rule_matching(engine: &Engine, requests: &[TestRequest]) -> (u32, u32) 
     let mut passes = 0;
     requests.iter().for_each(|r| {
         let res = engine.check_network_request(&r.into());
-        if res.matched {
+        if res.should_block() {
             matches += 1;
         } else {
             passes += 1;
@@ -54,7 +54,7 @@ fn bench_matching_only(engine: &Engine, requests: &[Request]) -> (u32, u32) {
     let mut passes = 0;
     requests.iter().for_each(|parsed| {
         let check = engine.check_network_request(parsed);
-        if check.matched {
+        if check.should_block() {
             matches += 1;
         } else {
             passes += 1;
@@ -79,7 +79,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &[ParsedRequest])
                 *third_party,
                 "",
             ));
-            if check.matched {
+            if check.should_block() {
                 matches += 1;
             } else {
                 passes += 1;

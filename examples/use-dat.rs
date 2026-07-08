@@ -23,7 +23,7 @@ fn main() {
     )
     .unwrap();
     let checked = engine.check_network_request(&request);
-    assert!(checked.filter.is_some());
+    assert!(!checked.should_block());
     assert!(checked.exception.is_some());
     println!("All good: {checked:?}");
 }

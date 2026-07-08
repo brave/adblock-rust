@@ -819,7 +819,7 @@ mod match_tests {
             );
             // Regex can't be compiled, so no match.
             assert!(
-                !engine.check_network_request(&request).matched,
+                !engine.check_network_request(&request).should_block(),
                 "Expected no match for {filter} on {url}"
             );
             assert_eq!(

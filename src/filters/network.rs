@@ -1080,7 +1080,7 @@ impl<'a> NetworkFilter<'a> {
         if self.is_exception() {
             engine.check_network_request_exceptions(request)
         } else {
-            engine.check_network_request(request).matched
+            engine.check_network_request(request).filter.is_some()
         }
     }
 }

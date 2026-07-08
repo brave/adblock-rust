@@ -151,8 +151,14 @@ describe('Engine.check — basic blocking', () => {
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true
         );
-        assert.equal(result.matched, true);
-        assert.equal(result.filter, '0:0: ||ads.example.com^');
+        assert.equal(result.should_block, true);
+        assert.deepEqual(result.filter, {
+          raw_line: '||ads.example.com^',
+          source_location: {
+            line_number: 0,
+            source_index: 0
+          }
+        });
     });
 
     it('throws for an invalid URL', () => {
@@ -183,9 +189,14 @@ describe('Engine.check — exception rules', () => {
         const result = engine.check(
             'https://ads.example.com/tracker.js', 'https://publisher.com', 'script', 'get', true,
         );
-        assert.equal(result.matched, false);
-        assert.equal(typeof result.exception, 'string');
-        assert.equal(result.exception, '0:1: @@||ads.example.com^$domain=publisher.com');
+        assert.equal(result.should_block, false);
+        assert.deepEqual(result.exception, {
+          raw_line: '@@||ads.example.com^$domain=publisher.com',
+          source_location: {
+            line_number: 1,
+            source_index: 0
+          }
+        });
     });
 
     it('$important overrides exception rules', () => {
@@ -195,9 +206,15 @@ describe('Engine.check — exception rules', () => {
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
-        assert.equal(result.matched, true);
+        assert.equal(result.should_block, true);
         assert.equal(result.important, true);
-        assert.equal(result.filter, '0:0: ||ads.example.com^$important');
+        assert.deepEqual(result.filter, {
+          raw_line: '||ads.example.com^$important',
+          source_location: {
+            line_number: 0,
+            source_index: 0
+          }
+        });
     });
 });
 
@@ -278,7 +295,7 @@ describe('Engine.check — type-specific rules', () => {
         const result = engine.check(
             'https://api.example.com/collect', 'https://pub.com', 'xhr', true,
         );
-        assert.equal(result.matched, false);
+        assert.equal(result.should_block, false);
     });
 });
 
@@ -342,8 +359,14 @@ describe('Engine.check — redirect rules', () => {
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
-        assert.equal(result.matched, true);
-        assert.equal(result.filter, '0:0: ||ads.example.com^$script,redirect=noopjs');
+        assert.equal(result.should_block, true);
+        assert.deepEqual(result.filter, {
+          raw_line: '||ads.example.com^$script,redirect=noopjs',
+          source_location: {
+            line_number: 0,
+            source_index: 0
+          }
+        });
         assert.ok(result.redirect.length > 0);
     });
 
@@ -354,8 +377,14 @@ describe('Engine.check — redirect rules', () => {
         const result = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
-        assert.equal(result.matched, true);
-        assert.equal(result.filter, '0:0: ||ads.example.com^');
+        assert.equal(result.should_block, true);
+        assert.deepEqual(result.filter, {
+          raw_line: '||ads.example.com^',
+          source_location: {
+            line_number: 0,
+            source_index: 0
+          }
+        });
         assert.ok(result.redirect == null);
     });
 });
@@ -403,15 +432,21 @@ describe('Engine.check — exception rules with tags', () => {
         const before = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
-        assert.equal(before.matched, true);
+        assert.equal(before.should_block, true);
         assert.ok(before.exception == null);
 
         engine.enableTag('unbreak');
         const after = engine.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
-        assert.equal(after.matched, false);
-        assert.equal(after.exception, '0:1: @@||ads.example.com^$tag=unbreak');
+        assert.equal(after.should_block, false);
+        assert.deepEqual(after.exception, {
+          raw_line: '@@||ads.example.com^$tag=unbreak',
+          source_location: {
+            line_number: 1,
+            source_index: 0
+          }
+        });
     });
 });
 
@@ -581,7 +616,7 @@ describe('Engine serialization', () => {
         const without = dst.check(
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
-        assert.equal(without.matched, true);
+        assert.equal(without.should_block, true);
         assert.ok(without.redirect == null);
 
         // After reloading: redirect works

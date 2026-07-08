@@ -8,6 +8,7 @@ use crate::regex_manager::RegexManager;
 use crate::request::Request;
 
 use crate::filters::flatbuffer_generated::fb;
+use crate::sourcemap::{FilterRuleDebugInfo, SourceLocation};
 
 pub(crate) const NO_SOURCE_LINE_INFO: u32 = u32::MAX;
 
@@ -175,11 +176,11 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn source_index(&self) -> Option<u32> {
-        debug_assert!(
-            self.filter_data_context.debug,
-            "raw_line is only available in debug mode"
-        );
+    fn source_index(&self) -> Option<u32> {
+        if !self.filter_data_context.debug {
+            debug_assert!(false, "source_index is only available in debug mode");
+            return None;
+        }
 
         let index = self.fb_filter.source_index();
         if index == NO_SOURCE_LINE_INFO {
@@ -190,11 +191,11 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn line_number(&self) -> Option<u32> {
-        debug_assert!(
-            self.filter_data_context.debug,
-            "raw_line is only available in debug mode"
-        );
+    fn line_number(&self) -> Option<u32> {
+        if !self.filter_data_context.debug {
+            debug_assert!(false, "line_number is only available in debug mode");
+            return None;
+        }
 
         let number = self.fb_filter.line_number();
         if number == NO_SOURCE_LINE_INFO {
@@ -202,6 +203,42 @@ impl<'a> FlatNetworkFilter<'a> {
         } else {
             Some(number)
         }
+    }
+
+    fn source_location(&self) -> Option<SourceLocation> {
+        let source_index = self.source_index();
+        let line_number = self.line_number();
+
+        match (source_index, line_number) {
+            (Some(source_index), Some(line_number)) => Some(SourceLocation {
+                source_index,
+                line_number,
+            }),
+            (None, None) => None,
+            _ => {
+                debug_assert!(
+                    false,
+                    "source_index and line_number should always be available together"
+                );
+                None
+            }
+        }
+    }
+
+    /// Gets [FilterRuleDebugInfo] corresponding to the original filter rule if debug information
+    /// was enabled.
+    pub fn get_rule_debug_info(&self) -> Option<FilterRuleDebugInfo> {
+        if !self.filter_data_context.debug {
+            return None;
+        }
+
+        let raw_line = Some(self.raw_line());
+        let source_location = self.source_location();
+
+        Some(FilterRuleDebugInfo {
+            raw_line,
+            source_location,
+        })
     }
 }
 

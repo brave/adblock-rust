@@ -42,7 +42,7 @@ mod legacy_test_filters {
                     .check_network_request(
                         &Request::new(to_block, "https://example.com", "other", "").unwrap(),
                     )
-                    .matched,
+                    .should_block(),
                 "Expected filter {} to match {}",
                 raw_filter,
                 &to_block
@@ -55,7 +55,7 @@ mod legacy_test_filters {
                     .check_network_request(
                         &Request::new(to_pass, "https://example.com", "other", "").unwrap(),
                     )
-                    .matched,
+                    .should_block(),
                 "Expected filter {} to pass {}",
                 raw_filter,
                 &to_pass
@@ -308,7 +308,7 @@ mod legacy_test_filters {
         let request = Request::new("http://tpc.googlesyndication.com/safeframe/1-0-2/html/container.html#xpc=sf-gdn-exp-2&p=http%3A//slashdot.org;", "https://this-is-always-third-party.com", "script", "").unwrap();
         let engine =
             Engine::new_with_list_text("||googlesyndication.com/safeframe/$third-party,script");
-        assert!(engine.check_network_request(&request).matched);
+        assert!(engine.check_network_request(&request).should_block());
     }
 }
 
@@ -337,14 +337,16 @@ mod legacy_check_match {
             let request = Request::new(to_block, "alwaysthirdparty.com", "script", "").unwrap();
 
             assert!(
-                engine.check_network_request(&request).matched,
+                engine.check_network_request(&request).should_block(),
                 "Expected engine from {:?} to match {}",
                 rules,
                 &to_block
             );
 
             assert!(
-                engine_deserialized.check_network_request(&request).matched,
+                engine_deserialized
+                    .check_network_request(&request)
+                    .should_block(),
                 "Expected deserialized engine from {:?} to match {}",
                 rules,
                 &to_block
@@ -355,14 +357,16 @@ mod legacy_check_match {
             let request = Request::new(to_pass, "alwaysthirdparty.com", "script", "").unwrap();
 
             assert!(
-                !engine.check_network_request(&request).matched,
+                !engine.check_network_request(&request).should_block(),
                 "Expected engine from {:?} to not match {}",
                 rules,
                 &to_pass
             );
 
             assert!(
-                !engine_deserialized.check_network_request(&request).matched,
+                !engine_deserialized
+                    .check_network_request(&request)
+                    .should_block(),
                 "Expected deserialized engine from {:?} to not match {}",
                 rules,
                 &to_pass
@@ -414,8 +418,10 @@ mod legacy_check_match {
                 "",
             )
             .unwrap();
-            assert!(!engine.check_network_request(&request).matched);
-            assert!(!engine_deserialized.check_network_request(&request).matched);
+            assert!(!engine.check_network_request(&request).should_block());
+            assert!(!engine_deserialized
+                .check_network_request(&request)
+                .should_block());
         }
 
         check_match(
@@ -510,7 +516,7 @@ mod legacy_check_options {
         for (url, source_url, request_type, expectation) in tests {
             let request = Request::new(url, source_url, request_type, "").unwrap();
             assert!(
-                engine.check_network_request(&request).matched == *expectation,
+                engine.check_network_request(&request).should_block() == *expectation,
                 "Expected match = {expectation} for {url} from {source_url} typed {request_type} against {rules:?}"
             )
         }
@@ -872,7 +878,7 @@ mod legacy_misc_tests {
             "",
         )
         .unwrap();
-        assert!(engine.check_network_request(&request).matched)
+        assert!(engine.check_network_request(&request).should_block())
     }
 
     #[test]
@@ -902,85 +908,73 @@ mod legacy_misc_tests {
         let mut engine2 = Engine::default();
         engine2.deserialize(&serialized).unwrap();
 
-        assert!(
-            engine
-                .check_network_request(
-                    &Request::new(
-                        "https://googlesyndication.com/script.js",
-                        "https://example.com",
-                        "script",
-                        ""
-                    )
-                    .unwrap()
+        assert!(engine
+            .check_network_request(
+                &Request::new(
+                    "https://googlesyndication.com/script.js",
+                    "https://example.com",
+                    "script",
+                    ""
                 )
-                .matched
-        );
-        assert!(
-            engine2
-                .check_network_request(
-                    &Request::new(
-                        "https://googlesyndication.com/script.js",
-                        "https://example.com",
-                        "script",
-                        ""
-                    )
-                    .unwrap()
+                .unwrap()
+            )
+            .should_block());
+        assert!(engine2
+            .check_network_request(
+                &Request::new(
+                    "https://googlesyndication.com/script.js",
+                    "https://example.com",
+                    "script",
+                    ""
                 )
-                .matched
-        );
-        assert!(
-            !engine
-                .check_network_request(
-                    &Request::new(
-                        "https://googleayndication.com/script.js",
-                        "https://example.com",
-                        "script",
-                        ""
-                    )
-                    .unwrap()
+                .unwrap()
+            )
+            .should_block());
+        assert!(!engine
+            .check_network_request(
+                &Request::new(
+                    "https://googleayndication.com/script.js",
+                    "https://example.com",
+                    "script",
+                    ""
                 )
-                .matched
-        );
-        assert!(
-            !engine2
-                .check_network_request(
-                    &Request::new(
-                        "https://googleayndication.com/script.js",
-                        "https://example.com",
-                        "script",
-                        ""
-                    )
-                    .unwrap()
+                .unwrap()
+            )
+            .should_block());
+        assert!(!engine2
+            .check_network_request(
+                &Request::new(
+                    "https://googleayndication.com/script.js",
+                    "https://example.com",
+                    "script",
+                    ""
                 )
-                .matched
-        );
+                .unwrap()
+            )
+            .should_block());
 
-        assert!(
-            !engine
-                .check_network_request(
-                    &Request::new(
-                        "https://googlesyndication.ca/script.js",
-                        "https://example.com",
-                        "script",
-                        ""
-                    )
-                    .unwrap()
+        assert!(!engine
+            .check_network_request(
+                &Request::new(
+                    "https://googlesyndication.ca/script.js",
+                    "https://example.com",
+                    "script",
+                    ""
                 )
-                .matched
-        );
-        assert!(
-            !engine2
-                .check_network_request(
-                    &Request::new(
-                        "https://googlesyndication.ca/script.js",
-                        "https://example.com",
-                        "script",
-                        ""
-                    )
-                    .unwrap()
+                .unwrap()
+            )
+            .should_block());
+        assert!(!engine2
+            .check_network_request(
+                &Request::new(
+                    "https://googlesyndication.ca/script.js",
+                    "https://example.com",
+                    "script",
+                    ""
                 )
-                .matched
-        );
+                .unwrap()
+            )
+            .should_block());
     }
 
     #[test]
@@ -1002,14 +996,14 @@ mod legacy_misc_tests {
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(checked.filter.is_some(), "Expected a fitler to match");
+        assert!(checked.filter.is_some(), "Expected a filter to match");
         assert!(
             checked.exception.is_none(),
             "Expected no exception to match"
         );
         let matched_filter = checked.filter.unwrap();
         assert_eq!(
-            matched_filter,
+            matched_filter.to_string(),
             "0:0: ||googlesyndication.com/safeframe/$third-party"
         );
 
@@ -1017,8 +1011,8 @@ mod legacy_misc_tests {
         let request =
             Request::new("http://ssafsdf.com", current_page_frame, request_type, "").unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(!checked.matched, "Expected url to pass");
-        assert!(checked.filter.is_none(), "Expected no fitler to match");
+        assert!(!checked.should_block(), "Expected url to pass");
+        assert!(checked.filter.is_none(), "Expected no filter to match");
         assert!(
             checked.exception.is_none(),
             "Expected no exception to match"
@@ -1046,19 +1040,19 @@ mod legacy_misc_tests {
         )
         .unwrap();
         let checked = engine.check_network_request(&request);
-        assert!(!checked.matched, "Expected url to pass");
-        assert!(checked.filter.is_some(), "Expected a fitler to match");
+        assert!(!checked.should_block(), "Expected url to pass");
+        assert!(checked.filter.is_some(), "Expected a filter to match");
         assert!(
             checked.exception.is_some(),
             "Expected no exception to match"
         );
         let matched_filter = checked.filter.unwrap();
         assert_eq!(
-            matched_filter,
+            matched_filter.to_string(),
             "0:0: ||googlesyndication.com/safeframe/$third-party"
         );
         let matched_exception = checked.exception.unwrap();
-        assert_eq!(matched_exception, "x:x: @@safeframe");
+        assert_eq!(matched_exception.to_string(), "x:x: @@safeframe");
     }
 
     #[test]
@@ -1071,10 +1065,13 @@ mod legacy_misc_tests {
             Request::new("https://brianbondy.com/t", "https://test.com", "script", "").unwrap();
         let checked = engine.check_network_request(&request);
 
-        assert!(checked.matched);
+        assert!(checked.should_block());
         assert!(checked.filter.is_some(), "Expected filter to match");
         let matched_filter = checked.filter.unwrap();
-        assert_eq!(matched_filter, "0:0: ||brianbondy.com^$important");
+        assert_eq!(
+            matched_filter.to_string(),
+            "0:0: ||brianbondy.com^$important"
+        );
         assert!(
             checked.exception.is_none(),
             "Expected no exception to match"

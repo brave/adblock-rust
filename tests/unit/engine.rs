@@ -32,12 +32,13 @@ mod tests {
             let request = Request::new(url, "", "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {url}");
+                assert!(matched_rule.should_block(), "Expected match for {url}");
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    url, matched_rule.filter
+                    url,
+                    matched_rule.filter
                 );
             }
         });
@@ -67,12 +68,13 @@ mod tests {
             let request = Request::new(url, "", "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {url}");
+                assert!(matched_rule.should_block(), "Expected match for {url}");
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    url, matched_rule.filter
+                    url,
+                    matched_rule.filter
                 );
             }
         });
@@ -98,12 +100,13 @@ mod tests {
             let request = Request::new(url, "", "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {url}");
+                assert!(matched_rule.should_block(), "Expected match for {url}");
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    url, matched_rule.filter
+                    url,
+                    matched_rule.filter
                 );
             }
         });
@@ -130,12 +133,13 @@ mod tests {
             let request = Request::new(url, "", "", "").unwrap();
             let matched_rule = engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {url}");
+                assert!(matched_rule.should_block(), "Expected match for {url}");
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    url, matched_rule.filter
+                    url,
+                    matched_rule.filter
                 );
             }
         });
@@ -169,12 +173,13 @@ mod tests {
             let request = Request::new(url, "", "", "").unwrap();
             let matched_rule = deserialized_engine.check_network_request(&request);
             if expected_result {
-                assert!(matched_rule.matched, "Expected match for {url}");
+                assert!(matched_rule.should_block(), "Expected match for {url}");
             } else {
                 assert!(
-                    !matched_rule.matched,
+                    !matched_rule.should_block(),
                     "Expected no match for {}, matched with {:?}",
-                    url, matched_rule.filter
+                    url,
+                    matched_rule.filter
                 );
             }
         });
@@ -289,7 +294,7 @@ mod tests {
         let url = "http://example.com/ad-banner.gif";
         let request = Request::new(url, "", "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {url}");
+        assert!(matched_rule.should_block(), "Expected match for {url}");
         assert_eq!(
             matched_rule.redirect,
             Some("data:text/plain;base64,".to_owned()),
@@ -299,7 +304,7 @@ mod tests {
         let url = "http://example.com/script.js";
         let request = Request::new(url, "", "", "").unwrap();
         let matched_rule = engine.check_network_request(&request);
-        assert!(matched_rule.matched, "Expected match for {url}");
+        assert!(matched_rule.should_block(), "Expected match for {url}");
         assert_eq!(
             matched_rule.redirect,
             Some(format!(
@@ -316,22 +321,17 @@ mod tests {
 
         let engine = Engine::new_with_list_text(filters.join("\n"));
 
-        assert!(
-            engine
-                .check_network_request(
-                    &Request::new("https://example.com", "https://example.com", "document", "")
-                        .unwrap()
-                )
-                .matched
-        );
-        assert!(
-            !engine
-                .check_network_request(
-                    &Request::new("https://example.com", "https://example.com", "script", "")
-                        .unwrap()
-                )
-                .matched
-        );
+        assert!(engine
+            .check_network_request(
+                &Request::new("https://example.com", "https://example.com", "document", "")
+                    .unwrap()
+            )
+            .should_block());
+        assert!(!engine
+            .check_network_request(
+                &Request::new("https://example.com", "https://example.com", "script", "").unwrap()
+            )
+            .should_block());
         assert!(engine
             .check_network_request(
                 &Request::new(
@@ -350,60 +350,50 @@ mod tests {
     fn implicit_all() {
         {
             let engine = Engine::new_with_list_text("||example.com^");
-            assert!(
-                engine
-                    .check_network_request(
-                        &Request::new("https://example.com", "https://example.com", "document", "")
-                            .unwrap()
-                    )
-                    .matched
-            );
+            assert!(engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document", "")
+                        .unwrap()
+                )
+                .should_block());
         }
         {
             let engine = Engine::new_with_list_text("||example.com^$first-party");
-            assert!(
-                engine
-                    .check_network_request(
-                        &Request::new("https://example.com", "https://example.com", "document", "")
-                            .unwrap()
-                    )
-                    .matched
-            );
+            assert!(engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document", "")
+                        .unwrap()
+                )
+                .should_block());
         }
         {
             let engine = Engine::new_with_list_text("||example.com^$script");
-            assert!(
-                !engine
-                    .check_network_request(
-                        &Request::new("https://example.com", "https://example.com", "document", "")
-                            .unwrap()
-                    )
-                    .matched
-            );
+            assert!(!engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document", "")
+                        .unwrap()
+                )
+                .should_block());
         }
         {
             let engine = Engine::new_with_list_text("||example.com^$~script");
-            assert!(
-                !engine
-                    .check_network_request(
-                        &Request::new("https://example.com", "https://example.com", "document", "")
-                            .unwrap()
-                    )
-                    .matched
-            );
+            assert!(!engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document", "")
+                        .unwrap()
+                )
+                .should_block());
         }
         {
             let engine = Engine::new_with_list_text(
                 ["||example.com^$document", "@@||example.com^$generichide"].join("\n"),
             );
-            assert!(
-                engine
-                    .check_network_request(
-                        &Request::new("https://example.com", "https://example.com", "document", "")
-                            .unwrap()
-                    )
-                    .matched
-            );
+            assert!(engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document", "")
+                        .unwrap()
+                )
+                .should_block());
         }
         {
             let mut filter_set = FilterSet::new(false);
@@ -415,46 +405,40 @@ mod tests {
                 },
             );
             let engine = Engine::new_with_filter_set(filter_set);
-            assert!(
-                engine
-                    .check_network_request(
-                        &Request::new("https://example.com", "https://example.com", "document", "")
-                            .unwrap()
-                    )
-                    .matched
-            );
+            assert!(engine
+                .check_network_request(
+                    &Request::new("https://example.com", "https://example.com", "document", "")
+                        .unwrap()
+                )
+                .should_block());
         }
         {
             let engine = Engine::new_with_list_text("||example.com/path");
-            assert!(
-                !engine
-                    .check_network_request(
-                        &Request::new(
-                            "https://example.com/path",
-                            "https://example.com/path",
-                            "document",
-                            ""
-                        )
-                        .unwrap()
+            assert!(!engine
+                .check_network_request(
+                    &Request::new(
+                        "https://example.com/path",
+                        "https://example.com/path",
+                        "document",
+                        ""
                     )
-                    .matched
-            );
+                    .unwrap()
+                )
+                .should_block());
         }
         {
             let engine = Engine::new_with_list_text("||example.com/path^");
-            assert!(
-                !engine
-                    .check_network_request(
-                        &Request::new(
-                            "https://example.com/path",
-                            "https://example.com/path",
-                            "document",
-                            ""
-                        )
-                        .unwrap()
+            assert!(!engine
+                .check_network_request(
+                    &Request::new(
+                        "https://example.com/path",
+                        "https://example.com/path",
+                        "document",
+                        ""
                     )
-                    .matched
-            );
+                    .unwrap()
+                )
+                .should_block());
         }
     }
 
@@ -468,19 +452,17 @@ mod tests {
             "font",
             "xmlhttprequest",
         ] {
-            assert!(
-                engine
-                    .check_network_request(
-                        &Request::new(
-                            "https://example.com",
-                            "https://rarvinzp.click",
-                            content_type,
-                            ""
-                        )
-                        .unwrap()
+            assert!(engine
+                .check_network_request(
+                    &Request::new(
+                        "https://example.com",
+                        "https://rarvinzp.click",
+                        content_type,
+                        ""
                     )
-                    .matched
-            );
+                    .unwrap()
+                )
+                .should_block());
         }
     }
 
@@ -556,7 +538,7 @@ mod tests {
                 "",
             )
             .unwrap();
-            assert!(!engine.check_network_request(&request).matched);
+            assert!(!engine.check_network_request(&request).should_block());
         }
         {
             // /^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz
@@ -564,7 +546,7 @@ mod tests {
                 r#"/^https:\/\/[0-9a-z]{3,}\.[-a-z]{10,}\.(?:li[fv]e|top|xyz)\/[a-z]{8}\/\?utm_campaign=\w{40,}/$doc,match-case,domain=life|live|top|xyz"#,
             );
             let request = Request::new("https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "https://www.exampleaaa.xyz/testtest/?utm_campaign=aaaaaaaaaabbbbbbbbbbccccccccccdddddddddd", "document", "").unwrap();
-            assert!(engine.check_network_request(&request).matched);
+            assert!(engine.check_network_request(&request).should_block());
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
@@ -599,7 +581,7 @@ mod tests {
                 "",
             )
             .unwrap();
-            assert!(engine.check_network_request(&request).matched);
+            assert!(engine.check_network_request(&request).should_block());
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
@@ -641,7 +623,7 @@ mod tests {
                 "",
             )
             .unwrap();
-            assert!(engine.check_network_request(&request).matched);
+            assert!(engine.check_network_request(&request).should_block());
         }
         // fails - inferring unescaped `$` inside regex pattern
         /*{
@@ -676,7 +658,7 @@ mod tests {
                 "",
             )
             .unwrap();
-            assert!(engine.check_network_request(&request).matched);
+            assert!(engine.check_network_request(&request).should_block());
         }
         // fails - because of non-supported look around operator in rust regex https://github.com/rust-lang/regex/issues/127#issuecomment-154713666
         /*{
@@ -697,7 +679,7 @@ mod tests {
                 "",
             )
             .unwrap();
-            assert!(engine.check_network_request(&request).matched);
+            assert!(engine.check_network_request(&request).should_block());
         }
         // fails - inferring unescaped `$` inside regex pattern
         /*{
@@ -897,25 +879,25 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
 
         let post = Request::new(url, source, "xhr", "post").unwrap();
         assert!(
-            engine.check_network_request(&post).matched,
+            engine.check_network_request(&post).should_block(),
             "POST xhr 1p should match"
         );
 
         let get = Request::new(url, source, "xhr", "get").unwrap();
         assert!(
-            !engine.check_network_request(&get).matched,
+            !engine.check_network_request(&get).should_block(),
             "GET xhr should not match method=post rule"
         );
 
         let post_3p = Request::new(url, "https://other.com/page", "xhr", "post").unwrap();
         assert!(
-            !engine.check_network_request(&post_3p).matched,
+            !engine.check_network_request(&post_3p).should_block(),
             "POST xhr 3p should not match 1p rule"
         );
 
         let post_no_method = Request::new(url, source, "xhr", "").unwrap();
         assert!(
-            !engine.check_network_request(&post_no_method).matched,
+            !engine.check_network_request(&post_no_method).should_block(),
             "missing method should not match method=post rule"
         );
     }
@@ -931,14 +913,14 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
         for method in ["get", "head"] {
             let request = Request::new(url, source, "xhr", method).unwrap();
             assert!(
-                !engine.check_network_request(&request).matched,
+                !engine.check_network_request(&request).should_block(),
                 "{method} xhr should be excepted"
             );
         }
 
         let post = Request::new(url, source, "xhr", "post").unwrap();
         assert!(
-            engine.check_network_request(&post).matched,
+            engine.check_network_request(&post).should_block(),
             "POST xhr should still be blocked"
         );
     }

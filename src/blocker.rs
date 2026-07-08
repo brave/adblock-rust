@@ -13,12 +13,28 @@ use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
+use crate::sourcemap::FilterRuleDebugInfo;
 
 /// Describes how a particular network request should be handled.
 #[derive(Debug, Serialize, Default)]
 pub struct BlockerResult {
-    /// Was a blocking filter matched for this request?
-    pub matched: bool,
+    /// Represents any matched blocking rule.
+    /// If you just need to check whether or not to block the request, use
+    /// [BlockerResult::should_block].
+    ///
+    /// If `Some`, the request should be blocked, but this may be invalidated
+    /// if an exception was also matched.
+    ///
+    /// If debugging was _not_ enabled (see [`crate::FilterSet::new`]), rule
+    /// info will be limited.
+    pub filter: Option<FilterRuleDebugInfo>,
+    /// Represents any matched exception rule.
+    /// If `Some`, this means that there was a match, but the request should
+    /// _not_ be blocked.
+    ///
+    /// If debugging was _not_ enabled (see [`crate::FilterSet::new`]), rule
+    /// info will be limited.
+    pub exception: Option<FilterRuleDebugInfo>,
     /// Important is used to signal that a rule with the `important` option
     /// matched. An `important` match means that exceptions should not apply
     /// and no further checking is neccesary--the request should be blocked
@@ -41,19 +57,13 @@ pub struct BlockerResult {
     /// modified at all, the new version will be here. This should be used
     /// as long as the request is not blocked.
     pub rewritten_url: Option<String>,
-    /// Contains a string representation of any matched exception rule.
-    /// Effectively this means that there was a match, but the request should
-    /// not be blocked.
-    ///
-    /// If debugging was _not_ enabled (see [`crate::FilterSet::new`]), this
-    /// will only contain a constant `"NetworkFilter"` placeholder string.
-    pub exception: Option<String>,
-    /// When `matched` is true, this contains a string representation of the
-    /// matched blocking rule.
-    ///
-    /// If debugging was _not_ enabled (see [`crate::FilterSet::new`]), this
-    /// will only contain a constant `"NetworkFilter"` placeholder string.
-    pub filter: Option<String>,
+}
+
+impl BlockerResult {
+    /// Should the request be blocked?
+    pub fn should_block(&self) -> bool {
+        self.important || (self.filter.is_some() && self.exception.is_none())
+    }
 }
 
 // only check for tags in tagged and exception rule buckets,
@@ -283,14 +293,20 @@ impl Blocker {
         };
 
         // If something has already matched before but we don't know what, still return a match
-        let matched = exception.is_none() && (filter.is_some() || matched_rule);
+        let fallback_match = if matched_rule {
+            Some(FilterRuleDebugInfo::default())
+        } else {
+            None
+        };
+
         BlockerResult {
-            matched,
+            filter: filter
+                .map(|f| f.debug_data.unwrap_or(FilterRuleDebugInfo::default()))
+                .or(fallback_match),
+            exception: exception.map(|f| f.debug_data.unwrap_or(FilterRuleDebugInfo::default())),
             important,
             redirect,
             rewritten_url,
-            exception: exception.as_ref().map(|f| f.to_string()), // copy the exception
-            filter: filter.as_ref().map(|f| f.to_string()),       // copy the filter
         }
     }
 

@@ -20,5 +20,5 @@ fn check_simple_use() {
     )
     .unwrap();
     let blocker_result = engine.check_network_request(&request);
-    assert!(blocker_result.matched);
+    assert!(blocker_result.should_block());
 }

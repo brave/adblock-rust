@@ -73,7 +73,7 @@ fn main() {
         }
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type, "").unwrap();
         let checked = engine.check_network_request(&request);
-        if req.blocked == 1 && !checked.matched {
+        if req.blocked == 1 && !checked.should_block() {
             mismatch_expected_match += 1;
             req.filter.as_ref().map(|f| {
                 false_negative_rules.insert(
@@ -86,16 +86,16 @@ fn main() {
             mismatch_expected_exception += 1;
             checked.filter.as_ref().map(|f| {
                 false_negative_exceptions.insert(
-                    f.clone(),
+                    f.to_string(),
                     (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
                 )
             });
             // println!("Expected exception to match for {} at {}, type {}, got rule match {:?}", req.url, req.sourceUrl, req.r#type, checked.filter);
-        } else if req.blocked == 0 && checked.matched {
+        } else if req.blocked == 0 && checked.should_block() {
             mismatch_expected_pass += 1;
             checked.filter.as_ref().map(|f| {
                 false_positive_rules.insert(
-                    f.clone(),
+                    f.to_string(),
                     (req.url.clone(), req.sourceUrl.clone(), req.r#type.clone()),
                 )
             });

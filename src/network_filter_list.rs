@@ -12,36 +12,21 @@ use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
 use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
+use crate::sourcemap::FilterRuleDebugInfo;
 use crate::utils::{to_short_hash, ShortHash};
 
-pub struct CheckResultDebugData {
-    pub raw_line: String,
-    pub source_index: Option<u32>,
-    pub line_number: Option<u32>,
-}
-
-/// Holds relevant information from a single matchin gnetwork filter rule as a result of querying a
+/// Holds relevant information from a single matching network filter rule as a result of querying a
 /// [NetworkFilterList] for a given request.
 pub(crate) struct CheckResult {
     pub filter_mask: NetworkFilterMask,
     pub modifier_option: Option<String>,
-    pub debug_data: Option<CheckResultDebugData>,
+    pub debug_data: Option<FilterRuleDebugInfo>,
 }
 
 impl fmt::Display for CheckResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if let Some(ref debug_data) = self.debug_data {
-            if let (Some(source_index), Some(line_number)) =
-                (debug_data.source_index, debug_data.line_number)
-            {
-                write!(
-                    f,
-                    "{}:{}: {}",
-                    source_index, line_number, debug_data.raw_line
-                )
-            } else {
-                write!(f, "x:x: {}", debug_data.raw_line)
-            }
+            write!(f, "{debug_data}")
         } else {
             write!(f, "{}", self.filter_mask)
         }
@@ -94,19 +79,10 @@ impl NetworkFilterList<'_> {
                     if filter.matches(request, regex_manager)
                         && filter.tag().is_none_or(|t| active_tags.contains(t))
                     {
-                        let debug_data = if self.filter_data_context.debug {
-                            Some(CheckResultDebugData {
-                                raw_line: filter.raw_line(),
-                                source_index: filter.source_index(),
-                                line_number: filter.line_number(),
-                            })
-                        } else {
-                            None
-                        };
                         return Some(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
-                            debug_data,
+                            debug_data: filter.get_rule_debug_info(),
                         });
                     }
                 }
@@ -145,19 +121,10 @@ impl NetworkFilterList<'_> {
                     if filter.matches(request, regex_manager)
                         && filter.tag().is_none_or(|t| active_tags.contains(t))
                     {
-                        let debug_data = if self.filter_data_context.debug {
-                            Some(CheckResultDebugData {
-                                raw_line: filter.raw_line(),
-                                source_index: filter.source_index(),
-                                line_number: filter.line_number(),
-                            })
-                        } else {
-                            None
-                        };
                         filters.push(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
-                            debug_data,
+                            debug_data: filter.get_rule_debug_info(),
                         });
                     }
                 }

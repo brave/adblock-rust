@@ -232,10 +232,16 @@ fn engine_check(mut cx: FunctionContext) -> JsResult<JsValue> {
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
+
+    let should_block = cx.boolean(result.should_block()).upcast::<JsValue>();
+
     if debug {
-        json_ffi::to_js(&mut cx, &result)
+        let jsonvalue = json_ffi::to_js(&mut cx, &result)?;
+        let obj = jsonvalue.downcast_or_throw::<JsObject, _>(&mut cx)?;
+        obj.set(&mut cx, "should_block", should_block)?;
+        Ok(obj.upcast::<JsValue>())
     } else {
-        Ok(cx.boolean(result.matched).upcast())
+        Ok(should_block)
     }
 }
 

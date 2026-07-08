@@ -83,13 +83,16 @@ fn check_filter_matching() {
                 let result = engine.check_network_request(&request);
                 if !network_filter.is_exception() {
                     assert!(
-                        result.matched,
+                        result.should_block(),
                         "Expected {} to match {} at {}, typed {}",
-                        filter, req.url, req.sourceUrl, req.r#type
+                        filter,
+                        req.url,
+                        req.sourceUrl,
+                        req.r#type
                     );
                 } else {
                     assert!(
-                        !result.matched && result.exception.is_some(),
+                        !result.should_block() && result.exception.is_some(),
                         "Expected {} exception to match {} at {}, typed {}",
                         filter,
                         req.url,
@@ -133,16 +136,22 @@ fn check_engine_matching() {
 
             if network_filter.is_exception() {
                 assert!(
-                    !result.matched,
+                    !result.should_block(),
                     "Expected {} to NOT match {} at {}, typed {}",
-                    filter, req.url, req.sourceUrl, req.r#type
+                    filter,
+                    req.url,
+                    req.sourceUrl,
+                    req.r#type
                 );
                 // assert!(result.exception.is_some(), "Expected exception {} to match {} at {}, typed {}", filter, req.url, req.sourceUrl, req.r#type);
             } else {
                 assert!(
-                    result.matched,
+                    result.should_block(),
                     "Expected {} to match {} at {}, typed {}",
-                    filter, req.url, req.sourceUrl, req.r#type
+                    filter,
+                    req.url,
+                    req.sourceUrl,
+                    req.r#type
                 );
             }
 
@@ -199,7 +208,7 @@ fn check_rule_matching_browserlike() {
         let mut passes = 0;
         for r in requests {
             let req: Request = r.into();
-            if engine.check_network_request(&req).matched {
+            if engine.check_network_request(&req).should_block() {
                 matches += 1;
             } else {
                 passes += 1;
