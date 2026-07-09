@@ -237,9 +237,9 @@ mod tests {
             );
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            5342093731695387413
+            7563240741254203460
         } else {
-            2744138504590463392
+            3761338997348098237
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
@@ -288,6 +288,40 @@ mod tests {
                 BASE64_STANDARD.encode(script)
             )),
             "Expected redirect to contain resource"
+        );
+    }
+
+    #[test]
+    fn rewrite_resource_insertion_works() {
+        // ABP-syntax `rewrite=abp-resource:...` is an alias for `redirect=...`. The
+        // `abp-resource:`-prefixed value is shipped by uBO as an alias of the corresponding
+        // redirect resource, so it should resolve end-to-end without any translation.
+        let mut engine = Engine::from_rules(
+            ["||example.com/ads.js$script,rewrite=abp-resource:blank-js"],
+            Default::default(),
+        );
+
+        let script = r#"
+(function() {
+	;
+})();
+
+        "#;
+        let mut blank_js = Resource::simple("noopjs", MimeType::ApplicationJavascript, script);
+        blank_js.aliases.push("abp-resource:blank-js".to_string());
+        engine.use_resources([blank_js]);
+
+        let url = "http://example.com/ads.js";
+        let request = Request::new(url, "http://example.com/", "script").unwrap();
+        let matched_rule = engine.check_network_request(&request);
+        assert!(matched_rule.matched, "Expected match for {url}");
+        assert_eq!(
+            matched_rule.redirect,
+            Some(format!(
+                "data:application/javascript;base64,{}",
+                BASE64_STANDARD.encode(script)
+            )),
+            "Expected rewrite to resolve to the blank-js resource"
         );
     }
 

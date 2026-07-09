@@ -745,6 +745,38 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_rewrite() {
+        // `rewrite` is an ABP-syntax alias for `redirect`, and the `abp-resource:`-prefixed
+        // value is preserved verbatim (uBO ships it as a redirect resource alias).
+        {
+            let filter = NetworkFilter::parse(
+                "||foo.com$rewrite=abp-resource:blank-js",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                filter.modifier_option,
+                Some(String::from("abp-resource:blank-js"))
+            );
+        }
+        // parses ~rewrite as a negated redirection
+        {
+            let filter = NetworkFilter::parse("||foo.com$~rewrite", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::NegatedRedirection));
+        }
+        // parses rewrite without a value
+        {
+            let filter = NetworkFilter::parse("||foo.com$rewrite", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::EmptyRedirection));
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com$rewrite=", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::EmptyRedirection));
+        }
+    }
+
+    #[test]
     fn parses_removeparam() {
         {
             let filter = NetworkFilter::parse("||foo.com^$removeparam", true, Default::default());
