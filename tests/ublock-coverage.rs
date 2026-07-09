@@ -109,6 +109,35 @@ fn check_specific_rules() {
     }
 }
 
+/// `rewrite=abp-resource:<name>` is the ABP-syntax equivalent of `redirect=<name>`. The
+/// `abp-resource:` aliases come from uBO's own resource data, so this checks against the real
+/// uBO resource fixture rather than a hand-built one.
+#[cfg(feature = "resource-assembler")]
+#[test]
+fn check_rewrite_matches_redirect() {
+    use std::path::Path;
+
+    let resources = adblock::resources::resource_assembler::assemble_web_accessible_resources(
+        Path::new("data/test/fake-uBO-files/web_accessible_resources"),
+        Path::new("data/test/fake-uBO-files/redirect-resources.js"),
+    );
+
+    let redirect_for = |rule: &str| {
+        let mut engine = Engine::from_rules_debug([rule], Default::default());
+        engine.use_resources(resources.clone());
+        let request =
+            Request::new("http://example.com/ads.js", "http://example.com/", "script").unwrap();
+        engine.check_network_request(&request).redirect
+    };
+
+    let rewrite = redirect_for("||example.com/ads.js$script,rewrite=abp-resource:blank-js");
+    assert!(rewrite.is_some(), "rewrite rule did not produce a redirect");
+    assert_eq!(
+        rewrite,
+        redirect_for("||example.com/ads.js$script,redirect=noopjs")
+    );
+}
+
 #[test]
 fn check_specifics_default() {
     let mut engine = get_blocker_engine_default([
