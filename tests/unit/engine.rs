@@ -301,12 +301,7 @@ mod tests {
             Default::default(),
         );
 
-        let script = r#"
-(function() {
-	;
-})();
-
-        "#;
+        let script = "(function() {})();";
         let mut blank_js = Resource::simple("noopjs", MimeType::ApplicationJavascript, script);
         blank_js.aliases.push("abp-resource:blank-js".to_string());
         engine.use_resources([blank_js]);
