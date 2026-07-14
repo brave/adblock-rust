@@ -266,11 +266,9 @@ impl<'i> Input<'i> {
     fn next_utf8(&mut self) -> Option<(char, &'i str)> {
         loop {
             let utf8 = self.chars.as_str();
-            {
-                let c = self.chars.next()?;
-                if !matches!(c, '\t' | '\n' | '\r') {
-                    return Some((c, &utf8[..c.len_utf8()]));
-                }
+            let c = self.chars.next()?;
+            if !matches!(c, '\t' | '\n' | '\r') {
+                return Some((c, &utf8[..c.len_utf8()]));
             }
         }
     }
