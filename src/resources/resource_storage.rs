@@ -629,9 +629,11 @@ pub(crate) fn parse_scriptlet_args(mut args: &str) -> Option<Vec<String>> {
                 let i;
                 (i, needs_transform) = index_next_unescaped_separator(args, qc);
                 {
-                    // Unmatched quote: uBO pushes the entire argument including the quote.
+                    // If `i` is None, it means that the quote is unmatched:
+                    // uBO pushes the entire argument including the quote.
                     // Weird and probably not intended — treat as an error.
                     let i = i?;
+
                     arg = &args[..i];
                     args = &args[i + 1..];
                     // consume whitespace following the quote
