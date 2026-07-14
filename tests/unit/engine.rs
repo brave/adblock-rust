@@ -234,8 +234,8 @@ mod tests {
         #[cfg(feature = "debug-info")]
         {
             let debug_info = engine.get_debug_info();
-            let low_bound = 8_700_000;
-            let high_bound = 9_200_000;
+            let low_bound = 8_200_000;
+            let high_bound = 8_900_000;
             assert!(
                 debug_info.flatbuffer_size >= low_bound,
                 "Expected size >= {} bytes, got {}",
@@ -258,13 +258,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 130800);
-            assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 41855);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 122996);
+            assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42318);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            4855237263164911442
+            228796068971768546
         } else {
-            3994644074087507906
+            10394360525829993414
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
