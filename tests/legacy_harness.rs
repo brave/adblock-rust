@@ -43,9 +43,7 @@ mod legacy_test_filters {
                         &Request::new(to_block, "https://example.com", "other", "").unwrap(),
                     )
                     .should_block(),
-                "Expected filter {} to match {}",
-                raw_filter,
-                &to_block
+                "Expected filter {raw_filter} to match {to_block}",
             );
         }
 
@@ -56,9 +54,7 @@ mod legacy_test_filters {
                         &Request::new(to_pass, "https://example.com", "other", "").unwrap(),
                     )
                     .should_block(),
-                "Expected filter {} to pass {}",
-                raw_filter,
-                &to_pass
+                "Expected filter {raw_filter} to pass {to_pass}",
             );
         }
     }
@@ -338,18 +334,14 @@ mod legacy_check_match {
 
             assert!(
                 engine.check_network_request(&request).should_block(),
-                "Expected engine from {:?} to match {}",
-                rules,
-                &to_block
+                "Expected engine from {rules:?} to match {to_block}",
             );
 
             assert!(
                 engine_deserialized
                     .check_network_request(&request)
                     .should_block(),
-                "Expected deserialized engine from {:?} to match {}",
-                rules,
-                &to_block
+                "Expected deserialized engine from {rules:?} to match {to_block}",
             );
         }
 
@@ -358,18 +350,14 @@ mod legacy_check_match {
 
             assert!(
                 !engine.check_network_request(&request).should_block(),
-                "Expected engine from {:?} to not match {}",
-                rules,
-                &to_pass
+                "Expected engine from {rules:?} to not match {to_pass}",
             );
 
             assert!(
                 !engine_deserialized
                     .check_network_request(&request)
                     .should_block(),
-                "Expected deserialized engine from {:?} to not match {}",
-                rules,
-                &to_pass
+                "Expected deserialized engine from {rules:?} to not match {to_pass}",
             );
         }
     }
