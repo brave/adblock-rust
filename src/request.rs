@@ -119,8 +119,8 @@ pub struct Request {
     pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
-    pub hostname_hashes: Option<Vec<utils::Hash>>,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
@@ -136,14 +136,14 @@ impl Request {
         }
     }
 
-    /// Tokens for looking up filters bucketed by `$domain=` / `$from=`.
     pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        self.source_hostname_hashes.as_ref().into_iter().flatten()
-    }
-
-    /// Tokens for looking up filters bucketed by `$to=`.
-    pub fn get_tokens_for_to_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        self.hostname_hashes.as_ref().into_iter().flatten()
+        // We start matching with source_hostname_hashes for optimization,
+        // as it contains far fewer elements.
+        self.source_hostname_hashes
+            .as_ref()
+            .into_iter()
+            .flatten()
+            .chain(self.get_tokens())
     }
 
     pub fn get_tokens(&self) -> &Vec<utils::Hash> {
@@ -185,12 +185,12 @@ impl Request {
             }
         }
 
-        let hostname_hashes = if !hostname.is_empty() {
+        let source_hostname_hashes = if !source_hostname.is_empty() {
             let mut hashes = Vec::with_capacity(4);
-            hashes.push(utils::fast_hash(hostname));
-            for (i, c) in hostname.char_indices() {
-                if c == '.' && i + 1 < hostname.len() {
-                    hashes.push(utils::fast_hash(&hostname[i + 1..]));
+            hashes.push(utils::fast_hash(source_hostname));
+            for (i, c) in source_hostname.char_indices() {
+                if c == '.' && i + 1 < source_hostname.len() {
+                    hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
                 }
             }
             Some(hashes)
@@ -198,12 +198,12 @@ impl Request {
             None
         };
 
-        let source_hostname_hashes = if !source_hostname.is_empty() {
+        let hostname_hashes = if !hostname.is_empty() {
             let mut hashes = Vec::with_capacity(4);
-            hashes.push(utils::fast_hash(source_hostname));
-            for (i, c) in source_hostname.char_indices() {
-                if c == '.' && i + 1 < source_hostname.len() {
-                    hashes.push(utils::fast_hash(&source_hostname[i + 1..]));
+            hashes.push(utils::fast_hash(hostname));
+            for (i, c) in hostname.char_indices() {
+                if c == '.' && i + 1 < hostname.len() {
+                    hashes.push(utils::fast_hash(&hostname[i + 1..]));
                 }
             }
             Some(hashes)
@@ -220,8 +220,8 @@ impl Request {
             url_lower_cased: url_lower_cased.to_owned(),
             hostname: hostname.to_owned(),
             request_tokens: calculate_tokens(&url_lower_cased),
-            hostname_hashes,
             source_hostname_hashes,
+            hostname_hashes,
             is_third_party: third_party,
             is_http,
             is_https,

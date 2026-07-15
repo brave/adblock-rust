@@ -199,6 +199,8 @@ pub enum CbRuleCreationFailure {
     NetworkCspUnsupported,
     /// Network rules with removeparam options cannot be supported in content blocking syntax.
     NetworkRemoveparamUnsupported,
+    /// Network rules with to= options cannot be supported in content blocking syntax.
+    NetworkToUnsupported,
     /// Content blocking syntax only supports a subset of regex features, namely:
     /// - Matching any character with “.”.
     /// - Matching ranges with the range syntax [a-b].
@@ -225,8 +227,6 @@ pub enum CbRuleCreationFailure {
     RuleContainsNonASCII,
     /// `from` as a `domain` alias is not currently supported in content blocking syntax.
     FromNotSupported,
-    /// Network rules with `to=` options cannot be represented in content blocking syntax.
-    NetworkToUnsupported,
     /// Content blocking rules cannot support procedural cosmetic filter operators.
     ProceduralCosmeticFiltersUnsupported,
 }

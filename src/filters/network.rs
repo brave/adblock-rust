@@ -333,7 +333,6 @@ pub enum FilterPart<'a> {
 pub(crate) enum FilterTokens {
     Empty,
     OptDomains,
-    OptToDomains,
     Other,
 }
 
@@ -1004,17 +1003,6 @@ impl<'a> NetworkFilter<'a> {
             }
         }
 
-        if self.opt_to_domains.is_some()
-            && self.opt_not_to_domains.is_none()
-            && self.opt_to_domains.as_ref().map(|d| d.len()) == Some(1)
-        {
-            if let Some(domains) = self.opt_to_domains.as_ref() {
-                if let Some(domain) = domains.first() {
-                    tokens_buffer.push(*domain);
-                }
-            }
-        }
-
         // Get tokens from filter
         match &self.filter {
             FilterPart::Simple(f) if !self.is_complete_regex() => {
@@ -1071,20 +1059,6 @@ impl<'a> NetworkFilter<'a> {
                     }
                     // Too many domains to bucket individually; fall back to the catch-all
                     // bucket (token 0).
-                }
-            }
-            FilterTokens::Empty
-        } else if tokens_buffer.is_empty()
-            && self.opt_to_domains.is_some()
-            && self.opt_not_to_domains.is_none()
-        {
-            if let Some(opt_to_domains) = self.opt_to_domains.as_ref() {
-                if !opt_to_domains.is_empty() {
-                    let cap = tokens_buffer.remaining_capacity();
-                    if opt_to_domains.len() <= cap {
-                        tokens_buffer.extend(opt_to_domains.iter().copied());
-                        return FilterTokens::OptToDomains;
-                    }
                 }
             }
             FilterTokens::Empty
@@ -1174,7 +1148,6 @@ fn write_str_to_hasher(hasher: &mut impl Hasher, s: &str) {
     hasher.write(s.as_bytes());
 }
 
-#[allow(clippy::too_many_arguments)]
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,

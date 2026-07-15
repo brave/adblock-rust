@@ -511,41 +511,6 @@ mod match_tests {
                 request::Request::new("https://foo.com/bar", "http://bar.com", "", "").unwrap();
             assert!(!check_options(&network_filter, &request));
         }
-
-        // opt-to
-        {
-            let network_filter =
-                NetworkFilter::parse("*$script,to=foo.com", true, Default::default()).unwrap();
-            let request =
-                request::Request::new("https://foo.com/bar.js", "http://example.com", "script", "")
-                    .unwrap();
-            assert!(check_options(&network_filter, &request));
-        }
-        {
-            let network_filter =
-                NetworkFilter::parse("*$script,to=foo.com", true, Default::default()).unwrap();
-            let request =
-                request::Request::new("https://bar.com/bar.js", "http://example.com", "script", "")
-                    .unwrap();
-            assert!(!check_options(&network_filter, &request));
-        }
-
-        // opt-not-to
-        {
-            let network_filter =
-                NetworkFilter::parse("||it^$3p,to=~example.it", true, Default::default()).unwrap();
-            let request =
-                request::Request::new("https://it/path", "http://other.com", "", "").unwrap();
-            assert!(check_options(&network_filter, &request));
-        }
-        {
-            let network_filter =
-                NetworkFilter::parse("||it^$3p,to=~example.it", true, Default::default()).unwrap();
-            let request =
-                request::Request::new("https://example.it/path", "http://other.com", "", "")
-                    .unwrap();
-            assert!(!check_options(&network_filter, &request));
-        }
     }
 
     #[test]
@@ -619,78 +584,6 @@ mod match_tests {
                 NetworkFilter::parse("||foo$xhr,method=head", true, Default::default()).unwrap();
             let request = request::Request::new(url, "", "xhr", "head").unwrap();
             assert!(check_options(&filter, &request));
-        }
-    }
-
-    #[test]
-    fn check_to_option_works() {
-        {
-            let network_filter =
-                NetworkFilter::parse("adv$to=ads.example.com", true, Default::default()).unwrap();
-            assert!(network_filter.matches_test(
-                &request::Request::new("http://ads.example.com/adv", "http://source.com", "", "")
-                    .unwrap()
-            ));
-            assert!(network_filter.matches_test(
-                &request::Request::new(
-                    "http://sub.ads.example.com/adv",
-                    "http://source.com",
-                    "",
-                    ""
-                )
-                .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://example.com/adv", "http://source.com", "", "")
-                    .unwrap()
-            ));
-        }
-        {
-            let network_filter =
-                NetworkFilter::parse("adv$to=~ads.example.com", true, Default::default()).unwrap();
-            assert!(!network_filter.matches_test(
-                &request::Request::new("http://ads.example.com/adv", "http://source.com", "", "")
-                    .unwrap()
-            ));
-            assert!(network_filter.matches_test(
-                &request::Request::new("http://example.com/adv", "http://source.com", "", "")
-                    .unwrap()
-            ));
-        }
-        {
-            let network_filter = NetworkFilter::parse(
-                "*$script,from=beforeitsnews.com,to=gstatic.com",
-                true,
-                Default::default(),
-            )
-            .unwrap();
-            assert!(network_filter.matches_test(
-                &request::Request::new(
-                    "https://gstatic.com/script.js",
-                    "http://beforeitsnews.com",
-                    "script",
-                    ""
-                )
-                .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new(
-                    "https://gstatic.com/script.js",
-                    "http://other.com",
-                    "script",
-                    ""
-                )
-                .unwrap()
-            ));
-            assert!(!network_filter.matches_test(
-                &request::Request::new(
-                    "https://example.com/script.js",
-                    "http://beforeitsnews.com",
-                    "script",
-                    ""
-                )
-                .unwrap()
-            ));
         }
     }
 
@@ -1020,6 +913,105 @@ mod match_tests {
                 network_filter.matches_test(&request),
                 "Expected match for {filter} on {url}"
             );
+        }
+    }
+
+    #[test]
+    fn check_to_option_works() {
+        {
+            let network_filter = NetworkFilter::parse(
+                "adv$to=example.com|~foo.example.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://foo.example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new(
+                    "http://subfoo.foo.example.com/adv",
+                    "http://other.com",
+                    "",
+                    ""
+                )
+                .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://bar.example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://anotherexample.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+        }
+        {
+            let network_filter = NetworkFilter::parse(
+                "adv$to=~example.com|~foo.example.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://foo.example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new(
+                    "http://subfoo.foo.example.com/adv",
+                    "http://other.com",
+                    "",
+                    ""
+                )
+                .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://bar.example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://anotherexample.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+        }
+        {
+            let network_filter = NetworkFilter::parse(
+                "adv$to=example.com|foo.example.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://foo.example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new(
+                    "http://subfoo.foo.example.com/adv",
+                    "http://other.com",
+                    "",
+                    ""
+                )
+                .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://bar.example.com/adv", "http://other.com", "", "")
+                    .unwrap()
+            ));
         }
     }
 

@@ -3,12 +3,10 @@
 ## [Unreleased]
 
 ### Added
-- Support `$to=` option on network filters. Restricts matching to the request destination hostname, analogous to `$domain=`/`$from=` for the source hostname.
-- `Request.hostname_hashes` for destination hostname hash matching.
+- Support `$to=` option on network filters. Destination hostnames are stored as hashes and checked at match time via mapped domain lookups (bucketing unchanged).
 
 ### Changed
-- Network filter lists store `$from=`/`$domain=` and `$to=` buckets in separate maps from pattern token buckets.
-- `Request::get_tokens_for_match` now yields only source hostname hashes (for `$from=`/`$domain=` lookup). Pattern tokens remain on `Request::get_tokens`; destination hashes use `Request::get_tokens_for_to_match`.
+- DAT format version bumped to v6.
 
 ## [0.13.0] - 2026-07-09
 

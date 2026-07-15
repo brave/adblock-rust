@@ -13,7 +13,7 @@ use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
 use crate::sourcemap::FilterRuleDebugInfo;
-use crate::utils::{to_short_hash, Hash, ShortHash};
+use crate::utils::{to_short_hash, ShortHash};
 
 /// Holds relevant information from a single matching network filter rule as a result of querying a
 /// [NetworkFilterList] for a given request.
@@ -44,30 +44,11 @@ type FlatNetworkFilterMap<'a> =
 
 impl NetworkFilterList<'_> {
     pub fn get_filter_map(&self) -> FlatNetworkFilterMap<'_> {
+        let filters_list = &self.list;
         FlatNetworkFilterMap::new(
-            fb_vector_to_slice(self.list.filter_map_index()),
-            self.list.filter_map_values(),
+            fb_vector_to_slice(filters_list.filter_map_index()),
+            filters_list.filter_map_values(),
         )
-    }
-
-    pub fn get_opt_domains_map(&self) -> FlatNetworkFilterMap<'_> {
-        FlatNetworkFilterMap::new(
-            fb_vector_to_slice(self.list.opt_domains_map_index()),
-            self.list.opt_domains_map_values(),
-        )
-    }
-
-    pub fn get_opt_to_domains_map(&self) -> FlatNetworkFilterMap<'_> {
-        FlatNetworkFilterMap::new(
-            fb_vector_to_slice(self.list.opt_to_domains_map_index()),
-            self.list.opt_to_domains_map_values(),
-        )
-    }
-
-    fn is_empty(&self) -> bool {
-        self.list.filter_map_index().is_empty()
-            && self.list.opt_domains_map_index().is_empty()
-            && self.list.opt_to_domains_map_index().is_empty()
     }
 
     /// Returns the first found filter, if any, that matches the given request. The backing storage
@@ -81,101 +62,15 @@ impl NetworkFilterList<'_> {
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<CheckResult> {
-        if self.is_empty() {
+        let filters_list = self.list;
+
+        if filters_list.filter_map_index().is_empty() {
             return None;
         }
 
-        if let Some(result) = self.check_tokens_in_map(
-            &self.get_opt_domains_map(),
-            request.get_tokens_for_match(),
-            request,
-            active_tags,
-            regex_manager,
-        ) {
-            return Some(result);
-        }
+        let filter_map = self.get_filter_map();
 
-        if let Some(result) = self.check_tokens_in_map(
-            &self.get_opt_to_domains_map(),
-            request.get_tokens_for_to_match(),
-            request,
-            active_tags,
-            regex_manager,
-        ) {
-            return Some(result);
-        }
-
-        self.check_tokens_in_map(
-            &self.get_filter_map(),
-            request
-                .get_tokens_for_match()
-                .chain(request.get_tokens_for_to_match())
-                .chain(request.get_tokens().iter()),
-            request,
-            active_tags,
-            regex_manager,
-        )
-    }
-
-    /// Returns _all_ filters that match the given request. This should be used for any category of
-    /// filters where a match from each may carry unique information. For example, if two different
-    /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
-    /// each directive should be combined for the final result.
-    pub fn check_all(
-        &self,
-        request: &Request,
-        active_tags: &HashSet<String>,
-        regex_manager: &mut RegexManager,
-    ) -> Vec<CheckResult> {
-        let mut filters: Vec<CheckResult> = vec![];
-
-        if self.is_empty() {
-            return filters;
-        }
-
-        self.collect_tokens_in_map(
-            &self.get_opt_domains_map(),
-            request.get_tokens_for_match(),
-            request,
-            active_tags,
-            regex_manager,
-            &mut filters,
-        );
-        self.collect_tokens_in_map(
-            &self.get_opt_to_domains_map(),
-            request.get_tokens_for_to_match(),
-            request,
-            active_tags,
-            regex_manager,
-            &mut filters,
-        );
-        self.collect_tokens_in_map(
-            &self.get_filter_map(),
-            request
-                .get_tokens_for_match()
-                .chain(request.get_tokens_for_to_match())
-                .chain(request.get_tokens().iter()),
-            request,
-            active_tags,
-            regex_manager,
-            &mut filters,
-        );
-
-        filters
-    }
-
-    fn check_tokens_in_map<'a, I>(
-        &self,
-        filter_map: &FlatNetworkFilterMap<'_>,
-        tokens: I,
-        request: &Request,
-        active_tags: &HashSet<String>,
-        regex_manager: &mut RegexManager,
-    ) -> Option<CheckResult>
-    where
-        I: IntoIterator<Item = &'a Hash>,
-    {
-        for token in tokens {
+        for token in request.get_tokens_for_match() {
             if let Some(iter) = filter_map.get(to_short_hash(*token)) {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
@@ -193,21 +88,31 @@ impl NetworkFilterList<'_> {
                 }
             }
         }
+
         None
     }
 
-    fn collect_tokens_in_map<'a, I>(
+    /// Returns _all_ filters that match the given request. This should be used for any category of
+    /// filters where a match from each may carry unique information. For example, if two different
+    /// `$csp` filters match a certain request, they may each carry a distinct CSP directive, and
+    /// each directive should be combined for the final result.
+    pub fn check_all(
         &self,
-        filter_map: &FlatNetworkFilterMap<'_>,
-        tokens: I,
         request: &Request,
         active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
-        filters: &mut Vec<CheckResult>,
-    ) where
-        I: IntoIterator<Item = &'a Hash>,
-    {
-        for token in tokens {
+    ) -> Vec<CheckResult> {
+        let mut filters: Vec<CheckResult> = vec![];
+
+        let filters_list = self.list;
+
+        if filters_list.filter_map_index().is_empty() {
+            return filters;
+        }
+
+        let filter_map = self.get_filter_map();
+
+        for token in request.get_tokens_for_match() {
             if let Some(iter) = filter_map.get(to_short_hash(*token)) {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
@@ -225,5 +130,6 @@ impl NetworkFilterList<'_> {
                 }
             }
         }
+        filters
     }
 }
