@@ -270,7 +270,12 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             check_included_domains_mapped, check_included_to_domains_mapped, check_options,
             check_pattern,
         };
+        #[cfg(feature = "match-debug-stats")]
+        crate::match_debug_stats::record_checked();
+
         if !check_options(self.mask, request) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(crate::match_debug_stats::MatchStage::Options);
             return false;
         }
         if !check_included_domains_mapped(
@@ -278,6 +283,10 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             request,
             &self.filter_data_context.unique_domains_hashes_map,
         ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::IncludedDomains,
+            );
             return false;
         }
         if !check_excluded_domains_mapped(
@@ -285,6 +294,10 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             request,
             &self.filter_data_context.unique_domains_hashes_map,
         ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::ExcludedDomains,
+            );
             return false;
         }
         if !check_included_to_domains_mapped(
@@ -292,6 +305,10 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             request,
             &self.filter_data_context.unique_domains_hashes_map,
         ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::IncludedToDomains,
+            );
             return false;
         }
         if !check_excluded_to_domains_mapped(
@@ -299,15 +316,32 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             request,
             &self.filter_data_context.unique_domains_hashes_map,
         ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::ExcludedToDomains,
+            );
             return false;
         }
-        check_pattern(
+        let matched = check_pattern(
             self.mask,
             self.patterns().iter(),
             self.hostname(),
             self.key,
             request,
             regex_manager,
-        )
+        );
+        #[cfg(feature = "match-debug-stats")]
+        {
+            if matched {
+                crate::match_debug_stats::record_match(
+                    crate::match_debug_stats::MatchStage::Pattern,
+                );
+            } else {
+                crate::match_debug_stats::record_reject(
+                    crate::match_debug_stats::MatchStage::Pattern,
+                );
+            }
+        }
+        matched
     }
 }

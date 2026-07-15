@@ -95,6 +95,8 @@ default = ["embedded-domain-resolver", "full-regex-handling", "single-thread"]
 full-regex-handling = []
 single-thread = [] # disables `Send` and `Sync` on `Engine`.
 debug-info = []
+# Thread-local counters for network match funnel debugging (filters checked / reject stage).
+match-debug-stats = []
 css-validation = ["cssparser", "selectors"]
 content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
