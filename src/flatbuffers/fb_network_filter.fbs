@@ -32,11 +32,24 @@ table NetworkFilter {
   raw_line: string;
   source_index: uint32 = 4294967295; // 0xFFFFFFFF
   line_number: uint32 = 4294967295;  // 0xFFFFFFFF
+
+  /// Same representation as |opt_domains|, for the `$to=` option.
+  opt_to_domains: [uint32];
+  opt_not_to_domains: [uint32];
 }
 
 table NetworkFilterList {
+  /// Pattern / hostname / catch-all token buckets.
   filter_map_index: [uint32] (required);
   filter_map_values: [NetworkFilter] (required);
+
+  /// `$domain=` / `$from=` token buckets.
+  opt_domains_map_index: [uint32] (required);
+  opt_domains_map_values: [NetworkFilter] (required);
+
+  /// `$to=` token buckets.
+  opt_to_domains_map_index: [uint32] (required);
+  opt_to_domains_map_values: [NetworkFilter] (required);
 }
 
 /// A table to store the most host-specific cosmetic rules.

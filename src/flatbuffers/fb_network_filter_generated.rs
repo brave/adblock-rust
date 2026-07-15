@@ -34,6 +34,8 @@ pub mod fb {
         pub const VT_RAW_LINE: ::flatbuffers::VOffsetT = 20;
         pub const VT_SOURCE_INDEX: ::flatbuffers::VOffsetT = 22;
         pub const VT_LINE_NUMBER: ::flatbuffers::VOffsetT = 24;
+        pub const VT_OPT_TO_DOMAINS: ::flatbuffers::VOffsetT = 26;
+        pub const VT_OPT_NOT_TO_DOMAINS: ::flatbuffers::VOffsetT = 28;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -50,6 +52,12 @@ pub mod fb {
             args: &'args NetworkFilterArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<NetworkFilter<'bldr>> {
             let mut builder = NetworkFilterBuilder::new(_fbb);
+            if let Some(x) = args.opt_not_to_domains {
+                builder.add_opt_not_to_domains(x);
+            }
+            if let Some(x) = args.opt_to_domains {
+                builder.add_opt_to_domains(x);
+            }
             builder.add_line_number(args.line_number);
             builder.add_source_index(args.source_index);
             if let Some(x) = args.raw_line {
@@ -104,6 +112,8 @@ pub mod fb {
                 .map(|x| alloc::string::ToString::to_string(x));
             let source_index = self.source_index();
             let line_number = self.line_number();
+            let opt_to_domains = self.opt_to_domains().map(|x| x.into_iter().collect());
+            let opt_not_to_domains = self.opt_not_to_domains().map(|x| x.into_iter().collect());
             NetworkFilterT {
                 mask,
                 opt_domains,
@@ -116,6 +126,8 @@ pub mod fb {
                 raw_line,
                 source_index,
                 line_number,
+                opt_to_domains,
+                opt_not_to_domains,
             }
         }
 
@@ -248,6 +260,33 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// Same representation as |opt_domains|, for the `$to=` option.
+        #[inline]
+        pub fn opt_to_domains(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilter::VT_OPT_TO_DOMAINS,
+                        None,
+                    )
+            }
+        }
+        #[inline]
+        pub fn opt_not_to_domains(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilter::VT_OPT_NOT_TO_DOMAINS,
+                        None,
+                    )
+            }
+        }
     }
 
     impl ::flatbuffers::Verifiable for NetworkFilter<'_> {
@@ -294,6 +333,16 @@ pub mod fb {
                 )?
                 .visit_field::<u32>("source_index", Self::VT_SOURCE_INDEX, false)?
                 .visit_field::<u32>("line_number", Self::VT_LINE_NUMBER, false)?
+                .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>(
+                    "opt_to_domains",
+                    Self::VT_OPT_TO_DOMAINS,
+                    false,
+                )?
+                .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>(
+                    "opt_not_to_domains",
+                    Self::VT_OPT_NOT_TO_DOMAINS,
+                    false,
+                )?
                 .finish();
             Ok(())
         }
@@ -314,6 +363,8 @@ pub mod fb {
         pub raw_line: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub source_index: u32,
         pub line_number: u32,
+        pub opt_to_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+        pub opt_not_to_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     }
     impl<'a> Default for NetworkFilterArgs<'a> {
         #[inline]
@@ -330,6 +381,8 @@ pub mod fb {
                 raw_line: None,
                 source_index: 4294967295,
                 line_number: 4294967295,
+                opt_to_domains: None,
+                opt_not_to_domains: None,
             }
         }
     }
@@ -420,6 +473,26 @@ pub mod fb {
                 .push_slot::<u32>(NetworkFilter::VT_LINE_NUMBER, line_number, 4294967295);
         }
         #[inline]
+        pub fn add_opt_to_domains(
+            &mut self,
+            opt_to_domains: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_OPT_TO_DOMAINS,
+                opt_to_domains,
+            );
+        }
+        #[inline]
+        pub fn add_opt_not_to_domains(
+            &mut self,
+            opt_not_to_domains: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilter::VT_OPT_NOT_TO_DOMAINS,
+                opt_not_to_domains,
+            );
+        }
+        #[inline]
         pub fn new(
             _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterBuilder<'a, 'b, A> {
@@ -450,6 +523,8 @@ pub mod fb {
             ds.field("raw_line", &self.raw_line());
             ds.field("source_index", &self.source_index());
             ds.field("line_number", &self.line_number());
+            ds.field("opt_to_domains", &self.opt_to_domains());
+            ds.field("opt_not_to_domains", &self.opt_not_to_domains());
             ds.finish()
         }
     }
@@ -467,6 +542,8 @@ pub mod fb {
         pub raw_line: Option<alloc::string::String>,
         pub source_index: u32,
         pub line_number: u32,
+        pub opt_to_domains: Option<alloc::vec::Vec<u32>>,
+        pub opt_not_to_domains: Option<alloc::vec::Vec<u32>>,
     }
     impl Default for NetworkFilterT {
         fn default() -> Self {
@@ -482,6 +559,8 @@ pub mod fb {
                 raw_line: None,
                 source_index: 4294967295,
                 line_number: 4294967295,
+                opt_to_domains: None,
+                opt_not_to_domains: None,
             }
         }
     }
@@ -504,6 +583,11 @@ pub mod fb {
             let raw_line = self.raw_line.as_ref().map(|x| _fbb.create_string(x));
             let source_index = self.source_index;
             let line_number = self.line_number;
+            let opt_to_domains = self.opt_to_domains.as_ref().map(|x| _fbb.create_vector(x));
+            let opt_not_to_domains = self
+                .opt_not_to_domains
+                .as_ref()
+                .map(|x| _fbb.create_vector(x));
             NetworkFilter::create(
                 _fbb,
                 &NetworkFilterArgs {
@@ -518,6 +602,8 @@ pub mod fb {
                     raw_line,
                     source_index,
                     line_number,
+                    opt_to_domains,
+                    opt_not_to_domains,
                 },
             )
         }
@@ -542,6 +628,10 @@ pub mod fb {
     impl<'a> NetworkFilterList<'a> {
         pub const VT_FILTER_MAP_INDEX: ::flatbuffers::VOffsetT = 4;
         pub const VT_FILTER_MAP_VALUES: ::flatbuffers::VOffsetT = 6;
+        pub const VT_OPT_DOMAINS_MAP_INDEX: ::flatbuffers::VOffsetT = 8;
+        pub const VT_OPT_DOMAINS_MAP_VALUES: ::flatbuffers::VOffsetT = 10;
+        pub const VT_OPT_TO_DOMAINS_MAP_INDEX: ::flatbuffers::VOffsetT = 12;
+        pub const VT_OPT_TO_DOMAINS_MAP_VALUES: ::flatbuffers::VOffsetT = 14;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -558,6 +648,18 @@ pub mod fb {
             args: &'args NetworkFilterListArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
             let mut builder = NetworkFilterListBuilder::new(_fbb);
+            if let Some(x) = args.opt_to_domains_map_values {
+                builder.add_opt_to_domains_map_values(x);
+            }
+            if let Some(x) = args.opt_to_domains_map_index {
+                builder.add_opt_to_domains_map_index(x);
+            }
+            if let Some(x) = args.opt_domains_map_values {
+                builder.add_opt_domains_map_values(x);
+            }
+            if let Some(x) = args.opt_domains_map_index {
+                builder.add_opt_domains_map_index(x);
+            }
             if let Some(x) = args.filter_map_values {
                 builder.add_filter_map_values(x);
             }
@@ -576,12 +678,33 @@ pub mod fb {
                 let x = self.filter_map_values();
                 x.iter().map(|t| t.unpack()).collect()
             };
+            let opt_domains_map_index = {
+                let x = self.opt_domains_map_index();
+                x.into_iter().collect()
+            };
+            let opt_domains_map_values = {
+                let x = self.opt_domains_map_values();
+                x.iter().map(|t| t.unpack()).collect()
+            };
+            let opt_to_domains_map_index = {
+                let x = self.opt_to_domains_map_index();
+                x.into_iter().collect()
+            };
+            let opt_to_domains_map_values = {
+                let x = self.opt_to_domains_map_values();
+                x.iter().map(|t| t.unpack()).collect()
+            };
             NetworkFilterListT {
                 filter_map_index,
                 filter_map_values,
+                opt_domains_map_index,
+                opt_domains_map_values,
+                opt_to_domains_map_index,
+                opt_to_domains_map_values,
             }
         }
 
+        /// Pattern / hostname / catch-all token buckets.
         #[inline]
         pub fn filter_map_index(&self) -> ::flatbuffers::Vector<'a, u32> {
             // Safety:
@@ -611,6 +734,66 @@ pub mod fb {
                     .unwrap()
             }
         }
+        /// `$domain=` / `$from=` token buckets.
+        #[inline]
+        pub fn opt_domains_map_index(&self) -> ::flatbuffers::Vector<'a, u32> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilterList::VT_OPT_DOMAINS_MAP_INDEX,
+                        None,
+                    )
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn opt_domains_map_values(
+            &self,
+        ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<::flatbuffers::ForwardsUOffset<
+                        ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                    >>(NetworkFilterList::VT_OPT_DOMAINS_MAP_VALUES, None)
+                    .unwrap()
+            }
+        }
+        /// `$to=` token buckets.
+        #[inline]
+        pub fn opt_to_domains_map_index(&self) -> ::flatbuffers::Vector<'a, u32> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(
+                        NetworkFilterList::VT_OPT_TO_DOMAINS_MAP_INDEX,
+                        None,
+                    )
+                    .unwrap()
+            }
+        }
+        #[inline]
+        pub fn opt_to_domains_map_values(
+            &self,
+        ) -> ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>> {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab
+                    .get::<::flatbuffers::ForwardsUOffset<
+                        ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                    >>(NetworkFilterList::VT_OPT_TO_DOMAINS_MAP_VALUES, None)
+                    .unwrap()
+            }
+        }
     }
 
     impl ::flatbuffers::Verifiable for NetworkFilterList<'_> {
@@ -628,6 +811,30 @@ pub mod fb {
                 .visit_field::<::flatbuffers::ForwardsUOffset<
                     ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
                 >>("filter_map_values", Self::VT_FILTER_MAP_VALUES, true)?
+                .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>(
+                    "opt_domains_map_index",
+                    Self::VT_OPT_DOMAINS_MAP_INDEX,
+                    true,
+                )?
+                .visit_field::<::flatbuffers::ForwardsUOffset<
+                    ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                >>(
+                    "opt_domains_map_values",
+                    Self::VT_OPT_DOMAINS_MAP_VALUES,
+                    true,
+                )?
+                .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>(
+                    "opt_to_domains_map_index",
+                    Self::VT_OPT_TO_DOMAINS_MAP_INDEX,
+                    true,
+                )?
+                .visit_field::<::flatbuffers::ForwardsUOffset<
+                    ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                >>(
+                    "opt_to_domains_map_values",
+                    Self::VT_OPT_TO_DOMAINS_MAP_VALUES,
+                    true,
+                )?
                 .finish();
             Ok(())
         }
@@ -639,13 +846,30 @@ pub mod fb {
                 ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
             >,
         >,
+        pub opt_domains_map_index: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+        pub opt_domains_map_values: Option<
+            ::flatbuffers::WIPOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
+            >,
+        >,
+        pub opt_to_domains_map_index:
+            Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+        pub opt_to_domains_map_values: Option<
+            ::flatbuffers::WIPOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
+            >,
+        >,
     }
     impl<'a> Default for NetworkFilterListArgs<'a> {
         #[inline]
         fn default() -> Self {
             NetworkFilterListArgs {
-                filter_map_index: None,  // required field
-                filter_map_values: None, // required field
+                filter_map_index: None,          // required field
+                filter_map_values: None,         // required field
+                opt_domains_map_index: None,     // required field
+                opt_domains_map_values: None,    // required field
+                opt_to_domains_map_index: None,  // required field
+                opt_to_domains_map_values: None, // required field
             }
         }
     }
@@ -678,6 +902,50 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_opt_domains_map_index(
+            &mut self,
+            opt_domains_map_index: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_OPT_DOMAINS_MAP_INDEX,
+                opt_domains_map_index,
+            );
+        }
+        #[inline]
+        pub fn add_opt_domains_map_values(
+            &mut self,
+            opt_domains_map_values: ::flatbuffers::WIPOffset<
+                ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<NetworkFilter<'b>>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_OPT_DOMAINS_MAP_VALUES,
+                opt_domains_map_values,
+            );
+        }
+        #[inline]
+        pub fn add_opt_to_domains_map_index(
+            &mut self,
+            opt_to_domains_map_index: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_OPT_TO_DOMAINS_MAP_INDEX,
+                opt_to_domains_map_index,
+            );
+        }
+        #[inline]
+        pub fn add_opt_to_domains_map_values(
+            &mut self,
+            opt_to_domains_map_values: ::flatbuffers::WIPOffset<
+                ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<NetworkFilter<'b>>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_OPT_TO_DOMAINS_MAP_VALUES,
+                opt_to_domains_map_values,
+            );
+        }
+        #[inline]
         pub fn new(
             _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterListBuilder<'a, 'b, A> {
@@ -700,6 +968,26 @@ pub mod fb {
                 NetworkFilterList::VT_FILTER_MAP_VALUES,
                 "filter_map_values",
             );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_OPT_DOMAINS_MAP_INDEX,
+                "opt_domains_map_index",
+            );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_OPT_DOMAINS_MAP_VALUES,
+                "opt_domains_map_values",
+            );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_OPT_TO_DOMAINS_MAP_INDEX,
+                "opt_to_domains_map_index",
+            );
+            self.fbb_.required(
+                o,
+                NetworkFilterList::VT_OPT_TO_DOMAINS_MAP_VALUES,
+                "opt_to_domains_map_values",
+            );
             ::flatbuffers::WIPOffset::new(o.value())
         }
     }
@@ -709,6 +997,13 @@ pub mod fb {
             let mut ds = f.debug_struct("NetworkFilterList");
             ds.field("filter_map_index", &self.filter_map_index());
             ds.field("filter_map_values", &self.filter_map_values());
+            ds.field("opt_domains_map_index", &self.opt_domains_map_index());
+            ds.field("opt_domains_map_values", &self.opt_domains_map_values());
+            ds.field("opt_to_domains_map_index", &self.opt_to_domains_map_index());
+            ds.field(
+                "opt_to_domains_map_values",
+                &self.opt_to_domains_map_values(),
+            );
             ds.finish()
         }
     }
@@ -717,12 +1012,20 @@ pub mod fb {
     pub struct NetworkFilterListT {
         pub filter_map_index: alloc::vec::Vec<u32>,
         pub filter_map_values: alloc::vec::Vec<NetworkFilterT>,
+        pub opt_domains_map_index: alloc::vec::Vec<u32>,
+        pub opt_domains_map_values: alloc::vec::Vec<NetworkFilterT>,
+        pub opt_to_domains_map_index: alloc::vec::Vec<u32>,
+        pub opt_to_domains_map_values: alloc::vec::Vec<NetworkFilterT>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
             Self {
                 filter_map_index: Default::default(),
                 filter_map_values: Default::default(),
+                opt_domains_map_index: Default::default(),
+                opt_domains_map_values: Default::default(),
+                opt_to_domains_map_index: Default::default(),
+                opt_to_domains_map_values: Default::default(),
             }
         }
     }
@@ -740,11 +1043,33 @@ pub mod fb {
                 let w: alloc::vec::Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
+            let opt_domains_map_index = Some({
+                let x = &self.opt_domains_map_index;
+                _fbb.create_vector(x)
+            });
+            let opt_domains_map_values = Some({
+                let x = &self.opt_domains_map_values;
+                let w: alloc::vec::Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
+            });
+            let opt_to_domains_map_index = Some({
+                let x = &self.opt_to_domains_map_index;
+                _fbb.create_vector(x)
+            });
+            let opt_to_domains_map_values = Some({
+                let x = &self.opt_to_domains_map_values;
+                let w: alloc::vec::Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
+            });
             NetworkFilterList::create(
                 _fbb,
                 &NetworkFilterListArgs {
                     filter_map_index,
                     filter_map_values,
+                    opt_domains_map_index,
+                    opt_domains_map_values,
+                    opt_to_domains_map_index,
+                    opt_to_domains_map_values,
                 },
             )
         }

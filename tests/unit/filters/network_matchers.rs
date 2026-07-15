@@ -382,6 +382,26 @@ mod match_tests {
                 .collect::<Vec<u32>>()
         });
 
+        let opt_to_domains = filter.opt_to_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
+        let opt_not_to_domains = filter.opt_not_to_domains.clone().map(|domains| {
+            domains
+                .iter()
+                .map(|domain| {
+                    mapping.insert(*domain, *domain as u32);
+                    *domain as u32
+                })
+                .collect::<Vec<u32>>()
+        });
+
         super::super::check_options(filter.mask, request)
             && super::super::check_included_domains_mapped(
                 opt_domains.as_deref(),
@@ -390,6 +410,16 @@ mod match_tests {
             )
             && super::super::check_excluded_domains_mapped(
                 opt_not_domains.as_deref(),
+                request,
+                &mapping,
+            )
+            && super::super::check_included_to_domains_mapped(
+                opt_to_domains.as_deref(),
+                request,
+                &mapping,
+            )
+            && super::super::check_excluded_to_domains_mapped(
+                opt_not_to_domains.as_deref(),
                 request,
                 &mapping,
             )
@@ -481,6 +511,41 @@ mod match_tests {
                 request::Request::new("https://foo.com/bar", "http://bar.com", "", "").unwrap();
             assert!(!check_options(&network_filter, &request));
         }
+
+        // opt-to
+        {
+            let network_filter =
+                NetworkFilter::parse("*$script,to=foo.com", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://foo.com/bar.js", "http://example.com", "script", "")
+                    .unwrap();
+            assert!(check_options(&network_filter, &request));
+        }
+        {
+            let network_filter =
+                NetworkFilter::parse("*$script,to=foo.com", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://bar.com/bar.js", "http://example.com", "script", "")
+                    .unwrap();
+            assert!(!check_options(&network_filter, &request));
+        }
+
+        // opt-not-to
+        {
+            let network_filter =
+                NetworkFilter::parse("||it^$3p,to=~example.it", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://it/path", "http://other.com", "", "").unwrap();
+            assert!(check_options(&network_filter, &request));
+        }
+        {
+            let network_filter =
+                NetworkFilter::parse("||it^$3p,to=~example.it", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://example.it/path", "http://other.com", "", "")
+                    .unwrap();
+            assert!(!check_options(&network_filter, &request));
+        }
     }
 
     #[test]
@@ -554,6 +619,78 @@ mod match_tests {
                 NetworkFilter::parse("||foo$xhr,method=head", true, Default::default()).unwrap();
             let request = request::Request::new(url, "", "xhr", "head").unwrap();
             assert!(check_options(&filter, &request));
+        }
+    }
+
+    #[test]
+    fn check_to_option_works() {
+        {
+            let network_filter =
+                NetworkFilter::parse("adv$to=ads.example.com", true, Default::default()).unwrap();
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://ads.example.com/adv", "http://source.com", "", "")
+                    .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new(
+                    "http://sub.ads.example.com/adv",
+                    "http://source.com",
+                    "",
+                    ""
+                )
+                .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://example.com/adv", "http://source.com", "", "")
+                    .unwrap()
+            ));
+        }
+        {
+            let network_filter =
+                NetworkFilter::parse("adv$to=~ads.example.com", true, Default::default()).unwrap();
+            assert!(!network_filter.matches_test(
+                &request::Request::new("http://ads.example.com/adv", "http://source.com", "", "")
+                    .unwrap()
+            ));
+            assert!(network_filter.matches_test(
+                &request::Request::new("http://example.com/adv", "http://source.com", "", "")
+                    .unwrap()
+            ));
+        }
+        {
+            let network_filter = NetworkFilter::parse(
+                "*$script,from=beforeitsnews.com,to=gstatic.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(network_filter.matches_test(
+                &request::Request::new(
+                    "https://gstatic.com/script.js",
+                    "http://beforeitsnews.com",
+                    "script",
+                    ""
+                )
+                .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new(
+                    "https://gstatic.com/script.js",
+                    "http://other.com",
+                    "script",
+                    ""
+                )
+                .unwrap()
+            ));
+            assert!(!network_filter.matches_test(
+                &request::Request::new(
+                    "https://example.com/script.js",
+                    "http://beforeitsnews.com",
+                    "script",
+                    ""
+                )
+                .unwrap()
+            ));
         }
     }
 
