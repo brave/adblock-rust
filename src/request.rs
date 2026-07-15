@@ -119,6 +119,7 @@ pub struct Request {
     pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
+    pub hostname_hashes: Option<Vec<utils::Hash>>,
     pub source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
@@ -184,6 +185,19 @@ impl Request {
             }
         }
 
+        let hostname_hashes = if !hostname.is_empty() {
+            let mut hashes = Vec::with_capacity(4);
+            hashes.push(utils::fast_hash(hostname));
+            for (i, c) in hostname.char_indices() {
+                if c == '.' && i + 1 < hostname.len() {
+                    hashes.push(utils::fast_hash(&hostname[i + 1..]));
+                }
+            }
+            Some(hashes)
+        } else {
+            None
+        };
+
         let source_hostname_hashes = if !source_hostname.is_empty() {
             let mut hashes = Vec::with_capacity(4);
             hashes.push(utils::fast_hash(source_hostname));
@@ -206,6 +220,7 @@ impl Request {
             url_lower_cased: url_lower_cased.to_owned(),
             hostname: hostname.to_owned(),
             request_tokens: calculate_tokens(&url_lower_cased),
+            hostname_hashes,
             source_hostname_hashes,
             is_third_party: third_party,
             is_http,

@@ -467,6 +467,51 @@ pub fn check_excluded_domains_mapped(
     true
 }
 
+#[inline]
+pub fn check_included_to_domains_mapped(
+    opt_to_domains: Option<&[u32]>,
+    request: &request::Request,
+    mapping: &HashMap<Hash, u32>,
+) -> bool {
+    if let Some(included_domains) = opt_to_domains.as_ref() {
+        if let Some(hostname_hashes) = request.hostname_hashes.as_ref() {
+            if hostname_hashes.iter().all(|h| {
+                mapping
+                    .get(h)
+                    .is_none_or(|index| !utils::bin_lookup(included_domains, *index))
+            }) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    true
+}
+
+#[inline]
+pub fn check_excluded_to_domains_mapped(
+    opt_not_to_domains: Option<&[u32]>,
+    request: &request::Request,
+    mapping: &HashMap<Hash, u32>,
+) -> bool {
+    if let Some(excluded_domains) = opt_not_to_domains.as_ref() {
+        if let Some(hostname_hashes) = request.hostname_hashes.as_ref() {
+            if hostname_hashes.iter().any(|h| {
+                mapping
+                    .get(h)
+                    .is_some_and(|index| utils::bin_lookup(excluded_domains, *index))
+            }) {
+                return false;
+            }
+        } else {
+            return true;
+        }
+    }
+
+    true
+}
+
 #[cfg(test)]
 #[path = "../../tests/unit/filters/network_matchers.rs"]
 mod unit_tests;

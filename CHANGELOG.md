@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Support `$to=` option on network filters. Restricts matching to the request destination hostname, analogous to `$domain=`/`$from=` for the source hostname.
+- `Request.hostname_hashes` for destination hostname hash matching.
+
 ## [0.13.0] - 2026-07-09
 
 ### Added

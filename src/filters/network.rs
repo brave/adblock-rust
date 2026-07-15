@@ -408,6 +408,8 @@ pub struct NetworkFilter<'a> {
     pub filter: FilterPart<'a>,
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
+    pub opt_to_domains: Option<Vec<Hash>>,
+    pub opt_not_to_domains: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
     pub modifier_option: Option<&'a str>,
@@ -501,6 +503,8 @@ impl<'a> NetworkFilter<'a> {
 
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
+        let mut opt_to_domains: Option<Vec<Hash>> = None;
+        let mut opt_not_to_domains: Option<Vec<Hash>> = None;
 
         let mut modifier_option: Option<&'a str> = None;
         let mut tag: Option<&'a str> = None;
@@ -558,6 +562,30 @@ impl<'a> NetworkFilter<'a> {
                             // Some rules have duplicate domain options - avoid including duplicates
                             opt_not_domains_array.dedup();
                             opt_not_domains = Some(opt_not_domains_array);
+                        }
+                    }
+                    NetworkFilterOption::To(domains) => {
+                        let mut opt_to_domains_array: Vec<Hash> = vec![];
+                        let mut opt_not_to_domains_array: Vec<Hash> = vec![];
+
+                        for (enabled, domain) in domains {
+                            let domain_hash = utils::fast_hash(domain);
+                            if !enabled {
+                                opt_not_to_domains_array.push(domain_hash);
+                            } else {
+                                opt_to_domains_array.push(domain_hash);
+                            }
+                        }
+
+                        if !opt_to_domains_array.is_empty() {
+                            opt_to_domains_array.sort_unstable();
+                            opt_to_domains_array.dedup();
+                            opt_to_domains = Some(opt_to_domains_array);
+                        }
+                        if !opt_not_to_domains_array.is_empty() {
+                            opt_not_to_domains_array.sort_unstable();
+                            opt_not_to_domains_array.dedup();
+                            opt_not_to_domains = Some(opt_not_to_domains_array);
                         }
                     }
                     NetworkFilterOption::Badfilter => {
@@ -878,6 +906,8 @@ impl<'a> NetworkFilter<'a> {
             features_mask,
             opt_domains,
             opt_not_domains,
+            opt_to_domains,
+            opt_not_to_domains,
             tag,
             raw_line: if debug {
                 Some(Cow::Borrowed(line))
@@ -931,6 +961,8 @@ impl<'a> NetworkFilter<'a> {
             features_mask: Default::default(),
             opt_domains: None,
             opt_not_domains: None,
+            opt_to_domains: None,
+            opt_not_to_domains: None,
             tag: None,
             raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
             modifier_option: None,
@@ -947,6 +979,8 @@ impl<'a> NetworkFilter<'a> {
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
+            self.opt_to_domains.as_ref(),
+            self.opt_not_to_domains.as_ref(),
         )
     }
 
@@ -1114,6 +1148,7 @@ fn write_str_to_hasher(hasher: &mut impl Hasher, s: &str) {
     hasher.write(s.as_bytes());
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,
@@ -1122,6 +1157,8 @@ fn compute_filter_id(
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
+    opt_to_domains: Option<&Vec<Hash>>,
+    opt_not_to_domains: Option<&Vec<Hash>>,
 ) -> Hash {
     let mut hasher = FxHasher::default();
 
@@ -1142,6 +1179,18 @@ fn compute_filter_id(
     }
 
     if let Some(domains) = opt_not_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_not_to_domains {
         for d in domains {
             hasher.write_u64(*d);
         }

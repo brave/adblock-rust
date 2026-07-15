@@ -32,6 +32,10 @@ table NetworkFilter {
   raw_line: string;
   source_index: uint32 = 4294967295; // 0xFFFFFFFF
   line_number: uint32 = 4294967295;  // 0xFFFFFFFF
+
+  /// Same representation as |opt_domains|, for the `$to=` option.
+  opt_to_domains: [uint32];
+  opt_not_to_domains: [uint32];
 }
 
 table NetworkFilterList {
