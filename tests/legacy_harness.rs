@@ -330,7 +330,8 @@ mod legacy_check_match {
         }
 
         for to_block in blocked {
-            let request = Request::new(to_block, "alwaysthirdparty.com", "script", "").unwrap();
+            let request =
+                Request::new(to_block, "https://alwaysthirdparty.com", "script", "").unwrap();
 
             assert!(
                 engine.check_network_request(&request).should_block(),
@@ -346,7 +347,8 @@ mod legacy_check_match {
         }
 
         for to_pass in not_blocked {
-            let request = Request::new(to_pass, "alwaysthirdparty.com", "script", "").unwrap();
+            let request =
+                Request::new(to_pass, "https://alwaysthirdparty.com", "script", "").unwrap();
 
             assert!(
                 !engine.check_network_request(&request).should_block(),
