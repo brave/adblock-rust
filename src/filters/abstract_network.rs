@@ -73,7 +73,6 @@ pub(crate) enum NetworkFilterOption<'a> {
     MatchCase,
     ThirdParty(bool),
     FirstParty(bool),
-    Tag(&'a str),
     Redirect(&'a str),
     RedirectRule(&'a str),
     Csp(Option<&'a str>),
@@ -217,8 +216,6 @@ fn parse_filter_options<'a>(
             ("match-case", false) => NetworkFilterOption::MatchCase,
             ("third-party", negated) | ("3p", negated) => NetworkFilterOption::ThirdParty(!negated),
             ("first-party", negated) | ("1p", negated) => NetworkFilterOption::FirstParty(!negated),
-            ("tag", true) => return Err(NetworkFilterError::NegatedTag),
-            ("tag", false) => NetworkFilterOption::Tag(value),
             // `rewrite` is the ABP-syntax alias for `redirect`. The `abp-resource:`-prefixed
             // values it uses are shipped by uBO as aliases of the corresponding redirect
             // resources, so no further translation is needed here.

@@ -120,11 +120,6 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
-    pub fn tag(&self) -> Option<&'a str> {
-        self.fb_filter.tag()
-    }
-
-    #[inline(always)]
     pub fn modifier_option(&self) -> Option<String> {
         self.fb_filter.modifier_option().map(|o| o.to_string())
     }
