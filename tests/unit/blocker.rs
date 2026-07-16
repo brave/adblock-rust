@@ -1173,7 +1173,7 @@ mod blocker_tests {
         )
         .unwrap();
 
-        let matched_rule = blocker.check_parameterised(&request, &resources, false, true);
+        let matched_rule = blocker.check_parameterized(&request, &resources, false, true);
         assert!(!matched_rule.should_block());
         assert!(matched_rule.exception.is_some());
     }
