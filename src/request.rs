@@ -219,13 +219,19 @@ impl Request {
         let parsed_url = url_parser::parse_url(url).ok_or(RequestError::HostnameParseError)?;
         let parsed_method = method.parse::<RequestMethod>().ok();
 
-        let parsed_source = url_parser::parse_url(source_url);
-        let (source_domain, third_party) = match &parsed_source {
-            Some(parsed_source) => (
+        let parsed_source = if source_url.is_empty() {
+            None
+        } else {
+            Some(url_parser::parse_url(source_url).ok_or(RequestError::SourceHostnameParseError)?)
+        };
+
+        let (source_domain, third_party) = if let Some(parsed_source) = &parsed_source {
+            (
                 parsed_source.hostname(),
                 parsed_source.domain() != parsed_url.domain(),
-            ),
-            None => ("", true),
+            )
+        } else {
+            ("", true)
         };
 
         Ok(Request::from_detailed_parameters(
