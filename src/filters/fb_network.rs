@@ -144,6 +144,20 @@ impl<'a> FlatNetworkFilter<'a> {
     }
 
     #[inline(always)]
+    pub fn include_to_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_to_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
+    pub fn exclude_to_domains(&self) -> Option<&[u32]> {
+        self.fb_filter
+            .opt_not_to_domains()
+            .map(|data| fb_vector_to_slice(data))
+    }
+
+    #[inline(always)]
     pub fn hostname(&self) -> Option<&'a str> {
         if self.mask.is_hostname_anchor() {
             self.fb_filter.hostname()
@@ -252,10 +266,16 @@ impl NetworkFilterMaskHelper for FlatNetworkFilter<'_> {
 impl NetworkMatchable for FlatNetworkFilter<'_> {
     fn matches(&self, request: &Request, regex_manager: &mut RegexManager) -> bool {
         use crate::filters::network_matchers::{
-            check_excluded_domains_mapped, check_included_domains_mapped, check_options,
+            check_excluded_domains_mapped, check_excluded_to_domains_mapped,
+            check_included_domains_mapped, check_included_to_domains_mapped, check_options,
             check_pattern,
         };
+        #[cfg(feature = "match-debug-stats")]
+        crate::match_debug_stats::record_checked();
+
         if !check_options(self.mask, request) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(crate::match_debug_stats::MatchStage::Options);
             return false;
         }
         if !check_included_domains_mapped(
@@ -263,6 +283,10 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             request,
             &self.filter_data_context.unique_domains_hashes_map,
         ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::IncludedDomains,
+            );
             return false;
         }
         if !check_excluded_domains_mapped(
@@ -270,15 +294,54 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
             request,
             &self.filter_data_context.unique_domains_hashes_map,
         ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::ExcludedDomains,
+            );
             return false;
         }
-        check_pattern(
+        if !check_included_to_domains_mapped(
+            self.include_to_domains(),
+            request,
+            &self.filter_data_context.unique_domains_hashes_map,
+        ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::IncludedToDomains,
+            );
+            return false;
+        }
+        if !check_excluded_to_domains_mapped(
+            self.exclude_to_domains(),
+            request,
+            &self.filter_data_context.unique_domains_hashes_map,
+        ) {
+            #[cfg(feature = "match-debug-stats")]
+            crate::match_debug_stats::record_reject(
+                crate::match_debug_stats::MatchStage::ExcludedToDomains,
+            );
+            return false;
+        }
+        let matched = check_pattern(
             self.mask,
             self.patterns().iter(),
             self.hostname(),
             self.key,
             request,
             regex_manager,
-        )
+        );
+        #[cfg(feature = "match-debug-stats")]
+        {
+            if matched {
+                crate::match_debug_stats::record_match(
+                    crate::match_debug_stats::MatchStage::Pattern,
+                );
+            } else {
+                crate::match_debug_stats::record_reject(
+                    crate::match_debug_stats::MatchStage::Pattern,
+                );
+            }
+        }
+        matched
     }
 }

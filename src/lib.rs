@@ -29,6 +29,8 @@ pub mod engine;
 pub mod filters;
 mod flatbuffers;
 pub mod lists;
+#[cfg(feature = "match-debug-stats")]
+pub mod match_debug_stats;
 mod network_filter_list;
 mod optimizer;
 pub mod regex_manager;

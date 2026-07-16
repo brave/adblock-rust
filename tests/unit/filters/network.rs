@@ -731,6 +731,97 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_to() {
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=bar.com", true, Default::default()).unwrap();
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("bar.com")])
+            );
+            assert_eq!(filter.opt_not_to_domains, None);
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=bar.com|baz.com", true, Default::default())
+                    .unwrap();
+            let mut expected = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            expected.sort_unstable();
+            assert_eq!(filter.opt_to_domains, Some(expected));
+            assert_eq!(filter.opt_not_to_domains, None);
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=~bar.com", true, Default::default()).unwrap();
+            assert_eq!(filter.opt_to_domains, None);
+            assert_eq!(
+                filter.opt_not_to_domains,
+                Some(vec![utils::fast_hash("bar.com")])
+            );
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=~bar.com|~baz.com", true, Default::default())
+                    .unwrap();
+            assert_eq!(filter.opt_to_domains, None);
+            let mut expected = vec![utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            expected.sort_unstable();
+            assert_eq!(filter.opt_not_to_domains, Some(expected));
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=~bar.com|baz.com", true, Default::default())
+                    .unwrap();
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("baz.com")])
+            );
+            assert_eq!(
+                filter.opt_not_to_domains,
+                Some(vec![utils::fast_hash("bar.com")])
+            );
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=bar.com|~baz.com", true, Default::default())
+                    .unwrap();
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("bar.com")])
+            );
+            assert_eq!(
+                filter.opt_not_to_domains,
+                Some(vec![utils::fast_hash("baz.com")])
+            );
+        }
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com$to=foo|~bar|baz", true, Default::default())
+                    .unwrap();
+            let mut expected = vec![utils::fast_hash("baz"), utils::fast_hash("foo")];
+            expected.sort_unstable();
+            assert_eq!(filter.opt_to_domains, Some(expected));
+            assert_eq!(
+                filter.opt_not_to_domains,
+                Some(vec![utils::fast_hash("bar")])
+            );
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com", true, Default::default()).unwrap();
+            assert_eq!(filter.opt_to_domains, None);
+            assert_eq!(filter.opt_not_to_domains, None);
+        }
+        {
+            let filter = NetworkFilter::parse(
+                r"||video.twimg.com/ext_tw_video/*/*.m3u8$to=/^i[a-z]*\.strmrdr[a-z]+\..*/",
+                true,
+                Default::default(),
+            );
+            assert_eq!(filter.err(), Some(NetworkFilterError::NoSupportedDomains));
+        }
+    }
+
+    #[test]
     fn parses_redirects() {
         // parses redirect
         {

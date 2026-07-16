@@ -44,6 +44,7 @@ pub(crate) enum HttpMethod {
 #[derive(Clone)]
 pub(crate) enum NetworkFilterOption<'a> {
     Domain(Vec<(bool, &'a str)>),
+    To(Vec<(bool, &'a str)>),
     Badfilter,
     Important,
     MatchCase,
@@ -197,6 +198,23 @@ fn parse_filter_options<'a>(
                     return Err(NetworkFilterError::NoSupportedDomains);
                 }
                 NetworkFilterOption::Domain(domains)
+            }
+            ("to", _) => {
+                let domains: Vec<(bool, &'a str)> = value
+                    .split('|')
+                    .map(|domain| {
+                        if let Some(negated_domain) = domain.strip_prefix('~') {
+                            (false, negated_domain)
+                        } else {
+                            (true, domain)
+                        }
+                    })
+                    .filter(|(_, d)| !(d.starts_with('/') && d.ends_with('/')))
+                    .collect();
+                if domains.is_empty() {
+                    return Err(NetworkFilterError::NoSupportedDomains);
+                }
+                NetworkFilterOption::To(domains)
             }
             ("badfilter", true) => return Err(NetworkFilterError::NegatedBadFilter),
             ("badfilter", false) => NetworkFilterOption::Badfilter,

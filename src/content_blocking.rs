@@ -199,6 +199,8 @@ pub enum CbRuleCreationFailure {
     NetworkCspUnsupported,
     /// Network rules with removeparam options cannot be supported in content blocking syntax.
     NetworkRemoveparamUnsupported,
+    /// Network rules with to= options cannot be supported in content blocking syntax.
+    NetworkToUnsupported,
     /// Content blocking syntax only supports a subset of regex features, namely:
     /// - Matching any character with “.”.
     /// - Matching ranges with the range syntax [a-b].
@@ -327,6 +329,9 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
             }
             if v.is_removeparam() {
                 return Err(CbRuleCreationFailure::NetworkRemoveparamUnsupported);
+            }
+            if v.opt_to_domains.is_some() || v.opt_not_to_domains.is_some() {
+                return Err(CbRuleCreationFailure::NetworkToUnsupported);
             }
 
             let load_type = if v

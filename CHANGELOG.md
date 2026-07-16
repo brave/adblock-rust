@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Support `$to=` option on network filters. Destination hostnames are stored as hashes and checked at match time via mapped domain lookups (bucketing unchanged).
+
+### Changed
+- DAT format version bumped to v6.
+
 ## [0.13.0] - 2026-07-09
 
 ### Added
