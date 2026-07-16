@@ -298,7 +298,7 @@ fn check_matching_hostnames() {
         let third_party = source_domain != domain;
 
         let request = Request::new(&req.url, &req.sourceUrl, &req.r#type, "").unwrap();
-        let preparsed_request = Request::preparsed(
+        let preparsed_request = Request::new_preparsed(
             &req.url,
             url_host.hostname(),
             source_host.hostname(),
