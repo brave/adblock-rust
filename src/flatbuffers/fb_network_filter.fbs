@@ -31,8 +31,6 @@ table NetworkFilter {
   modifier_option: string;
   hostname: string;
 
-  tag: string;
-
   // Debug mode only
   raw_line: string;
   source_index: uint32 = 4294967295; // 0xFFFFFFFF

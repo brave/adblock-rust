@@ -93,18 +93,13 @@ fn troubleshoot() {
 }
 
 fn get_blocker_engine() -> Option<Engine> {
-    let mut engine = Engine::new_with_filter_set(get_all_filters()?.clone());
-
-    #[allow(deprecated)]
-    engine.use_tags(&["fb-embeds", "twitter-embeds"]);
-
-    Some(engine)
+    Some(Engine::new_with_filter_set(get_all_filters()?.clone()))
 }
 
 #[test]
 #[allow(deprecated)]
 fn check_live_specific_urls() {
-    let Some(mut engine) = get_blocker_engine() else {
+    let Some(engine) = get_blocker_engine() else {
         return;
     };
     {
@@ -123,36 +118,6 @@ fn check_live_specific_urls() {
             checked.filter,
             checked.exception
         );
-    }
-    {
-        engine.disable_tags(&["twitter-embeds"]);
-        let checked = engine.check_network_request(
-            &Request::new(
-                "https://platform.twitter.com/widgets.js",
-                "https://fmarier.github.io/brave-testing/social-widgets.html",
-                "script",
-                "",
-            )
-            .unwrap(),
-        );
-        assert!(
-            checked.should_block(),
-            "Expected no match, got filter {:?}, exception {:?}",
-            checked.filter,
-            checked.exception
-        );
-        engine.enable_tags(&["twitter-embeds"]);
-    }
-    {
-        engine.disable_tags(&["twitter-embeds"]);
-        let checked = engine.check_network_request(&Request::new("https://imagesrv.adition.com/banners/1337/files/00/0e/6f/09/000000945929.jpg?PQgSgs13hf1fw.jpg", "https://spiegel.de", "image", "").unwrap());
-        assert!(
-            checked.should_block(),
-            "Expected match, got filter {:?}, exception {:?}",
-            checked.filter,
-            checked.exception
-        );
-        engine.enable_tags(&["twitter-embeds"]);
     }
 }
 

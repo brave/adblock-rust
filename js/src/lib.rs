@@ -305,25 +305,6 @@ fn engine_deserialize(mut cx: FunctionContext) -> JsResult<JsNull> {
     Ok(JsNull::new(&mut cx))
 }
 
-fn engine_enable_tag(mut cx: FunctionContext) -> JsResult<JsNull> {
-    console_warn(
-        &mut cx,
-        "Engine.enableTag: tagged filters are deprecated; \
-         rebuild the engine with or without the relevant filters instead.",
-    )?;
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    if let Ok(mut engine) = this.0.lock() {
-        #[allow(deprecated)]
-        engine.enable_tags(&[&tag])
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(JsNull::new(&mut cx))
-}
-
 fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
     let this = cx.argument::<JsBox<Engine>>(0)?;
 
@@ -332,42 +313,6 @@ fn engine_use_resources(mut cx: FunctionContext) -> JsResult<JsNull> {
 
     if let Ok(mut engine) = this.0.lock() {
         engine.use_resources(resources)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(JsNull::new(&mut cx))
-}
-
-fn engine_tag_exists(mut cx: FunctionContext) -> JsResult<JsBoolean> {
-    console_warn(
-        &mut cx,
-        "Engine.tagExists: tagged filters are deprecated; \
-         rebuild the engine with or without the relevant filters instead.",
-    )?;
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    let tag: String = cx.argument::<JsString>(1)?.value(&mut cx);
-
-    let result = if let Ok(engine) = this.0.lock() {
-        #[allow(deprecated)]
-        engine.tag_exists(&tag)
-    } else {
-        cx.throw_error("Failed to acquire lock on engine")?
-    };
-    Ok(cx.boolean(result))
-}
-
-fn engine_clear_tags(mut cx: FunctionContext) -> JsResult<JsNull> {
-    console_warn(
-        &mut cx,
-        "Engine.clearTags: tagged filters are deprecated; \
-         rebuild the engine with or without the relevant filters instead.",
-    )?;
-    let this = cx.argument::<JsBox<Engine>>(0)?;
-
-    if let Ok(mut engine) = this.0.lock() {
-        #[allow(deprecated)]
-        engine.use_tags(&[]);
     } else {
         cx.throw_error("Failed to acquire lock on engine")?
     };
@@ -469,10 +414,7 @@ register_module!(mut m, {
     )?;
     m.export_function("Engine_serialize", engine_serialize)?;
     m.export_function("Engine_deserialize", engine_deserialize)?;
-    m.export_function("Engine_enableTag", engine_enable_tag)?;
     m.export_function("Engine_useResources", engine_use_resources)?;
-    m.export_function("Engine_tagExists", engine_tag_exists)?;
-    m.export_function("Engine_clearTags", engine_clear_tags)?;
 
     m.export_function("validateRequest", validate_request)?;
     m.export_function("uBlockResources", ublock_resources)?;

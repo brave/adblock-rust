@@ -4,7 +4,6 @@ use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::ops::DerefMut;
-use std::sync::OnceLock;
 
 use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::filter_data_context::FilterDataContextRef;
@@ -66,19 +65,8 @@ impl BlockerResult {
     }
 }
 
-// only check for tags in tagged and exception rule buckets,
-// pass empty set for the rest
-fn get_no_tags() -> &'static HashSet<String> {
-    static NO_TAGS: OnceLock<HashSet<String>> = OnceLock::new();
-    NO_TAGS.get_or_init(&HashSet::new)
-}
-
 /// Stores network filters for efficient querying.
 pub struct Blocker {
-    // Enabled tags are not serialized - when deserializing, tags of the existing
-    // instance (the one we are recreating lists into) are maintained
-    pub(crate) tags_enabled: HashSet<String>,
-    // Not serialized
     #[cfg(feature = "single-thread")]
     pub(crate) regex_manager: std::cell::RefCell<RegexManager>,
     #[cfg(not(feature = "single-thread"))]
@@ -139,10 +127,6 @@ impl Blocker {
         self.get_list(NetworkFilterListId::GenericHide)
     }
 
-    pub(crate) fn tagged_filters_all(&self) -> NetworkFilterList<'_> {
-        self.get_list(NetworkFilterListId::TaggedFiltersAll)
-    }
-
     /// Borrow mutable reference to the regex manager for the ['Blocker`].
     /// Only one caller can borrow the regex manager at a time.
     pub(crate) fn borrow_regex_manager(&self) -> RegexManagerRef<'_> {
@@ -161,7 +145,7 @@ impl Blocker {
     pub fn check_generic_hide(&self, hostname_request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
         self.generic_hide()
-            .check(hostname_request, &HashSet::new(), &mut regex_manager)
+            .check(hostname_request, &mut regex_manager)
             .is_some()
     }
 
@@ -169,7 +153,7 @@ impl Blocker {
     pub(crate) fn check_exceptions(&self, request: &Request) -> bool {
         let mut regex_manager = self.borrow_regex_manager();
         self.exceptions()
-            .check(request, &HashSet::new(), &mut regex_manager)
+            .check(request, &mut regex_manager)
             .is_some()
     }
 
@@ -192,18 +176,11 @@ impl Blocker {
         // 4. exceptions - if any non-important match of forced
 
         // Always check important filters
-        let important_filter = self
-            .importants()
-            .check(request, get_no_tags(), &mut regex_manager);
+        let important_filter = self.importants().check(request, &mut regex_manager);
 
         // only check the rest of the rules if not previously matched
         let filter = if important_filter.is_none() && !matched_rule {
-            self.tagged_filters_all()
-                .check(request, &self.tags_enabled, &mut regex_manager)
-                .or_else(|| {
-                    self.filters()
-                        .check(request, get_no_tags(), &mut regex_manager)
-                })
+            self.filters().check(request, &mut regex_manager)
         } else {
             important_filter
         };
@@ -211,20 +188,17 @@ impl Blocker {
         let exception = match filter.as_ref() {
             // if no other rule matches, only check exceptions if forced to
             None if matched_rule || force_check_exceptions => {
-                self.exceptions()
-                    .check(request, &self.tags_enabled, &mut regex_manager)
+                self.exceptions().check(request, &mut regex_manager)
             }
             None => None,
             // If matched an important filter, exceptions don't atter
             Some(f) if f.filter_mask.is_important() => None,
-            Some(_) => self
-                .exceptions()
-                .check(request, &self.tags_enabled, &mut regex_manager),
+            Some(_) => self.exceptions().check(request, &mut regex_manager),
         };
 
-        let redirect_filters =
-            self.redirects()
-                .check_all(request, get_no_tags(), regex_manager.deref_mut());
+        let redirect_filters = self
+            .redirects()
+            .check_all(request, regex_manager.deref_mut());
 
         // Extract the highest priority redirect directive.
         // 1. Exceptions - can bail immediately if found
@@ -355,7 +329,7 @@ impl Blocker {
                 .map(|param| (param, true))
                 .collect();
 
-            let filters = removeparam_filters.check_all(request, get_no_tags(), regex_manager);
+            let filters = removeparam_filters.check_all(request, regex_manager);
             let mut rewrite = false;
             for removeparam_filter in filters {
                 if let Some(removeparam) = &removeparam_filter.modifier_option {
@@ -409,9 +383,7 @@ impl Blocker {
         }
 
         let mut regex_manager = self.borrow_regex_manager();
-        let filters = self
-            .csp()
-            .check_all(request, &self.tags_enabled, &mut regex_manager);
+        let filters = self.csp().check_all(request, &mut regex_manager);
 
         if filters.is_empty() {
             return None;
@@ -451,7 +423,6 @@ impl Blocker {
     pub(crate) fn from_context(filter_data_context: FilterDataContextRef) -> Self {
         Self {
             filter_data_context,
-            tags_enabled: HashSet::new(),
             regex_manager: Default::default(),
         }
     }
@@ -478,39 +449,6 @@ impl Blocker {
         filter_set.add_filter_list(text, Default::default());
         let engine = crate::engine::Engine::new_with_filter_set(filter_set);
         Self::from_context(engine.filter_data_context())
-    }
-
-    pub fn use_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = tags.iter().map(|&t| String::from(t)).collect();
-        self.tags_with_set(tag_set);
-    }
-
-    pub fn enable_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = tags
-            .iter()
-            .map(|&t| String::from(t))
-            .collect::<HashSet<_>>()
-            .union(&self.tags_enabled)
-            .cloned()
-            .collect();
-        self.tags_with_set(tag_set);
-    }
-
-    pub fn disable_tags(&mut self, tags: &[&str]) {
-        let tag_set: HashSet<String> = self
-            .tags_enabled
-            .difference(&tags.iter().map(|&t| String::from(t)).collect())
-            .cloned()
-            .collect();
-        self.tags_with_set(tag_set);
-    }
-
-    fn tags_with_set(&mut self, tags_enabled: HashSet<String>) {
-        self.tags_enabled = tags_enabled;
-    }
-
-    pub fn tags_enabled(&self) -> Vec<String> {
-        self.tags_enabled.iter().cloned().collect()
     }
 
     pub fn set_regex_discard_policy(&self, new_discard_policy: RegexManagerDiscardPolicy) {

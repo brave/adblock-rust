@@ -156,7 +156,7 @@ fn check_rewrite_matches_redirect() {
 
 #[test]
 fn check_specifics_default() {
-    let mut engine = get_blocker_engine_default([
+    let engine = get_blocker_engine_default([
         "@@||www.google.*/aclk?$first-party",
         "@@||www.googleadservices.*/aclk?$first-party",
     ]);
@@ -184,25 +184,6 @@ fn check_specifics_default() {
         let request = Request::new("https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace", "https://www.google.com/search?q=Bid+Landscape+Forecasting+in+Online+Exchange+Marketplace&oq=Landscape+Forecasting+in+Online+Ad+Exchange+Marketplace", "main_frame", "").unwrap();
         let checked = engine.check_network_request(&request);
         assert!(!checked.should_block(), "Matched on {:?}", checked.filter);
-    }
-    #[allow(deprecated)]
-    {
-        engine.use_tags(&["fb-embeds", "twitter-embeds"]);
-        let request = Request::new(
-            "https://platform.twitter.com/widgets.js",
-            "https://fmarier.github.io/brave-testing/social-widgets.html",
-            "script",
-            "",
-        )
-        .unwrap();
-        let checked = engine.check_network_request(&request);
-        assert!(checked.exception.is_some(), "Expected exception to match");
-        assert!(checked.filter.is_some(), "Expected rule to match");
-        assert!(
-            !checked.should_block(),
-            "Matched on {:?}",
-            checked.exception
-        )
     }
 }
 

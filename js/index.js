@@ -22,7 +22,7 @@ class Engine {
         this.boxed = blocker.Engine_constructor(filter_set.boxed, ...args);
     }
 }
-forwardClassMethods(Engine, ['check', 'urlCosmeticResources', 'hiddenClassIdSelectors', 'serialize', 'deserialize', 'enableTag', 'useResources', 'tagExists', 'clearTags']);
+forwardClassMethods(Engine, ['check', 'urlCosmeticResources', 'hiddenClassIdSelectors', 'serialize', 'deserialize', 'useResources']);
 
 exports.FilterFormat = blocker.FilterFormat;
 exports.FilterSet = FilterSet;

@@ -13,183 +13,6 @@ mod tests {
         hash(data_without_header)
     }
 
-    #[test]
-    #[allow(deprecated)]
-    fn tags_enable_adds_tags() {
-        let filters = [
-            "adv$tag=stuff",
-            "somelongpath/test$tag=stuff",
-            "||brianbondy.com/$tag=brian",
-            "||brave.com$tag=brian",
-        ];
-        let url_results = [
-            ("http://example.com/advert.html", true),
-            ("http://example.com/somelongpath/test/2.html", true),
-            ("https://brianbondy.com/about", true),
-            ("https://brave.com/about", true),
-        ];
-
-        let mut engine = Engine::new_with_list_text(filters.join("\n"));
-        engine.enable_tags(&["stuff"]);
-        engine.enable_tags(&["brian"]);
-
-        url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(url, "", "", "").unwrap();
-            let matched_rule = engine.check_network_request(&request);
-            if expected_result {
-                assert!(matched_rule.should_block(), "Expected match for {url}");
-            } else {
-                assert!(
-                    !matched_rule.should_block(),
-                    "Expected no match for {}, matched with {:?}",
-                    url,
-                    matched_rule.filter
-                );
-            }
-        });
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn tags_disable_works() {
-        let filters = [
-            "adv$tag=stuff",
-            "somelongpath/test$tag=stuff",
-            "||brianbondy.com/$tag=brian",
-            "||brave.com$tag=brian",
-        ];
-        let url_results = [
-            ("http://example.com/advert.html", false),
-            ("http://example.com/somelongpath/test/2.html", false),
-            ("https://brianbondy.com/about", true),
-            ("https://brave.com/about", true),
-        ];
-
-        let mut engine = Engine::new_with_list_text(filters.join("\n"));
-        engine.enable_tags(&["brian", "stuff"]);
-        engine.disable_tags(&["stuff"]);
-
-        url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(url, "", "", "").unwrap();
-            let matched_rule = engine.check_network_request(&request);
-            if expected_result {
-                assert!(matched_rule.should_block(), "Expected match for {url}");
-            } else {
-                assert!(
-                    !matched_rule.should_block(),
-                    "Expected no match for {}, matched with {:?}",
-                    url,
-                    matched_rule.filter
-                );
-            }
-        });
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn exception_tags_inactive_by_default() {
-        let filters = [
-            "adv",
-            "||brianbondy.com/$tag=brian",
-            "@@||brianbondy.com/$tag=brian",
-        ];
-        let url_results = [
-            ("http://example.com/advert.html", true),
-            ("https://brianbondy.com/about", false),
-            ("https://brianbondy.com/advert", true),
-        ];
-
-        let engine = Engine::new_with_list_text(filters.join("\n"));
-
-        url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(url, "", "", "").unwrap();
-            let matched_rule = engine.check_network_request(&request);
-            if expected_result {
-                assert!(matched_rule.should_block(), "Expected match for {url}");
-            } else {
-                assert!(
-                    !matched_rule.should_block(),
-                    "Expected no match for {}, matched with {:?}",
-                    url,
-                    matched_rule.filter
-                );
-            }
-        });
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn exception_tags_works() {
-        let filters = [
-            "adv",
-            "||brianbondy.com/$tag=brian",
-            "@@||brianbondy.com/$tag=brian",
-        ];
-        let url_results = [
-            ("http://example.com/advert.html", true),
-            ("https://brianbondy.com/about", false),
-            ("https://brianbondy.com/advert", false),
-        ];
-
-        let mut engine = Engine::new_with_list_text(filters.join("\n"));
-        engine.enable_tags(&["brian", "stuff"]);
-
-        url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(url, "", "", "").unwrap();
-            let matched_rule = engine.check_network_request(&request);
-            if expected_result {
-                assert!(matched_rule.should_block(), "Expected match for {url}");
-            } else {
-                assert!(
-                    !matched_rule.should_block(),
-                    "Expected no match for {}, matched with {:?}",
-                    url,
-                    matched_rule.filter
-                );
-            }
-        });
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn serialization_retains_tags() {
-        let filters = [
-            "adv$tag=stuff",
-            "somelongpath/test$tag=stuff",
-            "||brianbondy.com/$tag=brian",
-            "||brave.com$tag=brian",
-        ];
-        let url_results = [
-            ("http://example.com/advert.html", true),
-            ("http://example.com/somelongpath/test/2.html", true),
-            ("https://brianbondy.com/about", false),
-            ("https://brave.com/about", false),
-        ];
-
-        let mut engine = Engine::new_with_list_text(filters.join("\n"));
-        engine.enable_tags(&["stuff"]);
-        engine.enable_tags(&["brian"]);
-        let serialized = engine.serialize();
-        let mut deserialized_engine = Engine::default();
-        deserialized_engine.enable_tags(&["stuff"]);
-        deserialized_engine.deserialize(&serialized).unwrap();
-
-        url_results.into_iter().for_each(|(url, expected_result)| {
-            let request = Request::new(url, "", "", "").unwrap();
-            let matched_rule = deserialized_engine.check_network_request(&request);
-            if expected_result {
-                assert!(matched_rule.should_block(), "Expected match for {url}");
-            } else {
-                assert!(
-                    !matched_rule.should_block(),
-                    "Expected no match for {}, matched with {:?}",
-                    url,
-                    matched_rule.filter
-                );
-            }
-        });
-    }
-
     const HASH_MISMATCH_MSG: &str = r#"
       A change has been detected in the serialized format! If the change is intentional:
       1. Update ADBLOCK_RUST_DAT_VERSION before updating the expected hashes
@@ -201,21 +24,6 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
         const EXPECTED_HASH: u64 = 16174589584358908453;
-        assert_eq!(
-            hash_without_header(&data),
-            EXPECTED_HASH,
-            "{HASH_MISMATCH_MSG}"
-        );
-        engine.deserialize(&data).unwrap();
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn deserialization_generate_tags() {
-        let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
-        engine.use_tags(&["abc"]);
-        let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 17947791698945847098;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -271,13 +79,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 121567);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 121548);
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 43451);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            18424211443584371907
+            3945836022781302199
         } else {
-            8310576369934087289
+            9507067706062528002
         };
 
         assert_eq!(

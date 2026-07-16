@@ -1,6 +1,6 @@
 //! Holds the implementation of [NetworkFilterList] and related functionality.
 
-use std::{collections::HashSet, fmt};
+use std::fmt;
 
 use flatbuffers::ForwardsUOffset;
 
@@ -79,7 +79,6 @@ impl NetworkFilterList<'_> {
     pub fn check(
         &self,
         request: &Request,
-        active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<CheckResult> {
         if self.is_empty() {
@@ -91,7 +90,6 @@ impl NetworkFilterList<'_> {
             &self.get_opt_domains_map(),
             request.source_hostname_hashes.as_deref().unwrap_or(&[]),
             request,
-            active_tags,
             regex_manager,
             |result| {
                 found = Some(result);
@@ -107,7 +105,6 @@ impl NetworkFilterList<'_> {
             &self.get_opt_to_domains_map(),
             request.hostname_hashes.as_deref().unwrap_or(&[]),
             request,
-            active_tags,
             regex_manager,
             |result| {
                 found = Some(result);
@@ -124,7 +121,6 @@ impl NetworkFilterList<'_> {
             &self.get_filter_map(),
             &request.request_tokens,
             request,
-            active_tags,
             regex_manager,
             |result| {
                 found = Some(result);
@@ -142,7 +138,6 @@ impl NetworkFilterList<'_> {
     pub fn check_all(
         &self,
         request: &Request,
-        active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Vec<CheckResult> {
         let mut filters: Vec<CheckResult> = vec![];
@@ -155,7 +150,6 @@ impl NetworkFilterList<'_> {
             &self.get_opt_domains_map(),
             request.source_hostname_hashes.as_deref().unwrap_or(&[]),
             request,
-            active_tags,
             regex_manager,
             |result| {
                 filters.push(result);
@@ -167,7 +161,6 @@ impl NetworkFilterList<'_> {
             &self.get_opt_to_domains_map(),
             request.hostname_hashes.as_deref().unwrap_or(&[]),
             request,
-            active_tags,
             regex_manager,
             |result| {
                 filters.push(result);
@@ -179,7 +172,6 @@ impl NetworkFilterList<'_> {
             &self.get_filter_map(),
             &request.request_tokens,
             request,
-            active_tags,
             regex_manager,
             |result| {
                 filters.push(result);
@@ -197,7 +189,6 @@ impl NetworkFilterList<'_> {
         filter_map: &FlatNetworkFilterMap<'_>,
         tokens: &[Hash],
         request: &Request,
-        active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
         mut on_match: impl FnMut(CheckResult) -> bool,
     ) -> bool {
@@ -208,7 +199,6 @@ impl NetworkFilterList<'_> {
 
                     // if matched, also needs to be tagged with an active tag (or not tagged at all)
                     if filter.matches(request, regex_manager)
-                        && filter.tag().is_none_or(|t| active_tags.contains(t))
                         && on_match(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
