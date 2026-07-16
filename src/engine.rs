@@ -393,7 +393,7 @@ impl Engine {
         )
     }
 
-    pub fn set_regex_discard_policy(&mut self, new_discard_policy: RegexManagerDiscardPolicy) {
+    pub fn set_regex_discard_policy(&self, new_discard_policy: RegexManagerDiscardPolicy) {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
