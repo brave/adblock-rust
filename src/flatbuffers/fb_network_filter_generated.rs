@@ -30,10 +30,9 @@ pub mod fb {
         pub const VT_MULTI_PATTERNS: ::flatbuffers::VOffsetT = 12;
         pub const VT_MODIFIER_OPTION: ::flatbuffers::VOffsetT = 14;
         pub const VT_HOSTNAME: ::flatbuffers::VOffsetT = 16;
-        pub const VT_TAG: ::flatbuffers::VOffsetT = 18;
-        pub const VT_RAW_LINE: ::flatbuffers::VOffsetT = 20;
-        pub const VT_SOURCE_INDEX: ::flatbuffers::VOffsetT = 22;
-        pub const VT_LINE_NUMBER: ::flatbuffers::VOffsetT = 24;
+        pub const VT_RAW_LINE: ::flatbuffers::VOffsetT = 18;
+        pub const VT_SOURCE_INDEX: ::flatbuffers::VOffsetT = 20;
+        pub const VT_LINE_NUMBER: ::flatbuffers::VOffsetT = 22;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -54,9 +53,6 @@ pub mod fb {
             builder.add_source_index(args.source_index);
             if let Some(x) = args.raw_line {
                 builder.add_raw_line(x);
-            }
-            if let Some(x) = args.tag {
-                builder.add_tag(x);
             }
             if let Some(x) = args.hostname {
                 builder.add_hostname(x);
@@ -98,7 +94,6 @@ pub mod fb {
             let hostname = self
                 .hostname()
                 .map(|x| alloc::string::ToString::to_string(x));
-            let tag = self.tag().map(|x| alloc::string::ToString::to_string(x));
             let raw_line = self
                 .raw_line()
                 .map(|x| alloc::string::ToString::to_string(x));
@@ -112,7 +107,6 @@ pub mod fb {
                 multi_patterns,
                 modifier_option,
                 hostname,
-                tag,
                 raw_line,
                 source_index,
                 line_number,
@@ -207,16 +201,6 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn tag(&self) -> Option<&'a str> {
-            // Safety:
-            // Created from valid Table for this object
-            // which contains a valid value in this slot
-            unsafe {
-                self._tab
-                    .get::<::flatbuffers::ForwardsUOffset<&str>>(NetworkFilter::VT_TAG, None)
-            }
-        }
-        #[inline]
         pub fn raw_line(&self) -> Option<&'a str> {
             // Safety:
             // Created from valid Table for this object
@@ -286,7 +270,6 @@ pub mod fb {
                     Self::VT_HOSTNAME,
                     false,
                 )?
-                .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("tag", Self::VT_TAG, false)?
                 .visit_field::<::flatbuffers::ForwardsUOffset<&str>>(
                     "raw_line",
                     Self::VT_RAW_LINE,
@@ -310,7 +293,6 @@ pub mod fb {
         >,
         pub modifier_option: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub hostname: Option<::flatbuffers::WIPOffset<&'a str>>,
-        pub tag: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub raw_line: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub source_index: u32,
         pub line_number: u32,
@@ -326,7 +308,6 @@ pub mod fb {
                 multi_patterns: None,
                 modifier_option: None,
                 hostname: None,
-                tag: None,
                 raw_line: None,
                 source_index: 4294967295,
                 line_number: 4294967295,
@@ -398,11 +379,6 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_tag(&mut self, tag: ::flatbuffers::WIPOffset<&'b str>) {
-            self.fbb_
-                .push_slot_always::<::flatbuffers::WIPOffset<_>>(NetworkFilter::VT_TAG, tag);
-        }
-        #[inline]
         pub fn add_raw_line(&mut self, raw_line: ::flatbuffers::WIPOffset<&'b str>) {
             self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
                 NetworkFilter::VT_RAW_LINE,
@@ -446,7 +422,6 @@ pub mod fb {
             ds.field("multi_patterns", &self.multi_patterns());
             ds.field("modifier_option", &self.modifier_option());
             ds.field("hostname", &self.hostname());
-            ds.field("tag", &self.tag());
             ds.field("raw_line", &self.raw_line());
             ds.field("source_index", &self.source_index());
             ds.field("line_number", &self.line_number());
@@ -463,7 +438,6 @@ pub mod fb {
         pub multi_patterns: Option<alloc::vec::Vec<alloc::string::String>>,
         pub modifier_option: Option<alloc::string::String>,
         pub hostname: Option<alloc::string::String>,
-        pub tag: Option<alloc::string::String>,
         pub raw_line: Option<alloc::string::String>,
         pub source_index: u32,
         pub line_number: u32,
@@ -478,7 +452,6 @@ pub mod fb {
                 multi_patterns: None,
                 modifier_option: None,
                 hostname: None,
-                tag: None,
                 raw_line: None,
                 source_index: 4294967295,
                 line_number: 4294967295,
@@ -500,7 +473,6 @@ pub mod fb {
             });
             let modifier_option = self.modifier_option.as_ref().map(|x| _fbb.create_string(x));
             let hostname = self.hostname.as_ref().map(|x| _fbb.create_string(x));
-            let tag = self.tag.as_ref().map(|x| _fbb.create_string(x));
             let raw_line = self.raw_line.as_ref().map(|x| _fbb.create_string(x));
             let source_index = self.source_index;
             let line_number = self.line_number;
@@ -514,7 +486,6 @@ pub mod fb {
                     multi_patterns,
                     modifier_option,
                     hostname,
-                    tag,
                     raw_line,
                     source_index,
                     line_number,

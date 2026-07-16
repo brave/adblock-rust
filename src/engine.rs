@@ -288,42 +288,6 @@ impl Engine {
         self.blocker.get_csp_directives(request)
     }
 
-    /// Sets this engine's tags to be _only_ the ones provided in `tags`.
-    ///
-    /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
-    /// option.
-    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
-    pub fn use_tags(&mut self, tags: &[&str]) {
-        self.blocker.use_tags(tags);
-    }
-
-    /// Sets this engine's tags to additionally include the ones provided in `tags`.
-    ///
-    /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
-    /// option.
-    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
-    pub fn enable_tags(&mut self, tags: &[&str]) {
-        self.blocker.enable_tags(tags);
-    }
-
-    /// Sets this engine's tags to no longer include the ones provided in `tags`.
-    ///
-    /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
-    /// option.
-    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
-    pub fn disable_tags(&mut self, tags: &[&str]) {
-        self.blocker.disable_tags(tags);
-    }
-
-    /// Checks if a given tag exists in this engine.
-    ///
-    /// Tags can be used to cheaply enable or disable network rules with a corresponding `$tag`
-    /// option.
-    #[deprecated(note = "Rebuild the engine with or without the relevant filters instead")]
-    pub fn tag_exists(&self, tag: &str) -> bool {
-        self.blocker.tags_enabled().contains(&tag.to_owned())
-    }
-
     /// Sets this engine's [Resource]s to be _only_ the ones provided in `resources`.
     ///
     /// The resources will be held in-memory. If you have special caching, management, or sharing
@@ -444,8 +408,6 @@ impl Engine {
     /// no guarantee that later versions of the format will be deserializable across minor versions
     /// of adblock-rust; the format is provided only as a caching optimization.
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), DeserializationError> {
-        let current_tags = self.blocker.tags_enabled();
-
         let data = deserialize_dat_file(serialized)?;
         let memory = VerifiedFlatbufferMemory::from_raw(data)
             .map_err(DeserializationError::FlatBufferParsingError)?;
@@ -454,8 +416,6 @@ impl Engine {
         self.filter_data_context = context;
         self.blocker =
             Blocker::from_context(FilterDataContextRef::clone(&self.filter_data_context));
-        self.blocker
-            .use_tags(&current_tags.iter().map(|s| &**s).collect::<Vec<_>>());
         self.cosmetic_cache = CosmeticFilterCache::from_context(FilterDataContextRef::clone(
             &self.filter_data_context,
         ));

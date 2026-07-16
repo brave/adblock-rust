@@ -1,6 +1,6 @@
 //! Holds the implementation of [NetworkFilterList] and related functionality.
 
-use std::{collections::HashSet, fmt};
+use std::fmt;
 
 use flatbuffers::ForwardsUOffset;
 
@@ -59,7 +59,6 @@ impl NetworkFilterList<'_> {
     pub fn check(
         &self,
         request: &Request,
-        active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Option<CheckResult> {
         let filters_list = self.list;
@@ -75,10 +74,7 @@ impl NetworkFilterList<'_> {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().is_none_or(|t| active_tags.contains(t))
-                    {
+                    if filter.matches(request, regex_manager) {
                         return Some(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),
@@ -99,7 +95,6 @@ impl NetworkFilterList<'_> {
     pub fn check_all(
         &self,
         request: &Request,
-        active_tags: &HashSet<String>,
         regex_manager: &mut RegexManager,
     ) -> Vec<CheckResult> {
         let mut filters: Vec<CheckResult> = vec![];
@@ -117,10 +112,7 @@ impl NetworkFilterList<'_> {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
-                    // if matched, also needs to be tagged with an active tag (or not tagged at all)
-                    if filter.matches(request, regex_manager)
-                        && filter.tag().is_none_or(|t| active_tags.contains(t))
-                    {
+                    if filter.matches(request, regex_manager) {
                         filters.push(CheckResult {
                             filter_mask: filter.mask,
                             modifier_option: filter.modifier_option(),

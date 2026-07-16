@@ -26,7 +26,6 @@ pub(crate) enum NetworkFilterListId {
     RemoveParam = 4,
     Filters = 5,
     GenericHide = 6,
-    TaggedFiltersAll = 7,
     Size = 8,
 }
 
@@ -101,8 +100,6 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>>
             .as_ref()
             .map(|s| builder.create_string(s.as_ref()));
 
-        let tag = network_filter.tag.map(|s| builder.create_string(s));
-
         let mut filter_iter = network_filter.filter.iter();
         let filter_count = filter_iter.len();
 
@@ -136,7 +133,6 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>>
                 opt_domains,
                 opt_not_domains,
                 hostname,
-                tag,
                 raw_line,
                 source_index: debug_data.source_index,
                 line_number: debug_data.line_number,
@@ -258,9 +254,6 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
             FilterId::Exceptions
         } else if filter.is_important() {
             FilterId::Importants
-        } else if filter.tag.is_some() && !filter.is_redirect() {
-            // `tag` + `redirect` is unsupported for now.
-            FilterId::TaggedFiltersAll
         } else if (filter.is_redirect() && filter.also_block_redirect()) || !filter.is_redirect() {
             FilterId::Filters
         } else {

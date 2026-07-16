@@ -420,37 +420,6 @@ describe('Engine.check — $removeparam modifier', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Engine.check — exception rules with tags
-// ---------------------------------------------------------------------------
-
-describe('Engine.check — exception rules with tags', () => {
-    it('tagged exception activates only after enableTag', () => {
-        const fs = new FilterSet(true);
-        fs.addFilters(['||ads.example.com^', '@@||ads.example.com^$tag=unbreak'].join('\n'));
-        const engine = new Engine(fs);
-
-        const before = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
-        );
-        assert.equal(before.should_block, true);
-        assert.ok(before.exception == null);
-
-        engine.enableTag('unbreak');
-        const after = engine.check(
-            'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
-        );
-        assert.equal(after.should_block, false);
-        assert.deepEqual(after.exception, {
-          raw_line: '@@||ads.example.com^$tag=unbreak',
-          source_location: {
-            line_number: 1,
-            source_index: 0
-          }
-        });
-    });
-});
-
-// ---------------------------------------------------------------------------
 // Engine.urlCosmeticResources
 // ---------------------------------------------------------------------------
 
@@ -578,24 +547,6 @@ describe('Engine serialization', () => {
         assert.equal(dst.check('https://exception.blocked.com/', 'https://pub.com', 'other'), false);
     });
 
-    it('tag enablement is NOT serialized — must re-enable after deserialize', () => {
-        const fs = new FilterSet();
-        fs.addFilters(['adv$tag=stuff', '||blocked.com^'].join('\n'));
-        const src = new Engine(fs);
-        src.enableTag('stuff');
-        const buf = src.serialize();
-
-        const dst = new Engine(new FilterSet());
-        dst.deserialize(buf);
-
-        // Untagged filter works immediately
-        assert.equal(dst.check('https://blocked.com/t.js', 'https://pub.com', 'script'), true);
-        // Tagged filter inactive until re-enabled
-        assert.equal(dst.check('https://example.com/adv', 'https://example.com', 'other'), false);
-        dst.enableTag('stuff');
-        assert.equal(dst.check('https://example.com/adv', 'https://example.com', 'other'), true);
-    });
-
     it('resources are NOT serialized — must reload after deserialize', () => {
         const fs = new FilterSet(true);
         fs.addFilters(['||ads.example.com^$script,redirect=noopjs'].join('\n'));
@@ -625,36 +576,6 @@ describe('Engine serialization', () => {
             'https://ads.example.com/t.js', 'https://pub.com', 'script', 'get', true,
         );
         assert.ok(withRes.redirect.length > 0);
-    });
-});
-
-// ---------------------------------------------------------------------------
-// Engine tags
-// ---------------------------------------------------------------------------
-
-describe('Engine tags', () => {
-    it('tagged filter is inactive before enableTag, active after', () => {
-        const fs = new FilterSet();
-        fs.addFilters(['adv$tag=stuff'].join('\n'));
-        const engine = new Engine(fs);
-        assert.equal(engine.check('https://example.com/adv', 'https://example.com', 'other'), false);
-        engine.enableTag('stuff');
-        assert.equal(engine.check('https://example.com/adv', 'https://example.com', 'other'), true);
-        assert.equal(engine.tagExists('stuff'), true);
-    });
-
-    it('clearTags deactivates all enabled tags', () => {
-        const fs = new FilterSet();
-        fs.addFilters(['adv$tag=stuff', '||brianbondy.com/$tag=brian'].join('\n'));
-        const engine = new Engine(fs);
-        engine.enableTag('stuff');
-        engine.enableTag('brian');
-        assert.equal(engine.check('https://example.com/adv', 'https://example.com', 'other'), true);
-
-        engine.clearTags();
-        assert.equal(engine.tagExists('stuff'), false);
-        assert.equal(engine.tagExists('brian'), false);
-        assert.equal(engine.check('https://example.com/adv', 'https://example.com', 'other'), false);
     });
 });
 
