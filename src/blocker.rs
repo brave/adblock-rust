@@ -84,7 +84,7 @@ impl Blocker {
     /// Decide if a network request (usually from WebRequest API) should be
     /// blocked, redirected or allowed.
     pub fn check(&self, request: &Request, resources: &ResourceStorage) -> BlockerResult {
-        self.check_parameterised(request, resources, false, false)
+        self.check_parameterized(request, resources, false, false)
     }
 
     pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList<'_> {
@@ -157,7 +157,7 @@ impl Blocker {
             .is_some()
     }
 
-    pub fn check_parameterised(
+    pub fn check_parameterized(
         &self,
         request: &Request,
         resources: &ResourceStorage,

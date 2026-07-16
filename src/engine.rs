@@ -272,7 +272,7 @@ impl Engine {
         previously_matched_rule: bool,
         force_check_exceptions: bool,
     ) -> BlockerResult {
-        self.blocker.check_parameterised(
+        self.blocker.check_parameterized(
             request,
             &self.resources,
             previously_matched_rule,
