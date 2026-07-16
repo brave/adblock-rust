@@ -243,7 +243,7 @@ impl Request {
     /// If you're building a [`Request`] in a context that already has access to parsed
     /// representations of the input URLs, you can use this constructor to avoid extra lookups from
     /// the public suffix list. Take care to pass data correctly.
-    pub fn preparsed(
+    pub fn new_preparsed(
         url: &str,
         hostname: &str,
         source_hostname: &str,

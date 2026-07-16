@@ -71,7 +71,7 @@ fn bench_rule_matching_browserlike(blocker: &Engine, requests: &[ParsedRequest])
     let mut passes = 0;
     requests.iter().for_each(
         |(url, hostname, source_hostname, request_type, third_party)| {
-            let check = blocker.check_network_request(&Request::preparsed(
+            let check = blocker.check_network_request(&Request::new_preparsed(
                 url,
                 hostname,
                 source_hostname,
