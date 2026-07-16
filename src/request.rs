@@ -70,12 +70,6 @@ pub enum RequestError {
     UnicodeDecodingError,
 }
 
-impl From<idna::Errors> for RequestError {
-    fn from(_err: idna::Errors) -> RequestError {
-        RequestError::UnicodeDecodingError
-    }
-}
-
 impl From<url::ParseError> for RequestError {
     fn from(_err: url::ParseError) -> RequestError {
         RequestError::HostnameParseError
