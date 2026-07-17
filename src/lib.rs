@@ -31,7 +31,7 @@ mod flatbuffers;
 pub mod lists;
 mod network_filter_list;
 mod optimizer;
-pub mod regex_manager;
+mod regex_manager;
 pub mod request;
 pub mod resources;
 pub mod sourcemap;
