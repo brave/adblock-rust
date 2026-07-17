@@ -81,12 +81,6 @@ pub(crate) fn tokenize_pooled(pattern: &str, tokens_buffer: &mut TokensBuffer) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }
 
-pub fn tokenize(pattern: &str) -> Vec<Hash> {
-    let mut tokens_buffer = TokensBuffer::default();
-    tokenize_to(pattern, &mut tokens_buffer);
-    tokens_buffer.into_iter().collect()
-}
-
 pub(crate) fn tokenize_to(pattern: &str, tokens_buffer: &mut TokensBuffer) {
     fast_tokenizer_no_regex(pattern, &is_allowed_filter, false, false, tokens_buffer);
 }

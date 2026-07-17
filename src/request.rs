@@ -107,7 +107,7 @@ pub struct Request {
     pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
-    pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
@@ -129,11 +129,11 @@ impl Request {
         self.source_hostname_hashes.as_ref().into_iter().flatten()
     }
 
-    pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
+    pub(crate) fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
         self.get_tokens().iter()
     }
 
-    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
+    pub(crate) fn get_tokens(&self) -> &Vec<utils::Hash> {
         &self.request_tokens
     }
 
