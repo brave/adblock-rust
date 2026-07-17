@@ -107,7 +107,7 @@ pub struct Request {
     pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
-    pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
@@ -123,7 +123,7 @@ impl Request {
         }
     }
 
-    pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
+    pub(crate) fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
         // We start matching with source_hostname_hashes for optimization,
         // as it contains far fewer elements.
         self.source_hostname_hashes
@@ -133,7 +133,7 @@ impl Request {
             .chain(self.get_tokens())
     }
 
-    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
+    pub(crate) fn get_tokens(&self) -> &Vec<utils::Hash> {
         &self.request_tokens
     }
 
