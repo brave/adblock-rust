@@ -15,7 +15,7 @@ use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
 
 pub use crate::data_format::DeserializationError;
-pub use crate::regex_manager::RegexManagerDiscardPolicy;
+pub use crate::regex_manager::RegexDiscardPolicy;
 #[cfg(feature = "debug-info")]
 pub use crate::regex_manager::{RegexDebugEntry, RegexDebugInfo};
 
@@ -359,7 +359,7 @@ impl Engine {
         )
     }
 
-    pub fn set_regex_discard_policy(&self, new_discard_policy: RegexManagerDiscardPolicy) {
+    pub fn set_regex_discard_policy(&self, new_discard_policy: RegexDiscardPolicy) {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 

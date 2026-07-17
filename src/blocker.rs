@@ -9,7 +9,7 @@ use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::filter_data_context::FilterDataContextRef;
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::network_filter_list::NetworkFilterList;
-use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
+use crate::regex_manager::{RegexDiscardPolicy, RegexManager};
 use crate::request::Request;
 use crate::resources::ResourceStorage;
 use crate::sourcemap::FilterRuleDebugInfo;
@@ -451,7 +451,7 @@ impl Blocker {
         Self::from_context(engine.filter_data_context())
     }
 
-    pub fn set_regex_discard_policy(&self, new_discard_policy: RegexManagerDiscardPolicy) {
+    pub fn set_regex_discard_policy(&self, new_discard_policy: RegexDiscardPolicy) {
         let mut regex_manager = self.borrow_regex_manager();
         regex_manager.set_discard_policy(new_discard_policy);
     }
