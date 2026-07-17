@@ -11,11 +11,13 @@ use crate::filters::flatbuffer_generated::fb;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions, ParsedLine, parse_filter};
-use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
 
 pub use crate::data_format::DeserializationError;
+pub use crate::regex_manager::RegexManagerDiscardPolicy;
+#[cfg(feature = "debug-info")]
+pub use crate::regex_manager::{RegexDebugEntry, RegexDebugInfo};
 
 use crate::filters::{cosmetic::CosmeticFilter, network::NetworkFilter};
 
@@ -71,7 +73,7 @@ pub struct SourceInfo {
 
 #[cfg(feature = "debug-info")]
 pub struct EngineDebugInfo {
-    pub regex_debug_info: crate::regex_manager::RegexDebugInfo,
+    pub regex_debug_info: RegexDebugInfo,
     pub flatbuffer_size: usize,
     pub source_info: Vec<SourceInfo>,
 }
@@ -361,8 +363,8 @@ impl Engine {
         self.blocker.set_regex_discard_policy(new_discard_policy);
     }
 
-    #[cfg(test)]
-    pub fn borrow_regex_manager(&self) -> crate::blocker::RegexManagerRef<'_> {
+    #[cfg(all(test, feature = "debug-info"))]
+    pub(crate) fn borrow_regex_manager(&self) -> crate::blocker::RegexManagerRef<'_> {
         self.blocker.borrow_regex_manager()
     }
 
