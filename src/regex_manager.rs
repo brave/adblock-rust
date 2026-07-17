@@ -106,14 +106,14 @@ struct RegexEntry {
 }
 
 /// Used for customization of regex discarding behavior in the [`RegexManager`].
-pub struct RegexManagerDiscardPolicy {
+pub struct RegexDiscardPolicy {
     /// The [`RegexManager`] will check for and cleanup unused filters on this interval.
     pub cleanup_interval: Duration,
     /// The [`RegexManager`] will discard a regex if it hasn't been used for this much time.
     pub discard_unused_time: Duration,
 }
 
-impl Default for RegexManagerDiscardPolicy {
+impl Default for RegexDiscardPolicy {
     fn default() -> Self {
         Self {
             cleanup_interval: DEFAULT_CLEAN_UP_INTERVAL,
@@ -134,7 +134,7 @@ pub(crate) struct RegexManager {
     now: Instant,
     #[cfg_attr(target_arch = "wasm32", allow(unused))]
     last_cleanup: Instant,
-    discard_policy: RegexManagerDiscardPolicy,
+    discard_policy: RegexDiscardPolicy,
 }
 
 impl Default for RegexManager {
@@ -307,7 +307,7 @@ impl RegexManager {
     }
 
     /// Customize the discard behavior of this [`RegexManager`].
-    pub(crate) fn set_discard_policy(&mut self, new_discard_policy: RegexManagerDiscardPolicy) {
+    pub(crate) fn set_discard_policy(&mut self, new_discard_policy: RegexDiscardPolicy) {
         self.discard_policy = new_discard_policy;
     }
 
