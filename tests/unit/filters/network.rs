@@ -1534,7 +1534,7 @@ mod parse_tests {
         )
         .unwrap();
         assert!(
-            request.get_tokens().contains(&utils::fast_hash("2faymt")),
+            request.request_tokens.contains(&utils::fast_hash("2faymt")),
             "request tokens must include the filter token or the bucket is never probed"
         );
         assert!(filter.matches_test(&request));

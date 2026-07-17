@@ -18,14 +18,6 @@ fn bench_string_hashing(filters: &str) -> adblock::utils::Hash {
     dummy
 }
 
-fn bench_string_tokenize(filters: &str) -> usize {
-    let mut dummy: usize = 0;
-    for filter in filters.lines() {
-        dummy = (dummy + adblock::utils::tokenize(filter).len()) % 1000000000;
-    }
-    dummy
-}
-
 fn string_hashing(c: &mut Criterion) {
     let mut group = c.benchmark_group("string-hashing");
 
@@ -33,18 +25,6 @@ fn string_hashing(c: &mut Criterion) {
 
     group.bench_function("hash", move |b| {
         b.iter(|| bench_string_hashing(&DEFAULT_LISTS))
-    });
-
-    group.finish();
-}
-
-fn string_tokenize(c: &mut Criterion) {
-    let mut group = c.benchmark_group("string-tokenize");
-
-    group.throughput(Throughput::Elements(1));
-
-    group.bench_function("tokenize", move |b| {
-        b.iter(|| bench_string_tokenize(&DEFAULT_LISTS))
     });
 
     group.finish();
@@ -104,11 +84,5 @@ fn blocker_new(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    blocker_new,
-    list_parse,
-    string_hashing,
-    string_tokenize
-);
+criterion_group!(benches, blocker_new, list_parse, string_hashing);
 criterion_main!(benches);

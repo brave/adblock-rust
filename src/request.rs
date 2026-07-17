@@ -101,8 +101,8 @@ pub struct Request {
     pub is_third_party: bool,
     pub url: String,
     pub hostname: String,
-    pub hostname_hashes: Option<Vec<utils::Hash>>,
-    pub source_hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) hostname_hashes: Option<Vec<utils::Hash>>,
+    pub(crate) source_hostname_hashes: Option<Vec<utils::Hash>>,
 
     pub(crate) url_lower_cased: String,
     pub(crate) request_tokens: Vec<utils::Hash>,
@@ -116,14 +116,6 @@ impl Request {
         } else {
             &self.url_lower_cased
         }
-    }
-
-    pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        self.get_tokens().iter()
-    }
-
-    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
-        &self.request_tokens
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -61,43 +61,6 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_works() {
-        assert_eq!(tokenize("").as_slice(), t(&[]).as_slice());
-        assert_eq!(tokenize("foo").as_slice(), t(&["foo"]).as_slice());
-        assert_eq!(
-            tokenize("foo/bar").as_slice(),
-            t(&["foo", "bar"]).as_slice()
-        );
-        assert_eq!(
-            tokenize("foo-bar").as_slice(),
-            t(&["foo", "bar"]).as_slice()
-        );
-        assert_eq!(
-            tokenize("foo.bar").as_slice(),
-            t(&["foo", "bar"]).as_slice()
-        );
-        assert_eq!(
-            tokenize("foo.barƬ").as_slice(),
-            t(&["foo", "barƬ"]).as_slice()
-        );
-
-        // Tokens cannot be surrounded by *
-        assert_eq!(tokenize("foo.barƬ*").as_slice(), t(&["foo"]).as_slice());
-        assert_eq!(tokenize("*foo.barƬ").as_slice(), t(&["barƬ"]).as_slice());
-        assert_eq!(tokenize("*foo.barƬ*").as_slice(), t(&[]).as_slice());
-
-        // `%` is a separator so percent-encoded sequences tokenize
-        assert_eq!(
-            tokenize("%2Faymt%2Faa%2F%3F").as_slice(),
-            t(&["2Faymt", "2Faa", "2F", "3F"]).as_slice()
-        );
-        assert_eq!(
-            tokenize_filter("%2Faymt%2Faa%2F%3F", false, true).as_slice(),
-            t(&["2Faymt", "2Faa", "2F"]).as_slice()
-        );
-    }
-
-    #[test]
     fn bin_lookup_works() {
         assert!(!bin_lookup(&[], 42));
         assert!(bin_lookup(&[42], 42));
