@@ -66,7 +66,7 @@ pub struct RegexDebugEntry {
 }
 
 #[derive(Debug, Clone)]
-pub enum CompiledRegex {
+pub(crate) enum CompiledRegex {
     Compiled(BytesRegex),
     CompiledSet(BytesRegexSet),
     MatchAll,
@@ -74,7 +74,7 @@ pub enum CompiledRegex {
 }
 
 impl CompiledRegex {
-    pub fn is_match(&self, pattern: &str) -> bool {
+    pub(crate) fn is_match(&self, pattern: &str) -> bool {
         match &self {
             CompiledRegex::MatchAll => true, // simple case for matching everything, e.g. for empty filter
             CompiledRegex::RegexParsingError(_e) => false, // no match if regex didn't even compile
@@ -128,7 +128,7 @@ type RandomState = std::hash::BuildHasherDefault<seahash::SeaHasher>;
 /// Rarely used entries are discarded to save memory.
 ///
 /// The [`RegexManager`] is not thread safe, so any access to it must be synchronized externally.
-pub struct RegexManager {
+pub(crate) struct RegexManager {
     map: HashMap<u64, RegexEntry, RandomState>,
     compiled_regex_count: usize,
     now: Instant,
@@ -239,7 +239,7 @@ where
 impl RegexManager {
     /// Check whether or not a regex network filter matches a certain URL pattern, using the
     /// [`RegexManager`]'s managed regex storage.
-    pub fn matches<'a, FiltersIter>(
+    pub(crate) fn matches<'a, FiltersIter>(
         &mut self,
         mask: NetworkFilterMask,
         filters: FiltersIter,
@@ -285,7 +285,7 @@ impl RegexManager {
     /// must be called periodically to ensure that it can track usage patterns of regexes over
     /// time. This method will handle periodically discarding filters if necessary.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn update_time(&mut self) {
+    pub(crate) fn update_time(&mut self) {
         self.now = Instant::now();
         if !self.discard_policy.cleanup_interval.is_zero()
             && self.now - self.last_cleanup >= self.discard_policy.cleanup_interval
@@ -307,13 +307,13 @@ impl RegexManager {
     }
 
     /// Customize the discard behavior of this [`RegexManager`].
-    pub fn set_discard_policy(&mut self, new_discard_policy: RegexManagerDiscardPolicy) {
+    pub(crate) fn set_discard_policy(&mut self, new_discard_policy: RegexManagerDiscardPolicy) {
         self.discard_policy = new_discard_policy;
     }
 
     /// Discard one regex, identified by its id from a [`RegexDebugEntry`].
     #[cfg(feature = "debug-info")]
-    pub fn discard_regex(&mut self, regex_id: u64) {
+    pub(crate) fn discard_regex(&mut self, regex_id: u64) {
         self.map
             .iter_mut()
             .filter(|(k, _)| { **k } == regex_id)
