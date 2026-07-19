@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784431311121,
+  "lastUpdate": 1784432015708,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -12005,6 +12005,96 @@ window.BENCHMARK_DATA = {
             "name": "cosmetic-class-id-match/brave-list",
             "value": 3277325,
             "range": "± 864562",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "committer": {
+            "email": "antonok35@gmail.com",
+            "name": "Anton Lazarev",
+            "username": "antonok-edm"
+          },
+          "distinct": true,
+          "id": "00b19a06508ddd4f3453779f8618983421ddf32b",
+          "message": "v0.13.2",
+          "timestamp": "2026-07-18T20:26:07-07:00",
+          "tree_id": "17f03b25091db8ce9ef88408e4be9d11f3e6f755",
+          "url": "https://github.com/brave/adblock-rust/commit/00b19a06508ddd4f3453779f8618983421ddf32b"
+        },
+        "date": 1784432014465,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2246755374,
+            "range": "± 13197314",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1383955,
+            "range": "± 9146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 113135396,
+            "range": "± 706851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 27936321,
+            "range": "± 39790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage-final/brave-list-initial",
+            "value": 9560762,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-final/brave-list-1000-requests",
+            "value": 3157476,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-max/brave-list-initial/max",
+            "value": 32069450,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
+            "value": 282954,
+            "range": "± 0",
+            "unit": "allocs/iter"
+          },
+          {
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
+            "value": 80015,
+            "range": "± 0",
+            "unit": "allocs/iter"
+          },
+          {
+            "name": "url_cosmetic_resources/brave-list",
+            "value": 186969,
+            "range": "± 756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosmetic-class-id-match/brave-list",
+            "value": 3180126,
+            "range": "± 854080",
             "unit": "ns/iter"
           }
         ]
