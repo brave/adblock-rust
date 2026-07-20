@@ -64,8 +64,6 @@ pub enum RequestError {
     HostnameParseError,
     #[error("source hostname parsing failed")]
     SourceHostnameParseError,
-    #[error("invalid Unicode provided")]
-    UnicodeDecodingError,
 }
 
 impl From<url::ParseError> for RequestError {
