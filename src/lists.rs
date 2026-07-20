@@ -445,8 +445,6 @@ pub enum FilterParseError {
     Unsupported,
     #[error("empty")]
     Empty,
-    #[error("invalid expires interval")]
-    InvalidExpiresInterval,
 }
 
 impl From<NetworkFilterError> for FilterParseError {
