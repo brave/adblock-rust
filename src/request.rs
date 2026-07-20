@@ -43,7 +43,6 @@ pub enum RequestType {
     Beacon,
     Csp,
     Document,
-    Dtd,
     Fetch,
     Font,
     Image,
@@ -55,7 +54,6 @@ pub enum RequestType {
     Stylesheet,
     Subdocument,
     Websocket,
-    Xlst,
     Xmlhttprequest,
 }
 
