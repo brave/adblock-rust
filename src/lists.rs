@@ -414,6 +414,8 @@ pub enum FilterType {
     Cosmetic,
     /// Something else that isn't supported
     NotSupported,
+    /// A comment
+    Comment,
 }
 
 /// Successful result of parsing a single line from a filter list
@@ -447,6 +449,8 @@ pub enum FilterParseError {
     Empty,
     #[error("invalid expires interval")]
     InvalidExpiresInterval,
+    #[error("comment")]
+    Comment,
 }
 
 impl From<NetworkFilterError> for FilterParseError {
@@ -485,6 +489,7 @@ pub fn parse_filter<'a>(
                     .map(ParsedLine::Cosmetic)
                     .map_err(|e| e.into())
             }
+            (FilterType::Comment, _) => Err(FilterParseError::Comment),
             _ => Err(FilterParseError::Unsupported),
         },
         FilterFormat::Hosts => {
@@ -566,7 +571,7 @@ fn detect_filter_type(filter: &str) -> FilterType {
         || (filter.starts_with('#') && filter[1..].starts_with(char::is_whitespace))
         || filter.starts_with("[Adblock")
     {
-        return FilterType::NotSupported;
+        return FilterType::Comment;
     }
 
     if filter.starts_with('|') || filter.starts_with("@@|") {

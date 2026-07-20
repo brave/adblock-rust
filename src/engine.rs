@@ -10,7 +10,7 @@ use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRe
 use crate::filters::flatbuffer_generated::fb;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
-use crate::lists::{FilterSet, ParseOptions, ParsedLine, parse_filter};
+use crate::lists::{FilterParseError, FilterSet, ParseOptions, ParsedLine, parse_filter};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
 use crate::resources::{Resource, ResourceStorage, ResourceStorageBackend};
@@ -170,6 +170,9 @@ impl Engine {
                     Ok(ParsedLine::Cosmetic(filter)) => {
                         cosmetic_filter_cache_builder.add_filter(filter, &mut builder);
                         cosmetic_filter_count += 1;
+                    }
+                    Err(FilterParseError::Comment | FilterParseError::Empty) => {
+                        continue;
                     }
                     Err(_) => {
                         parse_error += 1;
