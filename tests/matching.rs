@@ -191,7 +191,14 @@ fn check_rule_matching_browserlike() {
 
     impl From<&TestRequest> for Request {
         fn from(v: &TestRequest) -> Self {
-            Request::new(&v.url, &v.frameUrl, &v.cpt, "").unwrap()
+            let source_origin =
+                if v.frameUrl.starts_with("about:") || v.frameUrl.starts_with("blob:") {
+                    "" // opaque origin
+                } else {
+                    &v.frameUrl
+                };
+
+            Request::new(&v.url, &source_origin, &v.cpt, "").unwrap()
         }
     }
 
