@@ -1141,7 +1141,6 @@ fn write_str_to_hasher(hasher: &mut impl Hasher, s: &str) {
     hasher.write(s.as_bytes());
 }
 
-#[allow(clippy::too_many_arguments)]
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,

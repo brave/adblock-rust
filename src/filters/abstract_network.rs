@@ -38,6 +38,9 @@ pub(crate) enum HttpMethod {
     Post,
 }
 
+/// Parses a pipe-delimited string of domains into a vector of domain entries with negation flags.
+/// Splits the input string by '|', strips '~' prefixes to mark negated domains,
+/// and filters out entries that are regex patterns.
 fn parse_pipe_delimited_domains<'a>(
     value: &'a str,
 ) -> Result<Vec<(bool, &'a str)>, NetworkFilterError> {
