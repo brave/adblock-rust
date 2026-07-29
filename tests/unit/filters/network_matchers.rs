@@ -506,6 +506,56 @@ mod match_tests {
                 request::Request::new("https://foo.com/bar", "http://bar.com", "", "").unwrap();
             assert!(!check_options(&network_filter, &request));
         }
+
+        // $to is parsed but not applied at match time
+        {
+            let network_filter =
+                NetworkFilter::parse("foo$to=foo.com", true, Default::default()).unwrap();
+            assert!(network_filter.has_to_option());
+            let request =
+                request::Request::new("https://foo.com/foo", "https://example.com", "", "")
+                    .unwrap();
+            assert!(!network_filter.matches_test(&request));
+            let request =
+                request::Request::new("https://example.com/foo", "https://foo.com", "", "")
+                    .unwrap();
+            assert!(!network_filter.matches_test(&request));
+        }
+
+        // $from + $to: ignored
+        {
+            let network_filter = NetworkFilter::parse(
+                "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(network_filter.has_to_option());
+            let request = request::Request::new(
+                "https://example.com/script.js",
+                "https://ovagames.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(&request));
+            let request = request::Request::new(
+                "https://facebook.net/script.js",
+                "https://ovagames.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(&request));
+            let request = request::Request::new(
+                "https://example.com/script.js",
+                "https://other.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(&request));
+        }
     }
 
     #[test]
