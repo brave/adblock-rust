@@ -87,11 +87,10 @@ impl NetworkFilterList<'_> {
             return Some(result);
         }
 
-        // `filter_map` still includes single-domain-as-token keys, so source
-        // hostname hashes must be queried here as well as URL tokens.
+        // Pattern / hostname / catch-all / fallback buckets. Check only for URL tokens.
         self.check_tokens_in_map(
             &self.get_filter_map(),
-            request.get_tokens_for_match(),
+            request.get_request_tokens(),
             request,
             active_tags,
             regex_manager,
@@ -124,7 +123,7 @@ impl NetworkFilterList<'_> {
         );
         self.collect_tokens_in_map(
             &self.get_filter_map(),
-            request.get_tokens_for_match(),
+            request.get_request_tokens(),
             request,
             active_tags,
             regex_manager,

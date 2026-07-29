@@ -133,14 +133,7 @@ impl Request {
         self.source_hostname_hashes.as_ref().into_iter().flatten()
     }
 
-    pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        // We start matching with source_hostname_hashes for optimization,
-        // as it contains far fewer elements.
-        self.get_source_hostname_hashes_for_match()
-            .chain(self.get_tokens())
-    }
-
-    pub fn get_tokens(&self) -> &Vec<utils::Hash> {
+    pub fn get_request_tokens(&self) -> &Vec<utils::Hash> {
         &self.request_tokens
     }
 
