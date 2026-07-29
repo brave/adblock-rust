@@ -212,7 +212,6 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
                 }
                 FilterTokens::OptDomains => {
                     for token in &self.tokens_buffer {
-                        self.token_frequencies.record_usage(*token);
                         self.opt_domains_map_builder
                             .insert(to_short_hash(*token), NetworkFilterFlatEntry { filter, id });
                     }
