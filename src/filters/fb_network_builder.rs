@@ -189,15 +189,6 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
         let multi_tokens = network_filter.get_tokens(&mut self.tokens_buffer);
         let id = network_filter.get_id();
 
-        let single_token = if multi_tokens == FilterTokens::Other {
-            Some(
-                self.token_frequencies
-                    .select_least_used_token(self.tokens_buffer.as_slice()),
-            )
-        } else {
-            None
-        };
-
         if !self.optimize
             || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
             || multi_tokens != FilterTokens::Empty
@@ -212,23 +203,25 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
                         .insert(0, NetworkFilterFlatEntry { filter, id });
                 }
                 FilterTokens::Other => {
-                    let token = single_token.expect("Other tokens select a single token");
+                    let token = self
+                        .token_frequencies
+                        .select_least_used_token(self.tokens_buffer.as_slice());
                     self.token_frequencies.record_usage(token);
                     self.filter_map_builder
                         .insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
                 }
                 FilterTokens::OptDomains => {
-                    // Stack-copy hashes so we can mutably borrow the map builder.
-                    let domain_tokens = self.tokens_buffer.clone();
-                    for token in domain_tokens {
-                        self.token_frequencies.record_usage(token);
+                    for token in &self.tokens_buffer {
+                        self.token_frequencies.record_usage(*token);
                         self.opt_domains_map_builder
-                            .insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
+                            .insert(to_short_hash(*token), NetworkFilterFlatEntry { filter, id });
                     }
                 }
             }
         } else {
             // Defer serialization to the optimizer (pattern map only).
+            assert_eq!(multi_tokens, FilterTokens::Empty);
+
             self.token_frequencies.record_usage(0);
             self.filters_to_optimize
                 .entry(0)
