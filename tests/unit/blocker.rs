@@ -1504,20 +1504,20 @@ mod legacy_rule_parsing_tests {
         let blocker = Blocker::from_context(engine.filter_data_context());
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
-        let exception_map_size = |list: crate::network_filter_list::NetworkFilterList<'_>| {
+        let map_size = |list: crate::network_filter_list::NetworkFilterList<'_>| {
             list.get_filter_map().total_size() + list.get_opt_domains_map().total_size()
         };
         assert!(
-            exception_map_size(blocker.exceptions()) + exception_map_size(blocker.generic_hide())
+            map_size(blocker.exceptions()) + map_size(blocker.generic_hide())
                 >= expectation.exceptions,
             "Number of collected exceptions does not match expectation"
         );
 
         assert!(
-            exception_map_size(blocker.filters())
-                + exception_map_size(blocker.importants())
-                + exception_map_size(blocker.redirects())
-                + exception_map_size(blocker.csp())
+            map_size(blocker.filters())
+                + map_size(blocker.importants())
+                + map_size(blocker.redirects())
+                + map_size(blocker.csp())
                 >= expectation.filters - expectation.duplicates,
             "Number of collected network filters does not match expectation"
         );
