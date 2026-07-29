@@ -90,7 +90,7 @@ impl NetworkFilterList<'_> {
         // Pattern / hostname / catch-all / fallback buckets. Check only for URL tokens.
         self.check_tokens_in_map(
             &self.get_filter_map(),
-            request.get_request_tokens(),
+            request.get_tokens_for_match(),
             request,
             active_tags,
             regex_manager,
@@ -123,7 +123,7 @@ impl NetworkFilterList<'_> {
         );
         self.collect_tokens_in_map(
             &self.get_filter_map(),
-            request.get_request_tokens(),
+            request.get_tokens_for_match(),
             request,
             active_tags,
             regex_manager,
