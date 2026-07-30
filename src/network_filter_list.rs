@@ -77,24 +77,37 @@ impl NetworkFilterList<'_> {
             return None;
         }
 
-        if let Some(result) = self.check_tokens_in_map(
+        let mut found = None;
+        self.match_filters(
             &self.get_opt_domains_map(),
             request.get_source_hostname_hashes_for_match(),
             request,
             active_tags,
             regex_manager,
-        ) {
-            return Some(result);
+            |result| {
+                found = Some(result);
+                true
+            },
+        );
+
+        if found.is_some() {
+            return found;
         }
 
         // Pattern / hostname / catch-all / fallback buckets. Check only for URL tokens.
-        self.check_tokens_in_map(
+        self.match_filters(
             &self.get_filter_map(),
             request.get_tokens_for_match(),
             request,
             active_tags,
             regex_manager,
-        )
+            |result| {
+                found = Some(result);
+                true
+            },
+        );
+
+        found
     }
 
     /// Returns _all_ filters that match the given request. This should be used for any category of
@@ -113,21 +126,28 @@ impl NetworkFilterList<'_> {
             return filters;
         }
 
-        self.collect_tokens_in_map(
+        self.match_filters(
             &self.get_opt_domains_map(),
             request.get_source_hostname_hashes_for_match(),
             request,
             active_tags,
             regex_manager,
-            &mut filters,
+            |result| {
+                filters.push(result);
+                false
+            },
         );
-        self.collect_tokens_in_map(
+
+        self.match_filters(
             &self.get_filter_map(),
             request.get_tokens_for_match(),
             request,
             active_tags,
             regex_manager,
-            &mut filters,
+            |result| {
+                filters.push(result);
+                false
+            },
         );
 
         filters
@@ -167,55 +187,5 @@ impl NetworkFilterList<'_> {
             }
         }
         false
-    }
-
-    fn check_tokens_in_map<'a, I>(
-        &self,
-        filter_map: &FlatNetworkFilterMap<'_>,
-        tokens: I,
-        request: &Request,
-        active_tags: &HashSet<String>,
-        regex_manager: &mut RegexManager,
-    ) -> Option<CheckResult>
-    where
-        I: IntoIterator<Item = &'a Hash>,
-    {
-        let mut found = None;
-        self.match_filters(
-            filter_map,
-            tokens,
-            request,
-            active_tags,
-            regex_manager,
-            |result| {
-                found = Some(result);
-                true
-            },
-        );
-        found
-    }
-
-    fn collect_tokens_in_map<'a, I>(
-        &self,
-        filter_map: &FlatNetworkFilterMap<'_>,
-        tokens: I,
-        request: &Request,
-        active_tags: &HashSet<String>,
-        regex_manager: &mut RegexManager,
-        filters: &mut Vec<CheckResult>,
-    ) where
-        I: IntoIterator<Item = &'a Hash>,
-    {
-        self.match_filters(
-            filter_map,
-            tokens,
-            request,
-            active_tags,
-            regex_manager,
-            |result| {
-                filters.push(result);
-                false
-            },
-        );
     }
 }
