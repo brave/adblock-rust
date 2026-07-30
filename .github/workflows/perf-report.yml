@@ -113,7 +113,7 @@ jobs:
           {
             cat /tmp/perf-report/report.md
             echo
-            echo "Flamegraphs: [${ARTIFACT_URL}](${ARTIFACT_URL}) (open while logged into GitHub)."
+            echo "Flamegraphs: [${ARTIFACT_URL}](${ARTIFACT_URL})."
           } > /tmp/perf-report/comment.md
           gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/perf-report/comment.md
 

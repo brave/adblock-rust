@@ -12,7 +12,7 @@ set -eu
 
 BASELINE="$1"
 
-cargo bench --bench bench_matching 'rule-match-browserlike/brave-list$' -- --save-baseline "$BASELINE"
+cargo bench --bench bench_matching 'rule-match-browserlike/brave-list' -- --save-baseline "$BASELINE"
 cargo bench --bench bench_matching rule-match-first-request -- --save-baseline "$BASELINE"
-cargo bench --bench bench_rules 'blocker_new/brave-list$' -- --save-baseline "$BASELINE"
+cargo bench --bench bench_rules 'blocker_new/brave-list' -- --save-baseline "$BASELINE"
 cargo bench --bench bench_cosmetic_matching -- --save-baseline "$BASELINE"

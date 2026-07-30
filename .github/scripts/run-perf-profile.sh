@@ -64,3 +64,4 @@ profile_one() {
 
 profile_one matching bench_matching 'rule-match-browserlike/brave-list$'
 profile_one startup  bench_rules    'blocker_new/brave-list$'
+profile_one cosmetic  bench_cosmetic_matching 'cosmetic-class-id-match/brave-list'

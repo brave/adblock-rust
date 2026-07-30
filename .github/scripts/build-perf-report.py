@@ -90,7 +90,7 @@ def main() -> int:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Performance report</title>
+<title>Detailed performance report</title>
 <style>
   html, body {{ margin: 0; color: #111; font-family: system-ui, sans-serif; }}
   .intro {{ padding: 1.5rem; }}
