@@ -983,13 +983,15 @@ impl<'a> NetworkFilter<'a> {
     pub(crate) fn get_tokens(&self, tokens_buffer: &mut TokensBuffer) -> FilterTokens {
         tokens_buffer.clear();
 
-        // A single positive `$domain=` is the most selective key available.
-        if self.opt_not_domains.is_none()
+        // If there is only one domain and no domain negation, we also use this
+        // domain as a token.
+        if self.opt_domains.is_some()
+            && self.opt_not_domains.is_none()
+            && self.opt_domains.as_ref().map(|d| d.len()) == Some(1)
             && let Some(domains) = self.opt_domains.as_ref()
-            && let [domain] = domains.as_slice()
+            && let Some(domain) = domains.first()
         {
             tokens_buffer.push(*domain);
-            return FilterTokens::OptDomains;
         }
 
         // Get tokens from filter
@@ -1035,7 +1037,8 @@ impl<'a> NetworkFilter<'a> {
 
         // If we got no tokens for the filter/hostname part, then we will dispatch
         // this filter in multiple buckets based on the domains option.
-        if tokens_buffer.is_empty() {
+        if tokens_buffer.is_empty() && self.opt_domains.is_some() && self.opt_not_domains.is_none()
+        {
             if let Some(opt_domains) = self.opt_domains.as_ref()
                 && !opt_domains.is_empty()
             {
