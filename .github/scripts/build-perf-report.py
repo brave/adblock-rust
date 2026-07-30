@@ -108,8 +108,6 @@ def main() -> int:
 ```
 {table}
 ```
-
-Flamegraphs: download `perf-report.html` artifact from [this run]({args.run_url}) and open it in a browser.
 """
     (args.out_dir / "report.md").write_text(report_md, encoding="utf-8")
     print(report_md)

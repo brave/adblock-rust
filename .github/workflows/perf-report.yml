@@ -98,6 +98,7 @@ jobs:
           rm -f /tmp/perf-report/*.svg
 
       - name: Upload perf-report.html
+        id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           path: /tmp/perf-report/perf-report.html
@@ -107,7 +108,14 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/perf-report/report.md
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          {
+            cat /tmp/perf-report/report.md
+            echo
+            echo "Flamegraphs: [${ARTIFACT_URL}](${ARTIFACT_URL}) (open while logged into GitHub)."
+          } > /tmp/perf-report/comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/perf-report/comment.md
 
       - name: Remove perf-report label
         if: always() && github.event_name == 'pull_request'
