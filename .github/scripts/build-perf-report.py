@@ -19,7 +19,10 @@ def extract_svg(path: pathlib.Path) -> str:
     match = SVG_RE.search(text)
     if not match:
         raise SystemExit(f"no <svg> element in {path}")
-    return match.group(0)
+    svg = match.group(0)
+    # Drop fixed size so CSS can fill the viewport.
+    svg = re.sub(r'\s(width|height)="[^"]*"', "", svg, count=2)
+    return svg
 
 
 def main() -> int:
@@ -65,14 +68,17 @@ def main() -> int:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Performance report</title>
 <style>
-  body {{ font-family: system-ui, sans-serif; margin: 1.5rem; color: #111; }}
+  html, body {{ margin: 0; color: #111; font-family: system-ui, sans-serif; }}
+  .intro {{ padding: 1.5rem; }}
   pre {{ background: #f4f4f4; padding: 1rem; overflow: auto; }}
-  section {{ margin: 2rem 0; border-top: 1px solid #ddd; padding-top: 1rem; }}
-  svg {{ max-width: 100%; height: auto; }}
   nav ul {{ columns: 2; }}
+  section {{ border-top: 1px solid #ddd; }}
+  section h2 {{ margin: 0; padding: 0.75rem 1.5rem; background: #f4f4f4; }}
+  section svg {{ display: block; width: 100%; height: 100vh; }}
 </style>
 </head>
 <body>
+<div class="intro">
 <h1>Performance report</h1>
 <p><code>{html.escape(args.base_sha)}</code> (base) →
 <code>{html.escape(args.head_sha)}</code> (head)</p>
@@ -85,6 +91,7 @@ def main() -> int:
 {toc}
 </ul>
 </nav>
+</div>
 {chr(10).join(sections)}
 </body>
 </html>
