@@ -11,7 +11,7 @@ import re
 import subprocess
 import sys
 
-SVG_RE = re.compile(r"<svg\b.*</svg>", re.DOTALL | re.IGNORECASE)
+SVG_RE = re.compile(r"<svg\b.*?</svg>", re.DOTALL | re.IGNORECASE)
 
 
 def extract_svg(path: pathlib.Path) -> str:

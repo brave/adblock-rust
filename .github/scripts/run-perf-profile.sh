@@ -14,7 +14,7 @@
 # Expects RUSTFLAGS / CARGO_PROFILE_*_DEBUG from the caller (perf-report.yml).
 # Requires: perf, inferno, rustfilt.
 
-set -eu
+set -euo pipefail
 
 if [[ "$(uname -s)" != "Linux" ]]; then
     echo "run-perf-profile.sh requires Linux (perf)" >&2
