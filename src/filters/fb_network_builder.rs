@@ -1,6 +1,6 @@
 //! Structures to store network filters to flatbuffer
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use flatbuffers::WIPOffset;
 
@@ -12,7 +12,9 @@ use crate::utils::TokensBuffer;
 
 use crate::filters::network::NetworkFilterMaskHelper;
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapBuilder;
-use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize};
+use crate::flatbuffers::containers::flat_serialize::{
+    FlatBuilder, FlatSerialize, serialize_vec_opt,
+};
 use crate::optimizer;
 use crate::utils::{Hash, ShortHash, to_short_hash};
 
@@ -53,8 +55,8 @@ impl Default for NetworkFilterDebugData {
 struct NetworkFilterListBuilder<'a, 'f> {
     filter_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
     opt_domains_map_builder: FlatMultiMapBuilder<ShortHash, NetworkFilterFlatEntry<'a>>,
+    pending_fallback_filters: Vec<(NetworkFilter<'f>, NetworkFilterDebugData)>,
     token_frequencies: TokenSelector,
-    filters_to_optimize: HashMap<ShortHash, Vec<NetworkFilter<'f>>>,
     tokens_buffer: TokensBuffer,
     optimize: bool,
 }
@@ -173,8 +175,8 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
         Self {
             filter_map_builder: FlatMultiMapBuilder::with_capacity(1024),
             opt_domains_map_builder: FlatMultiMapBuilder::with_capacity(256),
+            pending_fallback_filters: Vec::new(),
             token_frequencies: TokenSelector::new(1024),
-            filters_to_optimize: HashMap::new(),
             tokens_buffer: TokensBuffer::default(),
             optimize,
         }
@@ -189,43 +191,31 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
         let multi_tokens = network_filter.get_tokens(&mut self.tokens_buffer);
         let id = network_filter.get_id();
 
-        if !self.optimize
-            || !optimizer::is_filter_optimizable_by_patterns(&network_filter)
-            || multi_tokens != FilterTokens::Empty
-        {
-            // Serialize now (even if it matches to a bad filter later);
-            // Although store the id for later bad-filter pruning.
-            let filter = FlatSerialize::serialize((network_filter, debug_data), builder);
-            match multi_tokens {
-                FilterTokens::Empty => {
-                    self.token_frequencies.record_usage(0);
-                    self.filter_map_builder
-                        .insert(0, NetworkFilterFlatEntry { filter, id });
-                }
-                FilterTokens::Other => {
-                    let token = self
-                        .token_frequencies
-                        .select_least_used_token(self.tokens_buffer.as_slice());
-                    self.token_frequencies.record_usage(token);
-                    self.filter_map_builder
-                        .insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
-                }
-                FilterTokens::OptDomains => {
-                    for token in &self.tokens_buffer {
-                        self.opt_domains_map_builder
-                            .insert(to_short_hash(*token), NetworkFilterFlatEntry { filter, id });
-                    }
+        if multi_tokens == FilterTokens::Empty {
+            self.pending_fallback_filters
+                .push((network_filter, debug_data));
+            return;
+        }
+
+        // Serialize now (even if it matches to a bad filter later);
+        // Although store the id for later bad-filter pruning.
+        let filter = FlatSerialize::serialize((network_filter, debug_data), builder);
+        match multi_tokens {
+            FilterTokens::Other => {
+                let token = self
+                    .token_frequencies
+                    .select_least_used_token(self.tokens_buffer.as_slice());
+                self.token_frequencies.record_usage(token);
+                self.filter_map_builder
+                    .insert(to_short_hash(token), NetworkFilterFlatEntry { filter, id });
+            }
+            FilterTokens::OptDomains => {
+                for token in &self.tokens_buffer {
+                    self.opt_domains_map_builder
+                        .insert(to_short_hash(*token), NetworkFilterFlatEntry { filter, id });
                 }
             }
-        } else {
-            // Defer serialization to the optimizer (pattern map only).
-            assert_eq!(multi_tokens, FilterTokens::Empty);
-
-            self.token_frequencies.record_usage(0);
-            self.filters_to_optimize
-                .entry(0)
-                .or_default()
-                .push(network_filter.clone());
+            FilterTokens::Empty => unreachable!(),
         }
     }
 }
@@ -326,24 +316,27 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a
         let mut serialized_lists = vec![];
 
         for mut rule_list in value.lists {
-            if !rule_list.filters_to_optimize.is_empty() {
-                // Sort entries for deterministic iteration order.
-                let mut optimizable_entries: Vec<_> =
-                    rule_list.filters_to_optimize.drain().collect();
-                optimizable_entries.sort_unstable_by_key(|(token, _)| *token);
+            rule_list
+                .pending_fallback_filters
+                .retain(|(f, _)| !value.bad_filter_ids.contains(&f.get_id()));
 
-                for (token, mut v) in optimizable_entries {
-                    v.retain(|f| !value.bad_filter_ids.contains(&f.get_id()));
-                    let optimized = optimizer::optimize(v);
-
-                    for filter in optimized {
-                        let id = filter.get_id();
-                        let filter =
-                            FlatSerialize::serialize((filter, Default::default()), builder);
-                        rule_list
-                            .filter_map_builder
-                            .insert(token, NetworkFilterFlatEntry { filter, id });
-                    }
+            let mut fallback_filters = Vec::new();
+            if rule_list.optimize {
+                let filters = rule_list
+                    .pending_fallback_filters
+                    .into_iter()
+                    .map(|(f, _)| f)
+                    .collect();
+                for filter in optimizer::optimize(filters) {
+                    let id = filter.get_id();
+                    let filter = FlatSerialize::serialize((filter, Default::default()), builder);
+                    fallback_filters.push(NetworkFilterFlatEntry { filter, id });
+                }
+            } else {
+                for (filter, debug_data) in rule_list.pending_fallback_filters {
+                    let id = filter.get_id();
+                    let filter = FlatSerialize::serialize((filter, debug_data), builder);
+                    fallback_filters.push(NetworkFilterFlatEntry { filter, id });
                 }
             }
 
@@ -360,6 +353,8 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a
             let flat_opt_domains_map =
                 FlatMultiMapBuilder::finish(rule_list.opt_domains_map_builder, builder);
 
+            let fallback_filters = serialize_vec_opt(fallback_filters, builder);
+
             serialized_lists.push(fb::NetworkFilterList::create(
                 builder.raw_builder(),
                 &fb::NetworkFilterListArgs {
@@ -367,6 +362,7 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>> for NetworkRulesBuilder<'a
                     filter_map_values: Some(flat_filter_map.values),
                     opt_domains_map_index: Some(flat_opt_domains_map.keys),
                     opt_domains_map_values: Some(flat_opt_domains_map.values),
+                    fallback_filters,
                 },
             ));
         }

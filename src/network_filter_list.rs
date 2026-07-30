@@ -58,8 +58,17 @@ impl NetworkFilterList<'_> {
         )
     }
 
+    pub fn fallback_filters_len(&self) -> usize {
+        self.list
+            .fallback_filters()
+            .map(|filters| filters.len())
+            .unwrap_or(0)
+    }
+
     fn is_empty(&self) -> bool {
-        self.list.filter_map_index().is_empty() && self.list.opt_domains_map_index().is_empty()
+        self.list.filter_map_index().is_empty()
+            && self.list.opt_domains_map_index().is_empty()
+            && self.fallback_filters_len() == 0
     }
 
     /// Returns the first found filter, if any, that matches the given request. The backing storage
@@ -94,7 +103,7 @@ impl NetworkFilterList<'_> {
             return found;
         }
 
-        // Pattern / hostname / catch-all / fallback buckets. Check only for URL tokens.
+        // Pattern / hostname token buckets. Check only for URL tokens.
         self.match_filters(
             &self.get_filter_map(),
             request.get_tokens_for_match(),
@@ -106,6 +115,15 @@ impl NetworkFilterList<'_> {
                 true
             },
         );
+
+        if found.is_some() {
+            return found;
+        }
+
+        self.match_fallback_filters(request, active_tags, regex_manager, |result| {
+            found = Some(result);
+            true
+        });
 
         found
     }
@@ -150,6 +168,11 @@ impl NetworkFilterList<'_> {
             },
         );
 
+        self.match_fallback_filters(request, active_tags, regex_manager, |result| {
+            filters.push(result);
+            false
+        });
+
         filters
     }
 
@@ -184,6 +207,36 @@ impl NetworkFilterList<'_> {
                         return true;
                     }
                 }
+            }
+        }
+        false
+    }
+
+    /// Invokes `on_match` for each matching fallback filter. Returns `true` if `on_match` requested
+    /// an early stop by returning `true`.
+    fn match_fallback_filters(
+        &self,
+        request: &Request,
+        active_tags: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+        mut on_match: impl FnMut(CheckResult) -> bool,
+    ) -> bool {
+        let Some(filters) = self.list.fallback_filters() else {
+            return false;
+        };
+
+        for fb_filter in filters.iter() {
+            let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
+
+            if filter.matches(request, regex_manager)
+                && filter.tag().is_none_or(|t| active_tags.contains(t))
+                && on_match(CheckResult {
+                    filter_mask: filter.mask,
+                    modifier_option: filter.modifier_option(),
+                    debug_data: filter.get_rule_debug_info(),
+                })
+            {
+                return true;
             }
         }
         false

@@ -1505,7 +1505,9 @@ mod legacy_rule_parsing_tests {
 
         // Some filters in the filter_map are pointed at by multiple tokens, increasing the total number of items
         let map_size = |list: crate::network_filter_list::NetworkFilterList<'_>| {
-            list.get_filter_map().total_size() + list.get_opt_domains_map().total_size()
+            list.get_filter_map().total_size()
+                + list.get_opt_domains_map().total_size()
+                + list.fallback_filters_len()
         };
         assert!(
             map_size(blocker.exceptions()) + map_size(blocker.generic_hide())

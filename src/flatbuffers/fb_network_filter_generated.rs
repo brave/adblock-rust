@@ -631,6 +631,7 @@ pub mod fb {
         pub const VT_FILTER_MAP_VALUES: ::flatbuffers::VOffsetT = 6;
         pub const VT_OPT_DOMAINS_MAP_INDEX: ::flatbuffers::VOffsetT = 8;
         pub const VT_OPT_DOMAINS_MAP_VALUES: ::flatbuffers::VOffsetT = 10;
+        pub const VT_FALLBACK_FILTERS: ::flatbuffers::VOffsetT = 12;
 
         #[inline]
         pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -647,6 +648,9 @@ pub mod fb {
             args: &'args NetworkFilterListArgs<'args>,
         ) -> ::flatbuffers::WIPOffset<NetworkFilterList<'bldr>> {
             let mut builder = NetworkFilterListBuilder::new(_fbb);
+            if let Some(x) = args.fallback_filters {
+                builder.add_fallback_filters(x);
+            }
             if let Some(x) = args.opt_domains_map_values {
                 builder.add_opt_domains_map_values(x);
             }
@@ -679,11 +683,15 @@ pub mod fb {
                 let x = self.opt_domains_map_values();
                 x.iter().map(|t| t.unpack()).collect()
             };
+            let fallback_filters = self
+                .fallback_filters()
+                .map(|x| x.iter().map(|t| t.unpack()).collect());
             NetworkFilterListT {
                 filter_map_index,
                 filter_map_values,
                 opt_domains_map_index,
                 opt_domains_map_values,
+                fallback_filters,
             }
         }
 
@@ -747,6 +755,20 @@ pub mod fb {
                     .unwrap()
             }
         }
+        #[inline]
+        pub fn fallback_filters(
+            &self,
+        ) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>>
+        {
+            // Safety:
+            // Created from valid Table for this object
+            // which contains a valid value in this slot
+            unsafe {
+                self._tab.get::<::flatbuffers::ForwardsUOffset<
+                    ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                >>(NetworkFilterList::VT_FALLBACK_FILTERS, None)
+            }
+        }
     }
 
     impl ::flatbuffers::Verifiable for NetworkFilterList<'_> {
@@ -776,6 +798,9 @@ pub mod fb {
                     Self::VT_OPT_DOMAINS_MAP_VALUES,
                     true,
                 )?
+                .visit_field::<::flatbuffers::ForwardsUOffset<
+                    ::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NetworkFilter>>,
+                >>("fallback_filters", Self::VT_FALLBACK_FILTERS, false)?
                 .finish();
             Ok(())
         }
@@ -793,6 +818,11 @@ pub mod fb {
                 ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
             >,
         >,
+        pub fallback_filters: Option<
+            ::flatbuffers::WIPOffset<
+                ::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NetworkFilter<'a>>>,
+            >,
+        >,
     }
     impl<'a> Default for NetworkFilterListArgs<'a> {
         #[inline]
@@ -802,6 +832,7 @@ pub mod fb {
                 filter_map_values: None,      // required field
                 opt_domains_map_index: None,  // required field
                 opt_domains_map_values: None, // required field
+                fallback_filters: None,
             }
         }
     }
@@ -856,6 +887,18 @@ pub mod fb {
             );
         }
         #[inline]
+        pub fn add_fallback_filters(
+            &mut self,
+            fallback_filters: ::flatbuffers::WIPOffset<
+                ::flatbuffers::Vector<'b, ::flatbuffers::ForwardsUOffset<NetworkFilter<'b>>>,
+            >,
+        ) {
+            self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
+                NetworkFilterList::VT_FALLBACK_FILTERS,
+                fallback_filters,
+            );
+        }
+        #[inline]
         pub fn new(
             _fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
         ) -> NetworkFilterListBuilder<'a, 'b, A> {
@@ -899,6 +942,7 @@ pub mod fb {
             ds.field("filter_map_values", &self.filter_map_values());
             ds.field("opt_domains_map_index", &self.opt_domains_map_index());
             ds.field("opt_domains_map_values", &self.opt_domains_map_values());
+            ds.field("fallback_filters", &self.fallback_filters());
             ds.finish()
         }
     }
@@ -909,6 +953,7 @@ pub mod fb {
         pub filter_map_values: alloc::vec::Vec<NetworkFilterT>,
         pub opt_domains_map_index: alloc::vec::Vec<u32>,
         pub opt_domains_map_values: alloc::vec::Vec<NetworkFilterT>,
+        pub fallback_filters: Option<alloc::vec::Vec<NetworkFilterT>>,
     }
     impl Default for NetworkFilterListT {
         fn default() -> Self {
@@ -917,6 +962,7 @@ pub mod fb {
                 filter_map_values: Default::default(),
                 opt_domains_map_index: Default::default(),
                 opt_domains_map_values: Default::default(),
+                fallback_filters: None,
             }
         }
     }
@@ -943,6 +989,10 @@ pub mod fb {
                 let w: alloc::vec::Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
                 _fbb.create_vector(&w)
             });
+            let fallback_filters = self.fallback_filters.as_ref().map(|x| {
+                let w: alloc::vec::Vec<_> = x.iter().map(|t| t.pack(_fbb)).collect();
+                _fbb.create_vector(&w)
+            });
             NetworkFilterList::create(
                 _fbb,
                 &NetworkFilterListArgs {
@@ -950,6 +1000,7 @@ pub mod fb {
                     filter_map_values,
                     opt_domains_map_index,
                     opt_domains_map_values,
+                    fallback_filters,
                 },
             )
         }

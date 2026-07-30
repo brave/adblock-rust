@@ -144,7 +144,7 @@ mod tests {
         let tokens = simple_example.get_tokens();
         assert_eq!(
             tokens.as_slice(),
-            tokenize(&["https", "subdomain", "example", "com", "ad"], &[0]).as_slice()
+            tokenize(&["https", "subdomain", "example", "com", "ad"], &[]).as_slice()
         )
     }
 

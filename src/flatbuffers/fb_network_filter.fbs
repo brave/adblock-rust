@@ -47,6 +47,9 @@ table NetworkFilterList {
   /// `$domain=` / `$from=` token buckets.
   opt_domains_map_index: [uint32] (required);
   opt_domains_map_values: [NetworkFilter] (required);
+
+  // Filters that we can't tokenize.
+  fallback_filters: [NetworkFilter];
 }
 
 /// A table to store the most host-specific cosmetic rules.
