@@ -36,7 +36,7 @@ build_diff_flamegraph() {
 
     echo "Building differential flamegraph for ${name}..."
     inferno-diff-folded "$base" "$head" \
-        | inferno-flamegraph --colordiffusion --title "${name} (base -> head)" \
+        | inferno-flamegraph --title "${name} (base -> head)" \
         > "${OUT_DIR}/${name}.diff.svg"
     rm -f "$base" "$head"
 }
