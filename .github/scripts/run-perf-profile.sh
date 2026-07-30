@@ -6,28 +6,23 @@
 #   label:      "base" or "head", used to name the produced files
 #   output-dir: where the .svg / .folded files are written
 #
-# On Linux, also writes demangled `.folded` stacks. Once both `base` and `head`
-# folded files exist for a benchmark, a differential SVG is written too.
-# On other platforms only the SVG from cargo-flamegraph is kept.
+# Linux-only: records with `perf` around `cargo bench` (same binary as
+# run-perf-benchmarks.sh) and writes demangled `.folded` stacks. Once both
+# `base` and `head` folded files exist for a benchmark, a differential SVG is
+# written too.
 #
-# Requires: cargo-flamegraph. On Linux also: perf, inferno, rustfilt.
+# Expects RUSTFLAGS / CARGO_PROFILE_*_DEBUG from the caller (perf-report.yml).
+# Requires: perf, inferno, rustfilt.
 
 set -eu
 
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "run-perf-profile.sh requires Linux (perf)" >&2
+    exit 1
+fi
+
 LABEL="$1"
 OUT_DIR="$(cd "$2" && pwd)"
-IS_LINUX=0
-[[ "$(uname -s)" == "Linux" ]] && IS_LINUX=1
-
-# Frame pointers keep unwinding cheap. `--no-rosegment` is Linux/lld-only
-# (macOS ld rejects it); the same flag is also in .cargo/config.toml for the
-# linux-gnu target, but RUSTFLAGS replaces rather than appends config rustflags.
-RUSTFLAGS="-Cforce-frame-pointers=yes"
-if (( IS_LINUX )); then
-    RUSTFLAGS="$RUSTFLAGS -Clink-arg=-Wl,--no-rosegment"
-fi
-export RUSTFLAGS
-export CARGO_PROFILE_BENCH_DEBUG=true
 
 # `--profile-time` makes criterion run the benchmark for N seconds without its
 # own measurement/analysis machinery, which keeps the profile clean.
@@ -51,25 +46,20 @@ profile_one() {
     local prefix="${OUT_DIR}/${name}.${LABEL}"
 
     echo "Profiling ${name} (${bench} ${filter})..."
-    cargo flamegraph \
-        --bench "$bench" \
-        --output "${prefix}.svg" \
-        -- --bench "$filter" --profile-time "$PROFILE_TIME"
 
-    # On Linux, cargo-flamegraph always leaves `perf.data` in cwd. Rebuild the
-    # SVG from demangled folded stacks so symbols are readable.
-    if (( IS_LINUX )); then
-        # perf's default demangler is C++-oriented and turns Rust names into
-        # the unreadable `_E14bench_function...` form. Keep symbols mangled,
-        # collapse, then demangle with rustfilt (rustc-demangle).
-        perf script -i perf.data --no-demangle \
-            | inferno-collapse-perf \
-            | rustfilt > "${prefix}.folded"
-        inferno-flamegraph --title "${name} (${LABEL})" \
-            < "${prefix}.folded" > "${prefix}.svg"
-        rm -f perf.data
-        build_diff_flamegraph "$name"
-    fi
+    perf record --call-graph fp -o perf.data -- \
+        cargo bench --bench "$bench" -- --bench "$filter" --profile-time "$PROFILE_TIME"
+
+    # perf's default demangler is C++-oriented and turns Rust names into the
+    # unreadable `_E14bench_function...` form. Keep symbols mangled, collapse,
+    # then demangle with rustfilt (rustc-demangle).
+    perf script -i perf.data --no-demangle \
+        | inferno-collapse-perf \
+        | rustfilt > "${prefix}.folded"
+    inferno-flamegraph --title "${name} (${LABEL})" \
+        < "${prefix}.folded" > "${prefix}.svg"
+    rm -f perf.data
+    build_diff_flamegraph "$name"
 }
 
 profile_one matching bench_matching 'rule-match-browserlike/brave-list'

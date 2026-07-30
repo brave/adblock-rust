@@ -4,6 +4,9 @@
 # so that two revisions can be compared with `critcmp`.
 #
 # Usage: ./.github/scripts/run-perf-benchmarks.sh <baseline-name>
+#
+# Expects RUSTFLAGS / CARGO_PROFILE_*_DEBUG from the caller (perf-report.yml)
+# so benchmarks and profiles share the same build fingerprint.
 
 set -eu
 

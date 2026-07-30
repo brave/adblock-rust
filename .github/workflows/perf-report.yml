@@ -24,6 +24,16 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'perf-report'
     runs-on: ubuntu-latest-4-cores-public
 
+    env:
+      # --no-rosegment: required for accurate perf stacks with lld (Rust >= 1.90).
+      # force-frame-pointers: cheap unwinding for `perf record --call-graph fp`.
+      # See: https://github.com/flamegraph-rs/flamegraph/blob/main/README.md
+      RUSTFLAGS: "-Cforce-frame-pointers=yes -Clink-arg=-Wl,--no-rosegment"
+      # Keep release and bench equivalent (bench inherits release) and leave
+      # symbols in both so perf can resolve stacks.
+      CARGO_PROFILE_RELEASE_DEBUG: "true"
+      CARGO_PROFILE_BENCH_DEBUG: "true"
+
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -47,9 +57,8 @@ jobs:
           sudo sysctl -w kernel.perf_event_paranoid=0
           sudo sysctl -w kernel.kptr_restrict=0
 
-      - name: Install cargo-flamegraph and profiling tools
-        run: |
-          cargo install --locked flamegraph inferno critcmp rustfilt
+      - name: Install profiling tools
+        run: cargo install --locked inferno critcmp rustfilt
 
       - name: Determine merge base
         id: base
