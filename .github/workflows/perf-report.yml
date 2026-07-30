@@ -1,0 +1,109 @@
+# On-demand performance report for a PR.
+#
+# Compares the PR head against its merge base and produces:
+# * a benchmark table with the before/after diff (posted as a PR comment)
+# * clickable flamegraphs for both revisions
+# * a differential flamegraph of the CPU profile
+#
+# Trigger it by adding the `perf-report` label to a PR, or manually from the
+# Actions tab.
+name: Performance report
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  report:
+    name: Performance report
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'perf-report'
+    runs-on: ubuntu-latest-4-cores-public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Install perf and profiling tools
+        run: |
+          # No runner image ships `perf`, so it has to be installed here.
+          sudo apt-get update
+          sudo apt-get install -y linux-tools-common linux-tools-generic
+          # /usr/bin/perf is a wrapper that looks for tools matching the running
+          # kernel, which the runner does not have packages for. Use the binary
+          # from linux-tools-generic directly instead.
+          sudo ln -sf "$(ls -d /usr/lib/linux-tools/*/perf | tail -1)" /usr/local/bin/perf
+          perf --version
+
+      - name: Disable kernel perf event paranoid mode
+        run: |
+          sudo sysctl -w kernel.perf_event_paranoid=0
+
+      - name: Install cargo-flamegraph and profiling tools
+        run: |
+          cargo install --locked flamegraph inferno critcmp rustfilt
+
+      - name: Determine merge base
+        id: base
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref || 'master' }}"
+          git fetch --no-tags origin "$BASE_REF"
+          echo "sha=$(git merge-base FETCH_HEAD HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare
+        run: |
+          mkdir -p /tmp/perf-report
+          # The scripts are used for both revisions, so keep a copy outside the
+          # working tree that `git checkout` will not touch.
+          cp -r .github/scripts /tmp/perf-scripts
+
+      - name: Benchmark and profile the merge base
+        run: |
+          git checkout --detach ${{ steps.base.outputs.sha }}
+          /tmp/perf-scripts/run-perf-benchmarks.sh base
+          /tmp/perf-scripts/run-perf-profile.sh base /tmp/perf-report
+
+      - name: Benchmark and profile the PR head
+        run: |
+          git checkout --detach ${{ github.event.pull_request.head.sha || github.sha }}
+          /tmp/perf-scripts/run-perf-benchmarks.sh head
+          /tmp/perf-scripts/run-perf-profile.sh head /tmp/perf-report
+
+      - name: Build the report
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "## Performance report"
+            echo
+            echo "\`${BASE_SHA}\` (base) → \`${HEAD_SHA}\` (head)"
+            echo
+            echo '```'
+            critcmp base head
+            echo '```'
+            echo
+            echo "Flamegraphs are attached as the \`perf-report\` artifact of [this run](${RUN_URL}):"
+            echo "\`matching\` / \`startup\`, each with a \`base\`, a \`head\` and a differential SVG."
+            echo "Download and open them in a browser to zoom and search."
+          } | tee /tmp/perf-report/report.md
+
+      - name: Upload flamegraphs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: perf-report
+          path: /tmp/perf-report
+
+      - name: Comment on the PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/perf-report/report.md

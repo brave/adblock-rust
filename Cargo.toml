@@ -100,6 +100,11 @@ content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
 resource-assembler = []
 
+# Keep debug symbols in optimized builds so that `perf` can resolve
+# benchmark stacks. This does not affect codegen.
+[profile.bench]
+debug = true
+
 [lints.clippy]
 len_zero = "allow"
 uninlined_format_args = "warn"
