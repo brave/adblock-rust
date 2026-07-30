@@ -48,7 +48,7 @@ profile_one() {
     echo "Profiling ${name} (${bench} ${filter})..."
 
     perf record --call-graph fp -o perf.data -- \
-        cargo bench --bench "$bench" -- --bench "$filter" --profile-time "$PROFILE_TIME"
+        cargo bench --bench "$bench" "$filter" -- --profile-time "$PROFILE_TIME"
 
     # perf's default demangler is C++-oriented and turns Rust names into the
     # unreadable `_E14bench_function...` form. Keep symbols mangled, collapse,
