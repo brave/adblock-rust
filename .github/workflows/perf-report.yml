@@ -119,7 +119,7 @@ jobs:
         run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/perf-report/report.md
 
       - name: Remove perf-report label
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr edit ${{ github.event.pull_request.number }} --remove-label perf-report
