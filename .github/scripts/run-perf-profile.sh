@@ -62,5 +62,5 @@ profile_one() {
     build_diff_flamegraph "$name"
 }
 
-profile_one matching bench_matching 'rule-match-browserlike/brave-list'
-profile_one startup  bench_rules    'blocker_new/brave-list'
+profile_one matching bench_matching 'rule-match-browserlike/brave-list$'
+profile_one startup  bench_rules    'blocker_new/brave-list$'
