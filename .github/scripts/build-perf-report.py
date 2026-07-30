@@ -20,9 +20,33 @@ def extract_svg(path: pathlib.Path) -> str:
     if not match:
         raise SystemExit(f"no <svg> element in {path}")
     svg = match.group(0)
-    # Drop fixed size so CSS can fill the viewport.
+    # Drop fixed size so the SVG fills its iframe; inferno's fluiddrawing
+    # mode picks up the viewport via clientWidth/clientHeight.
     svg = re.sub(r'\s(width|height)="[^"]*"', "", svg, count=2)
+    if "style=" not in svg[:80]:
+        svg = svg.replace("<svg", '<svg style="width:100%;height:100%"', 1)
     return svg
+
+
+def svg_iframe(path: pathlib.Path) -> str:
+    """Embed the SVG in an iframe so its scripts run in an isolated document.
+
+    Inlining several flamegraphs into one page breaks search/zoom: they all
+    share ids like #search and document.getElementsByTagName('svg')[0].
+    """
+    inner = (
+        "<!DOCTYPE html><html><head><meta charset=utf-8></head>"
+        '<body style="margin:0;height:100vh">'
+        f"{extract_svg(path)}"
+        "</body></html>"
+    )
+    # srcdoc is an HTML attribute value.
+    escaped = html.escape(inner, quote=True)
+    title = html.escape(path.name)
+    return (
+        f'<iframe title="{title}" srcdoc="{escaped}" '
+        f'loading="lazy" style="width:100%;height:100vh;border:0;display:block"></iframe>'
+    )
 
 
 def main() -> int:
@@ -52,7 +76,7 @@ def main() -> int:
         sections.append(
             f'<section id="{html.escape(path.stem)}">\n'
             f"<h2>{html.escape(path.name)}</h2>\n"
-            f"{extract_svg(path)}\n"
+            f"{svg_iframe(path)}\n"
             f"</section>"
         )
 
@@ -74,7 +98,6 @@ def main() -> int:
   nav ul {{ columns: 2; }}
   section {{ border-top: 1px solid #ddd; }}
   section h2 {{ margin: 0; padding: 0.75rem 1.5rem; background: #f4f4f4; }}
-  section svg {{ display: block; width: 100%; height: 100vh; }}
 </style>
 </head>
 <body>
