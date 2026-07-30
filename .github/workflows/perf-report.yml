@@ -87,30 +87,21 @@ jobs:
           /tmp/perf-scripts/run-perf-profile.sh head /tmp/perf-report
 
       - name: Build the report
-        env:
-          BASE_SHA: ${{ steps.base.outputs.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          {
-            echo "## Performance report"
-            echo
-            echo "\`${BASE_SHA}\` (base) → \`${HEAD_SHA}\` (head)"
-            echo
-            echo '```'
-            critcmp base head
-            echo '```'
-            echo
-            echo "Flamegraphs are attached as the \`perf-report\` artifact of [this run](${RUN_URL}):"
-            echo "\`matching\` / \`startup\`, each with a \`base\`, a \`head\` and a differential SVG."
-            echo "Download and open them in a browser to zoom and search."
-          } | tee /tmp/perf-report/report.md
+          /tmp/perf-scripts/build-perf-report.py \
+            --out-dir /tmp/perf-report \
+            --repo-dir "$GITHUB_WORKSPACE" \
+            --base-sha "${{ steps.base.outputs.sha }}" \
+            --head-sha "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Drop individual SVGs; the HTML embeds them.
+          rm -f /tmp/perf-report/*.svg
 
-      - name: Upload flamegraphs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Upload perf-report.html
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: perf-report
-          path: /tmp/perf-report
+          path: /tmp/perf-report/perf-report.html
+          archive: false
 
       - name: Comment on the PR
         if: github.event_name == 'pull_request'
