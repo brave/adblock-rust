@@ -42,9 +42,10 @@ jobs:
           sudo ln -sf "$(ls -d /usr/lib/linux-tools/*/perf | tail -1)" /usr/local/bin/perf
           perf --version
 
-      - name: Disable kernel perf event paranoid mode
+      - name: Disable kernel perf event restrictions
         run: |
           sudo sysctl -w kernel.perf_event_paranoid=0
+          sudo sysctl -w kernel.kptr_restrict=0
 
       - name: Install cargo-flamegraph and profiling tools
         run: |
