@@ -1006,6 +1006,12 @@ impl<'a> NetworkFilter<'a> {
                     tokens_buffer,
                 );
             }
+            // A complete regex (`/…/`) can still contain literals that every
+            // matching URL must contain; extract the provable ones instead of
+            // falling back to the catch-all bucket.
+            FilterPart::Simple(f) => {
+                utils::tokenize_complete_regex_to(f.as_ref(), tokens_buffer);
+            }
             FilterPart::AnyOf(_) => (), // across AnyOf set of filters no single token is guaranteed to match to a request
             _ => (),
         }

@@ -1477,4 +1477,173 @@ mod parse_tests {
             );
         }
     }
+
+    #[test]
+    #[ignore]
+    fn zzz_diagnose_empty_tokens() {
+        let mut buf = utils::TokensBuffer::default();
+        let mut total = 0usize;
+        let mut total_complete_regex = 0usize;
+        let mut empty_complete_regex = 0usize;
+        let mut empty_regex = 0usize;
+        let mut empty_plain = 0usize;
+        let mut samples: Vec<String> = vec![];
+
+        for path in [
+            "data/brave/brave-main-list.txt",
+            "data/easylist.to/easylist/easylist.txt",
+            "data/easylist.to/easylistgermany/easylistgermany.txt",
+        ] {
+            let Ok(content) = std::fs::read_to_string(path) else {
+                println!("skipping missing {path}");
+                continue;
+            };
+            for line in content.lines() {
+                let line = line.trim();
+                let Ok(f) = NetworkFilter::parse(line, true, ParseOptions::default()) else {
+                    continue;
+                };
+                total += 1;
+                if f.is_complete_regex() {
+                    total_complete_regex += 1;
+                }
+                if f.get_tokens(&mut buf) == FilterTokens::Empty {
+                    if f.is_complete_regex() {
+                        empty_complete_regex += 1;
+                        if samples.len() < 40 {
+                            samples.push(line.to_string());
+                        }
+                    } else if f.is_regex() {
+                        empty_regex += 1;
+                    } else {
+                        empty_plain += 1;
+                    }
+                }
+            }
+        }
+
+        println!("total_filters={total} total_complete_regex={total_complete_regex}");
+        println!(
+            "EMPTY-token filters (catch-all bucket 0): complete_regex={empty_complete_regex} regex={empty_regex} plain={empty_plain}"
+        );
+        for s in &samples {
+            println!("  {s}");
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn zzz_diagnose_regex_token_soundness() {
+        use crate::filters::network_matchers::check_pattern;
+        use crate::regex_manager::RegexManager;
+
+        let list = std::fs::read_to_string("data/brave/brave-main-list.txt").unwrap();
+        let mut buf = utils::TokensBuffer::default();
+        let mut filters = vec![];
+        for line in list.lines() {
+            let Ok(f) = NetworkFilter::parse(line.trim(), true, ParseOptions::default()) else {
+                continue;
+            };
+            if !f.is_complete_regex() {
+                continue;
+            }
+            let kind = f.get_tokens(&mut buf);
+            let tokens: Vec<utils::Hash> = buf.iter().copied().collect();
+            filters.push((line.trim().to_string(), f, kind, tokens));
+        }
+        println!("complete-regex filters: {}", filters.len());
+
+        let requests_raw = std::fs::read_to_string("data/requests.json").unwrap();
+        let mut regex_manager = RegexManager::default();
+        let mut checked = 0usize;
+        let mut matches = 0usize;
+        let mut violations = 0usize;
+
+        for (line_no, line) in requests_raw.lines().enumerate().take(200_000) {
+            let Ok(parsed) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            let (Some(url), Some(frame_url), Some(cpt)) = (
+                parsed["url"].as_str(),
+                parsed["frameUrl"].as_str(),
+                parsed["cpt"].as_str(),
+            ) else {
+                continue;
+            };
+            let Ok(request) = crate::request::Request::new(url, frame_url, cpt, "") else {
+                continue;
+            };
+            let request_tokens: std::collections::HashSet<utils::Hash> =
+                request.get_tokens().iter().copied().collect();
+
+            for (key, (raw, filter, kind, tokens)) in filters.iter().enumerate() {
+                checked += 1;
+                let pattern_matches = check_pattern(
+                    filter.mask,
+                    std::iter::once(filter.filter.string_view().unwrap().as_str()),
+                    filter.hostname.as_deref(),
+                    key as u64,
+                    &request,
+                    &mut regex_manager,
+                );
+                if !pattern_matches {
+                    continue;
+                }
+                // `Empty` lands in the always-visited catch-all bucket, and
+                // `OptDomains` is looked up through a separate source-hostname map
+                // (and gated by a `$domain=` check this loop deliberately skips).
+                // `Other` is the URL-token map that regex literal extraction feeds.
+                if *kind != FilterTokens::Other {
+                    continue;
+                }
+                matches += 1;
+                if !tokens.iter().any(|t| request_tokens.contains(t)) {
+                    violations += 1;
+                    if violations <= 20 {
+                        println!(
+                            "VIOLATION {kind:?} request={url}\n  rule={raw}\n  tokens={tokens:x?}"
+                        );
+                    }
+                }
+            }
+            if line_no % 50_000 == 0 {
+                println!("...{line_no} requests, {matches} pattern matches");
+            }
+        }
+
+        println!("checked={checked} pattern_matches={matches} violations={violations}");
+        assert_eq!(violations, 0, "extracted regex tokens must never be absent");
+    }
+
+    #[test]
+    #[ignore]
+    fn zzz_diagnose_extracted_regex_tokens() {
+        let mut buf = utils::TokensBuffer::default();
+        for path in [
+            "data/brave/brave-main-list.txt",
+            "data/easylist.to/easylist/easylist.txt",
+        ] {
+            let Ok(content) = std::fs::read_to_string(path) else {
+                continue;
+            };
+            for line in content.lines() {
+                let Ok(f) = NetworkFilter::parse(line.trim(), true, ParseOptions::default()) else {
+                    continue;
+                };
+                if !f.is_complete_regex() {
+                    continue;
+                }
+                let kind = f.get_tokens(&mut buf);
+                let literals = utils::complete_regex_literals(
+                    &f.filter.string_view().unwrap_or_default(),
+                );
+                println!(
+                    "{kind:?} n={} literals={:?} {}",
+                    buf.len(),
+                    literals,
+                    line.trim().chars().take(110).collect::<String>()
+                );
+            }
+        }
+    }
 }
