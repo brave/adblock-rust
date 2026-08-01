@@ -1,27 +1,30 @@
 # On-demand performance report for a PR.
 #
 # Compares the PR head against its merge base and produces:
-# * a benchmark table with the before/after diff (posted as a PR comment)
+# * a benchmark table with the before/after diff
 # * clickable flamegraphs for both revisions
 # * a differential flamegraph of the CPU profile
 #
-# Trigger it by adding the `perf-report` label to a PR, or manually from the
-# Actions tab.
+# Runs when the `perf-report` label is added, on later pushes while that label
+# is still present.
 name: Performance report
 
 on:
   pull_request:
-    types: [labeled]
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   report:
     name: Performance report
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'perf-report'
+    # Label must already be on the PR for push/open/reopen; `labeled` also
+    # matches once `perf-report` is among the labels.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'perf-report')
     runs-on: ubuntu-latest-4-cores-public
 
     env:
@@ -39,6 +42,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Install perf and profiling tools
@@ -98,27 +102,7 @@ jobs:
           rm -f /tmp/perf-report/*.svg
 
       - name: Upload perf-report.html
-        id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           path: /tmp/perf-report/perf-report.html
           archive: false
-
-      - name: Comment on the PR
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
-        run: |
-          {
-            cat /tmp/perf-report/report.md
-            echo
-            echo "Flamegraphs: [${ARTIFACT_URL}](${ARTIFACT_URL})."
-          } > /tmp/perf-report/comment.md
-          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/perf-report/comment.md
-
-      - name: Remove perf-report label
-        if: always() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label perf-report

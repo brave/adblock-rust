@@ -44,7 +44,7 @@ def svg_iframe(path: pathlib.Path) -> str:
     escaped = html.escape(inner, quote=True)
     title = html.escape(path.name)
     return (
-        f'<iframe title="{title}" srcdoc="{escaped}" '
+        f'<iframe title="{title}" srcdoc="{escaped}" sandbox="allow-scripts" '
         f'loading="lazy" style="width:100%;height:100vh;border:0;display:block"></iframe>'
     )
 
