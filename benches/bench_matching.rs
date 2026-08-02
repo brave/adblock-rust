@@ -26,7 +26,7 @@ impl From<&TestRequest> for Request {
             &v.frameUrl
         };
 
-        Request::new(&v.url, &source_origin, &v.cpt, "").unwrap()
+        Request::new(&v.url, source_origin, &v.cpt, "").unwrap()
     }
 }
 
