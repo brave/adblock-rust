@@ -333,6 +333,7 @@ pub enum FilterPart<'a> {
 pub(crate) enum FilterTokens {
     Empty,
     OptDomains,
+    OptToDomains,
     Other,
 }
 
@@ -974,6 +975,8 @@ impl<'a> NetworkFilter<'a> {
             self.hostname.as_deref(),
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
+            self.opt_to_domains.as_ref(),
+            self.opt_to_not_domains.as_ref(),
         )
     }
 
@@ -990,6 +993,15 @@ impl<'a> NetworkFilter<'a> {
         {
             tokens_buffer.push(*domain);
             return FilterTokens::OptDomains;
+        }
+
+        // A single positive `$to=` is the next most selective key.
+        if self.opt_to_not_domains.is_none()
+            && let Some(domains) = self.opt_to_domains.as_ref()
+            && let [domain] = domains.as_slice()
+        {
+            tokens_buffer.push(*domain);
+            return FilterTokens::OptToDomains;
         }
 
         // Get tokens from filter
@@ -1046,6 +1058,14 @@ impl<'a> NetworkFilter<'a> {
                 }
                 // Too many domains to bucket individually; fall back to the catch-all
                 // bucket (token 0).
+            } else if let Some(opt_to_domains) = self.opt_to_domains.as_ref()
+                && !opt_to_domains.is_empty()
+            {
+                let cap = tokens_buffer.remaining_capacity();
+                if opt_to_domains.len() <= cap {
+                    tokens_buffer.extend(opt_to_domains.iter().copied());
+                    return FilterTokens::OptToDomains;
+                }
             }
             FilterTokens::Empty
         } else {
@@ -1138,6 +1158,7 @@ fn write_str_to_hasher(hasher: &mut impl Hasher, s: &str) {
     hasher.write(s.as_bytes());
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compute_filter_id(
     modifier_option: Option<&str>,
     mask: NetworkFilterMask,
@@ -1146,6 +1167,8 @@ fn compute_filter_id(
     hostname: Option<&str>,
     opt_domains: Option<&Vec<Hash>>,
     opt_not_domains: Option<&Vec<Hash>>,
+    opt_to_domains: Option<&Vec<Hash>>,
+    opt_to_not_domains: Option<&Vec<Hash>>,
 ) -> Hash {
     let mut hasher = FxHasher::default();
 
@@ -1166,6 +1189,18 @@ fn compute_filter_id(
     }
 
     if let Some(domains) = opt_not_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_domains {
+        for d in domains {
+            hasher.write_u64(*d);
+        }
+    }
+
+    if let Some(domains) = opt_to_not_domains {
         for d in domains {
             hasher.write_u64(*d);
         }
