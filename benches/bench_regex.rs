@@ -1,6 +1,6 @@
 use criterion::*;
 
-use regex::{Regex, RegexSet, bytes::Regex as BytesRegex};
+use regex::{Regex, bytes::Regex as BytesRegex};
 
 fn bench_simple_regexes(c: &mut Criterion) {
     let mut group = c.benchmark_group("regex");
@@ -49,29 +49,10 @@ fn bench_joined_bytes_regex(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_regex_set(c: &mut Criterion) {
-    let mut group = c.benchmark_group("regex");
-
-    let pattern = "?/static/adv/foobar/asd?q=1";
-
-    let set = RegexSet::new([
-        r"(?:[^\\w\\d\\._%-])/static/ad-",
-        r"(?:[^\\w\\d\\._%-])/static/ad/.*",
-        r"(?:[^\\w\\d\\._%-])/static/ads/.*",
-        r"(?:[^\\w\\d\\._%-])/static/adv/.*",
-    ])
-    .unwrap();
-
-    group.bench_function("set", move |b| b.iter(|| set.is_match(pattern)));
-
-    group.finish();
-}
-
 criterion_group!(
     benches,
     bench_simple_regexes,
     bench_joined_regex,
-    bench_joined_bytes_regex,
-    bench_regex_set
+    bench_joined_bytes_regex
 );
 criterion_main!(benches);

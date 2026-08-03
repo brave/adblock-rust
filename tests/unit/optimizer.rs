@@ -6,7 +6,7 @@ mod optimization_tests_pattern_group {
         use crate::lists;
         use crate::regex_manager::CompiledRegex;
         use crate::request::Request;
-        use regex::bytes::RegexSetBuilder as BytesRegexSetBuilder;
+        use regex::bytes::RegexBuilder as BytesRegexBuilder;
 
         fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
             let is_match = regex.is_match(pattern);
@@ -33,19 +33,16 @@ mod optimization_tests_pattern_group {
         }
 
         #[test]
-        fn regex_set_works() {
-            let regex_set = BytesRegexSetBuilder::new([
-                r"/static/ad\.",
-                "/static/ad-",
-                "/static/ad/.*",
-                "/static/ads/.*",
-                "/static/adv/.*",
-            ])
+        fn combined_regex_works() {
+            let regex = BytesRegexBuilder::new(
+                r"(?:/static/ad\.|/static/ad-|/static/ad/.*|/static/ads/.*|/static/adv/.*)",
+            )
             .unicode(false)
-            .build();
+            .build()
+            .unwrap();
 
-            let fused_regex = CompiledRegex::CompiledSet(regex_set.unwrap());
-            assert!(matches!(fused_regex, CompiledRegex::CompiledSet(_)));
+            let fused_regex = CompiledRegex::Compiled(regex);
+            assert!(matches!(fused_regex, CompiledRegex::Compiled(_)));
             check_regex_match(&fused_regex, "/static/ad.", true);
             check_regex_match(&fused_regex, "/static/ad-", true);
             check_regex_match(&fused_regex, "/static/ads-", false);
@@ -287,7 +284,7 @@ mod optimization_tests_pattern_group {
     use crate::lists;
     use crate::regex_manager::CompiledRegex;
     use crate::request::Request;
-    use regex::bytes::RegexSetBuilder as BytesRegexSetBuilder;
+    use regex::bytes::RegexBuilder as BytesRegexBuilder;
 
     fn check_regex_match(regex: &CompiledRegex, pattern: &str, matches: bool) {
         let is_match = regex.is_match(pattern);
@@ -314,19 +311,16 @@ mod optimization_tests_pattern_group {
     }
 
     #[test]
-    fn regex_set_works() {
-        let regex_set = BytesRegexSetBuilder::new([
-            r"/static/ad\.",
-            "/static/ad-",
-            "/static/ad/.*",
-            "/static/ads/.*",
-            "/static/adv/.*",
-        ])
+    fn combined_regex_works() {
+        let regex = BytesRegexBuilder::new(
+            r"(?:/static/ad\.|/static/ad-|/static/ad/.*|/static/ads/.*|/static/adv/.*)",
+        )
         .unicode(false)
-        .build();
+        .build()
+        .unwrap();
 
-        let fused_regex = CompiledRegex::CompiledSet(regex_set.unwrap());
-        assert!(matches!(fused_regex, CompiledRegex::CompiledSet(_)));
+        let fused_regex = CompiledRegex::Compiled(regex);
+        assert!(matches!(fused_regex, CompiledRegex::Compiled(_)));
         check_regex_match(&fused_regex, "/static/ad.", true);
         check_regex_match(&fused_regex, "/static/ad-", true);
         check_regex_match(&fused_regex, "/static/ads-", false);
