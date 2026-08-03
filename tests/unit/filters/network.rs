@@ -1387,6 +1387,58 @@ mod parse_tests {
     }
 
     #[test]
+    fn test_to_option_tokenization() {
+        {
+            let filter = NetworkFilter::parse("*$to=foo.com", true, Default::default()).unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptToDomains
+            );
+            assert_eq!(tokens_buffer.as_slice(), &[utils::fast_hash("foo.com")]);
+        }
+        {
+            // Single positive `$domain=` takes priority over `$to=`
+            let filter = NetworkFilter::parse(
+                "||ads.com$domain=bar.com,to=foo.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptDomains
+            );
+            assert_eq!(tokens_buffer.as_slice(), &[utils::fast_hash("bar.com")]);
+        }
+        {
+            // Pattern tokens empty after skip → bucket by all positive `$to=` domains
+            let filter =
+                NetworkFilter::parse("foo$to=bar.com|baz.com", true, Default::default()).unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptToDomains
+            );
+            let mut expected = [utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            expected.sort_unstable();
+            assert_eq!(tokens_buffer.as_slice(), &expected);
+        }
+        {
+            // URL pattern tokens take precedence over multi `$to=`
+            let filter = NetworkFilter::parse(
+                "||ads.example/path$to=bar.com|baz.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
+        }
+    }
+
+    #[test]
     fn handles_method_options() {
         const CASES: &[(&str, bool, bool, bool)] = &[
             ("||foo$method=post", false, false, true),
