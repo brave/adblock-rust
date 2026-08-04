@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785403313338,
+  "lastUpdate": 1785831930632,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -12455,6 +12455,96 @@ window.BENCHMARK_DATA = {
             "name": "cosmetic-class-id-match/brave-list",
             "value": 3240078,
             "range": "± 845876",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1aa280e7a85b632a531fcf311d82e697fc1726f0",
+          "message": "Introduce perf-report.yml (#712)\n\nThe PR introduces a new optional CI build to generate a detailed perf report. \n* It runs tests before/after and save the results as an artifact;\n* uses linux perf + inferno to produce a flamegraph;\n* also provides differential flamegraphs;\n* uses `rustfilt` to propery demangle flamegraphs;\n* Run the build only if you add `perf-report` label .",
+          "timestamp": "2026-08-04T12:21:01+04:00",
+          "tree_id": "7040d2279d304ed13b6af947b61a9bd5b50def1c",
+          "url": "https://github.com/brave/adblock-rust/commit/1aa280e7a85b632a531fcf311d82e697fc1726f0"
+        },
+        "date": 1785831929577,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 2015539804,
+            "range": "± 5714298",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1390727,
+            "range": "± 10519",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 110250613,
+            "range": "± 192940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 30112355,
+            "range": "± 105763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage-final/brave-list-initial",
+            "value": 9561338,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-final/brave-list-1000-requests",
+            "value": 3183886,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-max/brave-list-initial/max",
+            "value": 32070026,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
+            "value": 284089,
+            "range": "± 0",
+            "unit": "allocs/iter"
+          },
+          {
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
+            "value": 80628,
+            "range": "± 0",
+            "unit": "allocs/iter"
+          },
+          {
+            "name": "url_cosmetic_resources/brave-list",
+            "value": 184701,
+            "range": "± 1096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosmetic-class-id-match/brave-list",
+            "value": 3236255,
+            "range": "± 847078",
             "unit": "ns/iter"
           }
         ]
