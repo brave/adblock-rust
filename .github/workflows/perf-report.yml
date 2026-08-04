@@ -1,0 +1,108 @@
+# On-demand performance report for a PR.
+#
+# Compares the PR head against its merge base and produces:
+# * a benchmark table with the before/after diff
+# * clickable flamegraphs for both revisions
+# * a differential flamegraph of the CPU profile
+#
+# Runs when the `perf-report` label is added, on later pushes while that label
+# is still present.
+name: Performance report
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Performance report
+    # Label must already be on the PR for push/open/reopen; `labeled` also
+    # matches once `perf-report` is among the labels.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'perf-report')
+    runs-on: ubuntu-latest-4-cores-public
+
+    env:
+      # --no-rosegment: required for accurate perf stacks with lld (Rust >= 1.90).
+      # force-frame-pointers: cheap unwinding for `perf record --call-graph fp`.
+      # See: https://github.com/flamegraph-rs/flamegraph/blob/main/README.md
+      RUSTFLAGS: "-Cforce-frame-pointers=yes -Clink-arg=-Wl,--no-rosegment"
+      # Keep release and bench equivalent (bench inherits release) and leave
+      # symbols in both so perf can resolve stacks.
+      CARGO_PROFILE_RELEASE_DEBUG: "true"
+      CARGO_PROFILE_BENCH_DEBUG: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Install perf and profiling tools
+        run: |
+          # No runner image ships `perf`, so it has to be installed here.
+          sudo apt-get update
+          sudo apt-get install -y linux-tools-common linux-tools-generic
+          # /usr/bin/perf is a wrapper that looks for tools matching the running
+          # kernel, which the runner does not have packages for. Use the binary
+          # from linux-tools-generic directly instead.
+          sudo ln -sf "$(ls -d /usr/lib/linux-tools/*/perf | tail -1)" /usr/local/bin/perf
+          perf --version
+
+      - name: Disable kernel perf event restrictions
+        run: |
+          sudo sysctl -w kernel.perf_event_paranoid=0
+          sudo sysctl -w kernel.kptr_restrict=0
+
+      - name: Install profiling tools
+        run: cargo install --locked inferno critcmp rustfilt
+
+      - name: Determine merge base
+        id: base
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}"
+          git fetch --no-tags origin "$BASE_REF"
+          echo "sha=$(git merge-base FETCH_HEAD HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare
+        run: |
+          mkdir -p /tmp/perf-report
+          # The scripts are used for both revisions, so keep a copy outside the
+          # working tree that `git checkout` will not touch.
+          cp -r .github/scripts /tmp/perf-scripts
+
+      - name: Benchmark and profile the merge base
+        run: |
+          git checkout --detach ${{ steps.base.outputs.sha }}
+          /tmp/perf-scripts/run-perf-benchmarks.sh base
+          /tmp/perf-scripts/run-perf-profile.sh base /tmp/perf-report
+
+      - name: Benchmark and profile the PR head
+        run: |
+          git checkout --detach ${{ github.event.pull_request.head.sha || github.sha }}
+          /tmp/perf-scripts/run-perf-benchmarks.sh head
+          /tmp/perf-scripts/run-perf-profile.sh head /tmp/perf-report
+
+      - name: Build the report
+        run: |
+          /tmp/perf-scripts/build-perf-report.py \
+            --out-dir /tmp/perf-report \
+            --repo-dir "$GITHUB_WORKSPACE" \
+            --base-sha "${{ steps.base.outputs.sha }}" \
+            --head-sha "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Drop individual SVGs; the HTML embeds them.
+          rm -f /tmp/perf-report/*.svg
+
+      - name: Upload perf-report.html
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: /tmp/perf-report/perf-report.html
+          archive: false
