@@ -37,7 +37,7 @@ rustc-hash = { version = "2.1", default-features = false }
 memchr = "2.8"
 base64 = "0.22"
 arrayvec = "0.7"
-cssparser = { version = "0.35", optional = true }
+cssparser = { version = "0.37", optional = true }
 selectors = { version = "0.32", optional = true }
 precomputed-hash = "0.1"
 thiserror = "1.0"
