@@ -259,6 +259,11 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
         debug_data: NetworkFilterDebugData,
         builder: &mut EngineFlatBuilder<'a>,
     ) {
+        // Exclude-only `$to=~` is rejected at parse; guard here for non-parse construction.
+        if filter.opt_to_domains.is_none() && filter.opt_to_not_domains.is_some() {
+            return;
+        }
+
         if filter.is_badfilter() {
             // Note: `get_id()` doesn't include BAD_FILTER bit.
             self.bad_filter_ids.insert(filter.get_id());
