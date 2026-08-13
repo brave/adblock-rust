@@ -754,12 +754,9 @@ mod parse_tests {
             assert_eq!(filter.opt_to_domains.as_ref().map(|d| d.len()), Some(2));
         }
         {
-            let filter =
-                NetworkFilter::parse("||foo.com$to=~example.it", true, Default::default()).unwrap();
-            assert_eq!(
-                filter.opt_to_not_domains,
-                Some(vec![utils::fast_hash("example.it")])
-            );
+            // Exclude-only `$to=~` is too expensive to index.
+            let filter = NetworkFilter::parse("||foo.com$to=~example.it", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::ExpensiveToOption));
         }
         {
             let filter = NetworkFilter::parse("||foo.com$to=/^foo/", true, Default::default());
@@ -785,19 +782,58 @@ mod parse_tests {
             );
         }
         {
+            // Single-label positives are stripped when a specific host is present.
+            let filter =
+                NetworkFilter::parse("||foo.com$to=domain.com|net", true, Default::default())
+                    .unwrap();
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("domain.com")])
+            );
+            assert_eq!(filter.opt_to_not_domains, None);
+        }
+        {
+            // Only too-common single-label `$to=` with no selective tokens → rejected.
+            let filter = NetworkFilter::parse("*$script,to=com|net", true, Default::default());
+            assert_eq!(filter.err(), Some(NetworkFilterError::ExpensiveToOption));
+        }
+        {
+            // Broad `$to=` is kept when pattern tokens can index the filter.
+            let filter =
+                NetworkFilter::parse("/somepath/*$script,to=com", true, Default::default())
+                    .unwrap();
+            assert_eq!(filter.opt_to_domains, Some(vec![utils::fast_hash("com")]));
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
+            assert!(
+                tokens_buffer
+                    .as_slice()
+                    .contains(&utils::fast_hash("somepath"))
+            );
+        }
+        {
+            // Broad `$to=` with `$from=` is kept (indexed by from).
             let filter = NetworkFilter::parse(
-                "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
+                "*$script,from=ovagames.com,to=com",
                 true,
                 Default::default(),
             )
             .unwrap();
+            assert_eq!(filter.opt_to_domains, Some(vec![utils::fast_hash("com")]));
+            let mut tokens_buffer = utils::TokensBuffer::default();
             assert_eq!(
-                filter.opt_domains,
-                Some(vec![utils::fast_hash("ovagames.com")])
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptDomains
             );
-            assert!(filter.opt_to_not_domains.is_some());
-            assert_eq!(filter.opt_to_domains, None);
-            assert!(filter.has_to_option());
+        }
+        {
+            // Exclude-only `$to=~` (even with $from) → rejected.
+            let filter = NetworkFilter::parse(
+                "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
+                true,
+                Default::default(),
+            );
+            assert_eq!(filter.err(), Some(NetworkFilterError::ExpensiveToOption));
         }
     }
 
@@ -1384,6 +1420,70 @@ mod parse_tests {
             tokens_buffer.as_slice(),
             &[utils::fast_hash("some"), utils::fast_hash("primewire")]
         );
+    }
+
+    #[test]
+    fn test_to_option_tokenization() {
+        {
+            let filter = NetworkFilter::parse("*$to=foo.com", true, Default::default()).unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptToDomains
+            );
+            assert_eq!(tokens_buffer.as_slice(), &[utils::fast_hash("foo.com")]);
+        }
+        {
+            // Pattern tokens take precedence over a single `$to=`
+            let filter =
+                NetworkFilter::parse("/somepath/*$to=foo.com", true, Default::default()).unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
+            assert!(
+                tokens_buffer
+                    .as_slice()
+                    .contains(&utils::fast_hash("somepath"))
+            );
+        }
+        {
+            // Single positive `$domain=` takes priority over `$to=`
+            let filter = NetworkFilter::parse(
+                "||ads.com$domain=bar.com,to=foo.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptDomains
+            );
+            assert_eq!(tokens_buffer.as_slice(), &[utils::fast_hash("bar.com")]);
+        }
+        {
+            // Pattern tokens empty after skip → bucket by all positive `$to=` domains
+            let filter =
+                NetworkFilter::parse("foo$to=bar.com|baz.com", true, Default::default()).unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(
+                filter.get_tokens(&mut tokens_buffer),
+                FilterTokens::OptToDomains
+            );
+            let mut expected = [utils::fast_hash("bar.com"), utils::fast_hash("baz.com")];
+            expected.sort_unstable();
+            assert_eq!(tokens_buffer.as_slice(), &expected);
+        }
+        {
+            // URL pattern tokens take precedence over multi `$to=`
+            let filter = NetworkFilter::parse(
+                "||ads.example/path$to=bar.com|baz.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
+        }
     }
 
     #[test]
