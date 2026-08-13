@@ -34,7 +34,7 @@ jobs:
 
       # Can be removed once https://github.com/actions/runner-images/pull/13076 is released
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@a0b538fa0b742a6aa35d6e2c169b4bd06d225a98 # v1.15.3
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
 
       - name: Check formatting
         run: cargo fmt --check
