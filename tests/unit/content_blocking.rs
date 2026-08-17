@@ -27,6 +27,26 @@ mod ab2cb_tests {
     }
 
     #[test]
+    fn domain_metadata_without_parseable_options_is_unsupported() {
+        let filter = crate::lists::parse_filter(
+            "||example.com^$script,domain=test.example",
+            true,
+            Default::default(),
+        )
+        .expect("Rule under test could not be parsed");
+
+        let crate::lists::ParsedFilter::Network(mut filter) = filter else {
+            panic!("Expected a network filter");
+        };
+        filter.raw_line = Some(Box::new("||example.com^".to_string()));
+
+        assert!(matches!(
+            CbRuleEquivalent::try_from(crate::lists::ParsedFilter::Network(filter)),
+            Err(CbRuleCreationFailure::FromNotSupported)
+        ));
+    }
+
+    #[test]
     fn ad_tests() {
         test_from_abp(
             "&ad_box_",

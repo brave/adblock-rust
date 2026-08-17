@@ -424,53 +424,52 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
                 .to_string(),
             };
 
-            let (if_domain, unless_domain) = if v.opt_domains.is_some()
-                || v.opt_not_domains.is_some()
-            {
-                let mut if_domain = vec![];
-                let mut unless_domain = vec![];
+            let (if_domain, unless_domain) =
+                if v.opt_domains.is_some() || v.opt_not_domains.is_some() {
+                    let mut if_domain = vec![];
+                    let mut unless_domain = vec![];
 
-                // Unwraps are okay here - any rules with opt_domains or opt_not_domains must have
-                // an options section delimited by a '$' character, followed by a `domain=` option.
-                let opts = &raw_line[find_char(b'$', raw_line.as_bytes()).unwrap() + "$".len()..];
-                let domain_start_index =
-                    if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
-                        index
-                    } else {
+                    let Some(options_index) = find_char(b'$', raw_line.as_bytes()) else {
                         return Err(CbRuleCreationFailure::FromNotSupported);
                     };
-                let domains_start = &opts[domain_start_index + "domain=".len()..];
-                let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
-                    &domains_start[..comma]
-                } else {
-                    domains_start
-                }
-                .split('|');
-
-                domains.for_each(|domain| {
-                    let (collection, domain) =
-                        if let Some(domain_stripped) = domain.strip_prefix('~') {
-                            (&mut unless_domain, domain_stripped)
+                    let opts = &raw_line[options_index + "$".len()..];
+                    let domain_start_index =
+                        if let Some(index) = memmem::find(opts.as_bytes(), b"domain=") {
+                            index
                         } else {
-                            (&mut if_domain, domain)
+                            return Err(CbRuleCreationFailure::FromNotSupported);
+                        };
+                    let domains_start = &opts[domain_start_index + "domain=".len()..];
+                    let domains = if let Some(comma) = find_char(b',', domains_start.as_bytes()) {
+                        &domains_start[..comma]
+                    } else {
+                        domains_start
+                    }
+                    .split('|');
+
+                    for domain in domains {
+                        let (collection, domain) =
+                            if let Some(domain_stripped) = domain.strip_prefix('~') {
+                                (&mut unless_domain, domain_stripped)
+                            } else {
+                                (&mut if_domain, domain)
+                            };
+
+                        let lowercase = domain.to_lowercase();
+                        let normalized_domain = if lowercase.is_ascii() {
+                            lowercase
+                        } else {
+                            idna::domain_to_ascii(&lowercase)
+                                .map_err(|_| CbRuleCreationFailure::RuleContainsNonASCII)?
                         };
 
-                    let lowercase = domain.to_lowercase();
-                    let normalized_domain = if lowercase.is_ascii() {
-                        lowercase
-                    } else {
-                        // The network filter has already parsed successfully, so this should be
-                        // safe
-                        idna::domain_to_ascii(&lowercase).unwrap()
-                    };
+                        collection.push(format!("*{normalized_domain}"));
+                    }
 
-                    collection.push(format!("*{normalized_domain}"));
-                });
-
-                (non_empty(if_domain), non_empty(unless_domain))
-            } else {
-                (None, None)
-            };
+                    (non_empty(if_domain), non_empty(unless_domain))
+                } else {
+                    (None, None)
+                };
 
             if if_domain.is_some() && unless_domain.is_some() {
                 return Err(CbRuleCreationFailure::UnlessAndIfDomainTogetherUnsupported);
