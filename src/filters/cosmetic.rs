@@ -429,6 +429,7 @@ impl CosmeticFilter {
             };
 
             let mut translate_abp_syntax = false;
+            let mut adguard_css_injection = false;
 
             // Consume filter options embedded in the `##` marker:
             let mut between_sharps = &line[after_sharp_index..second_sharp_index];
@@ -445,10 +446,15 @@ impl CosmeticFilter {
                 // `#%#` / `#@%#`
                 return Err(CosmeticFilterError::UnsupportedSyntax);
             }
-            if between_sharps.starts_with('$') {
-                // AdGuard `:style` syntax - not supported for now
-                // `#$?#` for CSS rules, `#@$?#` — for exceptions
-                return Err(CosmeticFilterError::UnsupportedSyntax);
+            if let Some(rest) = between_sharps.strip_prefix('$') {
+                // AdGuard CSS injection: `#$#selector { ... }` (and the extended
+                // `#$?#` / exception `#@$#` forms). Only the style/remove form is
+                // handled here — it always carries a `{ ... }` body, which is
+                // parsed by `parse_after_sharp_nonscript` below. ABP snippet
+                // injection also uses `#$#` but has no braces; those produce no
+                // action and are rejected after the selector parse.
+                adguard_css_injection = true;
+                between_sharps = rest;
             }
             if between_sharps.starts_with('?') {
                 // ABP/ADG extended CSS syntax:
@@ -506,6 +512,12 @@ impl CosmeticFilter {
                 }
                 (validated_selector, action)
             };
+
+            if adguard_css_injection && action.is_none() {
+                // `#$#` without a `{ ... }` block is ABP snippet injection, which
+                // is not supported.
+                return Err(CosmeticFilterError::UnsupportedSyntax);
+            }
 
             if (not_entities.is_some() || not_hostnames.is_some())
                 && mask.contains(CosmeticFilterMask::UNHIDE)
