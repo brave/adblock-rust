@@ -741,7 +741,7 @@ mod parse_tests {
                 filter.opt_to_domains,
                 Some(vec![utils::fast_hash("bar.com")])
             );
-            assert_eq!(filter.opt_to_not_domains, None);
+            assert_eq!(filter.opt_not_to_domains, None);
             assert!(filter.has_to_option());
         }
         {
@@ -757,7 +757,7 @@ mod parse_tests {
             let filter =
                 NetworkFilter::parse("||foo.com$to=~example.it", true, Default::default()).unwrap();
             assert_eq!(
-                filter.opt_to_not_domains,
+                filter.opt_not_to_domains,
                 Some(vec![utils::fast_hash("example.it")])
             );
         }
@@ -795,7 +795,7 @@ mod parse_tests {
                 filter.opt_domains,
                 Some(vec![utils::fast_hash("ovagames.com")])
             );
-            assert!(filter.opt_to_not_domains.is_some());
+            assert!(filter.opt_not_to_domains.is_some());
             assert_eq!(filter.opt_to_domains, None);
             assert!(filter.has_to_option());
         }

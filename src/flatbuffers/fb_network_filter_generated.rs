@@ -27,7 +27,7 @@ pub mod fb {
         pub const VT_OPT_DOMAINS: ::flatbuffers::VOffsetT = 6;
         pub const VT_OPT_NOT_DOMAINS: ::flatbuffers::VOffsetT = 8;
         pub const VT_OPT_TO_DOMAINS: ::flatbuffers::VOffsetT = 10;
-        pub const VT_OPT_TO_NOT_DOMAINS: ::flatbuffers::VOffsetT = 12;
+        pub const VT_OPT_NOT_TO_DOMAINS: ::flatbuffers::VOffsetT = 12;
         pub const VT_SINGLE_PATTERN: ::flatbuffers::VOffsetT = 14;
         pub const VT_MULTI_PATTERNS: ::flatbuffers::VOffsetT = 16;
         pub const VT_MODIFIER_OPTION: ::flatbuffers::VOffsetT = 18;
@@ -72,8 +72,8 @@ pub mod fb {
             if let Some(x) = args.single_pattern {
                 builder.add_single_pattern(x);
             }
-            if let Some(x) = args.opt_to_not_domains {
-                builder.add_opt_to_not_domains(x);
+            if let Some(x) = args.opt_not_to_domains {
+                builder.add_opt_not_to_domains(x);
             }
             if let Some(x) = args.opt_to_domains {
                 builder.add_opt_to_domains(x);
@@ -93,7 +93,7 @@ pub mod fb {
             let opt_domains = self.opt_domains().map(|x| x.into_iter().collect());
             let opt_not_domains = self.opt_not_domains().map(|x| x.into_iter().collect());
             let opt_to_domains = self.opt_to_domains().map(|x| x.into_iter().collect());
-            let opt_to_not_domains = self.opt_to_not_domains().map(|x| x.into_iter().collect());
+            let opt_not_to_domains = self.opt_not_to_domains().map(|x| x.into_iter().collect());
             let single_pattern = self
                 .single_pattern()
                 .map(|x| alloc::string::ToString::to_string(x));
@@ -119,7 +119,7 @@ pub mod fb {
                 opt_domains,
                 opt_not_domains,
                 opt_to_domains,
-                opt_to_not_domains,
+                opt_not_to_domains,
                 single_pattern,
                 multi_patterns,
                 modifier_option,
@@ -172,7 +172,7 @@ pub mod fb {
             }
         }
         /// Destination hostname restrictions from `$to=`.
-        /// Stored as |opt_domains| and |opt_not_domains|.
+        /// Storage mirrors |opt_domains| and |opt_not_domains|.
         #[inline]
         pub fn opt_to_domains(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
             // Safety:
@@ -187,14 +187,14 @@ pub mod fb {
             }
         }
         #[inline]
-        pub fn opt_to_not_domains(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+        pub fn opt_not_to_domains(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
             // Safety:
             // Created from valid Table for this object
             // which contains a valid value in this slot
             unsafe {
                 self._tab
                     .get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(
-                        NetworkFilter::VT_OPT_TO_NOT_DOMAINS,
+                        NetworkFilter::VT_OPT_NOT_TO_DOMAINS,
                         None,
                     )
             }
@@ -314,8 +314,8 @@ pub mod fb {
                     false,
                 )?
                 .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>(
-                    "opt_to_not_domains",
-                    Self::VT_OPT_TO_NOT_DOMAINS,
+                    "opt_not_to_domains",
+                    Self::VT_OPT_NOT_TO_DOMAINS,
                     false,
                 )?
                 .visit_field::<::flatbuffers::ForwardsUOffset<&str>>(
@@ -353,7 +353,7 @@ pub mod fb {
         pub opt_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
         pub opt_not_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
         pub opt_to_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
-        pub opt_to_not_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+        pub opt_not_to_domains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
         pub single_pattern: Option<::flatbuffers::WIPOffset<&'a str>>,
         pub multi_patterns: Option<
             ::flatbuffers::WIPOffset<
@@ -375,7 +375,7 @@ pub mod fb {
                 opt_domains: None,
                 opt_not_domains: None,
                 opt_to_domains: None,
-                opt_to_not_domains: None,
+                opt_not_to_domains: None,
                 single_pattern: None,
                 multi_patterns: None,
                 modifier_option: None,
@@ -429,13 +429,13 @@ pub mod fb {
             );
         }
         #[inline]
-        pub fn add_opt_to_not_domains(
+        pub fn add_opt_not_to_domains(
             &mut self,
-            opt_to_not_domains: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
+            opt_not_to_domains: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b, u32>>,
         ) {
             self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(
-                NetworkFilter::VT_OPT_TO_NOT_DOMAINS,
-                opt_to_not_domains,
+                NetworkFilter::VT_OPT_NOT_TO_DOMAINS,
+                opt_not_to_domains,
             );
         }
         #[inline]
@@ -517,7 +517,7 @@ pub mod fb {
             ds.field("opt_domains", &self.opt_domains());
             ds.field("opt_not_domains", &self.opt_not_domains());
             ds.field("opt_to_domains", &self.opt_to_domains());
-            ds.field("opt_to_not_domains", &self.opt_to_not_domains());
+            ds.field("opt_not_to_domains", &self.opt_not_to_domains());
             ds.field("single_pattern", &self.single_pattern());
             ds.field("multi_patterns", &self.multi_patterns());
             ds.field("modifier_option", &self.modifier_option());
@@ -536,7 +536,7 @@ pub mod fb {
         pub opt_domains: Option<alloc::vec::Vec<u32>>,
         pub opt_not_domains: Option<alloc::vec::Vec<u32>>,
         pub opt_to_domains: Option<alloc::vec::Vec<u32>>,
-        pub opt_to_not_domains: Option<alloc::vec::Vec<u32>>,
+        pub opt_not_to_domains: Option<alloc::vec::Vec<u32>>,
         pub single_pattern: Option<alloc::string::String>,
         pub multi_patterns: Option<alloc::vec::Vec<alloc::string::String>>,
         pub modifier_option: Option<alloc::string::String>,
@@ -553,7 +553,7 @@ pub mod fb {
                 opt_domains: None,
                 opt_not_domains: None,
                 opt_to_domains: None,
-                opt_to_not_domains: None,
+                opt_not_to_domains: None,
                 single_pattern: None,
                 multi_patterns: None,
                 modifier_option: None,
@@ -574,8 +574,8 @@ pub mod fb {
             let opt_domains = self.opt_domains.as_ref().map(|x| _fbb.create_vector(x));
             let opt_not_domains = self.opt_not_domains.as_ref().map(|x| _fbb.create_vector(x));
             let opt_to_domains = self.opt_to_domains.as_ref().map(|x| _fbb.create_vector(x));
-            let opt_to_not_domains = self
-                .opt_to_not_domains
+            let opt_not_to_domains = self
+                .opt_not_to_domains
                 .as_ref()
                 .map(|x| _fbb.create_vector(x));
             let single_pattern = self.single_pattern.as_ref().map(|x| _fbb.create_string(x));
@@ -596,7 +596,7 @@ pub mod fb {
                     opt_domains,
                     opt_not_domains,
                     opt_to_domains,
-                    opt_to_not_domains,
+                    opt_not_to_domains,
                     single_pattern,
                     multi_patterns,
                     modifier_option,
