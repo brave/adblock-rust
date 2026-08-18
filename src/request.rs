@@ -129,7 +129,9 @@ impl Request {
         }
     }
 
-    pub fn get_source_hostname_hashes_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
+    pub(crate) fn get_source_hostname_hashes_for_match(
+        &self,
+    ) -> impl Iterator<Item = &utils::Hash> {
         self.source_hostname_hashes.as_ref().into_iter().flatten()
     }
 
