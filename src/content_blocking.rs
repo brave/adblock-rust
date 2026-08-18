@@ -452,6 +452,8 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
                 }
                 .split('|');
 
+                let mut any_invalid = false;
+
                 domains.for_each(|domain| {
                     let (collection, domain) =
                         if let Some(domain_stripped) = domain.strip_prefix('~') {
@@ -459,6 +461,12 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
                         } else {
                             (&mut if_domain, domain)
                         };
+
+                    // $domain=/<regex>/ unsupported for now
+                    if domain.starts_with("/") {
+                        any_invalid = true;
+                        return;
+                    }
 
                     let lowercase = domain.to_lowercase();
                     let normalized_domain = if lowercase.is_ascii() {
@@ -471,6 +479,11 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
 
                     collection.push(format!("*{normalized_domain}"));
                 });
+
+                if any_invalid && if_domain.len() == 0 && unless_domain.len() == 0 {
+                    // TODO create a NoSupportedDomains error type and change this
+                    return Err(CbRuleCreationFailure::FromNotSupported);
+                }
 
                 (non_empty(if_domain), non_empty(unless_domain))
             } else {
