@@ -179,6 +179,7 @@ pub struct CbTrigger {
 /// Possible failure reasons when attempting to convert an adblock rule into content filtering
 /// syntax.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum CbRuleCreationFailure {
     /// Currently, only filter rules parsed in debug mode can be translated into equivalent content
     /// blocking syntax.
@@ -228,6 +229,8 @@ pub enum CbRuleCreationFailure {
     FromNotSupported,
     /// Content blocking rules cannot support procedural cosmetic filter operators.
     ProceduralCosmeticFiltersUnsupported,
+    /// if-domain or unless-domain could not convert any supported domains.
+    NoSupportedDomains,
 }
 
 impl TryFrom<ParsedLine<'_>> for CbRuleEquivalent {
@@ -481,8 +484,7 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
                 });
 
                 if any_invalid && if_domain.len() == 0 && unless_domain.len() == 0 {
-                    // TODO create a NoSupportedDomains error type and change this
-                    return Err(CbRuleCreationFailure::FromNotSupported);
+                    return Err(CbRuleCreationFailure::NoSupportedDomains);
                 }
 
                 (non_empty(if_domain), non_empty(unless_domain))
