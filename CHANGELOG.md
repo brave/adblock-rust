@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.13.3] - 2026-08-20
+
+### Added
+- Preliminary parsing of `$to`. Still not yet used by matching logic.
+
+### Changed
+- DAT format version bumped to v6.
+
+### Fixed
+- Forbid regex domains from becoming invalid content blocking rules.
+
 ## [0.13.2] - 2026-07-18
 
 ### Added
