@@ -3,16 +3,19 @@
 ## [0.13.2] - 2026-07-18
 
 ### Added
-- `Default` impl for `UrlSpecificResources`
+- `Default` impl for `UrlSpecificResources`.
 
 ### Changed
-- `Engine::set_regex_discard_policy` now takes `&self` instead of `&mut self`
-- Reduce allocation count for `Engine::hidden_class_id_selectors` calls
+- `Engine::set_regex_discard_policy` now takes `&self` instead of `&mut self`.
+- Reduce allocation count for `Engine::hidden_class_id_selectors` calls.
 
 ## [0.13.1] - 2026-07-16
 
+### Changed
+- DAT format version bumped to v5 due to new `rustc-hash` version.
+
 ### Fixed
-- Expose `adblock::engine::DeserializationError`
+- Expose `adblock::engine::DeserializationError`.
 
 ## [0.13.0] - 2026-07-09
 
