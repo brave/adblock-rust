@@ -224,6 +224,7 @@ pub enum CbRuleCreationFailure {
     /// Valid content blocking rules can only include ASCII characters.
     RuleContainsNonASCII,
     /// `from` as a `domain` alias is not currently supported in content blocking syntax.
+    /// `to` is similarly not supported.
     FromNotSupported,
     /// Content blocking rules cannot support procedural cosmetic filter operators.
     ProceduralCosmeticFiltersUnsupported,
@@ -423,6 +424,10 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
                 }
                 .to_string(),
             };
+
+            if v.opt_to_domains.is_some() || v.opt_not_to_domains.is_some() {
+                return Err(CbRuleCreationFailure::FromNotSupported);
+            }
 
             let (if_domain, unless_domain) = if v.opt_domains.is_some()
                 || v.opt_not_domains.is_some()

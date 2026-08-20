@@ -409,7 +409,7 @@ pub struct NetworkFilter<'a> {
     pub opt_domains: Option<Vec<Hash>>,
     pub opt_not_domains: Option<Vec<Hash>>,
     pub opt_to_domains: Option<Vec<Hash>>,
-    pub opt_to_not_domains: Option<Vec<Hash>>,
+    pub opt_not_to_domains: Option<Vec<Hash>>,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
     pub modifier_option: Option<&'a str>,
@@ -535,7 +535,7 @@ impl<'a> NetworkFilter<'a> {
         let mut opt_domains: Option<Vec<Hash>> = None;
         let mut opt_not_domains: Option<Vec<Hash>> = None;
         let mut opt_to_domains: Option<Vec<Hash>> = None;
-        let mut opt_to_not_domains: Option<Vec<Hash>> = None;
+        let mut opt_not_to_domains: Option<Vec<Hash>> = None;
 
         let mut modifier_option: Option<&'a str> = None;
         let mut tag: Option<&'a str> = None;
@@ -580,7 +580,7 @@ impl<'a> NetworkFilter<'a> {
                         hash_pipe_delimited_domains(
                             domains,
                             &mut opt_to_domains,
-                            &mut opt_to_not_domains,
+                            &mut opt_not_to_domains,
                         );
                     }
                     NetworkFilterOption::Badfilter => {
@@ -902,7 +902,7 @@ impl<'a> NetworkFilter<'a> {
             opt_domains,
             opt_not_domains,
             opt_to_domains,
-            opt_to_not_domains,
+            opt_not_to_domains,
             tag,
             raw_line: if debug {
                 Some(Cow::Borrowed(line))
@@ -957,7 +957,7 @@ impl<'a> NetworkFilter<'a> {
             opt_domains: None,
             opt_not_domains: None,
             opt_to_domains: None,
-            opt_to_not_domains: None,
+            opt_not_to_domains: None,
             tag: None,
             raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
             modifier_option: None,
@@ -1095,7 +1095,7 @@ impl<'a> NetworkFilter<'a> {
     }
 
     pub fn has_to_option(&self) -> bool {
-        self.opt_to_domains.is_some() || self.opt_to_not_domains.is_some()
+        self.opt_to_domains.is_some() || self.opt_not_to_domains.is_some()
     }
 
     #[cfg(test)]

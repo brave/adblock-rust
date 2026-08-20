@@ -787,6 +787,7 @@ mod filterset_tests {
                 "||insaattrendy.com/Upload/bükerbanner*.jpg",
                 // from domain
                 "/siropu/am/core.min.js$script,important,from=~audi-sport.net|~hifiwigwam.com",
+                "/test.js^$to=example.com",
                 // leading zero-width space
                 r#"​##a[href^="https://www.g2fame.com/"] > img"#,
             ],

@@ -103,7 +103,7 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>>
             FlatSerialize::serialize(o, builder)
         });
 
-        let opt_to_not_domains = network_filter.opt_to_not_domains.as_ref().map(|v| {
+        let opt_not_to_domains = network_filter.opt_not_to_domains.as_ref().map(|v| {
             let mut o: Vec<u32> = v
                 .iter()
                 .map(|x| builder.get_or_insert_unique_domain_hash(x))
@@ -157,7 +157,7 @@ impl<'a, 'f> FlatSerialize<'a, EngineFlatBuilder<'a>>
                 opt_domains,
                 opt_not_domains,
                 opt_to_domains,
-                opt_to_not_domains,
+                opt_not_to_domains,
                 hostname,
                 tag,
                 raw_line,
