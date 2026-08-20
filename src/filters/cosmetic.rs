@@ -11,6 +11,7 @@ use crate::utils::Hash;
 use css_validation::{is_valid_css_style, validate_css_selector};
 
 #[derive(Debug, Error, PartialEq)]
+#[non_exhaustive]
 pub enum CosmeticFilterError {
     #[error("punycode error")]
     PunycodeError,
