@@ -2,7 +2,6 @@ use adblock::Engine;
 use adblock::request::Request;
 
 use serde::Deserialize;
-use tokio::runtime::Runtime;
 
 use std::fs::File;
 use std::io::BufReader;
@@ -40,128 +39,74 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-/// Describes an entry from Brave's catalog of adblock lists.
-/// https://github.com/brave/adblock-resources#filter-list-description-format
-#[derive(serde::Deserialize, Debug)]
-pub struct RemoteFilterCatalogEntry {
-    pub title: String,
-    #[serde(default)]
-    pub default_enabled: bool,
-    #[serde(default)]
-    pub platforms: Vec<String>,
-    pub sources: Vec<RemoteFilterSource>,
+const LIVE_FILTERS_PATH: &str = "data/live-filters.txt";
+
+fn running_on_ci() -> bool {
+    matches!(std::env::var("CI").as_deref(), Ok("true") | Ok("1"))
 }
 
-/// Describes an online source of adblock rules. Corresponds to a single entry of `sources` as
-/// defined [here](https://github.com/brave/adblock-resources#filter-list-description-format).
-#[derive(serde::Deserialize, Debug)]
-pub struct RemoteFilterSource {
-    pub url: String,
-    pub title: Option<String>,
-    pub format: adblock::lists::FilterFormat,
-    pub support_url: String,
+/// Load the default-enabled desktop lists previously fetched by
+/// `node data/fetch-live-lists.js`.
+///
+/// Missing locally: skip live tests. Missing on CI: fail the job.
+fn live_filter_list() -> Option<String> {
+    match std::fs::read_to_string(LIVE_FILTERS_PATH) {
+        Ok(contents) => Some(contents),
+        Err(e) if running_on_ci() => {
+            panic!(
+                "failed to read {LIVE_FILTERS_PATH} ({e}). CI requires live filter lists; run: node data/fetch-live-lists.js"
+            );
+        }
+        Err(e) => {
+            eprintln!(
+                "skipping live tests: {LIVE_FILTERS_PATH} not found ({e}). Run: node data/fetch-live-lists.js"
+            );
+            None
+        }
+    }
 }
 
-/// Fetch all filters once and store them in a lazy-loaded static variable to avoid unnecessary
-/// network traffic.
-fn get_all_filters() -> &'static adblock::lists::FilterSet {
-    static FILTERS: std::sync::OnceLock<adblock::lists::FilterSet> = std::sync::OnceLock::new();
-    FILTERS.get_or_init(|| {
-        let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-        async_runtime.block_on(async {
-            use futures::FutureExt;
-
-            const DEFAULT_LISTS_URL: &str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
-
-            println!("Downloading list of filter lists from '{DEFAULT_LISTS_URL}'");
-            let default_catalog: Vec<RemoteFilterCatalogEntry> = async {
-                let body = reqwest::get(DEFAULT_LISTS_URL)
-                    .await
-                    .unwrap()
-                    .text()
-                    .await
-                    .unwrap();
-                serde_json::from_str(&body).unwrap()
-            }
-            .await;
-
-            let default_lists: Vec<_> = default_catalog
-                .iter()
-                .filter(|comp| comp.default_enabled)
-                .filter(|comp| {
-                    comp.platforms.is_empty()
-                        || comp.platforms.iter().any(|platform| {
-                            ["LINUX", "WINDOWS", "MAC"].contains(&platform.as_str())
-                        })
-                })
-                .flat_map(|comp| &comp.sources)
-                .collect();
-
-            assert!(default_lists.len() > 10); // sanity check
-
-            let filters_fut: Vec<_> = default_lists
-                .iter()
-                .map(|list| {
-                    println!("Starting download of filter, '{}'", list.url);
-                    reqwest::get(&list.url)
-                        .then(move |resp| {
-                            let response = resp.expect("Could not request rules");
-                            if response.status() != 200 {
-                                panic!("Failed download of filter, '{}'. Received status code {} when only 200 was expected", list.url.clone(), response.status());
-                            }
-                            response.text()
-                        }).map(move |text| {
-                            let text = text.expect("Could not get rules as text");
-                            println!("Finished download of filter, '{}' ({} bytes)", list.url, text.len());
-                            ( list.format, text )
-                        })
-                })
-                .collect();
-
+fn get_all_filters() -> Option<&'static adblock::lists::FilterSet> {
+    static FILTERS: std::sync::OnceLock<Option<adblock::lists::FilterSet>> =
+        std::sync::OnceLock::new();
+    FILTERS
+        .get_or_init(|| {
+            let list = live_filter_list()?;
             let mut filter_set = adblock::lists::FilterSet::default();
-
-            futures::future::join_all(filters_fut)
-                .await
-                .iter()
-                .for_each(|(format, list)| {
-                    filter_set.add_filter_list(
-                        list.clone(),
-                        adblock::lists::ParseOptions {
-                            format: *format,
-                            ..Default::default()
-                        },
-                    );
-                });
-
-            filter_set
+            filter_set.add_filter_list(list, Default::default());
+            Some(filter_set)
         })
-    })
+        .as_ref()
 }
 
 /// Example usage of this test:
 ///
-/// cargo watch --clear -x "test --all-features --test live -- --show-output --nocapture --include-ignored 'troubleshoot'"
+/// cargo watch --clear -x "test --test live -- --show-output --nocapture --include-ignored 'troubleshoot'"
 #[test]
 #[ignore = "opt-in: used for troubleshooting issues with live tests"]
 fn troubleshoot() {
     println!("Troubleshooting initiated. Safe journeys. ⛵");
-    let _grabbed = get_all_filters();
+    let Some(_grabbed) = get_all_filters() else {
+        return;
+    };
     println!("Troubleshooting complete. Welcome back! 🥳");
 }
 
-fn get_blocker_engine() -> Engine {
-    let mut engine = Engine::new_with_filter_set(get_all_filters().clone());
+fn get_blocker_engine() -> Option<Engine> {
+    let mut engine = Engine::new_with_filter_set(get_all_filters()?.clone());
 
     #[allow(deprecated)]
     engine.use_tags(&["fb-embeds", "twitter-embeds"]);
 
-    engine
+    Some(engine)
 }
 
 #[test]
 #[allow(deprecated)]
 fn check_live_specific_urls() {
-    let mut engine = get_blocker_engine();
+    let Some(mut engine) = get_blocker_engine() else {
+        return;
+    };
     {
         let checked = engine.check_network_request(
             &Request::new(
@@ -213,7 +158,9 @@ fn check_live_specific_urls() {
 
 #[test]
 fn check_live_from_filterlists() {
-    let engine = get_blocker_engine();
+    let Some(engine) = get_blocker_engine() else {
+        return;
+    };
     let requests = load_requests();
 
     for req in requests {
@@ -239,7 +186,9 @@ fn check_live_from_filterlists() {
 fn check_live_redirects() {
     use adblock::resources::resource_assembler::assemble_web_accessible_resources;
 
-    let mut engine = get_blocker_engine();
+    let Some(mut engine) = get_blocker_engine() else {
+        return;
+    };
     let redirect_engine_path =
         std::path::Path::new("data/test/fake-uBO-files/redirect-resources.js");
     let war_dir = std::path::Path::new("data/test/fake-uBO-files/web_accessible_resources");
@@ -297,7 +246,10 @@ fn check_live_redirects() {
 /// Ensure that one engine's serialization result can be exactly reproduced by another engine after
 /// deserializing from it.
 fn stable_serialization_through_load() {
-    let engine1 = Engine::new_with_filter_set(get_all_filters().clone());
+    let Some(filters) = get_all_filters() else {
+        return;
+    };
+    let engine1 = Engine::new_with_filter_set(filters.clone());
     let ser1 = engine1.serialize().to_vec();
 
     let mut engine2 = Engine::default();
