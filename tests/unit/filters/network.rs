@@ -1387,6 +1387,38 @@ mod parse_tests {
     }
 
     #[test]
+    fn test_percent_encoded_pattern_tokenization() {
+        // Leading `*` is stripped; `%` splits the encoded path so this is not
+        // dumped into the fallback (token 0) bucket.
+        let filter =
+            NetworkFilter::parse("*%2Faymt%2Faa%2F%3F$image", true, ParseOptions::default())
+                .unwrap();
+        let mut tokens_buffer = utils::TokensBuffer::default();
+        assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
+        assert!(
+            tokens_buffer
+                .as_slice()
+                .contains(&utils::fast_hash("2faymt")),
+            "tokens: {:?}",
+            tokens_buffer.iter().copied().collect::<Vec<_>>(),
+        );
+        assert!(tokens_buffer.as_slice().contains(&utils::fast_hash("2faa")));
+
+        let request = crate::request::Request::new(
+            "https://example.com/pixel?u=%2Faymt%2Faa%2F%3F",
+            "https://example.com/",
+            "image",
+            "",
+        )
+        .unwrap();
+        assert!(
+            request.get_tokens().contains(&utils::fast_hash("2faymt")),
+            "request tokens must include the filter token or the bucket is never probed"
+        );
+        assert!(filter.matches_test(&request));
+    }
+
+    #[test]
     fn handles_method_options() {
         const CASES: &[(&str, bool, bool, bool)] = &[
             ("||foo$method=post", false, false, true),
