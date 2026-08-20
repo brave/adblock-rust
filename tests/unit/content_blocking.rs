@@ -790,6 +790,8 @@ mod filterset_tests {
                 "/test.js^$to=example.com",
                 // leading zero-width space
                 r#"​##a[href^="https://www.g2fame.com/"] > img"#,
+                // unsupported domains
+                r#"||i.imgur.com^$domain=/avguri[0-9]+\.com/|/yasyadong[0-9]+\.tv/|/^torrentqq[0-9]+.com/|/^torrentwhy[0-9]+\.xyz/|/^torrentgram[0-9]+\.com/|/^bobaelink[0-9]+\.xyz/"#,
             ],
             Default::default(),
         );
@@ -844,6 +846,27 @@ mod filterset_tests {
         assert_eq!(
             cb_rules[0].trigger.if_domain.as_ref().unwrap(),
             &["test.net"]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn convert_only_supported_domains() -> Result<(), ()> {
+        let list = [
+            r"||i.imgur.com^$domain=/avguri[0-9]+\.com/|yasyadong.*|/yasyadong[0-9]+\.tv/|sonagitv.*|/^torrentqq[0-9]+.com/|/^torrentwhy[0-9]+\.xyz/|/^torrentgram[0-9]+\.com/|/^bobaelink[0-9]+\.xyz/",
+        ];
+
+        let mut set = FilterSet::new(true);
+        set.add_filters(list, Default::default());
+
+        let (cb_rules, used_rules) = set.into_content_blocking()?;
+        assert_eq!(used_rules.len(), 1);
+        assert_eq!(cb_rules.len(), 2);
+        assert!(cb_rules[0].trigger.if_domain.is_some());
+        assert_eq!(
+            cb_rules[0].trigger.if_domain.as_ref().unwrap(),
+            &["*yasyadong.*", "*sonagitv.*"]
         );
 
         Ok(())
