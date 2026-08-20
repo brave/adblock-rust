@@ -222,6 +222,6 @@ fn check_rule_matching_browserlike() {
     let engine = Engine::new_with_list_text(rules);
     let (blocked, passes) = bench_rule_matching_browserlike(&engine, &requests);
     let msg = "The number of blocked/passed requests has changed. ".to_string()
-        + "If this is expected, update the expected values in the test.";
-    assert_eq!((blocked, passes), (106682, 136263), "{msg}");
+        + "If this is expected, update the expected values in the test. ";
+    assert_eq!((blocked, passes), (106693, 136252), "{msg}");
 }
