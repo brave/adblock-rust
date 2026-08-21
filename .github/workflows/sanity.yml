@@ -44,6 +44,9 @@ jobs:
           rustup toolchain install nightly
           rustup component add rust-src --toolchain nightly
 
+      - name: Fetch live filter lists
+        run: node data/fetch-live-lists.js
+
       - name: Cargo test 'adblock' package (asan)
         run: |
           RUST_BACKTRACE=1 RUSTFLAGS="-Z sanitizer=address" \

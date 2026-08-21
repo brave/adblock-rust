@@ -2,7 +2,6 @@ use adblock::Engine;
 use adblock::request::Request;
 
 use serde::Deserialize;
-use tokio::runtime::Runtime;
 
 use std::fs::File;
 use std::io::BufReader;
@@ -40,101 +39,21 @@ fn load_requests() -> Vec<RequestRuleMatch> {
     reqs
 }
 
-/// Describes an entry from Brave's catalog of adblock lists.
-/// https://github.com/brave/adblock-resources#filter-list-description-format
-#[derive(serde::Deserialize, Debug)]
-pub struct RemoteFilterCatalogEntry {
-    pub title: String,
-    #[serde(default)]
-    pub default_enabled: bool,
-    #[serde(default)]
-    pub platforms: Vec<String>,
-    pub sources: Vec<RemoteFilterSource>,
+/// Load the default-enabled desktop lists previously fetched by
+/// `node data/fetch-live-lists.js`.
+fn live_filter_list() -> String {
+    std::fs::read_to_string("data/live-filters.txt").unwrap_or_else(|e| {
+        panic!("failed to read data/live-filters.txt ({e}). Run: node data/fetch-live-lists.js")
+    })
 }
 
-/// Describes an online source of adblock rules. Corresponds to a single entry of `sources` as
-/// defined [here](https://github.com/brave/adblock-resources#filter-list-description-format).
-#[derive(serde::Deserialize, Debug)]
-pub struct RemoteFilterSource {
-    pub url: String,
-    pub title: Option<String>,
-    pub format: adblock::lists::FilterFormat,
-    pub support_url: String,
-}
-
-/// Fetch all filters once and store them in a lazy-loaded static variable to avoid unnecessary
-/// network traffic.
 fn get_all_filters() -> &'static adblock::lists::FilterSet {
     static FILTERS: std::sync::OnceLock<adblock::lists::FilterSet> = std::sync::OnceLock::new();
     FILTERS.get_or_init(|| {
-        let async_runtime = Runtime::new().expect("Could not start Tokio runtime");
-        async_runtime.block_on(async {
-            use futures::FutureExt;
-
-            const DEFAULT_LISTS_URL: &str = "https://raw.githubusercontent.com/brave/adblock-resources/master/filter_lists/list_catalog.json";
-
-            println!("Downloading list of filter lists from '{DEFAULT_LISTS_URL}'");
-            let default_catalog: Vec<RemoteFilterCatalogEntry> = async {
-                let body = reqwest::get(DEFAULT_LISTS_URL)
-                    .await
-                    .unwrap()
-                    .text()
-                    .await
-                    .unwrap();
-                serde_json::from_str(&body).unwrap()
-            }
-            .await;
-
-            let default_lists: Vec<_> = default_catalog
-                .iter()
-                .filter(|comp| comp.default_enabled)
-                .filter(|comp| {
-                    comp.platforms.is_empty()
-                        || comp.platforms.iter().any(|platform| {
-                            ["LINUX", "WINDOWS", "MAC"].contains(&platform.as_str())
-                        })
-                })
-                .flat_map(|comp| &comp.sources)
-                .collect();
-
-            assert!(default_lists.len() > 10); // sanity check
-
-            let filters_fut: Vec<_> = default_lists
-                .iter()
-                .map(|list| {
-                    println!("Starting download of filter, '{}'", list.url);
-                    reqwest::get(&list.url)
-                        .then(move |resp| {
-                            let response = resp.expect("Could not request rules");
-                            if response.status() != 200 {
-                                panic!("Failed download of filter, '{}'. Received status code {} when only 200 was expected", list.url.clone(), response.status());
-                            }
-                            response.text()
-                        }).map(move |text| {
-                            let text = text.expect("Could not get rules as text");
-                            println!("Finished download of filter, '{}' ({} bytes)", list.url, text.len());
-                            ( list.format, text )
-                        })
-                })
-                .collect();
-
-            let mut filter_set = adblock::lists::FilterSet::default();
-
-            futures::future::join_all(filters_fut)
-                .await
-                .iter()
-                .for_each(|(format, list)| {
-                    filter_set.add_filter_list(
-                        list.clone(),
-                        adblock::lists::ParseOptions {
-                            format: *format,
-                            ..Default::default()
-                        },
-                    );
-                });
-
-            filter_set
-        })
+        let list = live_filter_list();
+        let mut filter_set = adblock::lists::FilterSet::default();
+        filter_set.add_filter_list(list, Default::default());
+        filter_set
     })
 }
 

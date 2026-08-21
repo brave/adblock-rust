@@ -35,6 +35,7 @@
     "build-debug": "npm run build --",
     "build-release": "npm run build -- --release",
     "update-lists": "node data/update-lists.js",
+    "fetch-live-lists": "node data/fetch-live-lists.js",
     "postinstall": "npm run build-release",
     "test": "cargo test",
     "test:js": "node --test js/test/bindings.test.mjs"

@@ -55,6 +55,9 @@ jobs:
       - name: Test npm package JS bindings
         run: npm run test:js
 
+      - name: Fetch live filter lists
+        run: node data/fetch-live-lists.js
+
       - name: Cargo test 'adblock' package
         run: cargo test --all-features --tests --no-fail-fast
 
