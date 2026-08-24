@@ -56,3 +56,11 @@ jobs:
           RUSTDOCFLAGS="-Z sanitizer=address" \
           cargo +nightly test -Zbuild-std --release --all-features \
           --target x86_64-unknown-linux-gnu
+
+      # `--lib` so [dev-dependencies] are ignored.
+      - name: Check unused production dependencies
+        env:
+          RUSTFLAGS: --deny warnings --deny unused-crate-dependencies
+        run: |
+          cargo check -p adblock --lib
+          cargo check -p adblock --lib --all-features
