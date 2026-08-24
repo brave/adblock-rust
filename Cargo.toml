@@ -24,7 +24,6 @@ exclude = [
 
 [dependencies]
 addr = { version = "0.15", default-features = false, features = ["psl"], optional = true }
-url = "2.5"
 percent-encoding = "2.1"
 regex = "1.12.3"
 bitflags = { version = "2.10.0", features = ["serde"] }
@@ -39,7 +38,7 @@ base64 = "0.22"
 arrayvec = "0.7"
 cssparser = { version = "0.35", optional = true }
 selectors = { version = "0.32", optional = true }
-precomputed-hash = "0.1"
+precomputed-hash = { version = "0.1", optional = true }
 thiserror = "1.0"
 flatbuffers = { version = "25.12.19" }
 
@@ -51,6 +50,7 @@ reqwest = "=0.13.3"
 futures = "=0.3.31"
 tokio = { version = "=1.47.4", features = ["rt-multi-thread"] }
 sha2 = "=0.9.9"
+url = "^2.5"
 
 [lib]
 bench = false
@@ -75,7 +75,6 @@ harness = false
 name = "bench_redirect_performance"
 harness = false
 
-
 [[bench]]
 name = "bench_memory"
 harness = false
@@ -95,7 +94,7 @@ default = ["embedded-domain-resolver", "full-regex-handling", "single-thread"]
 full-regex-handling = []
 single-thread = [] # disables `Send` and `Sync` on `Engine`.
 debug-info = []
-css-validation = ["cssparser", "selectors"]
+css-validation = ["cssparser", "selectors", "precomputed-hash"]
 content-blocking = []
 embedded-domain-resolver = ["addr"] # Requires setting an external domain resolver if disabled.
 resource-assembler = []
@@ -108,5 +107,5 @@ uninlined_format_args = "warn"
 members = ["js", "fuzz"]
 
 [workspace.dependencies]
-serde = { version = "1.0.228", features = ["derive", "rc"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
