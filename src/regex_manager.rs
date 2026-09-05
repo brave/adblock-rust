@@ -161,6 +161,38 @@ where
     )
 }
 
+fn compile_regex_pattern(pattern: &str) -> Result<BytesRegex, regex::Error> {
+    BytesRegexBuilder::new(pattern).unicode(false).build()
+}
+
+fn compile_regex_set(patterns: Vec<String>, discard_invalid_patterns: bool) -> CompiledRegex {
+    match BytesRegexSetBuilder::new(&patterns).unicode(false).build() {
+        Ok(compiled) => CompiledRegex::CompiledSet(compiled),
+        Err(e) if discard_invalid_patterns => {
+            let valid_patterns: Vec<_> = patterns
+                .into_iter()
+                .filter(|pattern| compile_regex_pattern(pattern).is_ok())
+                .collect();
+
+            match valid_patterns.len() {
+                0 => CompiledRegex::RegexParsingError(e),
+                1 => match compile_regex_pattern(&valid_patterns[0]) {
+                    Ok(compiled) => CompiledRegex::Compiled(compiled),
+                    Err(e) => CompiledRegex::RegexParsingError(e),
+                },
+                _ => match BytesRegexSetBuilder::new(valid_patterns)
+                    .unicode(false)
+                    .build()
+                {
+                    Ok(compiled) => CompiledRegex::CompiledSet(compiled),
+                    Err(e) => CompiledRegex::RegexParsingError(e),
+                },
+            }
+        }
+        Err(e) => CompiledRegex::RegexParsingError(e),
+    }
+}
+
 /// Compiles a filter pattern to a regex. This is only performed *lazily* for
 /// filters containing at least a * or ^ symbol. Because Regexes are expansive,
 /// we try to convert some patterns to plain filters.
@@ -218,7 +250,7 @@ where
         CompiledRegex::MatchAll
     } else if escaped_patterns.len() == 1 {
         let pattern = &escaped_patterns[0];
-        match BytesRegexBuilder::new(pattern).unicode(false).build() {
+        match compile_regex_pattern(pattern) {
             Ok(compiled) => CompiledRegex::Compiled(compiled),
             Err(e) => {
                 // println!("Regex parsing failed ({:?})", e);
@@ -226,13 +258,7 @@ where
             }
         }
     } else {
-        match BytesRegexSetBuilder::new(escaped_patterns)
-            .unicode(false)
-            .build()
-        {
-            Ok(compiled) => CompiledRegex::CompiledSet(compiled),
-            Err(e) => CompiledRegex::RegexParsingError(e),
-        }
+        compile_regex_set(escaped_patterns, is_complete_regex)
     }
 }
 
