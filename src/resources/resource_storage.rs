@@ -625,30 +625,40 @@ pub(crate) fn parse_scriptlet_args(mut args: &str) -> Option<Vec<String>> {
 
         match args.chars().next() {
             Some(qc) if qc == '"' || qc == '\'' || qc == '`' => {
-                args = &args[1..];
-                let i;
-                (i, needs_transform) = index_next_unescaped_separator(args, qc);
-                {
-                    // If `i` is None, it means that the quote is unmatched:
-                    // uBO pushes the entire argument including the quote.
-                    // Weird and probably not intended — treat as an error.
-                    let i = i?;
+                let original_args = args;
+                let quoted_args = &original_args[1..];
+                let (quote_end, quote_needs_transform) =
+                    index_next_unescaped_separator(quoted_args, qc);
 
-                    arg = &args[..i];
-                    args = &args[i + 1..];
-                    // consume whitespace following the quote
-                    if let Some(i) = args.find(|c: char| !c.is_whitespace()) {
-                        args = &args[i..];
-                    }
-                    // consume comma separator
-                    if args.starts_with(',') {
-                        args = &args[1..];
-                    } else if !args.is_empty() {
-                        // uBO pushes everything up to the next comma without escapes, but it's
-                        // very weird and probably not what the filter list author intended.
-                        // Treating it as an error for now.
+                // If `quote_end` is None, it means that the quote is unmatched:
+                // uBO pushes the entire argument including the quote.
+                // Weird and probably not intended — treat as an error.
+                let quote_end = quote_end?;
+
+                let remaining_args = quoted_args[quote_end + 1..].trim_start();
+
+                if remaining_args.is_empty() || remaining_args.starts_with(',') {
+                    arg = &quoted_args[..quote_end];
+                    needs_transform = quote_needs_transform;
+                    args = remaining_args.strip_prefix(',').unwrap_or(remaining_args);
+                } else {
+                    let next_char = remaining_args.chars().next()?;
+                    if next_char.is_alphanumeric()
+                        || next_char == '"'
+                        || next_char == '\''
+                        || next_char == '`'
+                        || next_char == '\\'
+                    {
                         return None;
                     }
+
+                    // The opening quote is part of an unquoted expression rather than a wrapper
+                    // around the whole argument. Match uBO by parsing through the next comma and
+                    // preserving the quote characters.
+                    let i;
+                    (i, needs_transform) = index_next_unescaped_separator(original_args, ',');
+                    arg = original_args[..i.unwrap_or(original_args.len())].trim_end();
+                    args = &original_args[i.map(|i| i + 1).unwrap_or(original_args.len())..];
                 }
             }
             Some(_) => {
