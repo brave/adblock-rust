@@ -153,7 +153,7 @@ impl<'a> FlatNetworkFilter<'a> {
     #[inline(always)]
     pub fn exclude_to_domains(&self) -> Option<&[u32]> {
         self.fb_filter
-            .opt_to_not_domains()
+            .opt_not_to_domains()
             .map(|data| fb_vector_to_slice(data))
     }
 
