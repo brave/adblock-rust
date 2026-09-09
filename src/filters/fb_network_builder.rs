@@ -260,7 +260,7 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
         builder: &mut EngineFlatBuilder<'a>,
     ) {
         // Exclude-only `$to=~` is rejected at parse; guard here for non-parse construction.
-        if filter.opt_to_domains.is_none() && filter.opt_to_not_domains.is_some() {
+        if filter.opt_to_domains.is_none() && filter.opt_not_to_domains.is_some() {
             return;
         }
 

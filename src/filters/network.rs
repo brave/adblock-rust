@@ -1062,7 +1062,7 @@ impl<'a> NetworkFilter<'a> {
             self.opt_domains.as_ref(),
             self.opt_not_domains.as_ref(),
             self.opt_to_domains.as_ref(),
-            self.opt_to_not_domains.as_ref(),
+            self.opt_not_to_domains.as_ref(),
         )
     }
 
