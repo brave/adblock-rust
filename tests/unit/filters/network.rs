@@ -790,7 +790,7 @@ mod parse_tests {
                 filter.opt_to_domains,
                 Some(vec![utils::fast_hash("domain.com")])
             );
-            assert_eq!(filter.opt_to_not_domains, None);
+            assert_eq!(filter.opt_not_to_domains, None);
         }
         {
             // Only too-common single-label `$to=` with no selective tokens → rejected.
