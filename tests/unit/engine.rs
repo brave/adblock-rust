@@ -195,7 +195,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 10113207146074251361;
+        const EXPECTED_HASH: u64 = 692197543314382709;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -206,7 +206,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 5079383995588202479;
+        const EXPECTED_HASH: u64 = 12661164353836219479;
         assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
         engine.deserialize(&data).unwrap();
     }
@@ -258,13 +258,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 124261);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 124050);
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            4595639195770030762
+            1056863246906494033
         } else {
-            12609292311627976202
+            13578557257745592215
         };
 
         assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
@@ -947,6 +947,65 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
         assert!(
             engine.check_network_request(&post).should_block(),
             "POST xhr should still be blocked"
+        );
+    }
+
+    #[test]
+    fn expensive_to_option_is_ignored() {
+        let engine = Engine::new_with_list_text(
+            [
+                "*$script,to=com",
+                "*$script,to=~evil.com",
+                "*$script,to=ads.example|net",
+                r"/banner\.gif/$to=ads.example",
+                "/somepath/*$script,to=com",
+            ]
+            .join("\n"),
+        );
+
+        let broad =
+            Request::new("https://other.com/a.js", "https://page.com", "script", "").unwrap();
+        assert!(
+            !engine.check_network_request(&broad).should_block(),
+            "too-common / exclude-only $to= must not match"
+        );
+
+        let specific =
+            Request::new("https://ads.example/a.js", "https://page.com", "script", "").unwrap();
+        assert!(
+            engine.check_network_request(&specific).should_block(),
+            "specific $to= should match after stripping broad labels"
+        );
+
+        let regex_specific =
+            Request::new("https://ads.example/banner.gif", "https://page.com", "", "").unwrap();
+        assert!(
+            engine.check_network_request(&regex_specific).should_block(),
+            "regex + specific $to= should still match"
+        );
+
+        let path_com = Request::new(
+            "https://cdn.example.com/somepath/x.js",
+            "https://page.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(
+            engine.check_network_request(&path_com).should_block(),
+            "path token + broad $to=com should match .com destinations"
+        );
+
+        let path_org = Request::new(
+            "https://cdn.example.org/somepath/x.js",
+            "https://page.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(
+            !engine.check_network_request(&path_org).should_block(),
+            "path token + broad $to=com must not match non-.com destinations"
         );
     }
 }
