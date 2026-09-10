@@ -271,7 +271,7 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 124261);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 124050);
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
