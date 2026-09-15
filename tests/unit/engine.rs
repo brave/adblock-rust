@@ -273,6 +273,55 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_with_token() {
+        let (serialized, token) =
+            Engine::new_with_list_text("||ads.example.com^").serialize_with_token();
+
+        let verified_token = Engine::default()
+            .deserialize_with_token(&serialized, None)
+            .unwrap();
+        assert_eq!(verified_token, token);
+
+        let mut engine = Engine::default();
+        let cached_token = engine
+            .deserialize_with_token(&serialized, Some(&token))
+            .unwrap();
+        assert_eq!(cached_token, token);
+        assert!(
+            engine
+                .check_network_request(
+                    &Request::new(
+                        "https://ads.example.com/banner.js",
+                        "https://example.com",
+                        "script",
+                        "",
+                    )
+                    .unwrap()
+                )
+                .should_block()
+        );
+
+        let mismatched_token = Engine::default()
+            .deserialize_with_token(&serialized, Some("not-a-real-token"))
+            .unwrap();
+        assert_eq!(mismatched_token, token);
+    }
+
+    #[test]
+    fn deserialize_rejects_invalid_flatbuffer() {
+        let (garbage, _) = crate::data_format::serialize_dat_file(b"not a flatbuffer");
+        let mut engine = Engine::default();
+        assert!(matches!(
+            engine.deserialize(&garbage),
+            Err(DeserializationError::FlatBufferParsingError(_))
+        ));
+        assert!(matches!(
+            engine.deserialize_with_token(&garbage, Some("not-a-real-token")),
+            Err(DeserializationError::FlatBufferParsingError(_))
+        ));
+    }
+
+    #[test]
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::new_with_list_text(
             ["ad-banner$redirect=nooptext", "script.js$redirect=noop.js"].join("\n"),

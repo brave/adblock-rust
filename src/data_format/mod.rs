@@ -43,19 +43,27 @@ pub enum DeserializationError {
     FlatBufferParsingError(flatbuffers::InvalidFlatbuffer),
 }
 
-pub(crate) fn serialize_dat_file(data: &[u8]) -> Vec<u8> {
+pub(crate) fn token_from_hash(hash: u64) -> String {
+    format!("{}-{}", env!("CARGO_PKG_VERSION"), hash)
+}
+
+pub(crate) fn serialize_dat_file(data: &[u8]) -> (Vec<u8>, String) {
     let mut serialized = Vec::with_capacity(data.len() + HEADER_PREFIX_LENGTH);
-    let hash = seahash::hash(data).to_le_bytes();
+    let hash = seahash::hash(data);
+    let hash_bytes = hash.to_le_bytes();
     serialized.extend_from_slice(&ADBLOCK_RUST_DAT_MAGIC);
     serialized.push(ADBLOCK_RUST_DAT_VERSION);
-    serialized.extend_from_slice(&hash);
+    serialized.extend_from_slice(&hash_bytes);
     assert_eq!(serialized.len(), HEADER_PREFIX_LENGTH);
 
     serialized.extend_from_slice(data);
-    serialized
+    (serialized, token_from_hash(hash))
 }
 
-pub(crate) fn deserialize_dat_file(serialized: &[u8]) -> Result<&[u8], DeserializationError> {
+/// Returns the payload bytes and their hash, after checking the DAT header and checksum.
+pub(crate) fn deserialize_dat_file(
+    serialized: &[u8],
+) -> Result<(&[u8], u64), DeserializationError> {
     if serialized.len() < HEADER_PREFIX_LENGTH || !serialized.starts_with(&ADBLOCK_RUST_DAT_MAGIC) {
         return Err(DeserializationError::BadHeader);
     }
@@ -69,15 +77,17 @@ pub(crate) fn deserialize_dat_file(serialized: &[u8]) -> Result<&[u8], Deseriali
     // Check the hash to ensure the data isn't corrupted.
     let expected_hash = &serialized[(ADBLOCK_RUST_DAT_MAGIC.len() + 1)..HEADER_PREFIX_LENGTH];
     debug_assert_eq!(HEADER_PREFIX_LENGTH - (ADBLOCK_RUST_DAT_MAGIC.len() + 1), 8);
-    let actual_hash = seahash::hash(data).to_le_bytes();
-    if expected_hash != actual_hash {
+    let hash = seahash::hash(data);
+    let hash_bytes = hash.to_le_bytes();
+    if expected_hash != hash_bytes {
         return Err(DeserializationError::BadChecksum {
             // Unwrap safety: see debug_assert_eq above
             expected: expected_hash.try_into().unwrap(),
-            actual: actual_hash,
+            actual: hash_bytes,
         });
     }
-    Ok(data)
+
+    Ok((data, hash))
 }
 
 #[cfg(test)]
@@ -100,15 +110,17 @@ mod tests {
     #[test]
     fn serialize_deserialize_test() {
         let data = b"test";
-        let serialized = serialize_dat_file(data);
-        let deserialized = deserialize_dat_file(&serialized).unwrap();
-        assert_eq!(data, deserialized);
+        let (serialized, token) = serialize_dat_file(data);
+        let (deserialized, hash) = deserialize_dat_file(&serialized).unwrap();
+        assert_eq!(data.as_slice(), deserialized);
+        assert_eq!(hash, seahash::hash(data));
+        assert_eq!(token, token_from_hash(hash));
     }
 
     #[test]
     fn corrupted_data_test() {
         let data = b"test";
-        let serialized = serialize_dat_file(data);
+        let (serialized, _) = serialize_dat_file(data);
         let mut corrupted_serialized = serialized.clone();
         corrupted_serialized[HEADER_PREFIX_LENGTH] = 0;
         std::assert_matches!(

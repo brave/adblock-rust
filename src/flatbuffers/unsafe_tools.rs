@@ -49,7 +49,7 @@ pub(crate) struct VerifiedFlatbufferMemory {
 
 impl VerifiedFlatbufferMemory {
     pub(crate) fn from_raw(data: &[u8]) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
-        let memory = Self::from_slice(data);
+        let memory = Self::from_raw_unchecked(data);
 
         // Verify that the data is a valid flatbuffer.
         let _ = fb::root_as_engine(memory.data())?;
@@ -57,14 +57,20 @@ impl VerifiedFlatbufferMemory {
         Ok(memory)
     }
 
-    // Creates a new VerifiedFlatbufferMemory from a builder.
-    // Skip the verification, the builder must contains a valid FilterList.
+    /// Creates a new [`VerifiedFlatbufferMemory`] from a builder.
+    ///
+    /// Skips verification; the builder must contain a valid Engine flatbuffer.
     pub(crate) fn from_builder(builder: flatbuffers::FlatBufferBuilder<'_>) -> Self {
-        Self::from_slice(builder.finished_data())
+        // SAFETY: `builder` has just been used to construct a valid Engine flatbuffer.
+        Self::from_raw_unchecked(builder.finished_data())
     }
 
-    // Properly align the buffer to MIN_ALIGNMENT bytes.
-    pub(crate) fn from_slice(data: &[u8]) -> Self {
+    /// Copies `data` into an aligned buffer without verifying that it is a valid Engine
+    /// flatbuffer.
+    ///
+    /// `data` must be a valid `fb::Engine` flatbuffer, or the caller must verify it before
+    /// invoking [`Self::root`].
+    pub(crate) fn from_raw_unchecked(data: &[u8]) -> Self {
         let mut vec = Vec::with_capacity(data.len() + MIN_ALIGNMENT);
         let shift = vec.as_ptr() as usize % MIN_ALIGNMENT;
 
