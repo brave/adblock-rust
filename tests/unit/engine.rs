@@ -8,6 +8,11 @@ mod tests {
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
     use seahash::hash;
 
+    fn hash_without_header(data: &[u8]) -> u64 {
+        let data_without_header = &data[crate::data_format::HEADER_PREFIX_LENGTH..];
+        hash(data_without_header)
+    }
+
     #[test]
     #[allow(deprecated)]
     fn tags_enable_adds_tags() {
@@ -195,8 +200,12 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 7108689433604698580;
-        assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
+        const EXPECTED_HASH: u64 = 12118781176882813401;
+        assert_eq!(
+            hash_without_header(&data),
+            EXPECTED_HASH,
+            "{HASH_MISMATCH_MSG}"
+        );
         engine.deserialize(&data).unwrap();
     }
 
@@ -206,8 +215,12 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 12969273093165560817;
-        assert_eq!(hash(&data), EXPECTED_HASH, "{HASH_MISMATCH_MSG}");
+        const EXPECTED_HASH: u64 = 9882893794091536255;
+        assert_eq!(
+            hash_without_header(&data),
+            EXPECTED_HASH,
+            "{HASH_MISMATCH_MSG}"
+        );
         engine.deserialize(&data).unwrap();
     }
 
@@ -229,7 +242,7 @@ mod tests {
     fn deserialization_brave_list() {
         let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
         let mut engine = Engine::new_with_list_text(rules);
-        let data = engine.serialize().to_vec();
+        let data = engine.serialize();
 
         #[cfg(feature = "debug-info")]
         {
@@ -262,12 +275,16 @@ mod tests {
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            17765782844446154098
+            8871275760195103815
         } else {
-            7585209289575817889
+            8180986015489572218
         };
 
-        assert_eq!(hash(&data), expected_hash, "{HASH_MISMATCH_MSG}");
+        assert_eq!(
+            hash_without_header(&data),
+            expected_hash,
+            "{HASH_MISMATCH_MSG}"
+        );
 
         use crate::flatbuffers::unsafe_tools::root_as_engine_calls;
 
