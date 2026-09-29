@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788383510376,
+  "lastUpdate": 1790702649317,
   "repoUrl": "https://github.com/brave/adblock-rust",
   "entries": {
     "Rust Benchmark": [
@@ -13355,6 +13355,96 @@ window.BENCHMARK_DATA = {
             "name": "cosmetic-class-id-match/brave-list",
             "value": 3336389,
             "range": "± 836749",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matuchin@brave.com",
+            "name": "Mikhail Atuchin",
+            "username": "atuchin-m"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6028a6d5735f1e81346eeef73c194c7240035248",
+          "message": "Skip flatbuffer verification in some cases (#730)\n\nThe PR provides an ability to skip flatbuffer verification for the browser startup when we load/create a DAT file with the same version the engine version + DAT seahash matches.",
+          "timestamp": "2026-09-29T17:20:26Z",
+          "tree_id": "040c365e0d76f9582141850a4c5320eaa1dbeca7",
+          "url": "https://github.com/brave/adblock-rust/commit/6028a6d5735f1e81346eeef73c194c7240035248"
+        },
+        "date": 1790702647949,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rule-match-browserlike/brave-list",
+            "value": 1941444250,
+            "range": "± 12674793",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rule-match-first-request/brave-list",
+            "value": 1367981,
+            "range": "± 18464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list",
+            "value": 111703897,
+            "range": "± 505449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "blocker_new/brave-list-deserialize",
+            "value": 1981570,
+            "range": "± 20979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "memory-usage-final/brave-list-initial",
+            "value": 9671732,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-final/brave-list-1000-requests",
+            "value": 3215263,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-max/brave-list-initial/max",
+            "value": 32237425,
+            "range": "± 0",
+            "unit": "B/iter"
+          },
+          {
+            "name": "memory-usage-alloc-count/brave-list-initial/alloc-count",
+            "value": 287123,
+            "range": "± 0",
+            "unit": "allocs/iter"
+          },
+          {
+            "name": "memory-usage-alloc-count/brave-list-1000-requests/alloc-count",
+            "value": 81427,
+            "range": "± 0",
+            "unit": "allocs/iter"
+          },
+          {
+            "name": "url_cosmetic_resources/brave-list",
+            "value": 186224,
+            "range": "± 7233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosmetic-class-id-match/brave-list",
+            "value": 3332849,
+            "range": "± 892982",
             "unit": "ns/iter"
           }
         ]
