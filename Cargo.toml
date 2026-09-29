@@ -37,7 +37,7 @@ memchr = "2.8"
 base64 = "0.22"
 arrayvec = "0.7"
 cssparser = { version = "0.35", optional = true }
-selectors = { version = "0.32", optional = true }
+selectors = { version = "0.40", optional = true }
 precomputed-hash = { version = "0.1", optional = true }
 thiserror = "1.0"
 flatbuffers = { version = "25.12.19" }
