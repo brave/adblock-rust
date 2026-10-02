@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 serde = { workspace = true }
 serde_json = { workspace = true }
 adblock = { path = "../", features = ["css-validation", "content-blocking", "resource-assembler"] }
-neon = { version = "^0.10.1", default-features = false, features = ["napi-1"] }
+neon = { version = "^1.0.0", default-features = false, features = ["napi-1"] }
 
 [features]
 default-panic-hook = []
