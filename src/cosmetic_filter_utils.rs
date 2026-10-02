@@ -4,6 +4,54 @@
 use crate::resources::PermissionMask;
 use memchr::memchr as find_char;
 
+/// Returns whether CSS text contains multiple top-level selectors.
+/// This only finds boundaries; selector validation remains the parser's responsibility.
+pub(crate) fn has_multiple_selectors(selector: &str) -> bool {
+    let bytes = selector.as_bytes();
+
+    // Keep the common no-comma case cheap.
+    if find_char(b',', bytes).is_none() {
+        return false;
+    }
+
+    let mut depth: usize = 0;
+    let mut quote = None;
+    let mut i = 0;
+
+    while i < bytes.len() {
+        let byte = bytes[i];
+        match byte {
+            // Skip escaped characters
+            b'\\' => i += 1,
+
+            // Skip characters inside quotes
+            _ if quote.is_some() => {
+                if quote == Some(byte) {
+                    quote = None;
+                }
+            }
+            b'\'' | b'"' => quote = Some(byte),
+
+            // Skip comments
+            b'/' if bytes.get(i + 1) == Some(&b'*') => {
+                i += 2;
+                while i < bytes.len() && !(bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/')) {
+                    i += 1;
+                }
+                i += 1;
+            }
+
+            // Only top-level commas should be treated as selector separators
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.saturating_sub(1),
+            b',' if depth == 0 => return true,
+            _ => (),
+        }
+        i += 1;
+    }
+    false
+}
+
 /// Returns the first token of a CSS selector.
 ///
 /// This should only be called once `selector` has been verified to start with either a "#" or "."
