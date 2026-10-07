@@ -2,6 +2,7 @@
 mod match_tests {
     use super::super::*;
     use crate::filters::network::*;
+    use crate::utils;
 
     #[test]
     fn is_anchored_by_hostname_works() {
@@ -410,12 +411,12 @@ mod match_tests {
         super::super::check_options(filter.mask, request)
             && super::super::check_included_domains_mapped(
                 opt_domains.as_deref(),
-                request,
+                request.source_hostname_hashes.as_deref(),
                 &mapping,
             )
             && super::super::check_excluded_domains_mapped(
                 opt_not_domains.as_deref(),
-                request,
+                request.source_hostname_hashes.as_deref(),
                 &mapping,
             )
     }
@@ -507,7 +508,7 @@ mod match_tests {
             assert!(!check_options(&network_filter, &request));
         }
 
-        // $to is parsed but not applied at match time
+        // $to matches against the request destination hostname
         {
             let network_filter =
                 NetworkFilter::parse("foo$to=foo.com", true, Default::default()).unwrap();
@@ -515,24 +516,66 @@ mod match_tests {
             let request =
                 request::Request::new("https://foo.com/foo", "https://example.com", "", "")
                     .unwrap();
-            assert!(!network_filter.matches_test(&request));
+            assert!(network_filter.matches_test(&request));
+            let request =
+                request::Request::new("https://sub.foo.com/foo", "https://example.com", "", "")
+                    .unwrap();
+            assert!(network_filter.matches_test(&request));
             let request =
                 request::Request::new("https://example.com/foo", "https://foo.com", "", "")
                     .unwrap();
             assert!(!network_filter.matches_test(&request));
         }
 
-        // $from + $to: ignored
+        // Exclude-only / too-common `$to=` are rejected at parse time
+        {
+            assert_eq!(
+                NetworkFilter::parse("foo$to=~foo.com", true, Default::default()).err(),
+                Some(NetworkFilterError::ExpensiveToOption)
+            );
+            assert_eq!(
+                NetworkFilter::parse("*$script,to=com", true, Default::default()).err(),
+                Some(NetworkFilterError::ExpensiveToOption)
+            );
+        }
+
+        // Mixed broad + specific: only the specific host is kept
+        {
+            let network_filter =
+                NetworkFilter::parse("foo$to=foo.com|net", true, Default::default()).unwrap();
+            assert_eq!(
+                network_filter.opt_to_domains,
+                Some(vec![utils::fast_hash("foo.com")])
+            );
+            let request =
+                request::Request::new("https://foo.com/foo", "https://example.com", "", "")
+                    .unwrap();
+            assert!(network_filter.matches_test(&request));
+            let request =
+                request::Request::new("https://other.net/foo", "https://example.com", "", "")
+                    .unwrap();
+            assert!(!network_filter.matches_test(&request));
+        }
+
+        // $from + specific $to
         {
             let network_filter = NetworkFilter::parse(
-                "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
+                "*$script,3p,from=ovagames.com,to=cdn.example.com",
                 true,
                 Default::default(),
             )
             .unwrap();
             assert!(network_filter.has_to_option());
             let request = request::Request::new(
-                "https://example.com/script.js",
+                "https://cdn.example.com/script.js",
+                "https://ovagames.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(network_filter.matches_test(&request));
+            let request = request::Request::new(
+                "https://other.com/script.js",
                 "https://ovagames.com",
                 "script",
                 "",
@@ -540,15 +583,7 @@ mod match_tests {
             .unwrap();
             assert!(!network_filter.matches_test(&request));
             let request = request::Request::new(
-                "https://facebook.net/script.js",
-                "https://ovagames.com",
-                "script",
-                "",
-            )
-            .unwrap();
-            assert!(!network_filter.matches_test(&request));
-            let request = request::Request::new(
-                "https://example.com/script.js",
+                "https://cdn.example.com/script.js",
                 "https://other.com",
                 "script",
                 "",
