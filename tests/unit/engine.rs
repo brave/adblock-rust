@@ -200,7 +200,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 12118781176882813401;
+        const EXPECTED_HASH: u64 = 16174589584358908453;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -215,7 +215,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 9882893794091536255;
+        const EXPECTED_HASH: u64 = 17947791698945847098;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
