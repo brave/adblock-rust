@@ -877,6 +877,116 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_replace() {
+        // Their own shape: /pattern/replacement/ with an optional flag run.
+        {
+            let filter =
+                NetworkFilter::parse("||foo.com^$replace=/a/b/", true, Default::default()).unwrap();
+            assert!(filter.is_replace());
+            assert_eq!(filter.modifier_option, Some("/a/b/"));
+            // And not a blocking rule: the caller rewrites a body, which is
+            // not the same answer as refusing the request.
+            assert!(!filter.is_removeparam());
+        }
+        {
+            // Flags, and a replacement that is allowed to be empty - deleting
+            // what matched is the common case.
+            let filter = NetworkFilter::parse(
+                "/track.js$replace=/sendBeacon//gi",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(filter.modifier_option, Some("/sendBeacon//gi"));
+        }
+        {
+            // An escaped delimiter inside the pattern, which uBO allows.
+            let filter =
+                NetworkFilter::parse("||foo.com^$replace=/a\\/b/c/", true, Default::default())
+                    .unwrap();
+            assert_eq!(filter.modifier_option, Some("/a\\/b/c/"));
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$replace", true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::EmptyReplace));
+        }
+        {
+            let filter = NetworkFilter::parse("||foo.com^$replace=", true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::EmptyReplace));
+        }
+        {
+            let filter = NetworkFilter::parse("$~replace=/a/b/", true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::NegatedReplace));
+        }
+        {
+            // TODO: uBO allows an exception to turn a replacement off.
+            let filter =
+                NetworkFilter::parse("@@||foo.com^$replace=/a/b/", true, Default::default());
+            assert_eq!(filter, Err(NetworkFilterError::ReplaceWithException));
+        }
+        {
+            // Not a directive at all.
+            for text in [
+                "||foo.com^$replace=abc",
+                "||foo.com^$replace=/abc",
+                "||foo.com^$replace=//b/",
+                "||foo.com^$replace=/a/b/x",
+            ] {
+                assert_eq!(
+                    NetworkFilter::parse(text, true, Default::default()),
+                    Err(NetworkFilterError::ReplaceMalformed),
+                    "{text}"
+                );
+            }
+        }
+        {
+            // Their own lists carry unescaped commas inside the directive,
+            // because the replacement is a chunk of JavaScript. This one is
+            // from uBO's list verbatim.
+            let filter = NetworkFilter::parse(
+                "||alliptvlinks.com/tktk-content/plugins/$script,1p,replace=/\\bconst now.+?, 100/clearInterval(timer);resolve();}, 100/gms",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(filter.is_replace());
+            assert_eq!(
+                filter.modifier_option,
+                Some("/\\bconst now.+?, 100/clearInterval(timer);resolve();}, 100/gms")
+            );
+        }
+        {
+            // And an option written after the directive is still read, which
+            // is how their own lists put a domain= on one.
+            let filter = NetworkFilter::parse(
+                "/_next/static/chunks/*.js^$script,1p,replace=/\\[0\\];\\w<\\w\\.length/[0];false/,domain=filiser.eu|wishflix.cc",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(filter.is_replace());
+            assert!(
+                filter.opt_domains.is_some(),
+                "the domain= after it was read"
+            );
+        }
+        {
+            // One modifier per filter, as uBO has it.
+            for text in [
+                "||foo.com^$replace=/a/b/,redirect=noopjs",
+                "||foo.com^$replace=/a/b/,removeparam=test",
+                "||foo.com^$replace=/a/b/,replace=/c/d/",
+            ] {
+                assert_eq!(
+                    NetworkFilter::parse(text, true, Default::default()),
+                    Err(NetworkFilterError::MultipleModifierOptions),
+                    "{text}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn parses_removeparam() {
         {
             let filter = NetworkFilter::parse("||foo.com^$removeparam", true, Default::default());

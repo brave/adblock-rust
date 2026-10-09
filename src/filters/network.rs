@@ -39,6 +39,11 @@ bitflags::bitflags! {
     /// Specifies that a redirect rule should also create a corresponding block rule.
     /// This is used to avoid returning two separate rules from `NetworkFilter::parse`.
     const ALSO_BLOCK_REDIRECT = 1 << 5;
+
+    /// `$replace` rewrites a response body. Like `removeparam` it never
+    /// blocks, and unlike every other option here the engine cannot carry it
+    /// out: it reports the directive and the caller does the rewriting.
+    const IS_REPLACE = 1 << 6;
   }
 }
 
@@ -79,6 +84,14 @@ pub enum NetworkFilterError {
     RemoveparamWithException,
     #[error("removeparam regex unsupported")]
     RemoveparamRegexUnsupported,
+    #[error("empty replace")]
+    EmptyReplace,
+    #[error("negated replace")]
+    NegatedReplace,
+    #[error("replace with exception")]
+    ReplaceWithException,
+    #[error("replace malformed")]
+    ReplaceMalformed,
     #[error("redirection url invalid")]
     RedirectionUrlInvalid,
     #[error("multiple modifier options")]
@@ -449,7 +462,9 @@ fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFi
             modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
-        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..))
+        } else if option.is_redirection()
+            || matches!(option, NetworkFilterOption::Removeparam(..))
+            || matches!(option, NetworkFilterOption::Replace(..))
         {
             modifier_options += 1;
         }
@@ -612,6 +627,10 @@ impl<'a> NetworkFilter<'a> {
                         features_mask.set(NetworkFilterFeaturesMask::IS_REMOVEPARAM, true);
                         modifier_option = Some(value);
                     }
+                    NetworkFilterOption::Replace(value) => {
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REPLACE, true);
+                        modifier_option = Some(value);
+                    }
                     NetworkFilterOption::Csp(value) => {
                         features_mask.set(NetworkFilterFeaturesMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
@@ -682,6 +701,14 @@ impl<'a> NetworkFilter<'a> {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
                     | NetworkFilterMask::FROM_SUBDOCUMENT
                     | NetworkFilterMask::FROM_XMLHTTPREQUEST;
+            } else if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE) {
+                // Only what can carry text, because that is all a body
+                // rewrite can be applied to.
+                mask |= NetworkFilterMask::FROM_DOCUMENT
+                    | NetworkFilterMask::FROM_SUBDOCUMENT
+                    | NetworkFilterMask::FROM_XMLHTTPREQUEST
+                    | NetworkFilterMask::FROM_SCRIPT
+                    | NetworkFilterMask::FROM_STYLESHEET;
             } else {
                 mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
             }
@@ -850,6 +877,12 @@ impl<'a> NetworkFilter<'a> {
         if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) && parsed.exception {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
+        // TODO: uBO allows `@@...$replace` to disable a replacement for a
+        // url. Until the caller is given a way to see that, rejecting the
+        // filter is better than loading one that quietly does nothing.
+        if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE) && parsed.exception {
+            return Err(NetworkFilterError::ReplaceWithException);
+        }
 
         // uBlock Origin would block main document `https://example.com` requests with all of the
         // following filters:
@@ -867,6 +900,10 @@ impl<'a> NetworkFilter<'a> {
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
             && !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+            // Nor for replace, and for the same reason: the types it applies
+            // to are the ones that can carry text, and being written as
+            // `||example.com^` is no reason to widen that to an image.
+            && !features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE)
         {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
@@ -1072,6 +1109,11 @@ impl<'a> NetworkFilter<'a> {
     pub fn is_removeparam(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+    }
+
+    pub fn is_replace(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REPLACE)
     }
 
     pub fn is_generic_hide(&self) -> bool {

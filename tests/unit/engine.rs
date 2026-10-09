@@ -200,7 +200,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 12118781176882813401;
+        const EXPECTED_HASH: u64 = 8321787655374998258;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -215,7 +215,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 9882893794091536255;
+        const EXPECTED_HASH: u64 = 6102421615029898065;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -271,13 +271,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 124261);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 124278);
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            8871275760195103815
+            3361182026688223180
         } else {
-            8180986015489572218
+            12886270979793936062
         };
 
         assert_eq!(

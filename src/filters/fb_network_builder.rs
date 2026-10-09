@@ -27,7 +27,8 @@ pub(crate) enum NetworkFilterListId {
     Filters = 5,
     GenericHide = 6,
     TaggedFiltersAll = 7,
-    Size = 8,
+    Replace = 8,
+    Size = 9,
 }
 
 struct NetworkFilterFlatEntry<'a> {
@@ -235,7 +236,9 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
         let lists = (0..NetworkFilterListId::Size as usize)
             .map(|list_id| {
                 // Don't optimize removeparam, since it can fuse filters without respecting distinct
-                let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
+                let optimize = optimize
+                    && list_id != NetworkFilterListId::RemoveParam as usize
+                    && list_id != NetworkFilterListId::Replace as usize;
                 NetworkFilterListBuilder::new(optimize)
             })
             .collect::<Vec<_>>();
@@ -278,6 +281,11 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
             FilterId::Csp
         } else if filter.is_removeparam() {
             FilterId::RemoveParam
+        } else if filter.is_replace() {
+            // Its own list, so a `$replace` filter is never consulted as a
+            // blocking rule: a body rewrite is not a block, and uBO does not
+            // treat it as one either.
+            FilterId::Replace
         } else if filter.is_generic_hide() {
             FilterId::GenericHide
         } else if filter.is_exception() {

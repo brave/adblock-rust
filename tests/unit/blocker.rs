@@ -529,6 +529,149 @@ mod blocker_tests {
         }
     }
 
+    // $replace reports a directive for the caller to apply to a response
+    // body. The engine never sees a body, so there is nothing for it to do
+    // but match the request and hand the directive over.
+    #[test]
+    fn test_replace_reports_the_directive() {
+        let filters = [
+            "||example.com/app.js$replace=/detectAdblock/noop/",
+            "/analytics.js$replace=/sendBeacon/void 0/g",
+        ];
+        let blocker = Blocker::new(filters);
+        let resources = ResourceStorage::default();
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(
+            result.replace,
+            Some(vec![String::from("/detectAdblock/noop/")])
+        );
+        // A body rewrite is not a block, and uBO does not treat it as one.
+        assert!(!result.should_block());
+        assert!(result.filter.is_none());
+
+        // Nothing of theirs matches this one.
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/other.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, None);
+        assert!(!result.should_block());
+    }
+
+    // They compose: uBO applies each in turn to the body, so every match is
+    // returned rather than the first.
+    #[test]
+    fn test_replace_returns_every_match() {
+        let filters = ["||example.com^$replace=/one/1/", "/app.js$replace=/two/2/i"];
+        let blocker = Blocker::new(filters);
+        let resources = ResourceStorage::default();
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        let mut directives = result.replace.unwrap();
+        directives.sort();
+        assert_eq!(directives, vec!["/one/1/", "/two/2/i"]);
+    }
+
+    // A blocked request has no body to rewrite, so there is no point
+    // carrying a directive for it.
+    #[test]
+    fn test_replace_not_reported_for_a_blocked_request() {
+        let filters = ["||example.com/app.js$replace=/a/b/", "||example.com/app.js"];
+        let blocker = Blocker::new(filters);
+        let resources = ResourceStorage::default();
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert!(result.should_block());
+        assert_eq!(result.replace, None);
+
+        // And where an exception takes the block away, the directive is back.
+        let blocker = Blocker::new([
+            "||example.com/app.js$replace=/a/b/",
+            "||example.com/app.js",
+            "@@||example.com/app.js",
+        ]);
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert!(!result.should_block());
+        assert_eq!(result.replace, Some(vec![String::from("/a/b/")]));
+    }
+
+    // Only the types that can carry text, which is what a body rewrite can
+    // be applied to, and what their own default has to be for a filter that
+    // names none.
+    #[test]
+    fn test_replace_defaults_to_the_text_types() {
+        let blocker = Blocker::new(["||example.com^$replace=/a/b/"]);
+        let resources = ResourceStorage::default();
+
+        for kind in ["script", "xmlhttprequest", "stylesheet", "document"] {
+            let result = blocker.check(
+                &Request::new("https://example.com/thing", "https://example.com", kind, "")
+                    .unwrap(),
+                &resources,
+            );
+            assert_eq!(
+                result.replace,
+                Some(vec![String::from("/a/b/")]),
+                "{kind} should carry it"
+            );
+        }
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/thing.png",
+                "https://example.com",
+                "image",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, None, "an image has no text to rewrite");
+    }
+
     #[test]
     fn test_removeparam() {
         let filters = [

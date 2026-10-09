@@ -57,6 +57,15 @@ pub struct BlockerResult {
     /// modified at all, the new version will be here. This should be used
     /// as long as the request is not blocked.
     pub rewritten_url: Option<String>,
+    /// Any `$replace` directives that matched, exactly as written in the
+    /// filters, in the order the lists were loaded.
+    ///
+    /// The engine does not apply these: it never sees a response body. The
+    /// caller is expected to hold the body and do the rewriting, which is why
+    /// the directive is handed over rather than a result. Present only for a
+    /// request that is not blocked - a blocked request has no body to
+    /// rewrite.
+    pub replace: Option<Vec<String>>,
 }
 
 impl BlockerResult {
@@ -129,6 +138,10 @@ impl Blocker {
 
     pub(crate) fn removeparam(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::RemoveParam)
+    }
+
+    pub(crate) fn replace(&self) -> NetworkFilterList<'_> {
+        self.get_list(NetworkFilterListId::Replace)
     }
 
     pub(crate) fn filters(&self) -> NetworkFilterList<'_> {
@@ -291,6 +304,19 @@ impl Blocker {
             Self::apply_removeparam(&self.removeparam(), request, regex_manager.deref_mut())
         };
 
+        // A blocked request has no body to rewrite, and an `important` match
+        // cannot be excepted, so neither is worth collecting directives for.
+        let replace = if important || (filter.is_some() && exception.is_none()) {
+            None
+        } else {
+            Self::collect_replace(
+                &self.replace(),
+                request,
+                &self.tags_enabled,
+                regex_manager.deref_mut(),
+            )
+        };
+
         // If something has already matched before but we don't know what, still return a match
         let fallback_match = if matched_rule {
             Some(FilterRuleDebugInfo::default())
@@ -306,7 +332,31 @@ impl Blocker {
             important,
             redirect,
             rewritten_url,
+            replace,
         }
+    }
+
+    /// Every `$replace` directive matching this request, in list order. They
+    /// compose: uBO applies each in turn to the body, so all of them are
+    /// returned rather than the first.
+    fn collect_replace(
+        replace_filters: &NetworkFilterList,
+        request: &Request,
+        tags_enabled: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> Option<Vec<String>> {
+        let filters = replace_filters.check_all(request, tags_enabled, regex_manager);
+        if filters.is_empty() {
+            return None;
+        }
+        let directives: Vec<String> = filters
+            .iter()
+            .filter_map(|filter| filter.modifier_option.as_deref().map(String::from))
+            .collect();
+        if directives.is_empty() {
+            return None;
+        }
+        Some(directives)
     }
 
     fn apply_removeparam(
