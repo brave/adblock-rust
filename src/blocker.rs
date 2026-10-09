@@ -336,9 +336,13 @@ impl Blocker {
         }
     }
 
-    /// Every `$replace` directive matching this request, in list order. They
-    /// compose: uBO applies each in turn to the body, so all of them are
-    /// returned rather than the first.
+    /// Every `$replace` directive matching this request, in list order, with
+    /// the exceptions taken out. They compose: uBO applies each in turn to
+    /// the body, so all of them are returned rather than the first.
+    ///
+    /// An exception naming a directive disables that one; a bare
+    /// `@@...$replace` disables all of them for this request, which is the
+    /// same shape `$csp` uses.
     fn collect_replace(
         replace_filters: &NetworkFilterList,
         request: &Request,
@@ -349,10 +353,31 @@ impl Blocker {
         if filters.is_empty() {
             return None;
         }
-        let directives: Vec<String> = filters
-            .iter()
-            .filter_map(|filter| filter.modifier_option.as_deref().map(String::from))
-            .collect();
+
+        let mut disabled: HashSet<&str> = HashSet::new();
+        for filter in filters.iter() {
+            if !filter.filter_mask.is_exception() {
+                continue;
+            }
+            // A bare exception turns off every replacement here, so there
+            // is nothing left to collect.
+            let directive = filter.modifier_option.as_ref()?;
+            let text: &str = directive;
+            disabled.insert(text);
+        }
+
+        let mut directives: Vec<String> = Vec::new();
+        for filter in filters.iter() {
+            if filter.filter_mask.is_exception() {
+                continue;
+            }
+            if let Some(directive) = &filter.modifier_option {
+                let text: &str = directive;
+                if !disabled.contains(text) && !directives.iter().any(|held| held == text) {
+                    directives.push(String::from(text));
+                }
+            }
+        }
         if directives.is_empty() {
             return None;
         }

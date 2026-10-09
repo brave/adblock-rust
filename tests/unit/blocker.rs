@@ -597,6 +597,123 @@ mod blocker_tests {
         assert_eq!(directives, vec!["/one/1/", "/two/2/i"]);
     }
 
+    // An exception naming a directive turns that one off and leaves the
+    // rest; a bare one turns all of them off. Their own shape for $csp.
+    #[test]
+    fn test_replace_exceptions() {
+        let resources = ResourceStorage::default();
+        let request = || {
+            Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap()
+        };
+
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/two/2/",
+            "@@||example.com/app.js$replace=/one/1/",
+        ]);
+        assert_eq!(
+            blocker.check(&request(), &resources).replace,
+            Some(vec![String::from("/two/2/")]),
+            "the one it names is gone, the other stays"
+        );
+
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/two/2/",
+            "@@||example.com/app.js$replace",
+        ]);
+        assert_eq!(
+            blocker.check(&request(), &resources).replace,
+            None,
+            "a bare exception turns off every one of them"
+        );
+
+        // And an exception for another url leaves this one alone.
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "@@||example.com/other.js$replace",
+        ]);
+        assert_eq!(
+            blocker.check(&request(), &resources).replace,
+            Some(vec![String::from("/one/1/")])
+        );
+    }
+
+    // The same directive from two lists is one directive, not two.
+    #[test]
+    fn test_replace_deduplicates() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/same/x/",
+            "/app.js$replace=/same/x/",
+        ]);
+        let resources = ResourceStorage::default();
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, Some(vec![String::from("/same/x/")]));
+    }
+
+    // $badfilter takes one out, as it does any other rule. Worth pinning
+    // because the rule lives in a list of its own now.
+    #[test]
+    fn test_replace_badfilter() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/two/2/",
+            "||example.com^$replace=/one/1/,badfilter",
+        ]);
+        let resources = ResourceStorage::default();
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, Some(vec![String::from("/two/2/")]));
+    }
+
+    // The option splitter walks bytes to find the delimiters, so a directive
+    // carrying multi-byte characters has to come through whole rather than
+    // panicking on a slice that is not a character boundary.
+    #[test]
+    fn test_replace_multibyte() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/\u{65e5}\u{672c}\u{8a9e}/x/g,domain=example.com",
+        ]);
+        let resources = ResourceStorage::default();
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(
+            result.replace,
+            Some(vec![String::from("/\u{65e5}\u{672c}\u{8a9e}/x/g")])
+        );
+    }
+
     // A blocked request has no body to rewrite, so there is no point
     // carrying a directive for it.
     #[test]

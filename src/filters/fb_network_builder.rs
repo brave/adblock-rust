@@ -284,7 +284,8 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
         } else if filter.is_replace() {
             // Its own list, so a `$replace` filter is never consulted as a
             // blocking rule: a body rewrite is not a block, and uBO does not
-            // treat it as one either.
+            // treat it as one either. Exceptions go in the same list, to be
+            // subtracted there - the way csp does it.
             FilterId::Replace
         } else if filter.is_generic_hide() {
             FilterId::GenericHide

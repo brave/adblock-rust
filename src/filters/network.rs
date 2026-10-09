@@ -88,8 +88,6 @@ pub enum NetworkFilterError {
     EmptyReplace,
     #[error("negated replace")]
     NegatedReplace,
-    #[error("replace with exception")]
-    ReplaceWithException,
     #[error("replace malformed")]
     ReplaceMalformed,
     #[error("redirection url invalid")]
@@ -629,7 +627,7 @@ impl<'a> NetworkFilter<'a> {
                     }
                     NetworkFilterOption::Replace(value) => {
                         features_mask.set(NetworkFilterFeaturesMask::IS_REPLACE, true);
-                        modifier_option = Some(value);
+                        modifier_option = value;
                     }
                     NetworkFilterOption::Csp(value) => {
                         features_mask.set(NetworkFilterFeaturesMask::IS_CSP, true);
@@ -877,11 +875,14 @@ impl<'a> NetworkFilter<'a> {
         if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) && parsed.exception {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
-        // TODO: uBO allows `@@...$replace` to disable a replacement for a
-        // url. Until the caller is given a way to see that, rejecting the
-        // filter is better than loading one that quietly does nothing.
-        if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE) && parsed.exception {
-            return Err(NetworkFilterError::ReplaceWithException);
+        // A bare `$replace` turns every replacement off for a matching
+        // request, which only means anything on an exception. On a blocking
+        // filter it is a filter with nothing to do.
+        if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE)
+            && modifier_option.is_none()
+            && !parsed.exception
+        {
+            return Err(NetworkFilterError::EmptyReplace);
         }
 
         // uBlock Origin would block main document `https://example.com` requests with all of the

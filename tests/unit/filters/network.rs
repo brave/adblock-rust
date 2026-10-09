@@ -907,22 +907,34 @@ mod parse_tests {
             assert_eq!(filter.modifier_option, Some("/a\\/b/c/"));
         }
         {
-            let filter = NetworkFilter::parse("||foo.com^$replace", true, Default::default());
-            assert_eq!(filter, Err(NetworkFilterError::EmptyReplace));
-        }
-        {
-            let filter = NetworkFilter::parse("||foo.com^$replace=", true, Default::default());
-            assert_eq!(filter, Err(NetworkFilterError::EmptyReplace));
+            for text in ["||foo.com^$replace", "||foo.com^$replace="] {
+                assert_eq!(
+                    NetworkFilter::parse(text, true, Default::default()),
+                    Err(NetworkFilterError::EmptyReplace),
+                    "{text}"
+                );
+            }
         }
         {
             let filter = NetworkFilter::parse("$~replace=/a/b/", true, Default::default());
             assert_eq!(filter, Err(NetworkFilterError::NegatedReplace));
         }
         {
-            // TODO: uBO allows an exception to turn a replacement off.
+            // An exception naming a directive turns that one off.
             let filter =
-                NetworkFilter::parse("@@||foo.com^$replace=/a/b/", true, Default::default());
-            assert_eq!(filter, Err(NetworkFilterError::ReplaceWithException));
+                NetworkFilter::parse("@@||foo.com^$replace=/a/b/", true, Default::default())
+                    .unwrap();
+            assert!(filter.is_replace());
+            assert!(filter.is_exception());
+            assert_eq!(filter.modifier_option, Some("/a/b/"));
+        }
+        {
+            // A bare one turns all of them off, and only an exception may be
+            // bare: on a blocking filter it would have nothing to do.
+            let filter =
+                NetworkFilter::parse("@@||foo.com^$replace", true, Default::default()).unwrap();
+            assert!(filter.is_replace());
+            assert_eq!(filter.modifier_option, None);
         }
         {
             // Not a directive at all.

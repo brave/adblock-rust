@@ -81,7 +81,11 @@ pub(crate) enum NetworkFilterOption<'a> {
     /// `$replace=/pattern/replacement/flags`, held exactly as written. The
     /// engine never sees a response body, so it cannot apply one: it reports
     /// the directive and the browser does the rewriting.
-    Replace(&'a str),
+    ///
+    /// `None` is the bare `$replace` of an exception filter, which turns off
+    /// every replacement for a matching request rather than one of them -
+    /// the same shape `$csp` uses.
+    Replace(Option<&'a str>),
     Generichide,
     Document,
     Image(bool),
@@ -378,12 +382,15 @@ fn parse_filter_options<'a>(
             ("replace", true) => return Err(NetworkFilterError::NegatedReplace),
             ("replace", false) => {
                 if value.is_empty() {
-                    return Err(NetworkFilterError::EmptyReplace);
+                    // Legal only on an exception, which is checked where
+                    // exception-ness is known.
+                    NetworkFilterOption::Replace(None)
+                } else {
+                    if !is_replace_directive(value) {
+                        return Err(NetworkFilterError::ReplaceMalformed);
+                    }
+                    NetworkFilterOption::Replace(Some(value))
                 }
-                if !is_replace_directive(value) {
-                    return Err(NetworkFilterError::ReplaceMalformed);
-                }
-                NetworkFilterOption::Replace(value)
             }
             ("generichide", true) | ("ghide", true) => {
                 return Err(NetworkFilterError::NegatedGenericHide);
