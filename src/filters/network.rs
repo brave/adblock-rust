@@ -90,6 +90,8 @@ pub enum NetworkFilterError {
     NegatedReplace,
     #[error("replace malformed")]
     ReplaceMalformed,
+    #[error("replace with a type that carries no rewritable body")]
+    ReplaceWithUnrewritableType,
     #[error("redirection url invalid")]
     RedirectionUrlInvalid,
     #[error("multiple modifier options")]
@@ -453,6 +455,8 @@ impl PartialOrd for NetworkFilter<'_> {
 fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFilterError> {
     let mut has_csp = false;
     let mut has_content_type = false;
+    let mut has_replace = false;
+    let mut has_unrewritable_type = false;
     let mut modifier_options = 0;
     for option in options {
         if matches!(option, NetworkFilterOption::Csp(..)) {
@@ -460,15 +464,29 @@ fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFi
             modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
-        } else if option.is_redirection()
-            || matches!(option, NetworkFilterOption::Removeparam(..))
-            || matches!(option, NetworkFilterOption::Replace(..))
+            // uBO refuses `$replace` next to a type it cannot rewrite the
+            // body of - its abstract, behaviour and "unredirectable" types.
+            // Of those this crate has ping and websocket, neither of which
+            // delivers a body to rewrite.
+            if matches!(
+                option,
+                NetworkFilterOption::Ping(true) | NetworkFilterOption::Websocket(true)
+            ) {
+                has_unrewritable_type = true;
+            }
+        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..))
         {
+            modifier_options += 1;
+        } else if matches!(option, NetworkFilterOption::Replace(..)) {
+            has_replace = true;
             modifier_options += 1;
         }
     }
     if has_csp && has_content_type {
         return Err(NetworkFilterError::CspWithContentType);
+    }
+    if has_replace && has_unrewritable_type {
+        return Err(NetworkFilterError::ReplaceWithUnrewritableType);
     }
     if modifier_options > 1 {
         return Err(NetworkFilterError::MultipleModifierOptions);

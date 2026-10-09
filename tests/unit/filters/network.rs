@@ -983,6 +983,26 @@ mod parse_tests {
             );
         }
         {
+            // uBO refuses it beside a type whose response carries no body to
+            // rewrite. Of the types it lists, this crate has these two.
+            for text in [
+                "||foo.com^$replace=/a/b/,ping",
+                "||foo.com^$replace=/a/b/,websocket",
+            ] {
+                assert_eq!(
+                    NetworkFilter::parse(text, true, Default::default()),
+                    Err(NetworkFilterError::ReplaceWithUnrewritableType),
+                    "{text}"
+                );
+            }
+            // A negated one is not a type the filter applies to, so it is
+            // not a conflict.
+            assert!(
+                NetworkFilter::parse("||foo.com^$replace=/a/b/,~ping", true, Default::default())
+                    .is_ok()
+            );
+        }
+        {
             // One modifier per filter, as uBO has it.
             for text in [
                 "||foo.com^$replace=/a/b/,redirect=noopjs",

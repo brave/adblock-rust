@@ -65,6 +65,19 @@ pub struct BlockerResult {
     /// the directive is handed over rather than a result. Present only for a
     /// request that is not blocked - a blocked request has no body to
     /// rewrite.
+    ///
+    /// Two things are the caller's to decide, because the engine cannot:
+    ///
+    /// - **Which lists may do this.** uBO accepts `$replace` only from a
+    ///   trusted source, since a directive can rewrite any response body it
+    ///   matches. Nothing is enforced here - a `PermissionMask` would be the
+    ///   place if it were - so a caller applying directives from a list the
+    ///   user has not trusted is handing that list the page.
+    /// - **Which regex dialect.** The pattern is passed through uncompiled,
+    ///   so the caller picks the engine. uBO's is JavaScript's, including
+    ///   `$1` group references in the replacement; of the 17 live `$replace`
+    ///   rules in Brave's own list none needs a construct beyond RE2, but
+    ///   the syntax for a group reference differs between the two.
     pub replace: Option<Vec<String>>,
 }
 
