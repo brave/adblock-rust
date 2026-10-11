@@ -968,6 +968,43 @@ mod parse_tests {
             );
         }
         {
+            // A group reference in the replacement is written `$1`, as in
+            // JavaScript, and the options separator is found by scanning from
+            // the right - so without a guard the scan lands inside the
+            // replacement and the filter is silently dropped.
+            let filter = NetworkFilter::parse(
+                "||cdn.test/app.js$replace=/analytics\\.track\\(([^)]*)\\)/void($1)/g",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert!(filter.is_replace());
+            assert_eq!(
+                filter.modifier_option,
+                Some("/analytics\\.track\\(([^)]*)\\)/void($1)/g"),
+                "the whole directive survives, group reference included"
+            );
+        }
+        {
+            // Several of them, and a later option still read past them.
+            let filter = NetworkFilter::parse(
+                "||cdn.test/a.js$replace=/(a)(b)/$2$1/g,domain=foo.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(filter.modifier_option, Some("/(a)(b)/$2$1/g"));
+            assert!(filter.opt_domains.is_some(), "domain= after it was read");
+        }
+        {
+            // The guard is scoped to lines carrying a replace option, so a
+            // `$digit` anywhere else still ends the pattern as it always did.
+            assert!(
+                NetworkFilter::parse("||foo.com/a$1", true, Default::default()).is_err(),
+                "a bare $1 is not an option list"
+            );
+        }
+        {
             // And an option written after the directive is still read, which
             // is how their own lists put a domain= on one.
             let filter = NetworkFilter::parse(

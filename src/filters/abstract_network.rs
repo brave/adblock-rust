@@ -1,4 +1,4 @@
-use memchr::memrchr as find_char_reverse;
+use memchr::{memmem, memrchr as find_char_reverse};
 
 use super::network::NetworkFilterError;
 
@@ -191,7 +191,7 @@ impl AbstractNetworkFilter<'_> {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
+        let maybe_options_index: Option<usize> = find_options_index(line.as_bytes());
 
         let mut options = None;
         if let Some(options_index) = maybe_options_index {
@@ -310,6 +310,30 @@ fn split_options(raw_options: &str) -> Vec<&str> {
         }
     }
     out
+}
+
+/// Finds the `$` that separates the pattern from the options.
+///
+/// The scan runs from the right, which is safe for every option whose value
+/// cannot contain a `$`. `replace=` can: uBO writes regex group references in
+/// the replacement as `$1`, `$2`, and an unguarded scan would land inside the
+/// replacement and leave `1)/g` to be parsed as the option list. A `$`
+/// followed by a digit is never the start of an option list - no option name
+/// begins with one - so in a line that carries a `replace=` option, skip it
+/// and keep looking left.
+fn find_options_index(line: &[u8]) -> Option<usize> {
+    let mut end = line.len();
+    while let Some(index) = find_char_reverse(b'$', &line[..end]) {
+        let introduces_group_ref = line
+            .get(index + 1)
+            .is_some_and(|byte| byte.is_ascii_digit());
+        if introduces_group_ref && memmem::find(&line[..index], b"replace=").is_some() {
+            end = index;
+            continue;
+        }
+        return Some(index);
+    }
+    None
 }
 
 fn parse_filter_options<'a>(
