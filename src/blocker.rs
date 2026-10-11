@@ -100,13 +100,15 @@ impl Blocker {
     }
 
     pub(crate) fn get_list(&self, id: NetworkFilterListId) -> NetworkFilterList<'_> {
+        let id = id as usize;
         NetworkFilterList {
             list: self
                 .filter_data_context
                 .memory
                 .root()
                 .network_rules()
-                .get(id as usize),
+                .get(id),
+            directories: &self.filter_data_context.network_list_directories[id],
             filter_data_context: &self.filter_data_context,
         }
     }

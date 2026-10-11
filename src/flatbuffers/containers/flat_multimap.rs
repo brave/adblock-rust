@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use crate::flatbuffers::containers;
 use containers::flat_serialize::{FlatBuilder, FlatMapBuilderOutput, FlatSerialize};
@@ -35,8 +36,21 @@ where
     }
 
     pub fn get(&self, key: I) -> Option<FlatMultiMapViewIterator<'a, I, V, Keys>> {
-        let index = self.keys.partition_point(|x| *x < key);
-        if index < self.keys.len() && self.keys.get(index) == key {
+        self.get_in(key, 0..self.keys.len())
+    }
+
+    /// Like [FlatMultiMapView::get], but only searches the keys within `range`, which must
+    /// contain every occurrence of `key` (e.g. as returned by a
+    /// [super::prefix_directory::PrefixDirectory] built over the same keys).
+    #[inline(always)]
+    pub fn get_in(
+        &self,
+        key: I,
+        range: Range<usize>,
+    ) -> Option<FlatMultiMapViewIterator<'a, I, V, Keys>> {
+        let end = range.end;
+        let index = self.keys.partition_point_in(range, |x| *x < key);
+        if index < end && self.keys.get(index) == key {
             Some(FlatMultiMapViewIterator {
                 index,
                 key,
