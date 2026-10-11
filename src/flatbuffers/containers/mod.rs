@@ -6,4 +6,5 @@ pub(crate) mod flat_set;
 pub(crate) mod hash_index;
 pub(crate) mod hash_map;
 pub(crate) mod hash_set;
+pub(crate) mod prefix_directory;
 pub(crate) mod sorted_index;
