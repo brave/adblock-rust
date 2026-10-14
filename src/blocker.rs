@@ -79,6 +79,15 @@ pub struct BlockerResult {
     ///   rules in Brave's own list none needs a construct beyond RE2, but
     ///   the syntax for a group reference differs between the two.
     pub replace: Option<Vec<String>>,
+    /// Whether a bare `@@...$replace` matched this request, which turns off
+    /// every directive rather than one named one.
+    ///
+    /// `replace` already has it applied, so a caller with a single engine can
+    /// ignore this. A caller running several engines over the same request
+    /// cannot: each engine resolves only its own exceptions, so an exception
+    /// in one list would leave a directive from another list standing. That
+    /// is the shape a webcompat fix takes, so it has to cross the boundary.
+    pub replace_exception_all: bool,
 }
 
 impl BlockerResult {
@@ -319,16 +328,17 @@ impl Blocker {
 
         // A blocked request has no body to rewrite, and an `important` match
         // cannot be excepted, so neither is worth collecting directives for.
-        let replace = if important || (filter.is_some() && exception.is_none()) {
-            None
-        } else {
-            Self::collect_replace(
-                &self.replace(),
-                request,
-                &self.tags_enabled,
-                regex_manager.deref_mut(),
-            )
-        };
+        let (replace, replace_exception_all) =
+            if important || (filter.is_some() && exception.is_none()) {
+                (None, false)
+            } else {
+                Self::collect_replace(
+                    &self.replace(),
+                    request,
+                    &self.tags_enabled,
+                    regex_manager.deref_mut(),
+                )
+            };
 
         // If something has already matched before but we don't know what, still return a match
         let fallback_match = if matched_rule {
@@ -346,6 +356,7 @@ impl Blocker {
             redirect,
             rewritten_url,
             replace,
+            replace_exception_all,
         }
     }
 
@@ -356,15 +367,19 @@ impl Blocker {
     /// An exception naming a directive disables that one; a bare
     /// `@@...$replace` disables all of them for this request, which is the
     /// same shape `$csp` uses.
+    /// Returns the directives that survive this engine's own exceptions, and
+    /// whether a bare exception turned all of them off - which a caller
+    /// merging several engines needs, since the directives it cancels may
+    /// have come from another one.
     fn collect_replace(
         replace_filters: &NetworkFilterList,
         request: &Request,
         tags_enabled: &HashSet<String>,
         regex_manager: &mut RegexManager,
-    ) -> Option<Vec<String>> {
+    ) -> (Option<Vec<String>>, bool) {
         let filters = replace_filters.check_all(request, tags_enabled, regex_manager);
         if filters.is_empty() {
-            return None;
+            return (None, false);
         }
 
         let mut disabled: HashSet<&str> = HashSet::new();
@@ -372,11 +387,15 @@ impl Blocker {
             if !filter.filter_mask.is_exception() {
                 continue;
             }
-            // A bare exception turns off every replacement here, so there
-            // is nothing left to collect.
-            let directive = filter.modifier_option.as_ref()?;
-            let text: &str = directive;
-            disabled.insert(text);
+            match filter.modifier_option.as_ref() {
+                Some(directive) => {
+                    let text: &str = directive;
+                    disabled.insert(text);
+                }
+                // A bare exception turns off every replacement, here and in
+                // any other engine the caller runs over this request.
+                None => return (None, true),
+            }
         }
 
         let mut directives: Vec<String> = Vec::new();
@@ -392,9 +411,9 @@ impl Blocker {
             }
         }
         if directives.is_empty() {
-            return None;
+            return (None, false);
         }
-        Some(directives)
+        (Some(directives), false)
     }
 
     fn apply_removeparam(
