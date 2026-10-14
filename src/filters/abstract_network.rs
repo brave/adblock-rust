@@ -130,12 +130,25 @@ impl NetworkFilterOption<'_> {
 
 /// Is this a `$replace` directive uBO would accept: `/pattern/replacement/`
 /// with an optional trailing flag run, where the delimiter may appear inside
-/// either half as long as it is escaped.
+/// either half as long as it is escaped; or `json:<query>` and `jsonl:<query>`,
+/// which uBO added for a body that is JSON rather than text - the first applies
+/// the query to the whole body, the second to each line of it.
 ///
-/// Only the shape is checked here. The pattern itself is not compiled: the
-/// engine does not do the replacing, so a regex it cannot compile costs the
-/// browser one directive rather than costing the list a filter.
+/// Only the shape is checked here. Neither the pattern nor the query is
+/// compiled: the engine does not do the replacing, so one it cannot compile
+/// costs the browser a directive rather than costing the list a filter. Their
+/// own parser takes the same view of the regex and a stricter one of the query,
+/// which it builds with JSONPath.create and rejects when that reports invalid -
+/// there is no JSONPath here to ask, so a non-empty query is accepted and the
+/// consumer is left to refuse what it cannot run.
 fn is_replace_directive(value: &str) -> bool {
+    // Their parseReplaceValue switches on the first character: a slash is the
+    // regex form, anything else is a type name up to the first colon.
+    for prefix in ["json:", "jsonl:"] {
+        if let Some(query) = value.strip_prefix(prefix) {
+            return !query.is_empty();
+        }
+    }
     let bytes = value.as_bytes();
     if bytes.first() != Some(&b'/') {
         return false;
@@ -263,9 +276,32 @@ fn split_options(raw_options: &str) -> Vec<&str> {
         let head = &raw_options[index..];
         let name_start = if head.starts_with('~') { 1 } else { 0 };
         if head[name_start..].starts_with(REPLACE) {
+            let value_start = index + name_start + REPLACE.len();
+            // Their `json:` and `jsonl:` forms carry a JSONPath query rather
+            // than a delimited pattern, so there is no third delimiter to count
+            // to. Theirs ends any option value at the first unescaped comma -
+            // indexOfNextArgSeparator - and a query that needs one of its own
+            // escapes it, so that is where this ends too.
+            let rest = &raw_options[value_start..];
+            if rest.starts_with("json:") || rest.starts_with("jsonl:") {
+                let mut cursor = value_start;
+                let mut escaped = false;
+                while cursor < bytes.len() {
+                    match bytes[cursor] {
+                        b'\\' if !escaped => escaped = true,
+                        b',' if !escaped => break,
+                        _ => escaped = false,
+                    }
+                    cursor += 1;
+                }
+                out.push(&raw_options[start..cursor]);
+                index = cursor + 1;
+                start = index;
+                continue;
+            }
             let mut seen = 0;
             let mut escaped = false;
-            let mut cursor = index + name_start + REPLACE.len();
+            let mut cursor = value_start;
             // The delimiters: one opening and two closing.
             while cursor < bytes.len() {
                 let byte = bytes[cursor];
@@ -315,19 +351,31 @@ fn split_options(raw_options: &str) -> Vec<&str> {
 /// Finds the `$` that separates the pattern from the options.
 ///
 /// The scan runs from the right, which is safe for every option whose value
-/// cannot contain a `$`. `replace=` can: uBO writes regex group references in
-/// the replacement as `$1`, `$2`, and an unguarded scan would land inside the
-/// replacement and leave `1)/g` to be parsed as the option list. A `$`
-/// followed by a digit is never the start of an option list - no option name
-/// begins with one - so in a line that carries a `replace=` option, skip it
-/// and keep looking left.
+/// cannot contain a `$`. `replace=` can, twice over: its regex form carries
+/// JavaScript group references like `$1`, and uBO's `json:` and `jsonl:` forms
+/// carry a JSONPath query, which begins at `$`. An unguarded scan lands inside
+/// the value and leaves the tail of it to be parsed as the option list.
+///
+/// An option name begins with a letter, or with `~` where it may be negated,
+/// so a `$` followed by anything else cannot be the separator. In a line that
+/// carries a `replace=` option, skip those and keep looking left.
+///
+/// Scoped to those lines on purpose. Their own parser asks instead whether what
+/// follows is a KNOWN option name (indexOfNetAnchor), which absorbs `$woot` and
+/// `$popup` into the pattern; this parser rejects a line with an option it does
+/// not know, and keeping that is worth more than matching them here - the same
+/// easylist gains 3,800 filters the other way, every one of them a pattern with
+/// a `$` in it that will never match.
 fn find_options_index(line: &[u8]) -> Option<usize> {
     let mut end = line.len();
     while let Some(index) = find_char_reverse(b'$', &line[..end]) {
-        let introduces_group_ref = line
+        let cannot_begin_an_option = !line
             .get(index + 1)
-            .is_some_and(|byte| byte.is_ascii_digit());
-        if introduces_group_ref && memmem::find(&line[..index], b"replace=").is_some() {
+            .is_some_and(|byte| byte.is_ascii_lowercase() || *byte == b'~');
+        if cannot_begin_an_option && memmem::find(&line[..index], b"replace=").is_some() {
+            if index == 0 {
+                return None;
+            }
             end = index;
             continue;
         }

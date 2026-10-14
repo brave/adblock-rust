@@ -997,12 +997,72 @@ mod parse_tests {
             assert!(filter.opt_domains.is_some(), "domain= after it was read");
         }
         {
-            // The guard is scoped to lines carrying a replace option, so a
-            // `$digit` anywhere else still ends the pattern as it always did.
+            // The guard is scoped to lines carrying a replace option, so a `$`
+            // that cannot begin an option still ends the pattern as it always
+            // did and the line is rejected. Their own parser absorbs this one
+            // into the pattern instead; keeping the stricter reading is
+            // deliberate, and find_options_index says why.
             assert!(
                 NetworkFilter::parse("||foo.com/a$1", true, Default::default()).is_err(),
                 "a bare $1 is not an option list"
             );
+        }
+        {
+            // uBO's other two value forms: a JSONPath query over the whole
+            // body, or over each of its lines. The query is not parsed here -
+            // there is no JSONPath to ask - so a non-empty one is taken and
+            // the consumer refuses what it cannot run.
+            for text in [
+                "||cdn.test/app.json$xhr,replace=json:$..adPlacements",
+                "||cdn.test/app.json$xhr,replace=jsonl:$..adSlots",
+            ] {
+                let filter = NetworkFilter::parse(text, true, Default::default()).unwrap();
+                assert!(filter.is_replace(), "{text}");
+                assert!(
+                    filter.modifier_option.unwrap().starts_with("json"),
+                    "{text}"
+                );
+            }
+            // A type name they do not have, and an empty query, are neither.
+            for text in [
+                "||cdn.test/app.json$replace=jsonx:$..a",
+                "||cdn.test/app.json$replace=json:",
+                "||cdn.test/app.json$replace=jsonl:",
+            ] {
+                assert!(
+                    NetworkFilter::parse(text, true, Default::default()).is_err(),
+                    "{text}"
+                );
+            }
+        }
+        {
+            // A query has no third delimiter to count to, so its value ends
+            // where theirs does: at the first unescaped comma. An option after
+            // it is still read, and a query that needs a comma escapes it.
+            let filter = NetworkFilter::parse(
+                "||cdn.test/a.json$replace=json:$..a,domain=y.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(filter.modifier_option, Some("json:$..a"));
+            assert!(
+                filter.opt_domains.is_some(),
+                "the domain= after it was read"
+            );
+
+            let filter = NetworkFilter::parse(
+                "||cdn.test/a.json$replace=json:$['a'\\,'b'],domain=y.com",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                filter.modifier_option,
+                Some(r"json:$['a'\,'b']"),
+                "the escaped comma stays in the query"
+            );
+            assert!(filter.opt_domains.is_some());
         }
         {
             // And an option written after the directive is still read, which
