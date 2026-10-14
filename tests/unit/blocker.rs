@@ -645,6 +645,56 @@ mod blocker_tests {
         );
     }
 
+    // A bare exception is reported, not just applied, because the caller may
+    // be running another engine whose directives it also has to cancel.
+    #[test]
+    fn test_replace_bare_exception_is_reported() {
+        let resources = ResourceStorage::default();
+        let request = || {
+            Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap()
+        };
+
+        let blocker = Blocker::new(["@@||example.com/app.js$replace"]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, None);
+        assert!(
+            result.replace_exception_all,
+            "a bare exception has to be visible to the caller even with no \
+             directive of its own to cancel"
+        );
+
+        // Alongside directives it cancels, both facts are reported.
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "@@||example.com/app.js$replace",
+        ]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, None);
+        assert!(result.replace_exception_all);
+
+        // A named exception is not a bare one: it cancels what it names and
+        // says nothing about any other engine's directives.
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "@@||example.com/app.js$replace=/one/1/",
+        ]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, None);
+        assert!(!result.replace_exception_all);
+
+        // And no exception at all leaves the flag clear.
+        let blocker = Blocker::new(["||example.com^$replace=/one/1/"]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, Some(vec![String::from("/one/1/")]));
+        assert!(!result.replace_exception_all);
+    }
+
     // The same directive from two lists is one directive, not two.
     #[test]
     fn test_replace_deduplicates() {
