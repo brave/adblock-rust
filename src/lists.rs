@@ -461,6 +461,20 @@ impl From<CosmeticFilterError> for FilterParseError {
     }
 }
 
+/// Network filters may be followed by an inline comment, which starts at the first `#` that is
+/// preceded by whitespace (e.g. `||example.com^$third-party # note`). This matches uBlock Origin.
+/// Should not be applied to cosmetic filters, which can legitimately contain ` #`.
+fn strip_inline_comment(filter: &str) -> &str {
+    let bytes = filter.as_bytes();
+    match bytes
+        .windows(2)
+        .position(|w| w[0].is_ascii_whitespace() && w[1] == b'#')
+    {
+        Some(i) => filter[..i].trim_end(),
+        None => filter,
+    }
+}
+
 /// Parse a single line from a filter list
 pub fn parse_filter<'a>(
     line: &'a str,
@@ -476,7 +490,7 @@ pub fn parse_filter<'a>(
     match opts.format {
         FilterFormat::Standard => match (detect_filter_type(filter), opts.rule_types) {
             (FilterType::Network, RuleTypes::All | RuleTypes::NetworkOnly) => {
-                NetworkFilter::parse(filter, debug, opts)
+                NetworkFilter::parse(strip_inline_comment(filter), debug, opts)
                     .map(ParsedLine::Network)
                     .map_err(|e| e.into())
             }
