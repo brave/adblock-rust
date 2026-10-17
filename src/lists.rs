@@ -243,8 +243,12 @@ impl FilterSet {
     /// Adds the contents of an entire filter list to this `FilterSet`. Filters that cannot be
     /// parsed successfully are ignored. Returns any discovered metadata about the list of rules
     /// added.
-    pub fn add_filter_list(&mut self, filter_list: &str, opts: ParseOptions) -> FilterListMetadata {
-        self.add_filters(filter_list.lines(), opts)
+    pub fn add_filter_list(
+        &mut self,
+        filter_list: impl AsRef<str>,
+        opts: ParseOptions,
+    ) -> FilterListMetadata {
+        self.add_filters(filter_list.as_ref().lines(), opts)
     }
 
     /// Adds a collection of filter rules to this `FilterSet`. Filters that cannot be parsed

@@ -61,6 +61,14 @@ pub struct BlockerResult {
     pub filter: Option<String>,
 }
 
+impl BlockerResult {
+    /// Bench-compat with v0.13.1. This revision still stores the decision in `matched`.
+    #[inline]
+    pub fn should_block(&self) -> bool {
+        self.matched
+    }
+}
+
 // only check for tags in tagged and exception rule buckets,
 // pass empty set for the rest
 static NO_TAGS: Lazy<HashSet<String>> = Lazy::new(HashSet::new);

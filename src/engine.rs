@@ -71,6 +71,18 @@ impl Default for Engine {
 }
 
 impl Engine {
+    /// Bench-compat with v0.13.1 `Engine::new_with_list_text`: parse the list text and optimize.
+    pub fn new_with_list_text(list_text: impl Into<String>) -> Self {
+        let mut filter_set = FilterSet::new(false);
+        filter_set.add_filter_list(&list_text.into(), ParseOptions::default());
+        Self::from_filter_set(filter_set, true)
+    }
+
+    /// Bench-compat with v0.13.1 `Engine::new_with_filter_set` (optimizations enabled).
+    pub fn new_with_filter_set(set: FilterSet) -> Self {
+        Self::from_filter_set(set, true)
+    }
+
     /// Loads rules in a single format, enabling optimizations and discarding debug information.
     pub fn from_rules(
         rules: impl IntoIterator<Item = impl AsRef<str>>,
