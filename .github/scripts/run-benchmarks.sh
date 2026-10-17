@@ -15,7 +15,7 @@ echo "Running startup speed benchmark..."
 cargo bench --bench bench_rules blocker_new/brave-list -- --output-format bencher
 
 echo "Running memory usage benchmark..."
-cargo bench --bench bench_memory memory-usage -- --output-format bencher
+cargo bench --bench bench_memory memory-usage -- --output-format bencher --noplot
 
 echo "Running cosmetic matching benchmark..."
 cargo bench --bench bench_cosmetic_matching -- --output-format bencher

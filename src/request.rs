@@ -181,7 +181,12 @@ impl Request {
     }
 
     /// Construct a new [`Request`].
-    pub fn new(url: &str, source_url: &str, request_type: &str) -> Result<Request, RequestError> {
+    pub fn new(
+        url: &str,
+        source_url: &str,
+        request_type: &str,
+        _method: &str,
+    ) -> Result<Request, RequestError> {
         if let Some(parsed_url) = url_parser::parse_url(url) {
             if let Some(parsed_source) = url_parser::parse_url(source_url) {
                 let source_domain = parsed_source.domain();
@@ -222,6 +227,7 @@ impl Request {
         source_hostname: &str,
         request_type: &str,
         third_party: bool,
+        _method: &str,
     ) -> Request {
         let splitter = memchr::memchr(b':', url.as_bytes()).unwrap_or(0);
         let schema: &str = &url[..splitter];

@@ -2,18 +2,12 @@
 //! needed outside of this directory.
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn rules_from_lists(
-    lists: impl IntoIterator<Item = impl AsRef<str>>,
-) -> impl Iterator<Item = String> {
-    fn read_file_lines(filename: &str) -> impl Iterator<Item = String> {
-        use std::fs::File;
-        use std::io::{BufRead, BufReader};
-
-        let reader = BufReader::new(File::open(filename).unwrap());
-        reader.lines().map(|r| r.unwrap())
+pub fn rules_from_lists(list_files: impl IntoIterator<Item = impl AsRef<str>>) -> String {
+    let mut contents = String::new();
+    for file in list_files {
+        contents.push_str(&std::fs::read_to_string(file.as_ref()).unwrap());
+        contents.push('\n');
     }
-
-    lists
-        .into_iter()
-        .flat_map(|filename| read_file_lines(filename.as_ref()))
+    contents.shrink_to_fit();
+    contents
 }
