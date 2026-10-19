@@ -63,7 +63,7 @@ fn is_anchored_by_hostname(
             // `filter_hostname` is infix of `hostname` and needs match full labels
             (wildcard_filter_hostname
                 || filter_hostname.ends_with('.')
-                || hostname[filter_hostname_len..].starts_with('.'))
+                || hostname[match_index + filter_hostname_len..].starts_with('.'))
                 && (filter_hostname.starts_with('.')
                     || hostname[match_index - 1..].starts_with('.'))
         }
