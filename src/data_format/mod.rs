@@ -20,7 +20,7 @@ const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
 
 /// The version of the data format.
 /// If the data format version is incremented, the data is considered as incompatible.
-const ADBLOCK_RUST_DAT_VERSION: u8 = 8;
+const ADBLOCK_RUST_DAT_VERSION: u8 = 9;
 
 /// Offset of the 8-byte seahash checksum within the serialized header.
 const HASH_OFFSET: usize = ADBLOCK_RUST_DAT_MAGIC.len() + 1;
