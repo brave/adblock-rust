@@ -286,19 +286,22 @@ impl NetworkMatchable for FlatNetworkFilter<'_> {
         ) {
             return false;
         }
-        if !check_included_domains_mapped(
-            self.include_to_domains(),
-            request.hostname_hashes.as_deref(),
-            &self.filter_data_context.unique_domains_hashes_map,
-        ) {
-            return false;
-        }
-        if !check_excluded_domains_mapped(
-            self.exclude_to_domains(),
-            request.hostname_hashes.as_deref(),
-            &self.filter_data_context.unique_domains_hashes_map,
-        ) {
-            return false;
+        // `$to=` is rare: avoid reading the optional flatbuffer fields unless the filter has it.
+        if self.mask.contains(NetworkFilterMask::HAS_TO_OPTION) {
+            if !check_included_domains_mapped(
+                self.include_to_domains(),
+                request.hostname_hashes.as_deref(),
+                &self.filter_data_context.unique_domains_hashes_map,
+            ) {
+                return false;
+            }
+            if !check_excluded_domains_mapped(
+                self.exclude_to_domains(),
+                request.hostname_hashes.as_deref(),
+                &self.filter_data_context.unique_domains_hashes_map,
+            ) {
+                return false;
+            }
         }
         check_pattern(
             self.mask,

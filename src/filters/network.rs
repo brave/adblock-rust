@@ -99,9 +99,6 @@ pub enum NetworkFilterError {
     MatchCaseWithoutFullRegex,
     #[error("no supported domains")]
     NoSupportedDomains,
-    /// `$to=` was only exclude-only and/or too-common (single-label) destinations.
-    #[error("expensive to option")]
-    ExpensiveToOption,
 }
 
 bitflags::bitflags! {
@@ -123,6 +120,9 @@ bitflags::bitflags! {
         const FROM_HTTPS = 1 << 12;
         const IS_IMPORTANT = 1 << 13;
         const MATCH_CASE = 1 << 14;
+        // The filter has `$to=` domains. Lets the matcher skip reading the optional `$to=` data
+        // for the (vast majority of) filters without it.
+        const HAS_TO_OPTION = 1 << 15;
         const THIRD_PARTY = 1 << 16;
         const FIRST_PARTY = 1 << 17;
         // Full document rules are not implied by negated types.
@@ -414,6 +414,11 @@ pub struct NetworkFilter<'a> {
     pub opt_not_domains: Option<Vec<Hash>>,
     pub opt_to_domains: Option<Vec<Hash>>,
     pub opt_not_to_domains: Option<Vec<Hash>>,
+    /// `true` when all positive `$to=` destinations are too common (single-label, e.g. `com`) to
+    /// be used as an index key. Such filters are only kept if they can be indexed by something
+    /// else (see `NetworkFilterListBuilder::add_filter`).
+    #[serde(skip)]
+    pub(crate) to_only_broad: bool,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
     pub modifier_option: Option<&'a str>,
@@ -509,9 +514,11 @@ fn hash_pipe_delimited_domains(
 /// Hashes `$to=` domains.
 ///
 /// Single-label positives (`com`, `net`, …) are too common to use as index keys:
-/// - If any specific positive exists, broad positives are dropped (kept out of match too).
-/// - If positives are only broad, they are kept for match-time checks when the filter also
-///   has selective pattern/hostname tokens (see parse-time `ExpensiveToOption` check).
+/// - If any specific positive exists, broad positives are dropped entirely (they are not
+///   matched either), e.g. `$to=domain.com|net` only matches `domain.com`.
+/// - If positives are only broad, they are kept for match-time checks; the filter builder then
+///   keeps the filter only if it can be indexed by something else (pattern/hostname tokens or
+///   `$domain=`/`$from=`).
 ///
 /// Returns `true` when the stored positives are only broad single-label destinations.
 fn hash_pipe_delimited_to_domains(
@@ -600,7 +607,6 @@ impl<'a> NetworkFilter<'a> {
         let mut opt_not_domains: Option<Vec<Hash>> = None;
         let mut opt_to_domains: Option<Vec<Hash>> = None;
         let mut opt_not_to_domains: Option<Vec<Hash>> = None;
-        let mut had_to_option = false;
         let mut to_only_broad = false;
 
         let mut modifier_option: Option<&'a str> = None;
@@ -643,7 +649,6 @@ impl<'a> NetworkFilter<'a> {
                         );
                     }
                     NetworkFilterOption::To(domains) => {
-                        had_to_option = true;
                         to_only_broad = hash_pipe_delimited_to_domains(
                             domains,
                             &mut opt_to_domains,
@@ -957,7 +962,11 @@ impl<'a> NetworkFilter<'a> {
             return Err(NetworkFilterError::MethodWithGenerichide);
         }
 
-        let filter = NetworkFilter {
+        if opt_to_domains.is_some() || opt_not_to_domains.is_some() {
+            mask |= NetworkFilterMask::HAS_TO_OPTION;
+        }
+
+        Ok(NetworkFilter {
             filter: if let Some(simple_filter) = filter {
                 FilterPart::Simple(simple_filter)
             } else {
@@ -970,6 +979,7 @@ impl<'a> NetworkFilter<'a> {
             opt_not_domains,
             opt_to_domains,
             opt_not_to_domains,
+            to_only_broad,
             tag,
             raw_line: if debug {
                 Some(Cow::Borrowed(line))
@@ -978,27 +988,7 @@ impl<'a> NetworkFilter<'a> {
             },
             modifier_option,
             id: utils::fast_hash(line),
-        };
-
-        // Reject exclude-only `$to=~…`, and broad-only `$to=com|…` unless the filter also has
-        // a selective index key (pattern/hostname tokens or `$from=`/`$domain=`), so `$to=`
-        // stays a match-time check rather than a near-universal map key.
-        if had_to_option {
-            if filter.opt_to_domains.is_none() {
-                return Err(NetworkFilterError::ExpensiveToOption);
-            }
-            if to_only_broad {
-                let mut tokens_buffer = TokensBuffer::default();
-                match filter.get_tokens(&mut tokens_buffer) {
-                    FilterTokens::Other | FilterTokens::OptDomains => {}
-                    FilterTokens::OptToDomains | FilterTokens::Empty => {
-                        return Err(NetworkFilterError::ExpensiveToOption);
-                    }
-                }
-            }
-        }
-
-        Ok(filter)
+        })
     }
 
     /// Given a hostname, produces an equivalent filter parsed from the form `"||hostname^"`, to
@@ -1045,6 +1035,7 @@ impl<'a> NetworkFilter<'a> {
             opt_not_domains: None,
             opt_to_domains: None,
             opt_not_to_domains: None,
+            to_only_broad: false,
             tag: None,
             raw_line: if debug { Some(Cow::Owned(rule)) } else { None },
             modifier_option: None,
@@ -1081,8 +1072,9 @@ impl<'a> NetworkFilter<'a> {
             return FilterTokens::OptDomains;
         }
 
-        // Prefer pattern/hostname tokens over `$to=` so broad destinations like `to=com`
-        // stay match-time checks when a selective path token exists.
+        // Pattern/hostname tokens are preferred over `$to=` buckets (`$to=` is only used below
+        // when there are no such tokens): they are more selective, and it keeps broad
+        // destinations like `to=com` as match-time checks.
 
         // Get tokens from filter
         match &self.filter {
@@ -1262,27 +1254,21 @@ fn compute_filter_id(
         write_str_to_hasher(&mut hasher, s);
     }
 
-    if let Some(domains) = opt_domains {
-        for d in domains {
-            hasher.write_u64(*d);
-        }
-    }
-
-    if let Some(domains) = opt_not_domains {
-        for d in domains {
-            hasher.write_u64(*d);
-        }
-    }
-
-    if let Some(domains) = opt_to_domains {
-        for d in domains {
-            hasher.write_u64(*d);
-        }
-    }
-
-    if let Some(domains) = opt_to_not_domains {
-        for d in domains {
-            hasher.write_u64(*d);
+    // Each domain list is tagged and length-prefixed, so that e.g. `$domain=x`, `$domain=~x`,
+    // `$to=x` and `$to=~x` never hash to the same id.
+    let domain_lists = [
+        (1u64, opt_domains),
+        (2u64, opt_not_domains),
+        (3u64, opt_to_domains),
+        (4u64, opt_to_not_domains),
+    ];
+    for (tag, domains) in domain_lists {
+        if let Some(domains) = domains {
+            hasher.write_u64(tag);
+            hasher.write_usize(domains.len());
+            for d in domains {
+                hasher.write_u64(*d);
+            }
         }
     }
 
