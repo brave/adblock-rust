@@ -271,13 +271,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 124050);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 124261);
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            13601292117734168421
+            17902877162789739649
         } else {
-            4277327744438805777
+            4788447722899950551
         };
 
         assert_eq!(
@@ -1000,6 +1000,7 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
             [
                 "*$script,to=com",
                 "*$script,to=~evil.com",
+                "*$script,to=com|net",
                 "*$script,to=ads.example|net",
                 r"/banner\.gif/$to=ads.example",
                 "/somepath/*$script,to=com",
@@ -1050,6 +1051,452 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
         assert!(
             !engine.check_network_request(&path_org).should_block(),
             "path token + broad $to=com must not match non-.com destinations"
+        );
+    }
+
+    #[test]
+    fn exclude_only_to_option_with_from_is_enforced() {
+        let engine = Engine::new_with_list_text(
+            "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net".to_string(),
+        );
+
+        let blocked = Request::new(
+            "https://example.com/a.js",
+            "https://ovagames.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(engine.check_network_request(&blocked).should_block());
+
+        let excluded = Request::new(
+            "https://cdn.facebook.net/a.js",
+            "https://ovagames.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(!engine.check_network_request(&excluded).should_block());
+
+        let other_source = Request::new(
+            "https://example.com/a.js",
+            "https://other.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(!engine.check_network_request(&other_source).should_block());
+    }
+
+    fn to_req(url: &str, source: &str, request_type: &str) -> Request {
+        Request::new(url, source, request_type, "").unwrap()
+    }
+
+    /// Exclude-only `$to=~` narrowed by `$from=`, taken from `data/brave/brave-main-list.txt`.
+    #[test]
+    fn to_option_exclude_with_from_real_world_rules() {
+        let engine = Engine::new_with_list_text(
+            [
+                // `.gif` has no usable pattern token: indexed by `$from=`.
+                ".gif$from=thapcam.net,to=~thesports.com",
+                // Several `$from=` domains.
+                "*$frame,3p,from=jacquieetmicheltv.net|jacquieetmicheltv2.net,to=~my18pass.com",
+                // Exclude-only `$to=~` without any index key is dropped.
+                r"/^https:\/\/[a-z0-9-]{7,}\.[a-z]{3,6}\/assets\/script$/$script,1p,match-case,to=~edu|~gov",
+            ]
+            .join("\n"),
+        );
+        let blocked = |url: &str, source: &str, ty: &str| {
+            engine
+                .check_network_request(&to_req(url, source, ty))
+                .should_block()
+        };
+
+        assert!(blocked(
+            "https://cdn.example.com/a.gif",
+            "https://thapcam.net/",
+            "image"
+        ));
+        assert!(!blocked(
+            "https://thesports.com/a.gif",
+            "https://thapcam.net/",
+            "image"
+        ));
+        // `$to=` matches subdomains of the listed host.
+        assert!(!blocked(
+            "https://img.thesports.com/a.gif",
+            "https://thapcam.net/",
+            "image"
+        ));
+        assert!(!blocked(
+            "https://cdn.example.com/a.gif",
+            "https://other.net/",
+            "image"
+        ));
+
+        for source in [
+            "https://jacquieetmicheltv.net/",
+            "https://jacquieetmicheltv2.net/",
+        ] {
+            assert!(blocked(
+                "https://cdn.example.com/embed",
+                source,
+                "sub_frame"
+            ));
+            assert!(!blocked("https://my18pass.com/embed", source, "sub_frame"));
+            assert!(!blocked(
+                "https://www.my18pass.com/embed",
+                source,
+                "sub_frame"
+            ));
+        }
+        assert!(!blocked(
+            "https://cdn.example.com/embed",
+            "https://other.net/",
+            "sub_frame"
+        ));
+        // `3p` is still enforced.
+        assert!(!blocked(
+            "https://www.jacquieetmicheltv.net/embed",
+            "https://jacquieetmicheltv.net/",
+            "sub_frame"
+        ));
+
+        assert!(!blocked(
+            "https://abcdefgh.com/assets/script",
+            "https://abcdefgh.com/",
+            "script"
+        ));
+    }
+
+    /// `$to=` with `$redirect` / `$redirect-rule` (brave-main-list.txt, tunein.com rules).
+    #[test]
+    fn to_option_redirect_real_world_rules() {
+        let mut engine = Engine::new_with_list_text(
+            [
+                "*$xhr,redirect-rule=noop.txt,to=~pagead2.googlesyndication.com,from=tunein.com",
+                "*$xhr,redirect=noop.txt,from=tunein.com,to=event.platform.tunein.com",
+                "||pagead2.googlesyndication.com^",
+                "||ads.example^",
+            ]
+            .join("\n"),
+        );
+        let mut resources = [Resource::simple("nooptext", MimeType::TextPlain, "")];
+        resources[0].aliases.push("noop.txt".to_string());
+        engine.use_resources(resources);
+
+        let source = "https://tunein.com/";
+        let redirect = Some("data:text/plain;base64,".to_owned());
+
+        for url in [
+            "https://event.platform.tunein.com/a",
+            "https://eu.event.platform.tunein.com/a",
+        ] {
+            let result = engine.check_network_request(&to_req(url, source, "xhr"));
+            assert!(result.should_block(), "{url}");
+            assert_eq!(result.redirect, redirect, "{url}");
+        }
+
+        // Parent of the listed host is not matched.
+        let result =
+            engine.check_network_request(&to_req("https://platform.tunein.com/a", source, "xhr"));
+        assert!(!result.should_block());
+
+        // `redirect-rule` applies to requests blocked by other rules, except excluded hosts.
+        let result = engine.check_network_request(&to_req("https://ads.example/a", source, "xhr"));
+        assert!(result.should_block());
+        assert_eq!(result.redirect, redirect);
+
+        let result = engine.check_network_request(&to_req(
+            "https://pagead2.googlesyndication.com/a",
+            source,
+            "xhr",
+        ));
+        assert!(result.should_block());
+        assert_eq!(result.redirect, None);
+
+        // `$from=` still restricts.
+        let result = engine.check_network_request(&to_req(
+            "https://ads.example/a",
+            "https://other.com/",
+            "xhr",
+        ));
+        assert!(result.should_block());
+        assert_eq!(result.redirect, None);
+    }
+
+    /// `$to=` on exception and `$important` rules (brave-main-list.txt, smartech rules).
+    #[test]
+    fn to_option_exception_and_important_real_world_rules() {
+        let mut engine = Engine::new_with_list_text(
+            [
+                "@@/smartechclient.js^$script,to=netcore.co.in|netcoresmartech.com,from=hdfcfund.com",
+                "/smartechclient.js^$script,to=netcore.co.in|netcoresmartech.com,redirect=noopjs,from=hdfcfund.com,important",
+                "/tracker.js^$script",
+                "@@/tracker.js^$script,to=cdn.example.com",
+            ]
+            .join("\n"),
+        );
+        engine.use_resources([Resource::simple(
+            "noopjs",
+            MimeType::ApplicationJavascript,
+            "(function() {})();",
+        )]);
+
+        let source = "https://www.hdfcfund.com/";
+        let result = engine.check_network_request(&to_req(
+            "https://sdk.netcoresmartech.com/smartechclient.js",
+            source,
+            "script",
+        ));
+        assert!(result.should_block(), "important wins over the exception");
+        assert!(result.important);
+        assert!(result.redirect.is_some());
+
+        for (url, source) in [
+            ("https://sdk.example.org/smartechclient.js", source),
+            (
+                "https://sdk.netcoresmartech.com/smartechclient.js",
+                "https://other.com/",
+            ),
+        ] {
+            let result = engine.check_network_request(&to_req(url, source, "script"));
+            assert!(!result.should_block(), "{url} from {source}");
+        }
+
+        // An exception limited by `$to=` only excepts the listed hosts and their subdomains.
+        let page = "https://page.example/";
+        for (url, expected_block) in [
+            ("https://evil.example/tracker.js", true),
+            ("https://cdn.example.org/tracker.js", true),
+            ("https://cdn.example.com/tracker.js", false),
+            ("https://x.cdn.example.com/tracker.js", false),
+            ("https://example.com/tracker.js", true),
+            ("https://notcdn.example.com/tracker.js", true),
+        ] {
+            let result = engine.check_network_request(&to_req(url, page, "script"));
+            assert_eq!(result.should_block(), expected_block, "{url}");
+            assert_eq!(result.exception.is_some(), !expected_block, "{url}");
+        }
+    }
+
+    /// `@@||asd.$generichide,to=...` from brave-main-list.txt.
+    #[test]
+    fn to_option_generichide_exception_real_world_rule() {
+        let engine =
+            Engine::new_with_list_text("@@||asd.$generichide,to=asd.homes|asd.ink|asd.pics");
+        for (url, expected) in [
+            ("https://asd.homes/", true),
+            ("https://www.asd.homes/page", true),
+            ("https://asd.ink/page", true),
+            ("https://asd.pics/", true),
+            ("https://asd.example/", false),
+            ("https://example.homes/", false),
+        ] {
+            assert_eq!(
+                engine.url_cosmetic_resources(url).generichide,
+                expected,
+                "{url}"
+            );
+        }
+    }
+
+    /// `$csp` is a modifier filter stored in its own list; `$to=` must work there too.
+    #[test]
+    fn to_option_csp_filter() {
+        // `~dood.*` is an entity, which network filters do not support, but it must not break
+        // the other entries.
+        let engine = Engine::new_with_list_text(
+            "*$csp=script-src 'none',from=456movie.com|animefever.cc,to=~youtube.com|~dood.*",
+        );
+        let csp =
+            |url: &str, source: &str| engine.get_csp_directives(&to_req(url, source, "sub_frame"));
+
+        for source in ["https://456movie.com/", "https://animefever.cc/"] {
+            assert_eq!(
+                csp("https://embed.example/x", source),
+                Some("script-src 'none'".to_owned())
+            );
+            assert_eq!(csp("https://youtube.com/embed", source), None);
+            assert_eq!(csp("https://www.youtube.com/embed", source), None);
+        }
+        assert_eq!(csp("https://embed.example/x", "https://other.com/"), None);
+    }
+
+    /// `$badfilter` has to disable only the filter it really duplicates.
+    #[test]
+    fn to_option_badfilter() {
+        let engine = Engine::new_with_list_text(
+            [
+                "*$script,to=a.example,from=x.com",
+                "*$script,to=b.example,from=x.com",
+                // Options in a different order and a `$from=` rule with the same host value.
+                "*$script,from=x.com,to=a.example,badfilter",
+                "*$script,from=a.example",
+                "*$script,to=a.example,badfilter",
+            ]
+            .join("\n"),
+        );
+        let blocked = |url: &str, source: &str| {
+            engine
+                .check_network_request(&to_req(url, source, "script"))
+                .should_block()
+        };
+        assert!(!blocked("https://a.example/x.js", "https://x.com/"));
+        assert!(blocked("https://b.example/x.js", "https://x.com/"));
+        // `$to=a.example` badfilter must not remove `$from=a.example`.
+        assert!(blocked("https://c.example/x.js", "https://a.example/"));
+    }
+
+    /// Filters that differ only in `$to=` must neither be fused by the optimizer nor share
+    /// buckets.
+    #[test]
+    fn to_option_filters_are_not_fused() {
+        use crate::filters::network::NetworkFilter;
+        let filters = vec![
+            NetworkFilter::parse("ad$to=a.example", true, Default::default()).unwrap(),
+            NetworkFilter::parse("banner$to=b.example", true, Default::default()).unwrap(),
+            NetworkFilter::parse("ad", true, Default::default()).unwrap(),
+        ];
+        let engine = Engine::new_with_parsed_rules(filters[..2].to_vec(), vec![]);
+        for (url, expected) in [
+            ("https://a.example/xad", true),
+            ("https://a.example/banner", false),
+            ("https://b.example/banner", true),
+            ("https://b.example/xad", false),
+            ("https://c.example/xad", false),
+        ] {
+            assert_eq!(
+                engine
+                    .check_network_request(&to_req(url, "https://page.example/", "script"))
+                    .should_block(),
+                expected,
+                "{url}"
+            );
+        }
+        // A plain filter next to the `$to=` ones keeps matching everywhere.
+        let engine = Engine::new_with_parsed_rules(filters, vec![]);
+        assert!(
+            engine
+                .check_network_request(&to_req(
+                    "https://c.example/xad",
+                    "https://page.example/",
+                    "script"
+                ))
+                .should_block()
+        );
+    }
+
+    /// Returns the `$to=` hosts (included, excluded) of a network rule, and the first plain
+    /// `$from=`/`$domain=` host, if any. Only plain hostnames are returned.
+    fn extract_to_hosts(line: &str) -> Option<(Vec<&str>, Vec<&str>, Option<&str>)> {
+        const COSMETIC: [&str; 5] = ["##", "#@#", "#?#", "#$#", "#%#"];
+        if line.starts_with('!') || COSMETIC.iter().any(|c| line.contains(c)) {
+            return None;
+        }
+        let to_pos = [line.rfind(",to="), line.rfind("$to=")]
+            .into_iter()
+            .flatten()
+            .max()?;
+        let is_plain_host = |h: &&str| h.contains('.') && !h.contains(['*', '/', ' ']);
+        let value = line[to_pos + ",to=".len()..].split(',').next()?;
+        let included = value
+            .split('|')
+            .filter(|h| !h.starts_with('~'))
+            .filter(is_plain_host)
+            .collect();
+        let excluded = value
+            .split('|')
+            .filter_map(|h| h.strip_prefix('~'))
+            .filter(is_plain_host)
+            .collect();
+
+        let from = [",from=", "$from=", ",domain=", "$domain="]
+            .into_iter()
+            .filter_map(|key| line.find(key).map(|pos| &line[pos + key.len()..]))
+            .filter_map(|rest| rest.split(',').next())
+            .flat_map(|value| value.split('|'))
+            .find(|h| !h.starts_with('~') && is_plain_host(h));
+        Some((included, excluded, from))
+    }
+
+    /// Builds an engine from every `$to=` rule of the Brave list and compares it against
+    /// (a) every rule evaluated on its own and (b) a serialization round trip. This covers the
+    /// token selection, `$to=` buckets, builder skipping and flatbuffer storage on real data.
+    #[test]
+    fn to_option_brave_list_matches_each_rule_alone() {
+        let list = rules_from_lists(["data/brave/brave-main-list.txt"]);
+        let rules: Vec<&str> = list
+            .lines()
+            .filter(|line| line.contains("to="))
+            .filter(|line| extract_to_hosts(line).is_some())
+            .collect();
+        assert!(rules.len() > 100, "got only {} rules", rules.len());
+
+        // Requests: every host named by a rule, the rule's own `$from=` (or a neutral page).
+        let mut cases = std::collections::BTreeSet::new();
+        for rule in &rules {
+            let (included, excluded, from) = extract_to_hosts(rule).unwrap();
+            let source = format!("https://{}/", from.unwrap_or("page.example"));
+            let hosts = included
+                .iter()
+                .chain(excluded.iter())
+                .map(|h| h.to_string())
+                .chain(["neutral.example".to_string()]);
+            for host in hosts {
+                cases.insert((format!("https://{host}/a/b.js?x=1"), source.clone()));
+                cases.insert((format!("https://sub.{host}/a/b.js?x=1"), source.clone()));
+            }
+        }
+        let requests: Vec<Request> = cases
+            .iter()
+            .flat_map(|(url, source)| {
+                ["script", "xhr", "document"]
+                    .into_iter()
+                    .filter_map(|ty| Request::new(url, source, ty, "").ok())
+            })
+            .collect();
+
+        let engine = Engine::new_with_list_text(rules.join("\n"));
+        // Exceptions never produce `filter`, so only blocking rules are evaluated alone.
+        let single_engines: Vec<Engine> = rules
+            .iter()
+            .filter(|rule| !rule.starts_with("@@"))
+            .map(|rule| Engine::new_with_list_text(*rule))
+            .collect();
+
+        let mut round_trip = Engine::default();
+        let engine_for_dat = Engine::new_with_list_text(rules.join("\n"));
+        let dat = engine_for_dat.serialize();
+        round_trip
+            .deserialize(&dat)
+            .expect("deserialization failed");
+
+        let mut blocked = 0;
+        for request in &requests {
+            let result = engine.check_network_request(request);
+            let alone = single_engines
+                .iter()
+                .any(|e| e.check_network_request(request).filter.is_some());
+            assert_eq!(
+                result.filter.is_some(),
+                alone,
+                "engine and per-rule results differ for {}",
+                request.url
+            );
+
+            let result_rt = round_trip.check_network_request(request);
+            assert_eq!(result.filter.is_some(), result_rt.filter.is_some());
+            assert_eq!(result.exception.is_some(), result_rt.exception.is_some());
+            assert_eq!(result.important, result_rt.important);
+            assert_eq!(result.redirect, result_rt.redirect);
+
+            blocked += usize::from(result.filter.is_some());
+        }
+        assert!(
+            blocked >= 10,
+            "too few matches ({blocked}) out of {} requests",
+            requests.len()
         );
     }
 }

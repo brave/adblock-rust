@@ -527,16 +527,60 @@ mod match_tests {
             assert!(!network_filter.matches_test(&request));
         }
 
-        // Exclude-only / too-common `$to=` are rejected at parse time
+        // Exclude-only `$to=~` is enforced when the filter is indexable (here by pattern token)
         {
-            assert_eq!(
-                NetworkFilter::parse("foo$to=~foo.com", true, Default::default()).err(),
-                Some(NetworkFilterError::ExpensiveToOption)
-            );
-            assert_eq!(
-                NetworkFilter::parse("*$script,to=com", true, Default::default()).err(),
-                Some(NetworkFilterError::ExpensiveToOption)
-            );
+            let network_filter =
+                NetworkFilter::parse("/foopath/*$to=~foo.com", true, Default::default()).unwrap();
+            let request =
+                request::Request::new("https://foo.com/foopath/x", "https://example.com", "", "")
+                    .unwrap();
+            assert!(!network_filter.matches_test(&request));
+            let request =
+                request::Request::new("https://bar.com/foopath/x", "https://example.com", "", "")
+                    .unwrap();
+            assert!(network_filter.matches_test(&request));
+        }
+
+        // Exclude-only `$to=~` and broad-only `$to=` without any index key are dropped by the
+        // engine builder.
+        {
+            for rule in ["*$script,to=~foo.com", "*$script,to=com"] {
+                let network_filter = NetworkFilter::parse(rule, true, Default::default()).unwrap();
+                let request = request::Request::new(
+                    "https://bar.com/foo.js",
+                    "https://example.com",
+                    "script",
+                    "",
+                )
+                .unwrap();
+                assert!(!network_filter.matches_test(&request), "{rule}");
+            }
+        }
+
+        // Exclude-only `$to=~` with `$from=` is indexed by `$from=` and enforced
+        {
+            let network_filter = NetworkFilter::parse(
+                "*$script,3p,from=ovagames.com,to=~facebook.net|~fbcdn.net",
+                true,
+                Default::default(),
+            )
+            .unwrap();
+            let request = request::Request::new(
+                "https://example.com/script.js",
+                "https://ovagames.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(network_filter.matches_test(&request));
+            let request = request::Request::new(
+                "https://facebook.net/script.js",
+                "https://ovagames.com",
+                "script",
+                "",
+            )
+            .unwrap();
+            assert!(!network_filter.matches_test(&request));
         }
 
         // Mixed broad + specific: only the specific host is kept
@@ -591,6 +635,193 @@ mod match_tests {
             .unwrap();
             assert!(!network_filter.matches_test(&request));
         }
+    }
+
+    /// Semantics of `$to=` as described in the uBO wiki ("Static filter syntax"): `to=` gives
+    /// the equivalent of DNR's `requestDomains` / `excludedRequestDomains`, i.e. a hostname
+    /// matches a listed domain if it is equal to it or is one of its subdomains.
+    #[test]
+    fn check_to_option_domain_semantics() {
+        fn matches(rule: &str, url: &str, source: &str, request_type: &str) -> bool {
+            let filter = NetworkFilter::parse(rule, true, Default::default()).unwrap();
+            let request = request::Request::new(url, source, request_type, "").unwrap();
+            filter.matches_test(&request)
+        }
+        let page = "https://page.example/";
+
+        // Label boundaries: `pages.dev` must not match `notpages.dev` or `pages.dev.evil.com`.
+        let rule = "/ad/*$script,3p,to=pages.dev";
+        assert!(matches(rule, "https://pages.dev/ad/x.js", page, "script"));
+        assert!(matches(
+            rule,
+            "https://abc.pages.dev/ad/x.js",
+            page,
+            "script"
+        ));
+        assert!(matches(
+            rule,
+            "https://a.b.pages.dev/ad/x.js",
+            page,
+            "script"
+        ));
+        assert!(!matches(
+            rule,
+            "https://notpages.dev/ad/x.js",
+            page,
+            "script"
+        ));
+        assert!(!matches(
+            rule,
+            "https://abc.notpages.dev/ad/x.js",
+            page,
+            "script"
+        ));
+        assert!(!matches(
+            rule,
+            "https://pages.dev.evil.com/ad/x.js",
+            page,
+            "script"
+        ));
+        assert!(!matches(rule, "https://abc.dev/ad/x.js", page, "script"));
+
+        // Port and user info do not influence the destination hostname.
+        let rule = "/ad/*$to=cdn.example.com";
+        for url in [
+            "https://cdn.example.com:8443/ad/x",
+            "https://user:pass@cdn.example.com/ad/x",
+        ] {
+            assert!(matches(rule, url, page, ""), "{url}");
+        }
+
+        // Include and exclude: the more specific exclusion wins.
+        let rule = "/ad/*$to=example.com|~cdn.example.com";
+        assert!(matches(rule, "https://example.com/ad/x", page, ""));
+        assert!(matches(rule, "https://www.example.com/ad/x", page, ""));
+        assert!(!matches(rule, "https://cdn.example.com/ad/x", page, ""));
+        assert!(!matches(rule, "https://eu.cdn.example.com/ad/x", page, ""));
+        assert!(!matches(rule, "https://other.org/ad/x", page, ""));
+
+        // Duplicated and re-ordered entries are equivalent.
+        let a =
+            NetworkFilter::parse("/ad/*$to=b.com|a.com|b.com", true, Default::default()).unwrap();
+        let b = NetworkFilter::parse("/ad/*$to=a.com|b.com", true, Default::default()).unwrap();
+        assert_eq!(a.opt_to_domains, b.opt_to_domains);
+        assert_eq!(a.get_id(), b.get_id());
+
+        // `$to=` is independent from `$from=`: both must hold.
+        let rule = "/ad/*$from=src.example,to=dst.example";
+        assert!(matches(
+            rule,
+            "https://dst.example/ad/x",
+            "https://src.example/",
+            ""
+        ));
+        assert!(!matches(
+            rule,
+            "https://src.example/ad/x",
+            "https://dst.example/",
+            ""
+        ));
+        assert!(!matches(rule, "https://dst.example/ad/x", page, ""));
+
+        // `$to=` combines with `$3p` / `$1p` using request party, not the `$to=` host.
+        let rule = "/ad/*$3p,to=dst.example";
+        assert!(matches(
+            rule,
+            "https://dst.example/ad/x",
+            "https://src.example/",
+            ""
+        ));
+        assert!(!matches(
+            rule,
+            "https://dst.example/ad/x",
+            "https://dst.example/",
+            ""
+        ));
+
+        // Exclude-only is enforced when something else indexes the filter.
+        let rule = "/ad/*$to=~good.example";
+        assert!(matches(rule, "https://bad.example/ad/x", page, ""));
+        assert!(!matches(rule, "https://good.example/ad/x", page, ""));
+        assert!(!matches(rule, "https://sub.good.example/ad/x", page, ""));
+    }
+
+    /// Real-world shapes taken from `data/brave/brave-main-list.txt` where `$to=` lists only
+    /// single-label destinations (TLDs). They are too common to index by, so they are only
+    /// kept when something selective narrows the filter.
+    #[test]
+    fn check_broad_to_option_real_world_rules() {
+        fn matches(rule: &str, url: &str, source: &str, request_type: &str) -> bool {
+            let filter = NetworkFilter::parse(rule, true, Default::default()).unwrap();
+            let request = request::Request::new(url, source, request_type, "").unwrap();
+            filter.matches_test(&request)
+        }
+        let page = "https://page.example/";
+
+        // Dropped: nothing but `$to=<tld>` and a regex.
+        for rule in [
+            r"/^https:\/\/[0-9a-f]{10}\.[0-9a-f]{10}\.com\/[0-9a-f]{32}\.js$/$script,3p,match-case,to=com",
+            r"/^https?:\/\/[-a-z]{6,}\.(?:com?|info|pro|xyz)\/[a-d]x+$/$script,xhr,3p,match-case,to=co|com|info|pro|xyz",
+            "/^https:\\/\\/[a-z0-9-]{7,}\\.[a-z]{3,6}\\/assets\\/script$/$script,1p,match-case,to=~edu|~gov",
+        ] {
+            let filter = NetworkFilter::parse(rule, true, Default::default()).unwrap();
+            assert!(filter.has_to_option(), "{rule}");
+            let url = "https://0123456789.abcdef0123.com/0123456789abcdef0123456789abcdef.js";
+            assert!(!matches(rule, url, page, "script"), "{rule}");
+        }
+
+        // Kept: `$from=` narrows the filter.
+        let rule = r"/\/[0-9a-f]{32}\.js/$script,xhr,3p,to=com,from=bembed.net|embedv.net";
+        let url = "https://cdn.example.com/0123456789abcdef0123456789abcdef.js";
+        assert!(matches(rule, url, "https://bembed.net/", "script"));
+        assert!(matches(rule, url, "https://embedv.net/", "xhr"));
+        assert!(!matches(rule, url, page, "script"));
+        // Only `.com` destinations.
+        let url = "https://cdn.example.org/0123456789abcdef0123456789abcdef.js";
+        assert!(!matches(rule, url, "https://bembed.net/", "script"));
+
+        // Kept: selective pattern token narrows the filter, mixed with an exclusion.
+        let rule = "://www.*.com/css/$script,3p,to=com|~principalcdn.com,from=a.example";
+        let url = "https://www.foo.com/css/x.js";
+        assert!(matches(rule, url, "https://a.example/", "script"));
+        assert!(!matches(
+            rule,
+            "https://www.principalcdn.com/css/x.js",
+            "https://a.example/",
+            "script"
+        ));
+        assert!(!matches(
+            rule,
+            "https://www.foo.org/css/x.js",
+            "https://a.example/",
+            "script"
+        ));
+
+        // Kept: exclude-only with a pattern token.
+        let rule = "/8b3ytkn.js|$script,3p,to=~com|~net|~org";
+        assert!(matches(
+            rule,
+            "https://x.example.io/8b3ytkn.js",
+            page,
+            "script"
+        ));
+        assert!(!matches(
+            rule,
+            "https://x.example.com/8b3ytkn.js",
+            page,
+            "script"
+        ));
+        assert!(!matches(
+            rule,
+            "https://x.example.net/8b3ytkn.js",
+            page,
+            "script"
+        ));
+
+        // Mixed: specific hosts win, so the single-label entry is dropped from matching.
+        let rule = "/ad/*$to=domain.com|net";
+        assert!(matches(rule, "https://domain.com/ad/x", page, ""));
+        assert!(!matches(rule, "https://other.net/ad/x", page, ""));
     }
 
     #[test]

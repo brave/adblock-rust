@@ -118,14 +118,6 @@ impl Request {
         }
     }
 
-    pub fn get_hostname_hashes_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        self.hostname_hashes.as_ref().into_iter().flatten()
-    }
-
-    pub fn get_source_hostname_hashes_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
-        self.source_hostname_hashes.as_ref().into_iter().flatten()
-    }
-
     pub fn get_tokens_for_match(&self) -> impl Iterator<Item = &utils::Hash> {
         self.get_tokens().iter()
     }

@@ -189,6 +189,26 @@ impl<'a, 'f> NetworkFilterListBuilder<'a, 'f> {
         builder: &mut EngineFlatBuilder<'a>,
     ) {
         let multi_tokens = network_filter.get_tokens(&mut self.tokens_buffer);
+
+        // `$to=` must not end up in a near-universal bucket. Skip the filter if:
+        //  1) All its positive `$to=` destinations are too common (e.g. `$to=com`) and there is no
+        //     more selective key (pattern/hostname tokens or `$domain=`/`$from=`);
+        //  2) it has only excluded `$to=~` destinations and would land in the catch-all bucket.
+        if network_filter.to_only_broad
+            && matches!(
+                multi_tokens,
+                FilterTokens::OptToDomains | FilterTokens::Empty
+            )
+        {
+            return;
+        }
+        if network_filter.opt_to_domains.is_none()
+            && network_filter.opt_not_to_domains.is_some()
+            && multi_tokens == FilterTokens::Empty
+        {
+            return;
+        }
+
         let id = network_filter.get_id();
 
         if !self.optimize
@@ -262,11 +282,6 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
         if filter.is_badfilter() {
             // Note: `get_id()` doesn't include BAD_FILTER bit.
             self.bad_filter_ids.insert(filter.get_id());
-            return;
-        }
-
-        // We skip the rule if it has only excluded domains in `$to=`.
-        if filter.opt_to_domains.is_none() && filter.opt_not_to_domains.is_some() {
             return;
         }
 
