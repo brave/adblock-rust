@@ -1365,6 +1365,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, None);
+        assert_eq!(result.redirect_priority, 0);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1378,6 +1379,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, a_redirect);
+        assert_eq!(result.redirect_priority, 0);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1391,6 +1393,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, b_redirect);
+        assert_eq!(result.redirect_priority, 10);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1404,6 +1407,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, c_redirect);
+        assert_eq!(result.redirect_priority, 20);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1417,6 +1421,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, b_redirect);
+        assert_eq!(result.redirect_priority, 10);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1430,6 +1435,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, c_redirect);
+        assert_eq!(result.redirect_priority, 20);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1443,6 +1449,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, a_redirect);
+        assert_eq!(result.redirect_priority, 0);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1456,6 +1463,7 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, None);
+        assert_eq!(result.redirect_priority, 0);
         assert!(!result.should_block());
 
         let result = blocker.check(
@@ -1469,7 +1477,42 @@ mod blocker_tests {
             &resources,
         );
         assert_eq!(result.redirect, None);
+        assert_eq!(result.redirect_priority, 0);
         assert!(!result.should_block());
+    }
+
+    // A priority is only reported where a body is: a directive whose resource
+    // is not loaded sends nothing to redirect to, and a caller comparing
+    // priorities across engines must not see one it cannot act on.
+    #[test]
+    fn redirect_priority_needs_a_loaded_resource() {
+        let blocker = Blocker::new(["||example.com^$redirect-rule=b:10"]);
+        let request = Request::new(
+            "https://example.com/test.txt",
+            "https://example.com",
+            "xmlhttprequest",
+            "",
+        )
+        .unwrap();
+
+        let result = blocker.check(&request, &Default::default());
+        assert_eq!(result.redirect, None);
+        assert_eq!(result.redirect_priority, 0);
+
+        let resources = ResourceStorage::in_memory_from_resources([Resource::simple(
+            "b",
+            crate::resources::MimeType::TextPlain,
+            "b",
+        )]);
+        let result = blocker.check(&request, &resources);
+        assert_eq!(
+            result.redirect,
+            Some(format!(
+                "data:text/plain;base64,{}",
+                BASE64_STANDARD.encode("b")
+            ))
+        );
+        assert_eq!(result.redirect_priority, 10);
     }
 
     #[test]
