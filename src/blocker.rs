@@ -53,6 +53,18 @@ pub struct BlockerResult {
     /// should be blocked. The `redirect-rule` option can produce a redirection
     /// that's only applied if another blocking filter matches a request.
     pub redirect: Option<String>,
+    /// The priority of the directive that produced `redirect`, from its
+    /// `name:priority` form, and 0 for a directive written without one.
+    ///
+    /// Only meaningful where `redirect` is `Some`. It is 0 otherwise, which is
+    /// also what a directive carrying no priority of its own reports, so this
+    /// field alone does not tell the two apart.
+    ///
+    /// A caller keeping several [`Blocker`] instances needs this to settle a
+    /// redirect that two of them matched the way a single one settles it
+    /// internally - highest priority wins - which the body in `redirect` no
+    /// longer says anything about.
+    pub redirect_priority: i32,
     /// `removeparam` may remove URL parameters. If the original request URL was
     /// modified at all, the new version will be here. This should be used
     /// as long as the request is not blocked.
@@ -301,18 +313,28 @@ impl Blocker {
                     }
                 }
             }
-            resource_and_priority.map(|(r, _)| r)
+            resource_and_priority
         };
 
-        let redirect: Option<String> = redirect_resource.and_then(|resource_name| {
-            resources.get_redirect_resource(resource_name).or({
-                // It's acceptable to pass no redirection if no matching resource is loaded.
-                // TODO - it may be useful to return a status flag to indicate that this occurred.
-                #[cfg(test)]
-                eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
-                None
-            })
-        });
+        // The priority travels with the body rather than being read off the
+        // directive again, so that what is reported is the priority of the
+        // directive whose body is actually being returned - and nothing at all
+        // where a directive matched but its resource is not loaded.
+        let redirect_with_priority: Option<(String, i32)> =
+            redirect_resource.and_then(|(resource_name, priority)| {
+                resources
+                    .get_redirect_resource(resource_name)
+                    .map(|body| (body, priority))
+                    .or({
+                        // It's acceptable to pass no redirection if no matching resource is loaded.
+                        // TODO - it may be useful to return a status flag to indicate that this occurred.
+                        #[cfg(test)]
+                        eprintln!("Matched rule with redirect option but did not find corresponding resource to send");
+                        None
+                    })
+            });
+        let redirect_priority = redirect_with_priority.as_ref().map_or(0, |(_, p)| *p);
+        let redirect: Option<String> = redirect_with_priority.map(|(body, _)| body);
 
         let important = filter.is_some()
             && filter
@@ -354,6 +376,7 @@ impl Blocker {
             exception: exception.map(|f| f.debug_data.unwrap_or(FilterRuleDebugInfo::default())),
             important,
             redirect,
+            redirect_priority,
             rewritten_url,
             replace,
             replace_exception_all,
