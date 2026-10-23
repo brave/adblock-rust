@@ -39,6 +39,11 @@ bitflags::bitflags! {
     /// Specifies that a redirect rule should also create a corresponding block rule.
     /// This is used to avoid returning two separate rules from `NetworkFilter::parse`.
     const ALSO_BLOCK_REDIRECT = 1 << 5;
+
+    /// `$replace` rewrites a response body. Like `removeparam` it never
+    /// blocks, and unlike every other option here the engine cannot carry it
+    /// out: it reports the directive and the caller does the rewriting.
+    const IS_REPLACE = 1 << 6;
   }
 }
 
@@ -79,6 +84,14 @@ pub enum NetworkFilterError {
     RemoveparamWithException,
     #[error("removeparam regex unsupported")]
     RemoveparamRegexUnsupported,
+    #[error("empty replace")]
+    EmptyReplace,
+    #[error("negated replace")]
+    NegatedReplace,
+    #[error("replace malformed")]
+    ReplaceMalformed,
+    #[error("replace with a type that carries no rewritable body")]
+    ReplaceWithUnrewritableType,
     #[error("redirection url invalid")]
     RedirectionUrlInvalid,
     #[error("multiple modifier options")]
@@ -442,6 +455,8 @@ impl PartialOrd for NetworkFilter<'_> {
 fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFilterError> {
     let mut has_csp = false;
     let mut has_content_type = false;
+    let mut has_replace = false;
+    let mut has_unrewritable_type = false;
     let mut modifier_options = 0;
     for option in options {
         if matches!(option, NetworkFilterOption::Csp(..)) {
@@ -449,13 +464,29 @@ fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFi
             modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
+            // uBO refuses `$replace` next to a type it cannot rewrite the
+            // body of - its abstract, behaviour and "unredirectable" types.
+            // Of those this crate has ping and websocket, neither of which
+            // delivers a body to rewrite.
+            if matches!(
+                option,
+                NetworkFilterOption::Ping(true) | NetworkFilterOption::Websocket(true)
+            ) {
+                has_unrewritable_type = true;
+            }
         } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..))
         {
+            modifier_options += 1;
+        } else if matches!(option, NetworkFilterOption::Replace(..)) {
+            has_replace = true;
             modifier_options += 1;
         }
     }
     if has_csp && has_content_type {
         return Err(NetworkFilterError::CspWithContentType);
+    }
+    if has_replace && has_unrewritable_type {
+        return Err(NetworkFilterError::ReplaceWithUnrewritableType);
     }
     if modifier_options > 1 {
         return Err(NetworkFilterError::MultipleModifierOptions);
@@ -612,6 +643,10 @@ impl<'a> NetworkFilter<'a> {
                         features_mask.set(NetworkFilterFeaturesMask::IS_REMOVEPARAM, true);
                         modifier_option = Some(value);
                     }
+                    NetworkFilterOption::Replace(value) => {
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REPLACE, true);
+                        modifier_option = value;
+                    }
                     NetworkFilterOption::Csp(value) => {
                         features_mask.set(NetworkFilterFeaturesMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
@@ -682,6 +717,14 @@ impl<'a> NetworkFilter<'a> {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
                     | NetworkFilterMask::FROM_SUBDOCUMENT
                     | NetworkFilterMask::FROM_XMLHTTPREQUEST;
+            } else if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE) {
+                // Only what can carry text, because that is all a body
+                // rewrite can be applied to.
+                mask |= NetworkFilterMask::FROM_DOCUMENT
+                    | NetworkFilterMask::FROM_SUBDOCUMENT
+                    | NetworkFilterMask::FROM_XMLHTTPREQUEST
+                    | NetworkFilterMask::FROM_SCRIPT
+                    | NetworkFilterMask::FROM_STYLESHEET;
             } else {
                 mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
             }
@@ -850,6 +893,15 @@ impl<'a> NetworkFilter<'a> {
         if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) && parsed.exception {
             return Err(NetworkFilterError::RemoveparamWithException);
         }
+        // A bare `$replace` turns every replacement off for a matching
+        // request, which only means anything on an exception. On a blocking
+        // filter it is a filter with nothing to do.
+        if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE)
+            && modifier_option.is_none()
+            && !parsed.exception
+        {
+            return Err(NetworkFilterError::EmptyReplace);
+        }
 
         // uBlock Origin would block main document `https://example.com` requests with all of the
         // following filters:
@@ -867,6 +919,10 @@ impl<'a> NetworkFilter<'a> {
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
             && !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+            // Nor for replace, and for the same reason: the types it applies
+            // to are the ones that can carry text, and being written as
+            // `||example.com^` is no reason to widen that to an image.
+            && !features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE)
         {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
@@ -1072,6 +1128,11 @@ impl<'a> NetworkFilter<'a> {
     pub fn is_removeparam(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+    }
+
+    pub fn is_replace(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REPLACE)
     }
 
     pub fn is_generic_hide(&self) -> bool {

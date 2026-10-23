@@ -57,6 +57,37 @@ pub struct BlockerResult {
     /// modified at all, the new version will be here. This should be used
     /// as long as the request is not blocked.
     pub rewritten_url: Option<String>,
+    /// Any `$replace` directives that matched, exactly as written in the
+    /// filters, in the order the lists were loaded.
+    ///
+    /// The engine does not apply these: it never sees a response body. The
+    /// caller is expected to hold the body and do the rewriting, which is why
+    /// the directive is handed over rather than a result. Present only for a
+    /// request that is not blocked - a blocked request has no body to
+    /// rewrite.
+    ///
+    /// Two things are the caller's to decide, because the engine cannot:
+    ///
+    /// - **Which lists may do this.** uBO accepts `$replace` only from a
+    ///   trusted source, since a directive can rewrite any response body it
+    ///   matches. Nothing is enforced here - a `PermissionMask` would be the
+    ///   place if it were - so a caller applying directives from a list the
+    ///   user has not trusted is handing that list the page.
+    /// - **Which regex dialect.** The pattern is passed through uncompiled,
+    ///   so the caller picks the engine. uBO's is JavaScript's, including
+    ///   `$1` group references in the replacement; of the 17 live `$replace`
+    ///   rules in Brave's own list none needs a construct beyond RE2, but
+    ///   the syntax for a group reference differs between the two.
+    pub replace: Option<Vec<String>>,
+    /// Whether a bare `@@...$replace` matched this request, which turns off
+    /// every directive rather than one named one.
+    ///
+    /// `replace` already has it applied, so a caller with a single engine can
+    /// ignore this. A caller running several engines over the same request
+    /// cannot: each engine resolves only its own exceptions, so an exception
+    /// in one list would leave a directive from another list standing. That
+    /// is the shape a webcompat fix takes, so it has to cross the boundary.
+    pub replace_exception_all: bool,
 }
 
 impl BlockerResult {
@@ -129,6 +160,10 @@ impl Blocker {
 
     pub(crate) fn removeparam(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::RemoveParam)
+    }
+
+    pub(crate) fn replace(&self) -> NetworkFilterList<'_> {
+        self.get_list(NetworkFilterListId::Replace)
     }
 
     pub(crate) fn filters(&self) -> NetworkFilterList<'_> {
@@ -291,6 +326,20 @@ impl Blocker {
             Self::apply_removeparam(&self.removeparam(), request, regex_manager.deref_mut())
         };
 
+        // A blocked request has no body to rewrite, and an `important` match
+        // cannot be excepted, so neither is worth collecting directives for.
+        let (replace, replace_exception_all) =
+            if important || (filter.is_some() && exception.is_none()) {
+                (None, false)
+            } else {
+                Self::collect_replace(
+                    &self.replace(),
+                    request,
+                    &self.tags_enabled,
+                    regex_manager.deref_mut(),
+                )
+            };
+
         // If something has already matched before but we don't know what, still return a match
         let fallback_match = if matched_rule {
             Some(FilterRuleDebugInfo::default())
@@ -306,7 +355,65 @@ impl Blocker {
             important,
             redirect,
             rewritten_url,
+            replace,
+            replace_exception_all,
         }
+    }
+
+    /// Every `$replace` directive matching this request, in list order, with
+    /// the exceptions taken out. They compose: uBO applies each in turn to
+    /// the body, so all of them are returned rather than the first.
+    ///
+    /// An exception naming a directive disables that one; a bare
+    /// `@@...$replace` disables all of them for this request, which is the
+    /// same shape `$csp` uses.
+    /// Returns the directives that survive this engine's own exceptions, and
+    /// whether a bare exception turned all of them off - which a caller
+    /// merging several engines needs, since the directives it cancels may
+    /// have come from another one.
+    fn collect_replace(
+        replace_filters: &NetworkFilterList,
+        request: &Request,
+        tags_enabled: &HashSet<String>,
+        regex_manager: &mut RegexManager,
+    ) -> (Option<Vec<String>>, bool) {
+        let filters = replace_filters.check_all(request, tags_enabled, regex_manager);
+        if filters.is_empty() {
+            return (None, false);
+        }
+
+        let mut disabled: HashSet<&str> = HashSet::new();
+        for filter in filters.iter() {
+            if !filter.filter_mask.is_exception() {
+                continue;
+            }
+            match filter.modifier_option.as_ref() {
+                Some(directive) => {
+                    let text: &str = directive;
+                    disabled.insert(text);
+                }
+                // A bare exception turns off every replacement, here and in
+                // any other engine the caller runs over this request.
+                None => return (None, true),
+            }
+        }
+
+        let mut directives: Vec<String> = Vec::new();
+        for filter in filters.iter() {
+            if filter.filter_mask.is_exception() {
+                continue;
+            }
+            if let Some(directive) = &filter.modifier_option {
+                let text: &str = directive;
+                if !disabled.contains(text) && !directives.iter().any(|held| held == text) {
+                    directives.push(String::from(text));
+                }
+            }
+        }
+        if directives.is_empty() {
+            return (None, false);
+        }
+        (Some(directives), false)
     }
 
     fn apply_removeparam(

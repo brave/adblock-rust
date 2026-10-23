@@ -529,6 +529,316 @@ mod blocker_tests {
         }
     }
 
+    // $replace reports a directive for the caller to apply to a response
+    // body. The engine never sees a body, so there is nothing for it to do
+    // but match the request and hand the directive over.
+    #[test]
+    fn test_replace_reports_the_directive() {
+        let filters = [
+            "||example.com/app.js$replace=/detectAdblock/noop/",
+            "/analytics.js$replace=/sendBeacon/void 0/g",
+        ];
+        let blocker = Blocker::new(filters);
+        let resources = ResourceStorage::default();
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(
+            result.replace,
+            Some(vec![String::from("/detectAdblock/noop/")])
+        );
+        // A body rewrite is not a block, and uBO does not treat it as one.
+        assert!(!result.should_block());
+        assert!(result.filter.is_none());
+
+        // Nothing of theirs matches this one.
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/other.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, None);
+        assert!(!result.should_block());
+    }
+
+    // They compose: uBO applies each in turn to the body, so every match is
+    // returned rather than the first.
+    #[test]
+    fn test_replace_returns_every_match() {
+        let filters = ["||example.com^$replace=/one/1/", "/app.js$replace=/two/2/i"];
+        let blocker = Blocker::new(filters);
+        let resources = ResourceStorage::default();
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        let mut directives = result.replace.unwrap();
+        directives.sort();
+        assert_eq!(directives, vec!["/one/1/", "/two/2/i"]);
+    }
+
+    // An exception naming a directive turns that one off and leaves the
+    // rest; a bare one turns all of them off. Their own shape for $csp.
+    #[test]
+    fn test_replace_exceptions() {
+        let resources = ResourceStorage::default();
+        let request = || {
+            Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap()
+        };
+
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/two/2/",
+            "@@||example.com/app.js$replace=/one/1/",
+        ]);
+        assert_eq!(
+            blocker.check(&request(), &resources).replace,
+            Some(vec![String::from("/two/2/")]),
+            "the one it names is gone, the other stays"
+        );
+
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/two/2/",
+            "@@||example.com/app.js$replace",
+        ]);
+        assert_eq!(
+            blocker.check(&request(), &resources).replace,
+            None,
+            "a bare exception turns off every one of them"
+        );
+
+        // And an exception for another url leaves this one alone.
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "@@||example.com/other.js$replace",
+        ]);
+        assert_eq!(
+            blocker.check(&request(), &resources).replace,
+            Some(vec![String::from("/one/1/")])
+        );
+    }
+
+    // A bare exception is reported, not just applied, because the caller may
+    // be running another engine whose directives it also has to cancel.
+    #[test]
+    fn test_replace_bare_exception_is_reported() {
+        let resources = ResourceStorage::default();
+        let request = || {
+            Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap()
+        };
+
+        let blocker = Blocker::new(["@@||example.com/app.js$replace"]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, None);
+        assert!(
+            result.replace_exception_all,
+            "a bare exception has to be visible to the caller even with no \
+             directive of its own to cancel"
+        );
+
+        // Alongside directives it cancels, both facts are reported.
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "@@||example.com/app.js$replace",
+        ]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, None);
+        assert!(result.replace_exception_all);
+
+        // A named exception is not a bare one: it cancels what it names and
+        // says nothing about any other engine's directives.
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "@@||example.com/app.js$replace=/one/1/",
+        ]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, None);
+        assert!(!result.replace_exception_all);
+
+        // And no exception at all leaves the flag clear.
+        let blocker = Blocker::new(["||example.com^$replace=/one/1/"]);
+        let result = blocker.check(&request(), &resources);
+        assert_eq!(result.replace, Some(vec![String::from("/one/1/")]));
+        assert!(!result.replace_exception_all);
+    }
+
+    // The same directive from two lists is one directive, not two.
+    #[test]
+    fn test_replace_deduplicates() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/same/x/",
+            "/app.js$replace=/same/x/",
+        ]);
+        let resources = ResourceStorage::default();
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, Some(vec![String::from("/same/x/")]));
+    }
+
+    // $badfilter takes one out, as it does any other rule. Worth pinning
+    // because the rule lives in a list of its own now.
+    #[test]
+    fn test_replace_badfilter() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/two/2/",
+            "||example.com^$replace=/one/1/,badfilter",
+        ]);
+        let resources = ResourceStorage::default();
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, Some(vec![String::from("/two/2/")]));
+    }
+
+    // The option splitter walks bytes to find the delimiters, so a directive
+    // carrying multi-byte characters has to come through whole rather than
+    // panicking on a slice that is not a character boundary.
+    #[test]
+    fn test_replace_multibyte() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/\u{65e5}\u{672c}\u{8a9e}/x/g,domain=example.com",
+        ]);
+        let resources = ResourceStorage::default();
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(
+            result.replace,
+            Some(vec![String::from("/\u{65e5}\u{672c}\u{8a9e}/x/g")])
+        );
+    }
+
+    // A blocked request has no body to rewrite, so there is no point
+    // carrying a directive for it.
+    #[test]
+    fn test_replace_not_reported_for_a_blocked_request() {
+        let filters = ["||example.com/app.js$replace=/a/b/", "||example.com/app.js"];
+        let blocker = Blocker::new(filters);
+        let resources = ResourceStorage::default();
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert!(result.should_block());
+        assert_eq!(result.replace, None);
+
+        // And where an exception takes the block away, the directive is back.
+        let blocker = Blocker::new([
+            "||example.com/app.js$replace=/a/b/",
+            "||example.com/app.js",
+            "@@||example.com/app.js",
+        ]);
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/app.js",
+                "https://example.com",
+                "script",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert!(!result.should_block());
+        assert_eq!(result.replace, Some(vec![String::from("/a/b/")]));
+    }
+
+    // Only the types that can carry text, which is what a body rewrite can
+    // be applied to, and what their own default has to be for a filter that
+    // names none.
+    #[test]
+    fn test_replace_defaults_to_the_text_types() {
+        let blocker = Blocker::new(["||example.com^$replace=/a/b/"]);
+        let resources = ResourceStorage::default();
+
+        for kind in ["script", "xmlhttprequest", "stylesheet", "document"] {
+            let result = blocker.check(
+                &Request::new("https://example.com/thing", "https://example.com", kind, "")
+                    .unwrap(),
+                &resources,
+            );
+            assert_eq!(
+                result.replace,
+                Some(vec![String::from("/a/b/")]),
+                "{kind} should carry it"
+            );
+        }
+
+        let result = blocker.check(
+            &Request::new(
+                "https://example.com/thing.png",
+                "https://example.com",
+                "image",
+                "",
+            )
+            .unwrap(),
+            &resources,
+        );
+        assert_eq!(result.replace, None, "an image has no text to rewrite");
+    }
+
     #[test]
     fn test_removeparam() {
         let filters = [

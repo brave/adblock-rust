@@ -196,11 +196,47 @@ mod tests {
       2. DON'T rely on backwards compatibility with the old format
       Backwards compatibility isn't covered by the tests"#;
 
+    // A $replace rule lives in a filter list of its own, and the features
+    // mask that marks it is deliberately not serialized - the list is the
+    // carrier. So the directive has to survive a round trip through the
+    // serialized format, exceptions included.
+    #[test]
+    fn replace_survives_serialization() {
+        let filters = [
+            "||example.com/app.js$replace=/one/1/",
+            "||example.com/app.js$replace=/two/2/",
+            "@@||example.com/app.js$replace=/two/2/",
+        ];
+        let engine = Engine::new_with_list_text(filters.join("\n"));
+        let serialized = engine.serialize();
+        let mut deserialized = Engine::default();
+        deserialized.deserialize(&serialized).unwrap();
+
+        let request = Request::new(
+            "https://example.com/app.js",
+            "https://example.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        // Before, to be sure the test would notice the round trip losing it.
+        assert_eq!(
+            engine.check_network_request(&request).replace,
+            Some(vec![String::from("/one/1/")])
+        );
+        assert_eq!(
+            deserialized.check_network_request(&request).replace,
+            Some(vec![String::from("/one/1/")]),
+            "the directive, and the exception that removed the other one"
+        );
+        assert!(!deserialized.check_network_request(&request).should_block());
+    }
+
     #[test]
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 12118781176882813401;
+        const EXPECTED_HASH: u64 = 8321787655374998258;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -215,7 +251,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 9882893794091536255;
+        const EXPECTED_HASH: u64 = 6102421615029898065;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -271,13 +307,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 124261);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 124278);
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            8871275760195103815
+            3361182026688223180
         } else {
-            8180986015489572218
+            12886270979793936062
         };
 
         assert_eq!(
