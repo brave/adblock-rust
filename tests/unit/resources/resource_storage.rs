@@ -347,6 +347,12 @@ mod scriptlet_storage_tests {
             )]),
             "try {\nTest that dollar signs in $remove$ are untouched\n} catch ( e ) { }\n",
         );
+
+        // malformed arguments should be skipped, not panic
+        assert_eq!(
+            resources.get_scriptlet_resources([("greet, 'unclosed", Default::default())]),
+            "",
+        );
     }
 
     #[test]
