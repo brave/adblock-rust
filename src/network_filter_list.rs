@@ -5,10 +5,11 @@ use std::{collections::HashSet, fmt};
 use flatbuffers::ForwardsUOffset;
 
 use crate::filters::fb_network::FlatNetworkFilter;
-use crate::filters::filter_data_context::FilterDataContext;
+use crate::filters::filter_data_context::{FilterDataContext, NetworkFilterListDirectories};
 use crate::filters::flatbuffer_generated::fb;
 use crate::filters::network::{NetworkFilterMask, NetworkMatchable};
 use crate::flatbuffers::containers::flat_multimap::FlatMultiMapView;
+use crate::flatbuffers::containers::prefix_directory::PrefixDirectory;
 use crate::flatbuffers::unsafe_tools::fb_vector_to_slice;
 use crate::regex_manager::RegexManager;
 use crate::request::Request;
@@ -36,26 +37,52 @@ impl fmt::Display for CheckResult {
 /// Internal structure to keep track of a collection of network filters.
 pub(crate) struct NetworkFilterList<'a> {
     pub(crate) list: fb::NetworkFilterList<'a>,
+    pub(crate) directories: &'a NetworkFilterListDirectories,
     pub(crate) filter_data_context: &'a FilterDataContext,
 }
 
 type FlatNetworkFilterMap<'a> =
     FlatMultiMapView<'a, ShortHash, ForwardsUOffset<fb::NetworkFilter<'a>>, &'a [ShortHash]>;
 
-impl NetworkFilterList<'_> {
-    pub fn get_filter_map(&self) -> FlatNetworkFilterMap<'_> {
-        let filters_list = &self.list;
-        FlatNetworkFilterMap::new(
-            fb_vector_to_slice(filters_list.filter_map_index()),
-            filters_list.filter_map_values(),
-        )
+/// A token map of a [NetworkFilterList], together with the [PrefixDirectory] that accelerates
+/// lookups into it.
+pub(crate) struct IndexedFilterMap<'a> {
+    map: FlatNetworkFilterMap<'a>,
+    directory: &'a PrefixDirectory,
+}
+
+impl<'a> IndexedFilterMap<'a> {
+    #[inline(always)]
+    fn get(&self, token: Hash) -> Option<impl Iterator<Item = fb::NetworkFilter<'a>> + use<'a>> {
+        let key = to_short_hash(token);
+        self.map.get_in(key, self.directory.range(key))
     }
 
-    pub fn get_opt_domains_map(&self) -> FlatNetworkFilterMap<'_> {
-        FlatNetworkFilterMap::new(
-            fb_vector_to_slice(self.list.opt_domains_map_index()),
-            self.list.opt_domains_map_values(),
-        )
+    #[cfg(test)]
+    pub fn total_size(&self) -> usize {
+        self.map.total_size()
+    }
+}
+
+impl NetworkFilterList<'_> {
+    pub fn get_filter_map(&self) -> IndexedFilterMap<'_> {
+        IndexedFilterMap {
+            map: FlatNetworkFilterMap::new(
+                fb_vector_to_slice(self.list.filter_map_index()),
+                self.list.filter_map_values(),
+            ),
+            directory: &self.directories.filter_map,
+        }
+    }
+
+    pub fn get_opt_domains_map(&self) -> IndexedFilterMap<'_> {
+        IndexedFilterMap {
+            map: FlatNetworkFilterMap::new(
+                fb_vector_to_slice(self.list.opt_domains_map_index()),
+                self.list.opt_domains_map_values(),
+            ),
+            directory: &self.directories.opt_domains_map,
+        }
     }
 
     fn is_empty(&self) -> bool {
@@ -79,7 +106,7 @@ impl NetworkFilterList<'_> {
 
         let mut found = None;
         self.match_filters(
-            &self.get_opt_domains_map(),
+            self.get_opt_domains_map(),
             request.get_source_hostname_hashes_for_match(),
             request,
             active_tags,
@@ -96,7 +123,7 @@ impl NetworkFilterList<'_> {
 
         // Pattern / hostname / catch-all / fallback buckets. Check only for URL tokens.
         self.match_filters(
-            &self.get_filter_map(),
+            self.get_filter_map(),
             request.get_tokens_for_match(),
             request,
             active_tags,
@@ -127,7 +154,7 @@ impl NetworkFilterList<'_> {
         }
 
         self.match_filters(
-            &self.get_opt_domains_map(),
+            self.get_opt_domains_map(),
             request.get_source_hostname_hashes_for_match(),
             request,
             active_tags,
@@ -139,7 +166,7 @@ impl NetworkFilterList<'_> {
         );
 
         self.match_filters(
-            &self.get_filter_map(),
+            self.get_filter_map(),
             request.get_tokens_for_match(),
             request,
             active_tags,
@@ -157,7 +184,7 @@ impl NetworkFilterList<'_> {
     /// stop by returning `true`.
     fn match_filters<'a, I>(
         &self,
-        filter_map: &FlatNetworkFilterMap<'_>,
+        filter_map: IndexedFilterMap<'_>,
         tokens: I,
         request: &Request,
         active_tags: &HashSet<String>,
@@ -168,7 +195,7 @@ impl NetworkFilterList<'_> {
         I: IntoIterator<Item = &'a Hash>,
     {
         for token in tokens {
-            if let Some(iter) = filter_map.get(to_short_hash(*token)) {
+            if let Some(iter) = filter_map.get(*token) {
                 for fb_filter in iter {
                     let filter = FlatNetworkFilter::new(&fb_filter, self.filter_data_context);
 
