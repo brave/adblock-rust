@@ -738,7 +738,7 @@ impl<'a> NetworkFilter<'a> {
                     // This means there must be at least an occurrence of `*` or `^`
                     // somewhere.
 
-                    // If the first separator is a wildcard, included in in hostname
+                    // If the first separator is a wildcard, included in hostname
                     if first_separator_start < pattern.len()
                         && pattern[first_separator_start..=first_separator_start].starts_with('*')
                     {
