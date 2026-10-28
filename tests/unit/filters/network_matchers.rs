@@ -92,6 +92,12 @@ mod match_tests {
         assert!(is_anchored_by_hostname("bar", "foo.bar.com", false));
         assert!(is_anchored_by_hostname("bar.", "foo.bar.com", false));
         assert!(is_anchored_by_hostname(".bar.", "foo.bar.com", false));
+        assert!(is_anchored_by_hostname("foo.bar", "x.foo.bar.com", false));
+        assert!(is_anchored_by_hostname("bar", "example.bar.com", false));
+
+        // does not match partial infix
+        assert!(!is_anchored_by_hostname("bar", "foo.barbaz.com", false));
+        assert!(!is_anchored_by_hostname("bar", "abc.barx.com", false));
     }
 
     fn filter_match_url(filter: &str, url: &str, matching: bool) {
@@ -148,6 +154,8 @@ mod match_tests {
         filter_match_url("||foo.com", "https://bar.foo.de", false);
         filter_match_url("||s.foo.com", "https://substring.s.foo.com", true);
         filter_match_url("||s.foo.com", "https://substrings.foo.com", false);
+        filter_match_url("||foo.baz", "https://x.foo.baz.com/bar", true);
+        filter_match_url("||foo", "https://abc.foox.com/bar", false);
     }
 
     #[test]
