@@ -244,6 +244,39 @@ mod blocker_tests {
     }
 
     #[test]
+    fn domain_anchor_cases() {
+        let filters = ["||foo.baz", "||bar", "||biz.com^"];
+        let blocker = Blocker::new(filters);
+
+        let request = Request::new(
+            "https://x.foo.baz.com/a.js",
+            "https://example.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(blocker.check(&request, &Default::default()).should_block());
+
+        let request = Request::new(
+            "https://abc.barx.com/bar/a.js",
+            "https://example.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(!blocker.check(&request, &Default::default()).should_block());
+
+        let request = Request::new(
+            "https://biz.com.biz.com/evil.js",
+            "https://biz.com",
+            "script",
+            "",
+        )
+        .unwrap();
+        assert!(blocker.check(&request, &Default::default()).should_block());
+    }
+
+    #[test]
     fn hostname_regex_filter_works() {
         let filters = [
             "||alimc*.top^$domain=letv.com",
