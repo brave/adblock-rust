@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.4] - 2026-10-28
+
+### Changed
+- Improve match performance by using `%` as an internal tokenization delimiter.
+- Skip flatbuffer verification for DAT files created and read by the same library version.
+- DAT format version bumped to v7.
+
 ## [0.13.3] - 2026-08-20
 
 ### Added
