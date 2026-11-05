@@ -1,3 +1,20 @@
+#[cfg(test)]
+mod compile_tests {
+    use crate::regex_manager::compile_regex;
+
+    #[test]
+    fn invalid_complete_regex_does_not_disable_valid_pattern_in_set() {
+        let compiled = compile_regex(
+            [r#"/^https:\/\/b\.com/"#, r#"/(?=a)/"#].into_iter(),
+            false,
+            false,
+            true,
+        );
+
+        assert!(compiled.is_match("https://b.com"));
+    }
+}
+
 #[cfg(all(test, feature = "debug-info"))]
 mod tests {
     use super::super::*;
