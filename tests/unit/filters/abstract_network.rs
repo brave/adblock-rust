@@ -60,6 +60,26 @@ fn replace_value_is_kept_whole_and_other_options_are_still_split() {
             "/(a)(b)/$2$1/g",
             3,
         ),
+        // `$$` is a literal dollar in a replacement, and a regex may contain `$` anywhere.
+        (
+            "||example.com^$replace=/a/$$price/,script",
+            "/a/$$price/",
+            2,
+        ),
+        ("||example.com^$replace=/[$a]x/b/,script", "/[$a]x/b/", 2),
+        // An explicitly empty exception followed by more options.
+        ("@@||example.com^$replace=,script", "", 2),
+        // An unescaped `/` and `,` in the replacement.
+        (
+            "||example.com^$replace=/a/<b></b>, more/,script",
+            "/a/<b></b>, more/",
+            2,
+        ),
+        (
+            "||example.com^$replace=/a/<b></b>, more/g,script",
+            "/a/<b></b>, more/g",
+            2,
+        ),
         // A JSONPath query ends at the first unescaped comma.
         (
             "||example.com^$xhr,replace=json:$..a,domain=x.org",

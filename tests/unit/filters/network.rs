@@ -660,6 +660,11 @@ mod parse_tests {
             NetworkFilter::parse("@@||foo.com^$replace", true, Default::default()).unwrap();
         assert!(filter.is_replace() && filter.is_exception());
         assert_eq!(filter.modifier_option, Some(""));
+
+        let filter =
+            NetworkFilter::parse("@@||foo.com^$replace=,script", true, Default::default()).unwrap();
+        assert!(filter.is_replace() && filter.mask.contains(NetworkFilterMask::FROM_SCRIPT));
+        assert_eq!(filter.modifier_option, Some(""));
     }
 
     #[test]
@@ -674,6 +679,13 @@ mod parse_tests {
             (
                 "||foo.com^$replace=/(a)(b)/$2$1/g,domain=x.com",
                 "/(a)(b)/$2$1/g",
+            ),
+            ("||foo.com^$replace=/a/$$price/,script", "/a/$$price/"),
+            (r"||foo.com^$replace=/[$a]x/b/,script", r"/[$a]x/b/"),
+            // An unescaped `/` and `,` in the replacement.
+            (
+                "||foo.com^$replace=/a/<b></b>, more/,script",
+                "/a/<b></b>, more/",
             ),
             // JSONPath queries.
             ("||foo.com^$xhr,replace=json:$..ads", "json:$..ads"),

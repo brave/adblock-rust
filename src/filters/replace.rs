@@ -95,10 +95,12 @@ impl ReplaceRule {
             return Err(ReplaceOptionParseError);
         }
 
-        let is_escapable = |ch| matches!(ch, ',' | '$' | '/');
         Ok(Self::Regex {
-            pattern: unescape(&value[1..pattern_end], is_escapable),
-            replacement: unescape(&value[pattern_end + 1..replacement_end], is_escapable),
+            // `\$` is a literal dollar in a regex, so only the list syntax is unescaped there.
+            pattern: unescape(&value[1..pattern_end], |ch| matches!(ch, ',' | '/')),
+            replacement: unescape(&value[pattern_end + 1..replacement_end], |ch| {
+                matches!(ch, ',' | '$' | '/')
+            }),
             flags: flags.to_string(),
         })
     }
