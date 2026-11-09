@@ -8,6 +8,7 @@ use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::fb_network_builder::{NetworkFilterDebugData, NetworkRulesBuilder};
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
 use crate::filters::flatbuffer_generated::fb;
+use crate::filters::replace::ReplaceRule;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize};
 use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
 use crate::lists::{FilterSet, ParseOptions, ParsedLine, parse_filter};
@@ -286,6 +287,16 @@ impl Engine {
     /// If multiple policies are present from different rules, they will be joined by commas.
     pub fn get_csp_directives(&self, request: &Request) -> Option<String> {
         self.blocker.get_csp_directives(request)
+    }
+
+    /// Returns the `$replace` options that apply to `request`, split into pattern, replacement,
+    /// and flags. Regex compilation and application remain the caller's responsibility.
+    ///
+    /// Rules are returned in lexical order of their value. An exception such as
+    /// `@@||example.com^$replace` disables all matching rules, and one with a value disables only
+    /// the rule with the same value.
+    pub fn replace_rules(&self, request: &Request) -> Option<Vec<ReplaceRule>> {
+        self.blocker.replace_rules(request)
     }
 
     /// Sets this engine's tags to be _only_ the ones provided in `tags`.

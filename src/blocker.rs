@@ -2,13 +2,14 @@
 
 use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::ops::DerefMut;
 use std::sync::OnceLock;
 
 use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::filter_data_context::FilterDataContextRef;
 use crate::filters::network::NetworkFilterMaskHelper;
+use crate::filters::replace::ReplaceRule;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
@@ -57,6 +58,22 @@ pub struct BlockerResult {
     /// modified at all, the new version will be here. This should be used
     /// as long as the request is not blocked.
     pub rewritten_url: Option<String>,
+    /// `$replace` directives that matched, with exceptions applied, in a deterministic order
+    /// (sorted by the raw option value). They are not applied by the engine, which never sees a
+    /// response body: the caller is expected to apply each of them, in turn, to the body.
+    ///
+    /// Only present for a request that is not blocked, since a blocked request has no body to
+    /// rewrite. The patterns are passed through uncompiled, so the caller picks the regex dialect.
+    /// A directive can rewrite any response body it matches, so the caller should only apply
+    /// directives from lists it trusts.
+    pub replace: Option<Vec<ReplaceRule>>,
+    /// Whether a bare `@@...$replace` exception matched this request, which disables every
+    /// directive rather than a named one.
+    ///
+    /// `replace` already accounts for it, so a caller with a single [`Blocker`] can ignore this.
+    /// A caller running several of them over the same request cannot: each only resolves its own
+    /// exceptions, so this must be used to discard the directives found by the others.
+    pub replace_exception_all: bool,
 }
 
 impl BlockerResult {
@@ -129,6 +146,10 @@ impl Blocker {
 
     pub(crate) fn removeparam(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::RemoveParam)
+    }
+
+    pub(crate) fn replace(&self) -> NetworkFilterList<'_> {
+        self.get_list(NetworkFilterListId::Replace)
     }
 
     pub(crate) fn filters(&self) -> NetworkFilterList<'_> {
@@ -291,6 +312,14 @@ impl Blocker {
             Self::apply_removeparam(&self.removeparam(), request, regex_manager.deref_mut())
         };
 
+        // A blocked request has no body to rewrite.
+        let blocked = important || ((filter.is_some() || matched_rule) && exception.is_none());
+        let (replace, replace_exception_all) = if blocked {
+            (None, false)
+        } else {
+            self.collect_replace(request, regex_manager.deref_mut())
+        };
+
         // If something has already matched before but we don't know what, still return a match
         let fallback_match = if matched_rule {
             Some(FilterRuleDebugInfo::default())
@@ -306,9 +335,48 @@ impl Blocker {
             important,
             redirect,
             rewritten_url,
+            replace,
+            replace_exception_all,
         }
     }
 
+    /// Returns the `$replace` rules that apply to `request` and survive exceptions, sorted by
+    /// value, and whether a bare exception (`@@...$replace`) turned all of them off.
+    ///
+    /// An exception with a value disables the rule with the identical value.
+    fn collect_replace(
+        &self,
+        request: &Request,
+        regex_manager: &mut RegexManager,
+    ) -> (Option<Vec<ReplaceRule>>, bool) {
+        let matches = self
+            .replace()
+            .check_all(request, &self.tags_enabled, regex_manager);
+
+        let mut disabled: HashSet<&str> = HashSet::new();
+        let mut enabled: BTreeSet<&str> = BTreeSet::new();
+        for result in &matches {
+            let value = result.modifier_option.as_deref().filter(|v| !v.is_empty());
+            match (result.filter_mask.is_exception(), value) {
+                (true, None) => return (None, true),
+                (true, Some(value)) => {
+                    disabled.insert(value);
+                }
+                (false, Some(value)) => {
+                    enabled.insert(value);
+                }
+                (false, None) => (),
+            }
+        }
+
+        // The values were validated when the filters were parsed.
+        let rules: Vec<ReplaceRule> = enabled
+            .into_iter()
+            .filter(|value| !disabled.contains(value))
+            .filter_map(|value| ReplaceRule::parse(value).ok())
+            .collect();
+        ((!rules.is_empty()).then_some(rules), false)
+    }
     fn apply_removeparam(
         removeparam_filters: &NetworkFilterList,
         request: &Request,
@@ -448,6 +516,19 @@ impl Blocker {
         Some(merged)
     }
 
+    /// Returns the parsed `$replace` rules that apply to `request`, sorted by their raw option
+    /// value, or `None` if no rules apply.
+    ///
+    /// An exception without a value (`@@...$replace`) disables all replacements, and an exception
+    /// with a value disables the rule with the identical value. This does not affect
+    /// [`Blocker::check`].
+    pub fn replace_rules(&self, request: &Request) -> Option<Vec<ReplaceRule>> {
+        if !request.is_supported {
+            return None;
+        }
+        self.collect_replace(request, &mut self.borrow_regex_manager())
+            .0
+    }
     pub(crate) fn from_context(filter_data_context: FilterDataContextRef) -> Self {
         Self {
             filter_data_context,

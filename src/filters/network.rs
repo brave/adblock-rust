@@ -39,6 +39,8 @@ bitflags::bitflags! {
     /// Specifies that a redirect rule should also create a corresponding block rule.
     /// This is used to avoid returning two separate rules from `NetworkFilter::parse`.
     const ALSO_BLOCK_REDIRECT = 1 << 5;
+    /// `$replace` rewrites a response body. Like `$removeparam` it never blocks.
+    const IS_REPLACE = 1 << 6;
   }
 }
 
@@ -73,6 +75,14 @@ pub enum NetworkFilterError {
     EmptyRedirection,
     #[error("empty removeparam")]
     EmptyRemoveparam,
+    #[error("empty replace")]
+    EmptyReplace,
+    #[error("negated replace")]
+    NegatedReplace,
+    #[error("replace malformed")]
+    ReplaceMalformed,
+    #[error("replace with a type that carries no rewritable body")]
+    ReplaceWithUnrewritableType,
     #[error("negated removeparam")]
     NegatedRemoveparam,
     #[error("removeparam with exception")]
@@ -451,6 +461,8 @@ impl PartialOrd for NetworkFilter<'_> {
 fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFilterError> {
     let mut has_csp = false;
     let mut has_content_type = false;
+    let mut has_replace = false;
+    let mut has_unrewritable_type = false;
     let mut modifier_options = 0;
     for option in options {
         if matches!(option, NetworkFilterOption::Csp(..)) {
@@ -458,13 +470,28 @@ fn validate_options(options: &[NetworkFilterOption<'_>]) -> Result<(), NetworkFi
             modifier_options += 1;
         } else if option.is_content_type() {
             has_content_type = true;
-        } else if option.is_redirection() || matches!(option, NetworkFilterOption::Removeparam(..))
+            // Neither of these delivers a response body that could be rewritten.
+            if matches!(
+                option,
+                NetworkFilterOption::Ping(true) | NetworkFilterOption::Websocket(true)
+            ) {
+                has_unrewritable_type = true;
+            }
+        } else if option.is_redirection()
+            || matches!(
+                option,
+                NetworkFilterOption::Removeparam(..) | NetworkFilterOption::Replace(..)
+            )
         {
+            has_replace |= matches!(option, NetworkFilterOption::Replace(..));
             modifier_options += 1;
         }
     }
     if has_csp && has_content_type {
         return Err(NetworkFilterError::CspWithContentType);
+    }
+    if has_replace && has_unrewritable_type {
+        return Err(NetworkFilterError::ReplaceWithUnrewritableType);
     }
     if modifier_options > 1 {
         return Err(NetworkFilterError::MultipleModifierOptions);
@@ -513,7 +540,7 @@ fn hash_pipe_delimited_domains(
 
 /// Hashes `$to=` domains.
 ///
-/// Single-label positives (`com`, `net`, â€¦) are too common to use as index keys:
+/// Single-label positives (`com`, `net`, …) are too common to use as index keys:
 /// - If any specific positive exists, broad positives are dropped entirely (they are not
 ///   matched either), e.g. `$to=domain.com|net` only matches `domain.com`.
 /// - If positives are only broad, they are kept for match-time checks; the filter builder then
@@ -684,6 +711,10 @@ impl<'a> NetworkFilter<'a> {
                         features_mask.set(NetworkFilterFeaturesMask::IS_REMOVEPARAM, true);
                         modifier_option = Some(value);
                     }
+                    NetworkFilterOption::Replace(value) => {
+                        features_mask.set(NetworkFilterFeaturesMask::IS_REPLACE, true);
+                        modifier_option = Some(value);
+                    }
                     NetworkFilterOption::Csp(value) => {
                         features_mask.set(NetworkFilterFeaturesMask::IS_CSP, true);
                         // CSP rules can never have content types, and should always match against
@@ -740,10 +771,11 @@ impl<'a> NetworkFilter<'a> {
         // If any negated "network" types were set, then implicitly enable all network types.
         // The negated types will be applied later.
         //
-        // This doesn't apply to removeparam filters.
-        if !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
-            && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES)
-                != NetworkFilterMask::NONE
+        // This doesn't apply to removeparam and replace filters.
+        if !features_mask.intersects(
+            NetworkFilterFeaturesMask::IS_REMOVEPARAM | NetworkFilterFeaturesMask::IS_REPLACE,
+        ) && (cpt_mask_negative & NetworkFilterMask::FROM_NETWORK_TYPES)
+            != NetworkFilterMask::NONE
         {
             mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
@@ -754,6 +786,13 @@ impl<'a> NetworkFilter<'a> {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
                     | NetworkFilterMask::FROM_SUBDOCUMENT
                     | NetworkFilterMask::FROM_XMLHTTPREQUEST;
+            } else if features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE) {
+                // Only requests whose response can carry text to rewrite.
+                mask |= NetworkFilterMask::FROM_DOCUMENT
+                    | NetworkFilterMask::FROM_SUBDOCUMENT
+                    | NetworkFilterMask::FROM_XMLHTTPREQUEST
+                    | NetworkFilterMask::FROM_SCRIPT
+                    | NetworkFilterMask::FROM_STYLESHEET;
             } else {
                 mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
             }
@@ -939,6 +978,7 @@ impl<'a> NetworkFilter<'a> {
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
             && !features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+            && !features_mask.contains(NetworkFilterFeaturesMask::IS_REPLACE)
         {
             mask |= NetworkFilterMask::FROM_ALL_TYPES;
         }
@@ -1164,6 +1204,11 @@ impl<'a> NetworkFilter<'a> {
     pub fn is_removeparam(&self) -> bool {
         self.features_mask
             .contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM)
+    }
+
+    pub fn is_replace(&self) -> bool {
+        self.features_mask
+            .contains(NetworkFilterFeaturesMask::IS_REPLACE)
     }
 
     pub fn is_generic_hide(&self) -> bool {

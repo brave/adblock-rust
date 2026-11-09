@@ -630,6 +630,151 @@ mod parse_tests {
     }
 
     #[test]
+    fn parses_replace() {
+        let filter = NetworkFilter::parse(
+            r"||foo.com/path^$replace=/^foo\,bar\$/baz\$/is,script,domain=example.com",
+            true,
+            Default::default(),
+        )
+        .unwrap();
+
+        assert!(filter.is_replace());
+        assert_eq!(filter.modifier_option, Some(r"/^foo\,bar\$/baz\$/is"));
+        assert!(filter.mask.contains(NetworkFilterMask::FROM_SCRIPT));
+        assert!(!filter.mask.contains(NetworkFilterMask::FROM_IMAGE));
+        assert_eq!(
+            filter.opt_domains,
+            Some(vec![utils::fast_hash("example.com")])
+        );
+    }
+
+    #[test]
+    fn parses_replace_exceptions() {
+        let filter =
+            NetworkFilter::parse("@@||foo.com^$replace=/a/b/", true, Default::default()).unwrap();
+        assert!(filter.is_replace() && filter.is_exception());
+        assert_eq!(filter.modifier_option, Some("/a/b/"));
+
+        // Only an exception may omit the value, which then disables all replacements.
+        let filter =
+            NetworkFilter::parse("@@||foo.com^$replace", true, Default::default()).unwrap();
+        assert!(filter.is_replace() && filter.is_exception());
+        assert_eq!(filter.modifier_option, Some(""));
+    }
+
+    #[test]
+    fn accepts_valid_replace_values() {
+        for (rule, value) in [
+            // Flags, and an empty replacement.
+            ("||foo.com^$replace=/a//gimsu", "/a//gimsu"),
+            // The expression itself is not interpreted.
+            (r"||foo.com^$replace=/(?=a)b/x/", r"/(?=a)b/x/"),
+            (r"||foo.com^$replace=/(a)\1/x/", r"/(a)\1/x/"),
+            // Group references need no escaping, and later options are still read.
+            (
+                "||foo.com^$replace=/(a)(b)/$2$1/g,domain=x.com",
+                "/(a)(b)/$2$1/g",
+            ),
+            // JSONPath queries.
+            ("||foo.com^$xhr,replace=json:$..ads", "json:$..ads"),
+            (
+                "||foo.com^$replace=jsonl:$..ads,domain=x.com",
+                "jsonl:$..ads",
+            ),
+            (
+                r"||foo.com^$replace=json:$['a'\,'b'],domain=x.com",
+                r"json:$['a'\,'b']",
+            ),
+            // A negated type is not a type the filter applies to.
+            ("||foo.com^$replace=/a/b/,~ping", "/a/b/"),
+        ] {
+            let filter = NetworkFilter::parse(rule, true, Default::default()).unwrap();
+            assert!(filter.is_replace(), "{rule}");
+            assert_eq!(filter.modifier_option, Some(value), "{rule}");
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_replace_options() {
+        use NetworkFilterError::*;
+        for (rule, error) in [
+            ("||foo.com^$replace", EmptyReplace),
+            ("||foo.com^$replace=", EmptyReplace),
+            ("||foo.com^$~replace=/a/b/", NegatedReplace),
+            // Malformed values.
+            ("||foo.com^$replace=foo/bar/", ReplaceMalformed),
+            ("||foo.com^$replace=/foo", ReplaceMalformed),
+            ("||foo.com^$replace=/foo/bar", ReplaceMalformed),
+            ("||foo.com^$replace=//x/", ReplaceMalformed),
+            ("||foo.com^$replace=/a/b/z", ReplaceMalformed),
+            ("||foo.com^$replace=/a/b/1", ReplaceMalformed),
+            ("||foo.com^$replace=json:", ReplaceMalformed),
+            ("||foo.com^$replace=jsonx:$..a", ReplaceMalformed),
+            // Types whose response carries no body to rewrite.
+            ("||foo.com^$replace=/a/b/,ping", ReplaceWithUnrewritableType),
+            (
+                "@@||foo.com^$replace,websocket",
+                ReplaceWithUnrewritableType,
+            ),
+            // One modifier per filter.
+            (
+                "||foo.com^$replace=/a/b/,removeparam=x",
+                MultipleModifierOptions,
+            ),
+            (
+                "||foo.com^$replace=/a/b/,redirect=noop.js",
+                MultipleModifierOptions,
+            ),
+            (
+                "||foo.com^$replace=/a/b/,csp=script-src 'none'",
+                MultipleModifierOptions,
+            ),
+            (
+                "||foo.com^$replace=/a/b/,replace=/c/d/",
+                MultipleModifierOptions,
+            ),
+        ] {
+            assert_eq!(
+                NetworkFilter::parse(rule, true, Default::default()).err(),
+                Some(error),
+                "{rule}"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_every_replace_rule_in_the_brave_list() {
+        let list = crate::test_utils::rules_from_lists(["data/brave/brave-main-list.txt"]);
+        let mut parsed = 0;
+        for line in list
+            .lines()
+            .filter(|line| !line.starts_with('!') && line.contains("replace="))
+        {
+            let filter = NetworkFilter::parse(line, true, Default::default())
+                .unwrap_or_else(|err| panic!("{line}: {err:?}"));
+            assert!(filter.is_replace(), "{line}");
+            parsed += 1;
+        }
+        assert!(parsed >= 15, "only {parsed} replace rules found");
+    }
+
+    #[test]
+    fn replace_id_depends_on_the_expression_but_not_on_badfilter() {
+        let id = |rule| {
+            NetworkFilter::parse(rule, true, Default::default())
+                .unwrap()
+                .get_id()
+        };
+        assert_ne!(
+            id("||foo.com^$replace=/a/b/"),
+            id("||foo.com^$replace=/a/c/")
+        );
+        assert_eq!(
+            id("||foo.com^$replace=/a/b/"),
+            id("||foo.com^$replace=/a/b/,badfilter")
+        );
+    }
+    #[test]
     fn parses_domain() {
         // parses domain
         {
