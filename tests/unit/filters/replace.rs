@@ -25,6 +25,15 @@ fn unescapes_delimiters_and_replace_literals() {
 }
 
 #[test]
+fn keeps_escaped_dollar_in_the_pattern() {
+    // `\$` is a literal dollar in a regex, and `\,` is not valid in a unicode-mode one.
+    assert_eq!(
+        ReplaceRule::parse(r"/cost\$\,/free\$/").unwrap(),
+        regex(r"cost\$,", "free$", "")
+    );
+}
+
+#[test]
 fn does_not_compile_or_validate_regex_syntax() {
     assert_eq!(
         ReplaceRule::parse("/(?<=a)b/$&/gimsu").unwrap(),
