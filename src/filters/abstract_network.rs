@@ -1,7 +1,7 @@
-use memchr::memrchr as find_char_reverse;
-
 use super::network::NetworkFilterError;
+use super::replace::ReplaceRule;
 
+use memchr::memmem;
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -78,6 +78,7 @@ pub(crate) enum NetworkFilterOption<'a> {
     RedirectRule(&'a str),
     Csp(Option<&'a str>),
     Removeparam(&'a str),
+    Replace(&'a str),
     Generichide,
     Document,
     Image(bool),
@@ -142,7 +143,7 @@ impl AbstractNetworkFilter<'_> {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
+        let maybe_options_index = find_options_index(line.as_bytes());
 
         let mut options = None;
         if let Some(options_index) = maybe_options_index {
@@ -151,7 +152,7 @@ impl AbstractNetworkFilter<'_> {
             // slicing here is safe; the first byte after '$' will be a character boundary
             let raw_options = &line[filter_index_end + 1..];
 
-            options = Some(parse_filter_options(raw_options)?);
+            options = Some(parse_filter_options(raw_options, exception)?);
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
@@ -189,10 +190,11 @@ impl AbstractNetworkFilter<'_> {
 
 fn parse_filter_options<'a>(
     raw_options: &'a str,
+    exception: bool,
 ) -> Result<Vec<NetworkFilterOption<'a>>, NetworkFilterError> {
     let mut result = vec![];
 
-    for raw_option in raw_options.split(',') {
+    for raw_option in split_filter_options(raw_options) {
         // Check for negation: ~option
         let negation = raw_option.starts_with('~');
         let maybe_negated_option = raw_option.trim_start_matches('~');
@@ -254,6 +256,17 @@ fn parse_filter_options<'a>(
                 }
                 NetworkFilterOption::Removeparam(value)
             }
+            ("replace", true) => return Err(NetworkFilterError::NegatedReplace),
+            ("replace", false) if value.is_empty() && !exception => {
+                return Err(NetworkFilterError::EmptyReplace);
+            }
+            ("replace", false) => {
+                // The expression itself is not compiled; only its shape is checked.
+                if !value.is_empty() && ReplaceRule::parse(value).is_err() {
+                    return Err(NetworkFilterError::ReplaceMalformed);
+                }
+                NetworkFilterOption::Replace(value)
+            }
             ("generichide", true) | ("ghide", true) => {
                 return Err(NetworkFilterError::NegatedGenericHide);
             }
@@ -312,6 +325,78 @@ fn parse_filter_options<'a>(
         });
     }
     Ok(result)
+}
+
+pub(super) fn is_escaped_delimiter(bytes: &[u8], index: usize) -> bool {
+    let mut preceding_backslashes = 0;
+    let mut cursor = index;
+    while cursor > 0 && bytes[cursor - 1] == b'\\' {
+        preceding_backslashes += 1;
+        cursor -= 1;
+    }
+    preceding_backslashes % 2 == 1
+}
+
+/// Finds the `$` that separates the pattern from the options.
+///
+/// An escaped `$` belongs to the pattern. Additionally, in a line carrying a `replace=` option, a
+/// `$` that cannot begin an option name (an option name starts with a lowercase letter or `~`)
+/// belongs to its value: a group reference such as `$1` in the replacement, or the root of a
+/// JSONPath query in `json:$..a`.
+fn find_options_index(line: &[u8]) -> Option<usize> {
+    let has_replace = memmem::find(line, b"replace=").is_some();
+    line.iter().enumerate().rev().find_map(|(index, byte)| {
+        if *byte != b'$' || is_escaped_delimiter(line, index) {
+            return None;
+        }
+        let can_begin_option = line
+            .get(index + 1)
+            .is_some_and(|next| next.is_ascii_lowercase() || *next == b'~');
+        let inside_replace_value =
+            has_replace && !can_begin_option && memmem::find(&line[..index], b"replace=").is_some();
+        (!inside_replace_value).then_some(index)
+    })
+}
+
+/// `option` is the text of the current option up to a candidate `,`. Lists in the wild leave
+/// commas unescaped in `$replace` values, so the value only ends after its third unescaped `/`.
+/// A `json:`/`jsonl:` query has no delimiters to count, so it ends at the first unescaped comma.
+fn is_inside_replace_value(option: &str) -> bool {
+    let Some(value) = option.trim_start_matches('~').strip_prefix("replace=") else {
+        return false;
+    };
+    if is_escaped_delimiter(option.as_bytes(), option.len()) {
+        return true;
+    }
+    if value.starts_with("json:") || value.starts_with("jsonl:") {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    let unescaped_slashes = (0..bytes.len())
+        .filter(|&index| bytes[index] == b'/' && !is_escaped_delimiter(bytes, index))
+        .count();
+    unescaped_slashes < 3
+}
+
+fn split_filter_options(raw_options: &str) -> Vec<&str> {
+    let mut options = Vec::new();
+    let mut option_start = 0;
+
+    for (index, byte) in raw_options.bytes().enumerate() {
+        if byte != b',' {
+            continue;
+        }
+
+        if is_inside_replace_value(&raw_options[option_start..index]) {
+            continue;
+        }
+
+        options.push(&raw_options[option_start..index]);
+        option_start = index + 1;
+    }
+
+    options.push(&raw_options[option_start..]);
+    options
 }
 
 #[cfg(test)]

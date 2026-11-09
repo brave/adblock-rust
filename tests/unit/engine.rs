@@ -8,6 +8,18 @@ mod tests {
     use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
     use seahash::hash;
 
+    /// The (pattern, replacement, flags) of a regex `$replace` rule.
+    fn regex_parts(rule: &crate::ReplaceRule) -> (&str, &str, &str) {
+        match rule {
+            crate::ReplaceRule::Regex {
+                pattern,
+                replacement,
+                flags,
+            } => (pattern, replacement, flags),
+            other => panic!("expected a regex rule, got {other:?}"),
+        }
+    }
+
     fn hash_without_header(data: &[u8]) -> u64 {
         let data_without_header = &data[crate::data_format::HEADER_PREFIX_LENGTH..];
         hash(data_without_header)
@@ -200,7 +212,7 @@ mod tests {
     fn deserialization_generate_simple() {
         let mut engine = Engine::new_with_list_text("ad-banner");
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 12118781176882813401;
+        const EXPECTED_HASH: u64 = 8321787655374998258;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -215,7 +227,7 @@ mod tests {
         let mut engine = Engine::new_with_list_text("ad-banner$tag=abc");
         engine.use_tags(&["abc"]);
         let data = engine.serialize().to_vec();
-        const EXPECTED_HASH: u64 = 9882893794091536255;
+        const EXPECTED_HASH: u64 = 6102421615029898065;
         assert_eq!(
             hash_without_header(&data),
             EXPECTED_HASH,
@@ -224,6 +236,173 @@ mod tests {
         engine.deserialize(&data).unwrap();
     }
 
+    fn replace_request(url: &str, source: &str, request_type: &str) -> crate::request::Request {
+        crate::request::Request::new(url, source, request_type, "").unwrap()
+    }
+
+    fn replace_rules(
+        engine: &Engine,
+        url: &str,
+        source: &str,
+        request_type: &str,
+    ) -> Vec<crate::ReplaceRule> {
+        let request = replace_request(url, source, request_type);
+        engine.replace_rules(&request).unwrap_or_default()
+    }
+
+    #[test]
+    fn replace_rules_return_parsed_options() {
+        // Added out of order on purpose. The malformed ones are dropped when the list is loaded.
+        let engine = Engine::new_with_list_text(
+            "||example.com^$replace=/foo/bar/g,xmlhttprequest\n\
+             ||example.com^$replace=/(\\w+)@/<\\$1> at /,xmlhttprequest\n\
+             ||example.com^$replace=not-a-delimited-value\n\
+             ||example.com^$replace=//x/",
+        );
+        let rules = replace_rules(
+            &engine,
+            "https://example.com/data",
+            "https://example.org",
+            "xmlhttprequest",
+        );
+        assert_eq!(rules.len(), 2);
+        assert_eq!(regex_parts(&rules[0]), (r"(\w+)@", "<$1> at ", ""));
+        assert_eq!(regex_parts(&rules[1]), ("foo", "bar", "g"));
+
+        // Other requests are not affected.
+        for (url, kind) in [
+            ("https://example.net/data", "xmlhttprequest"),
+            ("https://example.com/data", "image"),
+        ] {
+            assert!(
+                replace_rules(&engine, url, "https://example.org", kind).is_empty(),
+                "{url} {kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn replace_rules_survive_serialization() {
+        let engine = Engine::new_with_list_text(
+            "||example.com^$replace=/a/b/\n||example.com^$replace=/c/d/\n@@||example.com/ok^$replace=/c/d/",
+        );
+        let mut restored = Engine::default();
+        restored.deserialize(&engine.serialize()).unwrap();
+
+        let check = |engine: &Engine, first_pattern: &str| {
+            let rules = |url| replace_rules(engine, url, "https://example.org", "xmlhttprequest");
+            assert_eq!(rules("https://example.com/x").len(), 2);
+            let rules = rules("https://example.com/ok/x");
+            assert_eq!(rules.len(), 1);
+            assert_eq!(regex_parts(&rules[0]).0, first_pattern);
+        };
+        check(&engine, "a");
+        check(&restored, "a");
+
+        // Replacing the filter data drops the rules of the previous data.
+        let other = Engine::new_with_list_text(
+            "||example.com^$replace=/e/f/\n||example.com^$replace=/g/h/\n@@||example.com/ok^$replace=/g/h/",
+        );
+        restored.deserialize(&other.serialize()).unwrap();
+        check(&restored, "e");
+    }
+
+    #[test]
+    fn replace_exceptions_disable_rules() {
+        let url = "https://example.com/data";
+        let rules = |list: &str, url| {
+            let engine = Engine::new_with_list_text(list);
+            replace_rules(&engine, url, "https://example.org", "xmlhttprequest")
+        };
+        let both = "||example.com^$replace=/a/b/\n||example.com^$replace=/c/d/";
+
+        assert!(rules(&format!("{both}\n@@||example.com^$replace"), url).is_empty());
+
+        let remaining = rules(&format!("{both}\n@@||example.com^$replace=/a/b/"), url);
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(regex_parts(&remaining[0]), ("c", "d", ""));
+
+        // An exception only applies to the URLs it matches.
+        let scoped = "||example.com^$replace=/a/b/\n@@||example.com/data^$replace=/a/b/";
+        assert!(rules(scoped, url).is_empty());
+        assert_eq!(rules(scoped, "https://example.com/other").len(), 1);
+    }
+
+    #[test]
+    fn replace_rules_do_not_change_blocking_results() {
+        let engine = Engine::new_with_list_text(
+            "||example.com^$replace=/a/b/\n@@||example.com^$replace\n||blocked.com^",
+        );
+        let allowed = replace_request(
+            "https://example.com/data",
+            "https://example.org",
+            "xmlhttprequest",
+        );
+        let result = engine.check_network_request(&allowed);
+        assert!(!result.should_block());
+        assert!(result.exception.is_none());
+
+        let blocked = replace_request(
+            "https://blocked.com/data",
+            "https://example.org",
+            "xmlhttprequest",
+        );
+        assert!(engine.check_network_request(&blocked).should_block());
+        assert!(engine.replace_rules(&blocked).is_none());
+    }
+
+    #[test]
+    fn brave_list_replace_rules_return_parsed_options() {
+        let rules = rules_from_lists(["data/brave/brave-main-list.txt"]);
+        let engine = Engine::new_with_list_text(rules);
+        let rules = |url: &str, source: &str, kind| replace_rules(&engine, url, source, kind);
+
+        // Two independent rules, neither with `g`, both apply to the same response.
+        let youtube = rules(
+            "https://www.youtube.com/youtubei/v1/get_watch?prettyPrint=false",
+            "https://www.youtube.com",
+            "xmlhttprequest",
+        );
+        assert_eq!(youtube.len(), 2);
+        assert_eq!(
+            regex_parts(&youtube[0]),
+            (r#""adPlacements""#, r#""no_ads""#, "")
+        );
+        assert_eq!(
+            regex_parts(&youtube[1]),
+            (r#""adSlots""#, r#""no_ads""#, "")
+        );
+
+        // Regex with escaped commas and `gms` flags.
+        let iptv = rules(
+            "https://alliptvlinks.com/tktk-content/plugins/x/script.js",
+            "https://alliptvlinks.com/",
+            "script",
+        );
+        assert!(iptv.iter().any(|rule| regex_parts(rule).2 == "gms"));
+
+        // JavaScript-specific character classes inside a character class.
+        let monk = rules(
+            "https://financemonk.net/js/countd.js",
+            "https://financemonk.net/",
+            "script",
+        );
+        assert!(!monk.is_empty());
+
+        // Document rules and an unrelated type.
+        let capcom = "https://captown.capcom.com/";
+        let document = rules(capcom, capcom, "document");
+        assert_eq!(document.len(), 1);
+        assert_eq!(
+            regex_parts(&document[0]),
+            (
+                "data-game-play-need-ads-modal-value=true",
+                "data-game-play-need-ads-modal-value=false",
+                ""
+            )
+        );
+        assert!(rules("https://captown.capcom.com/a.png", capcom, "image").is_empty());
+    }
     #[test]
     fn deserialization_generate_resources() {
         let mut engine = Engine::new_with_list_text("ad-banner$redirect=nooptext");
