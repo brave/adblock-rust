@@ -48,12 +48,10 @@ jobs:
       - name: Install perf and profiling tools
         run: |
           # No runner image ships `perf`, so it has to be installed here.
+          # Ubuntu 26.04 puts a real binary at /usr/bin/perf via linux-perf.
+          # linux-tools-generic no longer installs /usr/lib/linux-tools/*/perf.
           sudo apt-get update
-          sudo apt-get install -y linux-tools-common linux-tools-generic
-          # /usr/bin/perf is a wrapper that looks for tools matching the running
-          # kernel, which the runner does not have packages for. Use the binary
-          # from linux-tools-generic directly instead.
-          sudo ln -sf "$(ls -d /usr/lib/linux-tools/*/perf | tail -1)" /usr/local/bin/perf
+          sudo apt-get install -y linux-perf
           perf --version
 
       - name: Disable kernel perf event restrictions
