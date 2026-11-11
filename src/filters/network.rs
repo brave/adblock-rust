@@ -417,7 +417,7 @@ pub struct NetworkFilter<'a> {
     /// `true` when all positive `$to=` destinations are too common (single-label, e.g. `com`) to
     /// be used as an index key. Such filters are only kept if they can be indexed by something
     /// else (see `NetworkFilterListBuilder::add_filter`).
-    #[serde(skip)]
+    #[serde(default)]
     pub(crate) to_only_broad: bool,
     /// Used for `$redirect`, `$redirect-rule`, `$csp`, and `$removeparam` - only one of which is
     /// supported per-rule.
@@ -556,7 +556,19 @@ fn hash_pipe_delimited_to_domains(
 }
 
 fn is_broad_to_domain(domain: &str) -> bool {
-    !domain.contains('.')
+    #[cfg(feature = "embedded-domain-resolver")]
+    {
+        use addr::parser::DomainName;
+        use addr::psl::List;
+        match List.parse_domain_name(domain) {
+            Ok(parsed) => parsed.root().is_none(),
+            Err(_) => !domain.contains('.'),
+        }
+    }
+    #[cfg(not(feature = "embedded-domain-resolver"))]
+    {
+        !domain.contains('.')
+    }
 }
 
 fn finish_hashed_domains(

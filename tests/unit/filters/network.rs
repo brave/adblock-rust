@@ -827,6 +827,43 @@ mod parse_tests {
             );
         }
         {
+            // Public suffixes (multi-label too) are broad; the registrable domain is specific.
+            for line in ["*$to=co.uk", "*$to=github.io"] {
+                let filter = NetworkFilter::parse(line, true, Default::default()).unwrap();
+                assert!(filter.to_only_broad, "{line}");
+                let mut tokens_buffer = utils::TokensBuffer::default();
+                assert_eq!(
+                    filter.get_tokens(&mut tokens_buffer),
+                    FilterTokens::OptToDomains,
+                    "{line}"
+                );
+            }
+            let filter =
+                NetworkFilter::parse("*$to=foo.github.io", true, Default::default()).unwrap();
+            assert!(!filter.to_only_broad);
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("foo.github.io")])
+            );
+            let filter =
+                NetworkFilter::parse("||foo.com$to=bar.com|co.uk", true, Default::default())
+                    .unwrap();
+            assert_eq!(
+                filter.opt_to_domains,
+                Some(vec![utils::fast_hash("bar.com")])
+            );
+            assert!(!filter.to_only_broad);
+        }
+        {
+            // A public-suffix `$to=` next to a hostname pattern is indexed by the pattern.
+            let filter =
+                NetworkFilter::parse("||example.com^$to=co.uk", true, Default::default()).unwrap();
+            assert_eq!(filter.opt_to_domains, Some(vec![utils::fast_hash("co.uk")]));
+            assert!(filter.to_only_broad);
+            let mut tokens_buffer = utils::TokensBuffer::default();
+            assert_eq!(filter.get_tokens(&mut tokens_buffer), FilterTokens::Other);
+        }
+        {
             // Broad `$to=` with `$from=` is kept (indexed by from).
             let filter = NetworkFilter::parse(
                 "*$script,from=ovagames.com,to=com",

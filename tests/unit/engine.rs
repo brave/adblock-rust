@@ -995,62 +995,103 @@ trustedSetLocalStorageItem("mol.ads.cmp.tcf.cache", "{\"getTCData\":{\"cmpId\":2
     }
 
     #[test]
-    fn expensive_to_option_is_ignored() {
+    fn broad_and_exclude_only_to_options_without_index_key_are_dropped() {
         let engine = Engine::new_with_list_text(
             [
                 "*$script,to=com",
-                "*$script,to=~evil.com",
+                "*$script,to=co.uk",
+                "*$script,to=github.io",
                 "*$script,to=com|net",
-                "*$script,to=ads.example|net",
-                r"/banner\.gif/$to=ads.example",
-                "/somepath/*$script,to=com",
+                "*$script,to=~evil.com",
             ]
             .join("\n"),
         );
 
-        let broad =
-            Request::new("https://other.com/a.js", "https://page.com", "script", "").unwrap();
-        assert!(
-            !engine.check_network_request(&broad).should_block(),
-            "too-common / exclude-only $to= must not match"
-        );
+        for url in [
+            "https://other.com/a.js",
+            "https://foo.co.uk/a.js",
+            "https://foo.github.io/a.js",
+            "https://evil.net/a.js",
+        ] {
+            let request = Request::new(url, "https://page.com", "script", "").unwrap();
+            assert!(
+                !engine.check_network_request(&request).should_block(),
+                "too-common / exclude-only $to= must not match: {url}"
+            );
+        }
+    }
 
-        let specific =
-            Request::new("https://ads.example/a.js", "https://page.com", "script", "").unwrap();
+    #[test]
+    fn to_option_with_specific_destination_is_matched() {
+        let engine = Engine::new_with_list_text(
+            [
+                "*$script,to=ads.example|net",
+                r"/banner\.gif/$to=ads.example",
+                "*$script,to=foo.github.io",
+                "*$script,to=tracker.example|co.uk",
+            ]
+            .join("\n"),
+        );
+        let blocked = |url: &str, request_type: &str| {
+            let request = Request::new(url, "https://page.com", request_type, "").unwrap();
+            engine.check_network_request(&request).should_block()
+        };
+
         assert!(
-            engine.check_network_request(&specific).should_block(),
+            blocked("https://ads.example/a.js", "script"),
             "specific $to= should match after stripping broad labels"
         );
-
-        let regex_specific =
-            Request::new("https://ads.example/banner.gif", "https://page.com", "", "").unwrap();
         assert!(
-            engine.check_network_request(&regex_specific).should_block(),
+            !blocked("https://other.net/a.js", "script"),
+            "broad $to=net is stripped when a specific destination exists"
+        );
+        assert!(
+            blocked("https://ads.example/banner.gif", ""),
             "regex + specific $to= should still match"
         );
 
-        let path_com = Request::new(
-            "https://cdn.example.com/somepath/x.js",
-            "https://page.com",
-            "script",
-            "",
-        )
-        .unwrap();
+        // A subdomain of a private suffix is specific.
+        assert!(blocked("https://foo.github.io/a.js", "script"));
+        assert!(blocked("https://sub.foo.github.io/a.js", "script"));
+        assert!(!blocked("https://bar.github.io/a.js", "script"));
+
+        // `co.uk` is stripped next to a specific destination.
+        assert!(blocked("https://tracker.example/a.js", "script"));
+        assert!(!blocked("https://other.co.uk/a.js", "script"));
+    }
+
+    #[test]
+    fn broad_to_option_is_kept_when_indexed_by_pattern() {
+        let engine = Engine::new_with_list_text(
+            [
+                "/somepath/*$script,to=com",
+                "/ads/*$script,to=co.uk",
+                "||example.com^$script,to=co.uk",
+                "||example.co.uk^$script,to=co.uk",
+            ]
+            .join("\n"),
+        );
+        let blocked = |url: &str| {
+            let request = Request::new(url, "https://page.com", "script", "").unwrap();
+            engine.check_network_request(&request).should_block()
+        };
+
         assert!(
-            engine.check_network_request(&path_com).should_block(),
+            blocked("https://cdn.example.com/somepath/x.js"),
             "path token + broad $to=com should match .com destinations"
         );
-
-        let path_org = Request::new(
-            "https://cdn.example.org/somepath/x.js",
-            "https://page.com",
-            "script",
-            "",
-        )
-        .unwrap();
         assert!(
-            !engine.check_network_request(&path_org).should_block(),
+            !blocked("https://cdn.example.org/somepath/x.js"),
             "path token + broad $to=com must not match non-.com destinations"
+        );
+
+        assert!(blocked("https://cdn.example.co.uk/ads/x.js"));
+        assert!(!blocked("https://cdn.example.com/ads/x.js"));
+
+        assert!(blocked("https://example.co.uk/x.js"));
+        assert!(
+            !blocked("https://example.com/x.js"),
+            "hostname token matches but the $to=co.uk check does not"
         );
     }
 
