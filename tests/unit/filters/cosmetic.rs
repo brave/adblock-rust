@@ -960,6 +960,62 @@ mod parse_tests {
     }
 
     #[test]
+    fn adguard_css_injection() {
+        check_parse_result(
+            "businesshemden.com#$#.mnd-cookie-modal { display: none !important; }",
+            CosmeticFilterBreakdown {
+                hostnames: sort_hash_domains(vec!["businesshemden.com"]),
+                selector: SelectorType::PlainCss(".mnd-cookie-modal".to_string()),
+                action: Some(CosmeticFilterAction::Style(
+                    "display: none !important;".into(),
+                )),
+                ..Default::default()
+            },
+        );
+        check_parse_result(
+            "makeuseof.com#$#body div.fc-consent-root { display: none !important; }",
+            CosmeticFilterBreakdown {
+                hostnames: sort_hash_domains(vec!["makeuseof.com"]),
+                selector: SelectorType::PlainCss("body div.fc-consent-root".to_string()),
+                action: Some(CosmeticFilterAction::Style(
+                    "display: none !important;".into(),
+                )),
+                ..Default::default()
+            },
+        );
+        // `#$#` also accepts the `remove:` directive.
+        check_parse_result(
+            "example.com#$#.ad { remove: true; }",
+            CosmeticFilterBreakdown {
+                hostnames: sort_hash_domains(vec!["example.com"]),
+                selector: SelectorType::PlainCss(".ad".to_string()),
+                action: Some(CosmeticFilterAction::Remove),
+                ..Default::default()
+            },
+        );
+        // ABP snippet injection also uses `#$#` but has no `{ ... }` body — it must
+        // remain unsupported rather than being misparsed as a plain selector.
+        assert!(parse_cf("example.com#$#abort-on-property-read alert").is_err());
+        // Generic (hostname-less) injection is rejected like any other action.
+        assert!(parse_cf("#$#.ad { display: none !important; }").is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "css-validation")]
+    fn adguard_css_injection_extended() {
+        // `#$?#` is the extended (procedural) AdGuard CSS-injection form.
+        let rule =
+            parse_cf("example.com#$?#div:has(>div>span.ad) { display: none !important; }").unwrap();
+        assert_eq!(
+            rule.action,
+            Some(CosmeticFilterAction::Style(
+                "display: none !important;".into()
+            ))
+        );
+        assert_eq!(rule.plain_css_selector(), Some("div:has(>div>span.ad)"));
+    }
+
+    #[test]
     #[cfg(feature = "css-validation")]
     fn abp_style_injection_extended() {
         let rule = parse_cf("example.com#?#div:has(>div>span.remove-has) {remove: true;}").unwrap();
