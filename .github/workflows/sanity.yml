@@ -36,7 +36,6 @@ jobs:
       - name: Cargo audit
         run: |
           cargo install --force cargo-audit
-          cargo generate-lockfile
           cargo audit
 
       - name: Install nightly toolchain and rust-src (for asan)
