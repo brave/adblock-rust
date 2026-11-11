@@ -43,6 +43,8 @@ pub mod utils;
 #[doc(inline)]
 pub use engine::Engine;
 #[doc(inline)]
+pub use filters::replace::ReplaceRule;
+#[doc(inline)]
 pub use lists::FilterSet;
 
 #[cfg(test)]

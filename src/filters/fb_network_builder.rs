@@ -27,7 +27,8 @@ pub(crate) enum NetworkFilterListId {
     Filters = 5,
     GenericHide = 6,
     TaggedFiltersAll = 7,
-    Size = 8,
+    Replace = 8,
+    Size = 9,
 }
 
 struct NetworkFilterFlatEntry<'a> {
@@ -234,8 +235,11 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
     pub fn new(optimize: bool) -> Self {
         let lists = (0..NetworkFilterListId::Size as usize)
             .map(|list_id| {
-                // Don't optimize removeparam, since it can fuse filters without respecting distinct
-                let optimize = optimize && list_id != NetworkFilterListId::RemoveParam as usize;
+                // Don't optimize removeparam or replace filters, since they can fuse filters
+                // without respecting distinct modifier values.
+                let optimize = optimize
+                    && list_id != NetworkFilterListId::RemoveParam as usize
+                    && list_id != NetworkFilterListId::Replace as usize;
                 NetworkFilterListBuilder::new(optimize)
             })
             .collect::<Vec<_>>();
@@ -274,7 +278,9 @@ impl<'a, 'f> NetworkRulesBuilder<'a, 'f> {
         }
         type FilterId = NetworkFilterListId;
 
-        let list_id: FilterId = if filter.is_csp() {
+        let list_id: FilterId = if filter.is_replace() {
+            FilterId::Replace
+        } else if filter.is_csp() {
             FilterId::Csp
         } else if filter.is_removeparam() {
             FilterId::RemoveParam
