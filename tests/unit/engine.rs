@@ -271,13 +271,13 @@ mod tests {
                 debug_info.source_info[0].homepage,
                 Some("https://github.com/uBlockOrigin/uAssets".to_string())
             );
-            assert_eq!(debug_info.source_info[0].network_filter_count, 124261);
-            assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 42775);
+            assert_eq!(debug_info.source_info[0].network_filter_count, 121567);
+            assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 43451);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            8871275760195103815
+            18200554133650035597
         } else {
-            8180986015489572218
+            3978865762781783893
         };
 
         assert_eq!(
