@@ -206,6 +206,44 @@ mod tests {
     }
 
     #[test]
+    fn network_filter_inline_comments() {
+        fn parse_network(line: &str) -> NetworkFilter<'_> {
+            match parse_filter(line, true, Default::default()) {
+                Ok(ParsedLine::Network(filter)) => filter,
+                _ => panic!("expected a network filter: {line}"),
+            }
+        }
+
+        let plain = parse_network("@@||example.com^$domain=test.com");
+        let commented = parse_network("@@||example.com^$domain=test.com  # Exception for example");
+        assert_eq!(plain.mask, commented.mask);
+        assert_eq!(plain.hostname, commented.hostname);
+        assert_eq!(plain.opt_domains, commented.opt_domains);
+        assert_eq!(
+            commented.raw_line.as_deref(),
+            Some("@@||example.com^$domain=test.com")
+        );
+
+        // The comment is also ignored when the filter has no options.
+        let commented = parse_network("||example.com^ # note");
+        assert_eq!(commented.raw_line.as_deref(), Some("||example.com^"));
+        assert_eq!(commented.hostname, parse_network("||example.com^").hostname);
+
+        // A `#` that isn't preceded by whitespace is part of the filter.
+        let fragment = parse_network("||example.com/path#fragment");
+        assert_eq!(
+            fragment.raw_line.as_deref(),
+            Some("||example.com/path#fragment")
+        );
+
+        // Cosmetic filters are not affected.
+        assert!(matches!(
+            parse_filter("example.com##.a #b", true, Default::default()),
+            Ok(ParsedLine::Cosmetic(_))
+        ));
+    }
+
+    #[test]
     #[cfg(feature = "css-validation")]
     fn parse_filter_opening_comment() {
         assert!(parse_filter("##input,input/*", true, Default::default(),).is_err());
