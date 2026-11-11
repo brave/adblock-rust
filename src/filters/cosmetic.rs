@@ -690,6 +690,18 @@ mod css_validation {
             )]);
         }
 
+        // Some filter lists quote the attribute name, as in `div["data-foo"="bar"]`. That isn't
+        // valid CSS, so unquote the name where it is a plain identifier.
+        static RE_QUOTED_ATTRIBUTE_NAME: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r#"\[(\s*)(?:"([A-Za-z_][\w-]*)"|'([A-Za-z_][\w-]*)')(\s*(?:[~|^$*]?=|\]))"#)
+                .unwrap()
+        });
+        let selector = RE_QUOTED_ATTRIBUTE_NAME.replace_all(selector, |caps: &regex::Captures| {
+            let name = caps.get(2).or_else(|| caps.get(3)).unwrap().as_str();
+            format!("[{}{}{}", &caps[1], name, &caps[4])
+        });
+        let selector = selector.as_ref();
+
         // Use `mock-stylesheet-marker` where uBO uses `color: red` since we have control over the
         // parsing logic within the block.
         let mock_stylesheet = format!("{selector}{{mock-stylesheet-marker}}");
@@ -924,11 +936,20 @@ mod css_validation {
         arguments: &mut Parser<'i, '_>,
     ) -> Result<String, ParseError<'i, SelectorParseErrorKind<'i>>> {
         let mut inner = String::new();
-        while let Ok(arg) = arguments.next_including_whitespace() {
-            if arg.to_css(&mut inner).is_err() {
-                return Err(arguments.new_custom_error(SelectorParseErrorKind::InvalidState));
+        loop {
+            let start = arguments.position();
+            let Ok(arg) = arguments.next_including_whitespace().cloned() else {
+                break;
             };
-            if let Some(closing_token) = nested_matching_close(arg) {
+            if matches!(arg, Token::QuotedString(_)) {
+                // Keep quoted strings as written. Re-serializing the parsed token would resolve
+                // CSS escapes such as `\s` or `\/`, which would change the meaning of the
+                // regular expressions used in arguments like `:matches-attr("a"="/b\/c/")`.
+                inner.push_str(arguments.slice_from(start));
+            } else if arg.to_css(&mut inner).is_err() {
+                return Err(arguments.new_custom_error(SelectorParseErrorKind::InvalidState));
+            }
+            if let Some(closing_token) = nested_matching_close(&arg) {
                 let nested = arguments.parse_nested_block(to_css_nested)?;
                 inner.push_str(&nested);
                 closing_token.to_css(&mut inner).map_err(|_| {

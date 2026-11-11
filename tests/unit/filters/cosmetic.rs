@@ -696,6 +696,61 @@ mod parse_tests {
         assert!(parse_cf("example.com##h1:has-text(om),p").is_err());
     }
 
+    /// Some filter lists quote the attribute name, which isn't valid CSS on its own.
+    #[test]
+    #[cfg(feature = "css-validation")]
+    fn quoted_attribute_names() {
+        fn check_plain(raw: &str, expected: &str) {
+            check_parse_result(
+                &format!("example.com##{raw}"),
+                CosmeticFilterBreakdown {
+                    selector: SelectorType::PlainCss(expected.to_string()),
+                    hostnames: sort_hash_domains(vec!["example.com"]),
+                    ..Default::default()
+                },
+            );
+        }
+        check_plain(r#"div["data-x"="v"]"#, r#"div[data-x="v"]"#);
+        check_plain(
+            r#"div["data-x"*="@monetize/"]"#,
+            r#"div[data-x*="@monetize/"]"#,
+        );
+        check_plain(r#"div[ 'data-x' ^= "v" ]"#, r#"div[data-x^="v"]"#);
+        check_plain(r#"div["data-x"]"#, "div[data-x]");
+        // Already valid selectors are left alone.
+        check_plain(r#"div[data-x="v"]"#, r#"div[data-x="v"]"#);
+        // Quoted attribute values are not touched.
+        check_plain(r#"div[data-x="[\"y\"=z]"]"#, r#"div[data-x="[\"y\"=z]"]"#);
+    }
+
+    /// Escapes inside quoted arguments are significant (they are often part of a regex), so they
+    /// must be passed through as written.
+    #[test]
+    #[cfg(feature = "css-validation")]
+    fn quoted_arguments_keep_escapes() {
+        fn check_arg(raw: &str, expected_arg: &str) {
+            check_parse_result(
+                &format!("example.com##{raw}"),
+                CosmeticFilterBreakdown {
+                    selector: SelectorType::Procedural(vec![
+                        CosmeticFilterOperator::CssSelector("div".to_string()),
+                        CosmeticFilterOperator::MatchesAttr(expected_arg.to_string()),
+                    ]),
+                    hostnames: sort_hash_domains(vec!["example.com"]),
+                    ..Default::default()
+                },
+            );
+        }
+        check_arg(
+            r#"div:matches-attr("data-x"="/@monetize\/[^\s]+/")"#,
+            r#""data-x"="/@monetize\/[^\s]+/""#,
+        );
+        check_arg(
+            r#"div:matches-attr("data-x"="@marketfront/MadvHeaderPromo")"#,
+            r#""data-x"="@marketfront/MadvHeaderPromo""#,
+        );
+    }
+
     #[test]
     #[cfg(feature = "css-validation")]
     fn procedural_operators() {
