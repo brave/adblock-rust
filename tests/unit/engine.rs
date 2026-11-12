@@ -540,6 +540,7 @@ mod tests {
         let filters = [
             "##.donotblock",
             "##a[href=\"generic.com\"]",
+            "##.first-class, div[data-ad]",
             "@@||example.com$generichide",
             "example.com##.block",
             "@@||example2.com/test.html$generichide",
@@ -551,7 +552,11 @@ mod tests {
             ("https://example.com/test.html", vec![".block"], true),
             (
                 "https://example2.com",
-                vec![".block", "a[href=\"generic.com\"]"],
+                vec![
+                    ".block",
+                    "a[href=\"generic.com\"]",
+                    ".first-class, div[data-ad]",
+                ],
                 false,
             ),
             ("https://example2.com/test.html", vec![".block"], true),

@@ -519,6 +519,135 @@ mod cosmetic_cache_tests {
     /// Avoid impossible type inference for type parameter `impl AsRef<str>`
     const EMPTY: &[&str] = &[];
 
+    const MULTIPLE_ENTRY_SELECTOR_LISTS: [&str; 5] = [
+        ".first-ad, .second-ad",
+        ".first-ad, #second-ad",
+        ".first-ad, [data-ad]",
+        ".first-ad, div.sponsor",
+        ".first-ad, .first-ad > div, .second-ad",
+    ];
+
+    #[test]
+    fn multiple_entry_selector_lists_are_delivered_once_in_initial_resources() {
+        let storage = ResourceStorage::default();
+        for selector in MULTIPLE_ENTRY_SELECTOR_LISTS {
+            let rule = format!("##{selector}");
+            let cache = CosmeticFilterCache::from_rules([&rule, &rule]);
+            let resources = cache.hostname_cosmetic_resources(&storage, "example.com", false);
+            assert_eq!(
+                resources.hide_selectors,
+                HashSet::from([selector.to_owned()])
+            );
+            assert!(
+                cache
+                    .hidden_class_id_selectors(
+                        ["first-ad", "second-ad"],
+                        ["second-ad"],
+                        &resources.exceptions
+                    )
+                    .is_empty()
+            );
+        }
+    }
+
+    #[test]
+    fn multiple_entry_selector_list_detection_ignores_nested_quoted_and_escaped_commas() {
+        use crate::filters::cosmetic::CosmeticFilter;
+        let storage = ResourceStorage::default();
+        for (selector, class) in [
+            (".first-ad:is(.nested, :not(.other, .third))", "first-ad"),
+            (
+                r#".first-ad[data-ad="a,\"b"][data-other='c,\'d']"#,
+                "first-ad",
+            ),
+            (r".first-ad[data-ad=a\,b]", "first-ad"),
+            (r#".first-ad:custom("a,\"b", 'c,\'d')"#, "first-ad"),
+            (r".first\,ad", "first,ad"),
+            (r".first\\", "first\\"),
+            (r".first\2c ad", "first,ad"),
+            (".first-ad/* , [data-ad] */", "first-ad"),
+        ] {
+            let single_rule = format!("##{selector}");
+            let parsed = CosmeticFilter::parse(&single_rule, false, Default::default()).unwrap();
+            let expected = parsed.plain_css_selector().unwrap();
+            let single_cache = CosmeticFilterCache::from_rules([&single_rule]);
+            let resources =
+                single_cache.hostname_cosmetic_resources(&storage, "example.com", false);
+            assert!(resources.hide_selectors.is_empty());
+            assert_eq!(
+                single_cache.hidden_class_id_selectors([class], EMPTY, &resources.exceptions),
+                [expected]
+            );
+
+            let list_rule = format!("##{selector}, .second-ad");
+            let parsed = CosmeticFilter::parse(&list_rule, false, Default::default()).unwrap();
+            let expected = parsed.plain_css_selector().unwrap();
+            let list_cache = CosmeticFilterCache::from_rules([&list_rule]);
+            let resources = list_cache.hostname_cosmetic_resources(&storage, "example.com", false);
+            assert_eq!(
+                resources.hide_selectors,
+                HashSet::from([expected.to_owned()])
+            );
+            assert!(
+                list_cache
+                    .hidden_class_id_selectors([class, "second-ad"], EMPTY, &resources.exceptions)
+                    .is_empty()
+            );
+        }
+    }
+
+    #[test]
+    fn generic_selector_lists_respect_hostname_specific_exceptions() {
+        for selector in MULTIPLE_ENTRY_SELECTOR_LISTS {
+            let cache = CosmeticFilterCache::from_rules([
+                format!("##{selector}"),
+                format!("example.com#@#{selector}"),
+            ]);
+
+            let storage = ResourceStorage::default();
+
+            let resources = cache.hostname_cosmetic_resources(&storage, "example.com", false);
+            assert!(resources.hide_selectors.is_empty());
+
+            let included = cache.hostname_cosmetic_resources(&storage, "other.com", false);
+            assert_eq!(
+                included.hide_selectors,
+                HashSet::from([selector.to_owned()])
+            );
+        }
+    }
+
+    #[test]
+    fn generic_selector_lists_respect_negated_hostname_constraints() {
+        for selector in MULTIPLE_ENTRY_SELECTOR_LISTS {
+            let cache = CosmeticFilterCache::from_rules([format!("~example.com##{selector}")]);
+            let storage = ResourceStorage::default();
+
+            let resources = cache.hostname_cosmetic_resources(&storage, "example.com", false);
+            assert!(resources.hide_selectors.is_empty());
+
+            let included = cache.hostname_cosmetic_resources(&storage, "other.com", false);
+            assert_eq!(
+                included.hide_selectors,
+                HashSet::from([selector.to_owned()])
+            );
+        }
+    }
+
+    #[test]
+    fn exception_for_one_alternative_does_not_exempt_the_complete_selector_list() {
+        let cache = CosmeticFilterCache::from_rules([
+            "##.first-ad, .second-ad",
+            "example.com#@#.second-ad",
+        ]);
+        let resources =
+            cache.hostname_cosmetic_resources(&ResourceStorage::default(), "example.com", false);
+        assert_eq!(
+            resources.hide_selectors,
+            HashSet::from([".first-ad, .second-ad".to_owned()])
+        );
+    }
+
     #[test]
     fn matching_hidden_class_id_selectors() {
         let rules = [
