@@ -556,19 +556,7 @@ fn hash_pipe_delimited_to_domains(
 }
 
 fn is_broad_to_domain(domain: &str) -> bool {
-    #[cfg(feature = "embedded-domain-resolver")]
-    {
-        use addr::parser::DomainName;
-        use addr::psl::List;
-        match List.parse_domain_name(domain) {
-            Ok(parsed) => parsed.root().is_none(),
-            Err(_) => !domain.contains('.'),
-        }
-    }
-    #[cfg(not(feature = "embedded-domain-resolver"))]
-    {
-        !domain.contains('.')
-    }
+    crate::url_parser::is_public_suffix(domain)
 }
 
 fn finish_hashed_domains(
