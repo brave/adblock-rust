@@ -286,15 +286,16 @@ mod ab2cb_tests {
         );
     }
 
-    /* TODO - `$popup` is currently unsupported by NetworkFilter
     #[test]
     fn popup_tests() {
-        test_from_abp("||admngronline.com^$popup,third-party", r####"[{
+        test_from_abp(
+            "||admngronline.com^$popup,third-party",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
-                "url-filter": "^https?://admngronline\\.com(?:[\\x00-\\x24\\x26-\\x2C\\x2F\\x3A-\\x40\\x5B-\\x5E\\x60\\x7B-\\x7F]|$)",
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?admngronline\\.com",
                 "load-type": [
                     "third-party"
                 ],
@@ -302,20 +303,40 @@ mod ab2cb_tests {
                     "popup"
                 ]
             }
-        }]"####);
-        test_from_abp("||bet365.com^*affiliate=$popup", r####"[{
+        }]"####,
+        );
+        test_from_abp(
+            "||bet365.com^*affiliate=$popup",
+            r####"[{
             "action": {
                 "type": "block"
             },
             "trigger": {
-                "url-filter": "^https?://bet365\\.com(?:[\\x00-\\x24\\x26-\\x2C\\x2F\\x3A-\\x40\\x5B-\\x5E\\x60\\x7B-\\x7F]|$).*affiliate=",
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?bet365\\.com\\^.*affiliate=",
                 "resource-type": [
                     "popup"
                 ]
             }
-        }]"####);
+        }]"####,
+        );
+        test_from_abp(
+            "||bit.ly^$popup,domain=eurogamer.net",
+            r####"[{
+            "action": {
+                "type": "block"
+            },
+            "trigger": {
+                "url-filter": "^[^:]+:(//)?([^/]+\\.)?bit\\.ly",
+                "if-domain": [
+                    "*eurogamer.net"
+                ],
+                "resource-type": [
+                    "popup"
+                ]
+            }
+        }]"####,
+        );
     }
-    */
 
     #[test]
     fn third_party() {
