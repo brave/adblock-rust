@@ -585,10 +585,18 @@ mod legacy_check_options {
 
     #[test]
     fn check_options_popup() {
-        // Make sure we ignore popup rules for now
         check_option_rule(
             &["||example.com^$popup"],
-            &[("http://example.com", "http://example.com", "popup", false)],
+            &[
+                ("http://example.com", "http://example.com", "popup", true),
+                (
+                    "http://example.com",
+                    "http://example.com",
+                    "document",
+                    false,
+                ),
+                ("http://example.com", "http://example.com", "script", false),
+            ],
         );
     }
 

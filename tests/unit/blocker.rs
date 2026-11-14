@@ -1435,20 +1435,79 @@ mod legacy_rule_parsing_tests {
         }
     }
 
+    #[test]
+    fn popup_semantics() {
+        let engine_with = |rules: &[&str]| {
+            let mut set = FilterSet::new(true);
+            set.add_filters(rules.iter().map(|r| r.to_string()), Default::default());
+            Engine::new_with_filter_set(set)
+        };
+        let check = |engine: &Engine, url: &str, source: &str, request_type: &str| {
+            let request = crate::request::Request::new(url, source, request_type, "GET").unwrap();
+            engine.check_network_request(&request).should_block()
+        };
+        let ad = "https://ads.example/x";
+        let site = "https://site.example/";
+
+        // Only rules that name popup (or $all) match popups.
+        let engine = engine_with(&["||ads.example^", "||other.example^$script"]);
+        assert!(!check(&engine, ad, site, "popup"));
+        assert!(check(&engine, ad, site, "script"));
+        assert!(check(&engine, ad, ad, "document"));
+
+        // $popup matches popups and nothing else.
+        let engine = engine_with(&["||ads.example^$popup"]);
+        assert!(check(&engine, ad, site, "popup"));
+        assert!(!check(&engine, ad, ad, "document"));
+        assert!(!check(&engine, ad, site, "script"));
+
+        // $doc,popup covers both; $all includes popup.
+        let engine = engine_with(&["||ads.example^$doc,popup"]);
+        assert!(check(&engine, ad, site, "popup"));
+        assert!(check(&engine, ad, ad, "document"));
+        let engine = engine_with(&["||ads.example^$all"]);
+        assert!(check(&engine, ad, site, "popup"));
+
+        // third-party and domain= are evaluated against the source passed in, i.e. the opener.
+        let engine = engine_with(&[
+            "||ads.example^$popup,3p",
+            "||bit.ly^$popup,domain=site.example",
+        ]);
+        assert!(check(&engine, ad, site, "popup"));
+        assert!(!check(&engine, ad, ad, "popup"));
+        assert!(check(&engine, "https://bit.ly/a", site, "popup"));
+        assert!(!check(
+            &engine,
+            "https://bit.ly/a",
+            "https://bit.ly/a",
+            "popup"
+        ));
+
+        // Exceptions only apply to popups when they name popup.
+        let engine = engine_with(&["||ads.example^$popup", "@@||ads.example^$script"]);
+        assert!(check(&engine, ad, site, "popup"));
+        let engine = engine_with(&["||ads.example^$popup", "@@||ads.example^$popup"]);
+        assert!(!check(&engine, ad, site, "popup"));
+
+        // $~popup on its own behaves like an untyped rule.
+        let engine = engine_with(&["/adpath/$~popup"]);
+        assert!(check(&engine, "https://x.example/adpath/", site, "script"));
+        assert!(!check(&engine, "https://x.example/adpath/", site, "popup"));
+    }
+
     // The number of loaded rules differs from the text files due to:
     // * not handling (and not including) filters with the following options:
-    //   - $popup
     //   - $elemhide
     // * not handling document/subdocument options;
     // * the optimizer that merges multiple rules into one;
     const EASY_LIST: ListCounts = ListCounts {
-        filters: 48804 - 708,
+        filters: 51780 - 750,
         cosmetic_filters: if cfg!(feature = "css-validation") {
             24767
         } else {
             24773
         },
-        exceptions: 708,
+        exceptions: 750,
         duplicates: 0,
     };
     // differences in counts explained by hashset size underreporting as detailed in the next two cases
@@ -1463,7 +1522,7 @@ mod legacy_rule_parsing_tests {
     const UBLOCK_UNBREAK: ListCounts = ListCounts {
         filters: 4,
         cosmetic_filters: 8,
-        exceptions: 98,
+        exceptions: 99,
         duplicates: 0,
     };
     // braveUnbreak = { 31, 0, 0, 4 };

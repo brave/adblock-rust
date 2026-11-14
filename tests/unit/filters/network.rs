@@ -1334,7 +1334,7 @@ mod parse_tests {
 
     #[test]
     fn handles_unsupported_options() {
-        let options = vec!["genericblock", "inline-script", "popunder", "popup", "woot"];
+        let options = vec!["genericblock", "inline-script", "popunder", "woot"];
 
         for option in options {
             let rule = format!("||foo.com${option}");

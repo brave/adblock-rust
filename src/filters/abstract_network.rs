@@ -88,6 +88,7 @@ pub(crate) enum NetworkFilterOption<'a> {
     Script(bool),
     Stylesheet(bool),
     Subdocument(bool),
+    Popup(bool),
     XmlHttpRequest(bool),
     Websocket(bool),
     Font(bool),
@@ -108,6 +109,7 @@ impl NetworkFilterOption<'_> {
                 | Self::Script(..)
                 | Self::Stylesheet(..)
                 | Self::Subdocument(..)
+                | Self::Popup(..)
                 | Self::XmlHttpRequest(..)
                 | Self::Websocket(..)
                 | Self::Font(..)
@@ -276,6 +278,7 @@ fn parse_filter_options<'a>(
                 NetworkFilterOption::XmlHttpRequest(!negated)
             }
             ("websocket", negated) => NetworkFilterOption::Websocket(!negated),
+            ("popup", negated) => NetworkFilterOption::Popup(!negated),
             ("font", negated) => NetworkFilterOption::Font(!negated),
             ("all", true) => return Err(NetworkFilterError::NegatedAll),
             ("all", false) => NetworkFilterOption::All,
