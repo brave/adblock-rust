@@ -8,10 +8,12 @@
 //! The current .dat file format:
 //! 1. magic (4 bytes)
 //! 2. DAT format version (1 byte)
-//! 3. seahash of the data (8 bytes)
-//! 4. crate version (16 bytes, NUL-padded `CARGO_PKG_VERSION`)
-//! 5. data (the rest of the file)
+//! 3. padding (3 bytes), which aligns the data to 8 bytes
+//! 4. seahash of the data (8 bytes)
+//! 5. crate version (16 bytes, NUL-padded `CARGO_PKG_VERSION`)
+//! 6. data (the rest of the file)
 
+use crate::flatbuffers::unsafe_tools::MIN_ALIGNMENT;
 use thiserror::Error;
 
 /// Newer formats start with this magic byte sequence.
@@ -20,10 +22,10 @@ const ADBLOCK_RUST_DAT_MAGIC: [u8; 4] = [0xd1, 0xd9, 0x3a, 0xaf];
 
 /// The version of the data format.
 /// If the data format version is incremented, the data is considered as incompatible.
-const ADBLOCK_RUST_DAT_VERSION: u8 = 9;
+const ADBLOCK_RUST_DAT_VERSION: u8 = 10;
 
 /// Offset of the 8-byte seahash checksum within the serialized header.
-const HASH_OFFSET: usize = ADBLOCK_RUST_DAT_MAGIC.len() + 1;
+const HASH_OFFSET: usize = ADBLOCK_RUST_DAT_MAGIC.len() + 1 + 3;
 /// Offset of the 16-byte crate version field within the serialized header.
 const PKG_VERSION_OFFSET: usize = HASH_OFFSET + 8;
 
@@ -40,8 +42,9 @@ const ADBLOCK_RUST_PKG_VERSION: [u8; 16] = {
     encoded
 };
 
-/// The total length of the header prefix (magic + version + seahash + crate version)
+/// The total length of the header prefix (magic + version + padding + seahash + crate version)
 pub(crate) const HEADER_PREFIX_LENGTH: usize = PKG_VERSION_OFFSET + ADBLOCK_RUST_PKG_VERSION.len();
+const _: () = assert!(HEADER_PREFIX_LENGTH.is_multiple_of(MIN_ALIGNMENT));
 
 /// Failure cases for deserialization of the [crate::Engine].
 #[derive(Error, Debug, PartialEq)]
@@ -67,6 +70,7 @@ pub(crate) fn serialize_dat_file(data: &[u8]) -> Vec<u8> {
     let hash = seahash::hash(data).to_le_bytes();
     serialized.extend_from_slice(&ADBLOCK_RUST_DAT_MAGIC);
     serialized.push(ADBLOCK_RUST_DAT_VERSION);
+    serialized.resize(HASH_OFFSET, 0);
     serialized.extend_from_slice(&hash);
     serialized.extend_from_slice(&ADBLOCK_RUST_PKG_VERSION);
     assert_eq!(serialized.len(), HEADER_PREFIX_LENGTH);

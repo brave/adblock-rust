@@ -9,7 +9,7 @@ use crate::filters::fb_network_builder::{NetworkFilterDebugData, NetworkRulesBui
 use crate::filters::filter_data_context::{FilterDataContext, FilterDataContextRef};
 use crate::filters::flatbuffer_generated::fb;
 use crate::flatbuffers::containers::flat_serialize::{FlatBuilder, FlatSerialize};
-use crate::flatbuffers::unsafe_tools::VerifiedFlatbufferMemory;
+use crate::flatbuffers::unsafe_tools::{BytesOwner, VerifiedFlatbufferMemory};
 use crate::lists::{FilterSet, ParseOptions, ParsedLine, parse_filter};
 use crate::regex_manager::RegexManagerDiscardPolicy;
 use crate::request::Request;
@@ -448,10 +448,37 @@ impl Engine {
     /// no guarantee that later versions of the format will be deserializable across minor versions
     /// of adblock-rust; the format is provided only as a caching optimization.
     pub fn deserialize(&mut self, serialized: &[u8]) -> Result<(), DeserializationError> {
-        let current_tags = self.blocker.tags_enabled();
-
         let payload = deserialize_dat_file(serialized)?;
         let memory = load_flatbuffer_memory(payload)?;
+        self.use_flatbuffer_memory(memory);
+        Ok(())
+    }
+
+    /// Like [`Engine::deserialize`], but takes ownership of `serialized` and uses the rule data in
+    /// place instead of copying it, e.g. from a memory-mapped file or shared memory. The contents
+    /// must not change while the `Engine` uses them.
+    ///
+    /// The rule data is copied if the buffer is not aligned to 8 bytes.
+    pub fn deserialize_from_owner<T>(&mut self, serialized: T) -> Result<(), DeserializationError>
+    where
+        T: AsRef<[u8]> + Send + Sync + 'static,
+    {
+        let serialized: BytesOwner = Box::new(serialized);
+        let payload = deserialize_dat_file((*serialized).as_ref())?;
+        let crate_version_matches = payload.crate_version_matches;
+        let data_start = (*serialized).as_ref().len() - payload.data.len();
+        let memory = if crate_version_matches {
+            VerifiedFlatbufferMemory::from_owned_bytes_unchecked(serialized, data_start)
+        } else {
+            VerifiedFlatbufferMemory::from_owned_bytes(serialized, data_start)
+                .map_err(DeserializationError::FlatBufferParsingError)?
+        };
+        self.use_flatbuffer_memory(memory);
+        Ok(())
+    }
+
+    fn use_flatbuffer_memory(&mut self, memory: VerifiedFlatbufferMemory) {
+        let current_tags = self.blocker.tags_enabled();
 
         let context = FilterDataContext::new(memory);
         self.filter_data_context = context;
@@ -462,7 +489,6 @@ impl Engine {
         self.cosmetic_cache = CosmeticFilterCache::from_context(FilterDataContextRef::clone(
             &self.filter_data_context,
         ));
-        Ok(())
     }
 }
 
