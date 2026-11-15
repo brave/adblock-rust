@@ -316,6 +316,75 @@ mod tests {
         ));
     }
 
+    /// A buffer with the rule data at a given alignment.
+    struct TestBuffer {
+        bytes: Vec<u8>,
+        range: std::ops::Range<usize>,
+        alive: std::sync::Arc<()>,
+    }
+
+    impl TestBuffer {
+        fn new(serialized: &[u8], aligned: bool) -> Self {
+            let mut bytes = vec![0; serialized.len() + 16];
+            let data_start = crate::data_format::HEADER_PREFIX_LENGTH;
+            let start = bytes[data_start..].as_ptr().align_offset(8) + usize::from(!aligned);
+            let range = start..start + serialized.len();
+            bytes[range.clone()].copy_from_slice(serialized);
+            Self {
+                bytes,
+                range,
+                alive: Default::default(),
+            }
+        }
+    }
+
+    impl AsRef<[u8]> for TestBuffer {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes[self.range.clone()]
+        }
+    }
+
+    #[test]
+    fn deserialize_from_owner_uses_aligned_data_in_place() {
+        let serialized = Engine::new_with_list_text("ad-banner").serialize();
+        let buffer = TestBuffer::new(&serialized, true);
+        let alive = buffer.alive.clone();
+        let buffer_range = buffer.as_ref().as_ptr_range();
+
+        let mut engine = Engine::default();
+        engine.deserialize_from_owner(buffer).unwrap();
+        assert!(buffer_range.contains(&engine.filter_data_context.memory.data().as_ptr()));
+        assert_eq!(engine.serialize(), serialized);
+        let request = Request::new("https://example.com/ad-banner.js", "", "script", "").unwrap();
+        assert!(engine.check_network_request(&request).should_block());
+        assert_eq!(std::sync::Arc::strong_count(&alive), 2);
+
+        drop(engine);
+        assert_eq!(std::sync::Arc::strong_count(&alive), 1);
+    }
+
+    #[test]
+    fn deserialize_from_owner_copies_misaligned_data() {
+        let serialized = Engine::new_with_list_text("ad-banner").serialize();
+        let buffer = TestBuffer::new(&serialized, false);
+        let alive = buffer.alive.clone();
+
+        let mut engine = Engine::default();
+        engine.deserialize_from_owner(buffer).unwrap();
+        assert_eq!(std::sync::Arc::strong_count(&alive), 1);
+        assert_eq!(engine.serialize(), serialized);
+    }
+
+    #[test]
+    fn deserialize_from_owner_rejects_invalid_flatbuffer() {
+        let mut garbage = crate::data_format::serialize_dat_file(b"not a flatbuffer");
+        garbage[crate::data_format::HEADER_PREFIX_LENGTH - 1] ^= 1;
+        assert!(matches!(
+            Engine::default().deserialize_from_owner(TestBuffer::new(&garbage, true)),
+            Err(DeserializationError::FlatBufferParsingError(_))
+        ));
+    }
+
     #[test]
     fn redirect_resource_insertion_works() {
         let mut engine = Engine::new_with_list_text(
