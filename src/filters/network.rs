@@ -540,7 +540,7 @@ fn hash_pipe_delimited_domains(
 
 /// Hashes `$to=` domains.
 ///
-/// Single-label positives (`com`, `net`, …) are too common to use as index keys:
+/// Single-label positives (`com`, `net`) are too common to use as index keys:
 /// - If any specific positive exists, broad positives are dropped entirely (they are not
 ///   matched either), e.g. `$to=domain.com|net` only matches `domain.com`.
 /// - If positives are only broad, they are kept for match-time checks; the filter builder then
