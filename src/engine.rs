@@ -295,8 +295,8 @@ impl Engine {
     /// Rules are returned in lexical order of their value. An exception such as
     /// `@@||example.com^$replace` disables all matching rules, and one with a value disables only
     /// the rule with the same value.
-    pub fn replace_rules(&self, request: &Request) -> Option<Vec<ReplaceRule>> {
-        self.blocker.replace_rules(request)
+    pub fn get_replace_rules(&self, request: &Request) -> Option<Vec<ReplaceRule>> {
+        self.blocker.get_replace_rules(request)
     }
 
     /// Sets this engine's tags to be _only_ the ones provided in `tags`.

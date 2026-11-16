@@ -247,7 +247,7 @@ mod tests {
         request_type: &str,
     ) -> Vec<crate::ReplaceRule> {
         let request = replace_request(url, source, request_type);
-        engine.replace_rules(&request).unwrap_or_default()
+        engine.get_replace_rules(&request).unwrap_or_default()
     }
 
     #[test]
@@ -348,7 +348,7 @@ mod tests {
             "xmlhttprequest",
         );
         assert!(engine.check_network_request(&blocked).should_block());
-        assert!(engine.replace_rules(&blocked).is_none());
+        assert!(engine.get_replace_rules(&blocked).is_none());
     }
 
     #[test]

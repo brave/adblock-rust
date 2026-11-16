@@ -44,21 +44,20 @@ mod blocker_tests {
         }
     }
 
-    /// Checks a script request from `example.com` against `filters`.
-    fn check_script(filters: &[&str]) -> BlockerResult {
+    /// Returns the `$replace` rules for a script request from `example.com`.
+    fn replace_rules_for_script(filters: &[&str]) -> Option<Vec<ReplaceRule>> {
         let request = request(
             "https://example.com/app.js",
             "https://example.com",
             "script",
         );
-        Blocker::new(filters).check(&request, &Default::default())
+        Blocker::new(filters).get_replace_rules(&request)
     }
-
     #[test]
     fn replace_rules_respect_request_scope() {
         let blocker =
             Blocker::new(["||example.com^$replace=/a/b/,xmlhttprequest,domain=example.org"]);
-        let rules = |url, source, kind| blocker.replace_rules(&request(url, source, kind));
+        let rules = |url, source, kind| blocker.get_replace_rules(&request(url, source, kind));
         assert_eq!(
             rules(
                 "https://example.com/x",
@@ -94,7 +93,7 @@ mod blocker_tests {
         let count = |kind| {
             let request = request("https://example.com/", "https://example.com", kind);
             blocker
-                .replace_rules(&request)
+                .get_replace_rules(&request)
                 .map_or(0, |rules| rules.len())
         };
         for kind in ["document", "sub_frame", "stylesheet", "xmlhttprequest"] {
@@ -109,8 +108,9 @@ mod blocker_tests {
     #[test]
     fn replace_rules_without_a_pattern_use_the_domain_and_catch_all_buckets() {
         let blocker = Blocker::new(["$replace=/a/b/,domain=example.org", "$replace=/c/d/"]);
-        let rules =
-            |source| blocker.replace_rules(&request("https://x.com/y", source, "xmlhttprequest"));
+        let rules = |source| {
+            blocker.get_replace_rules(&request("https://x.com/y", source, "xmlhttprequest"))
+        };
         assert_eq!(
             rules("https://example.org"),
             Some(vec![regex_rule("a", "b"), regex_rule("c", "d")])
@@ -122,8 +122,8 @@ mod blocker_tests {
     }
 
     #[test]
-    fn check_reports_replace_rules_without_blocking() {
-        let result = check_script(&[
+    fn replace_rules_are_sorted_and_deduplicated() {
+        let rules = replace_rules_for_script(&[
             "||example.com^$replace=/two/2/",
             "||example.com^$replace=/one/1/",
             "||example.com^$replace=/one/1/,badfilter",
@@ -132,12 +132,9 @@ mod blocker_tests {
             "||example.com^$replace=json:$..ads",
             "||example.com/other.js$replace=/three/3/",
         ]);
-        assert!(!result.should_block());
-        assert!(result.filter.is_none());
-        assert!(!result.replace_exception_all);
         // Sorted by the raw option value.
         assert_eq!(
-            result.replace,
+            rules,
             Some(vec![
                 regex_rule("two", "2"),
                 ReplaceRule::Json {
@@ -148,58 +145,53 @@ mod blocker_tests {
     }
 
     #[test]
-    fn check_applies_replace_exceptions() {
-        let result = check_script(&[
-            "||example.com^$replace=/one/1/",
-            "||example.com^$replace=/two/2/",
-            "@@||example.com/app.js$replace=/one/1/",
-        ]);
-        assert_eq!(result.replace, Some(vec![regex_rule("two", "2")]));
-        assert!(!result.replace_exception_all);
+    fn replace_exceptions_disable_rules() {
+        assert_eq!(
+            replace_rules_for_script(&[
+                "||example.com^$replace=/one/1/",
+                "||example.com^$replace=/two/2/",
+                "@@||example.com/app.js$replace=/one/1/",
+            ]),
+            Some(vec![regex_rule("two", "2")])
+        );
 
-        // A bare exception disables everything, and is reported even with nothing to disable.
-        for filters in [
-            &[
+        // A bare exception disables everything.
+        assert_eq!(
+            replace_rules_for_script(&[
                 "||example.com^$replace=/one/1/",
                 "@@||example.com/app.js$replace",
-            ][..],
-            &["@@||example.com/app.js$replace"][..],
-        ] {
-            let result = check_script(filters);
-            assert_eq!(result.replace, None);
-            assert!(result.replace_exception_all);
-        }
+            ]),
+            None
+        );
+    }
+
+    #[test]
+    fn replace_rules_do_not_depend_on_blocking() {
+        let filters = &["||example.com^$replace=/a/b/", "||example.com/app.js"];
+        let request = request(
+            "https://example.com/app.js",
+            "https://example.com",
+            "script",
+        );
+        let blocker = Blocker::new(filters);
+        assert!(blocker.check(&request, &Default::default()).should_block());
+        assert_eq!(
+            blocker.get_replace_rules(&request),
+            Some(vec![regex_rule("a", "b")])
+        );
     }
 
     #[test]
     fn replace_exception_does_not_unblock_requests() {
-        let result = check_script(&["||example.com^", "@@||example.com^$replace"]);
+        let request = request(
+            "https://example.com/app.js",
+            "https://example.com",
+            "script",
+        );
+        let blocker = Blocker::new(["||example.com^", "@@||example.com^$replace"]);
+        let result = blocker.check(&request, &Default::default());
         assert!(result.should_block());
         assert!(result.exception.is_none());
-    }
-
-    #[test]
-    fn check_does_not_report_replace_rules_for_blocked_requests() {
-        let result = check_script(&["||example.com^$replace=/a/b/", "||example.com/app.js"]);
-        assert!(result.should_block());
-        assert_eq!(result.replace, None);
-
-        let result = check_script(&[
-            "||example.com^$replace=/a/b/",
-            "||example.com/app.js$important",
-            "@@||example.com/app.js",
-        ]);
-        assert!(result.should_block());
-        assert_eq!(result.replace, None);
-
-        // Once an exception removes the block, the rewrite applies again.
-        let result = check_script(&[
-            "||example.com^$replace=/a/b/",
-            "||example.com/app.js",
-            "@@||example.com/app.js",
-        ]);
-        assert!(!result.should_block());
-        assert_eq!(result.replace, Some(vec![regex_rule("a", "b")]));
     }
 
     #[test]
@@ -212,8 +204,11 @@ mod blocker_tests {
         );
         let result = blocker.check(&request, &Default::default());
         assert_eq!(result.rewritten_url, Some("https://example.com/".into()));
-        assert_eq!(result.replace, Some(vec![regex_rule("a", "b")]));
         assert!(!result.should_block());
+        assert_eq!(
+            blocker.get_replace_rules(&request),
+            Some(vec![regex_rule("a", "b")])
+        );
     }
     fn test_requests_filters(
         filters: impl IntoIterator<Item = impl AsRef<str>>,
