@@ -12,3 +12,4 @@ fuzz/**/*
 !fuzz/Cargo.toml
 tests/
 examples/
+rust-toolchain.toml
