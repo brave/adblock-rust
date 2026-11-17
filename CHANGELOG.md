@@ -1,9 +1,17 @@
 # Changelog
 
+## [0.13.6] - 2026-11-17
+
+### Added
+- `$to=` support.
+
+### Changed
+- Removed `rust-toolchain.toml` from the npm package.
+
 ## [0.13.5] - 2026-10-28
 
 ### Fixed
-- Use the correct offset for infix hostname anchor matches
+- Use the correct offset for infix hostname anchor matches.
 
 ## [0.13.4] - 2026-10-28
 
