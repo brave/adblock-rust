@@ -2,13 +2,14 @@
 
 use memchr::{memchr as find_char, memrchr as find_char_reverse};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::ops::DerefMut;
 use std::sync::OnceLock;
 
 use crate::filters::fb_network_builder::NetworkFilterListId;
 use crate::filters::filter_data_context::FilterDataContextRef;
 use crate::filters::network::NetworkFilterMaskHelper;
+use crate::filters::replace::ReplaceRule;
 use crate::network_filter_list::NetworkFilterList;
 use crate::regex_manager::{RegexManager, RegexManagerDiscardPolicy};
 use crate::request::Request;
@@ -129,6 +130,10 @@ impl Blocker {
 
     pub(crate) fn removeparam(&self) -> NetworkFilterList<'_> {
         self.get_list(NetworkFilterListId::RemoveParam)
+    }
+
+    pub(crate) fn replace(&self) -> NetworkFilterList<'_> {
+        self.get_list(NetworkFilterListId::Replace)
     }
 
     pub(crate) fn filters(&self) -> NetworkFilterList<'_> {
@@ -446,6 +451,48 @@ impl Blocker {
         });
 
         Some(merged)
+    }
+
+    /// Returns the parsed `$replace` rules that apply to `request`, sorted by their raw option
+    /// value, or `None` if no rules apply.
+    ///
+    /// An exception without a value (`@@...$replace`) disables all replacements, and an exception
+    /// with a value disables the rule with the identical value. This does not affect
+    /// [`Blocker::check`].
+    pub fn get_replace_rules(&self, request: &Request) -> Option<Vec<ReplaceRule>> {
+        if !request.is_supported {
+            return None;
+        }
+
+        let matches = {
+            let mut regex_manager = self.borrow_regex_manager();
+            self.replace()
+                .check_all(request, &self.tags_enabled, &mut regex_manager)
+        };
+
+        let mut disabled: HashSet<&str> = HashSet::new();
+        let mut enabled: BTreeSet<&str> = BTreeSet::new();
+        for result in &matches {
+            let value = result.modifier_option.as_deref().filter(|v| !v.is_empty());
+            match (result.filter_mask.is_exception(), value) {
+                (true, None) => return None,
+                (true, Some(value)) => {
+                    disabled.insert(value);
+                }
+                (false, Some(value)) => {
+                    enabled.insert(value);
+                }
+                (false, None) => (),
+            }
+        }
+
+        // The values were validated when the filters were parsed.
+        let rules: Vec<ReplaceRule> = enabled
+            .into_iter()
+            .filter(|value| !disabled.contains(value))
+            .filter_map(|value| ReplaceRule::parse(value).ok())
+            .collect();
+        (!rules.is_empty()).then_some(rules)
     }
 
     pub(crate) fn from_context(filter_data_context: FilterDataContextRef) -> Self {

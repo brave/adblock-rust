@@ -1,6 +1,5 @@
-use memchr::memrchr as find_char_reverse;
-
 use super::network::NetworkFilterError;
+use super::replace::ReplaceRule;
 
 use regex::Regex;
 use std::sync::LazyLock;
@@ -78,6 +77,7 @@ pub(crate) enum NetworkFilterOption<'a> {
     RedirectRule(&'a str),
     Csp(Option<&'a str>),
     Removeparam(&'a str),
+    Replace(&'a str),
     Generichide,
     Document,
     Image(bool),
@@ -142,7 +142,7 @@ impl AbstractNetworkFilter<'_> {
             exception = true;
         }
 
-        let maybe_options_index: Option<usize> = find_char_reverse(b'$', line.as_bytes());
+        let maybe_options_index = find_options_index(line);
 
         let mut options = None;
         if let Some(options_index) = maybe_options_index {
@@ -151,7 +151,7 @@ impl AbstractNetworkFilter<'_> {
             // slicing here is safe; the first byte after '$' will be a character boundary
             let raw_options = &line[filter_index_end + 1..];
 
-            options = Some(parse_filter_options(raw_options)?);
+            options = Some(parse_filter_options(raw_options, exception)?);
         }
 
         let left_anchor = if line[filter_index_start..].starts_with("||") {
@@ -189,10 +189,11 @@ impl AbstractNetworkFilter<'_> {
 
 fn parse_filter_options<'a>(
     raw_options: &'a str,
+    exception: bool,
 ) -> Result<Vec<NetworkFilterOption<'a>>, NetworkFilterError> {
     let mut result = vec![];
 
-    for raw_option in raw_options.split(',') {
+    for raw_option in split_filter_options(raw_options) {
         // Check for negation: ~option
         let negation = raw_option.starts_with('~');
         let maybe_negated_option = raw_option.trim_start_matches('~');
@@ -254,6 +255,17 @@ fn parse_filter_options<'a>(
                 }
                 NetworkFilterOption::Removeparam(value)
             }
+            ("replace", true) => return Err(NetworkFilterError::NegatedReplace),
+            ("replace", false) if value.is_empty() && !exception => {
+                return Err(NetworkFilterError::EmptyReplace);
+            }
+            ("replace", false) => {
+                // The expression itself is not compiled; only its shape is checked.
+                if !value.is_empty() && ReplaceRule::parse(value).is_err() {
+                    return Err(NetworkFilterError::ReplaceMalformed);
+                }
+                NetworkFilterOption::Replace(value)
+            }
             ("generichide", true) | ("ghide", true) => {
                 return Err(NetworkFilterError::NegatedGenericHide);
             }
@@ -314,6 +326,100 @@ fn parse_filter_options<'a>(
     Ok(result)
 }
 
+pub(super) fn is_escaped_delimiter(bytes: &[u8], index: usize) -> bool {
+    let mut preceding_backslashes = 0;
+    let mut cursor = index;
+    while cursor > 0 && bytes[cursor - 1] == b'\\' {
+        preceding_backslashes += 1;
+        cursor -= 1;
+    }
+    preceding_backslashes % 2 == 1
+}
+
+/// Whether `options` starts with an option name (possibly negated) rather than with text that
+/// belongs to a `$replace` value.
+fn begins_option(options: &str) -> bool {
+    let name = options.trim_start_matches('~');
+    let name = name.split([',', '=']).next().unwrap_or_default();
+    !name.is_empty()
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+/// Whether the comma-separated `options` lead up to a `replace=` option.
+fn leads_to_replace(mut options: &str) -> bool {
+    loop {
+        if options.trim_start_matches('~').starts_with("replace=") {
+            return true;
+        }
+        match options.split_once(',') {
+            Some((option, rest)) if begins_option(option) => options = rest,
+            _ => return false,
+        }
+    }
+}
+
+/// Finds the `$` that separates the pattern from the options.
+///
+/// An escaped `$` belongs to the pattern. A `replace=` value may itself contain `$` anywhere (a
+/// group reference, `$$`, the end anchor of a regex, the root of a JSONPath query), so for a
+/// filter with such an option the separator is the first `$` followed by nothing but options up to
+/// `replace=`, rather than the last `$`.
+fn find_options_index(line: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let is_separator =
+        |index: &usize| bytes[*index] == b'$' && !is_escaped_delimiter(bytes, *index);
+    (0..bytes.len())
+        .filter(is_separator)
+        .find(|&index| leads_to_replace(&line[index + 1..]))
+        .or_else(|| (0..bytes.len()).rev().find(is_separator))
+}
+
+/// `option` is the text of the current option up to a candidate `,`, and `rest` is what follows it.
+/// Lists in the wild leave commas unescaped in `$replace` values, so the value only ends at a
+/// comma that follows its third unescaped `/` and precedes another option.
+/// A `json:`/`jsonl:` query has no delimiters to count, so it ends at the first unescaped comma.
+fn is_inside_replace_value(option: &str, rest: &str) -> bool {
+    let Some(value) = option.trim_start_matches('~').strip_prefix("replace=") else {
+        return false;
+    };
+    if value.is_empty() {
+        return false;
+    }
+    if is_escaped_delimiter(option.as_bytes(), option.len()) {
+        return true;
+    }
+    if value.starts_with("json:") || value.starts_with("jsonl:") {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    let unescaped_slashes = (0..bytes.len())
+        .filter(|&index| bytes[index] == b'/' && !is_escaped_delimiter(bytes, index))
+        .count();
+    unescaped_slashes < 3 || !begins_option(rest)
+}
+
+fn split_filter_options(raw_options: &str) -> Vec<&str> {
+    let mut options = Vec::new();
+    let mut option_start = 0;
+
+    for (index, byte) in raw_options.bytes().enumerate() {
+        if byte != b',' {
+            continue;
+        }
+
+        if is_inside_replace_value(&raw_options[option_start..index], &raw_options[index + 1..]) {
+            continue;
+        }
+
+        options.push(&raw_options[option_start..index]);
+        option_start = index + 1;
+    }
+
+    options.push(&raw_options[option_start..]);
+    options
+}
 #[cfg(test)]
 #[path = "../../tests/unit/filters/abstract_network.rs"]
 mod unit_tests;
