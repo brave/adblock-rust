@@ -34,7 +34,7 @@ serde_json = { workspace = true }
 seahash = "4.1.0"
 rustc-hash = { version = "2.1", default-features = false }
 memchr = "2.8.3"
-base64 = "0.22"
+base64 = "0.23"
 arrayvec = "0.7"
 cssparser = { version = "0.35", optional = true }
 selectors = { version = "0.32", optional = true }
