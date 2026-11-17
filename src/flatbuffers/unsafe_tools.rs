@@ -2,8 +2,10 @@
 
 use crate::filters::flatbuffer_generated::fb;
 
+use std::panic::{RefUnwindSafe, UnwindSafe};
+
 // Minimum alignment for the beginning of the flatbuffer data.
-const MIN_ALIGNMENT: usize = 8;
+pub(crate) const MIN_ALIGNMENT: usize = 8;
 
 /// Converts a flatbuffers Vector to a slice.
 /// # Safety
@@ -36,29 +38,27 @@ pub fn fb_vector_to_slice<T>(vector: flatbuffers::Vector<'_, T>) -> &[T] {
 // or from a builder that have just been used to construct the flatbuffer
 // Invariants:
 // 1. self.data() is a flatbuffer root safe to read without the verifier. It was checked in
-//    `from_raw` or accepted by `Engine::deserialize` after
-//    the same-version DAT checksum matched.
+//    `from_raw` or `from_owned_bytes`, or accepted by `Engine::deserialize` or
+//    `Engine::deserialize_from_owner` after the same-version DAT checksum matched.
 // 2. self.data() is aligned to MIN_ALIGNMENT bytes.
 //    This is necessary for fb_vector_to_slice.
+pub(crate) type BytesOwner = Box<dyn AsRef<[u8]> + Send + Sync>;
+
 pub(crate) struct VerifiedFlatbufferMemory {
     // The buffer containing the flatbuffer data.
-    raw_data: Vec<u8>,
+    raw_data: BytesOwner,
 
     // The offset of the data in the buffer.
     // Must be aligned to MIN_ALIGNMENT bytes.
     start: usize,
 }
 
+impl UnwindSafe for VerifiedFlatbufferMemory {}
+impl RefUnwindSafe for VerifiedFlatbufferMemory {}
+
 impl VerifiedFlatbufferMemory {
     pub(crate) fn from_raw(data: &[u8]) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
-        let memory = Self::from_raw_unchecked(data);
-
-        // Verify that the data is a valid flatbuffer.
-        #[cfg(test)]
-        root_as_engine_calls::record();
-        let _ = fb::root_as_engine(memory.data())?;
-
-        Ok(memory)
+        Self::from_raw_unchecked(data).verified()
     }
 
     // Creates a new VerifiedFlatbufferMemory from a builder.
@@ -87,11 +87,37 @@ impl VerifiedFlatbufferMemory {
         assert!((vec.as_ptr() as usize + start).is_multiple_of(MIN_ALIGNMENT));
 
         let memory = Self {
-            raw_data: vec,
+            raw_data: Box::new(vec),
             start,
         };
         assert!((memory.data().as_ptr() as usize).is_multiple_of(MIN_ALIGNMENT));
         memory
+    }
+
+    // Uses `raw_data[start..]` in place if it is aligned to MIN_ALIGNMENT bytes, copies otherwise.
+    pub(crate) fn from_owned_bytes(
+        raw_data: BytesOwner,
+        start: usize,
+    ) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
+        Self::from_owned_bytes_unchecked(raw_data, start).verified()
+    }
+
+    // The caller must already know the data satisfies invariant 1.
+    pub(crate) fn from_owned_bytes_unchecked(raw_data: BytesOwner, start: usize) -> Self {
+        let data = &(*raw_data).as_ref()[start..];
+        if !(data.as_ptr() as usize).is_multiple_of(MIN_ALIGNMENT) {
+            return Self::from_raw_unchecked(data);
+        }
+        Self { raw_data, start }
+    }
+
+    // Verify that the data is a valid flatbuffer.
+    fn verified(self) -> Result<Self, flatbuffers::InvalidFlatbuffer> {
+        #[cfg(test)]
+        root_as_engine_calls::record();
+        let _ = fb::root_as_engine(self.data())?;
+
+        Ok(self)
     }
 
     pub(crate) fn root(&self) -> fb::Engine<'_> {
@@ -99,7 +125,7 @@ impl VerifiedFlatbufferMemory {
     }
 
     pub fn data(&self) -> &[u8] {
-        &self.raw_data[self.start..]
+        &(*self.raw_data).as_ref()[self.start..]
     }
 }
 
