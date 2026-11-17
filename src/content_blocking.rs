@@ -530,7 +530,7 @@ impl TryFrom<NetworkFilter<'_>> for CbRuleEquivalent {
                 push_if_flag!(FROM_XMLHTTPREQUEST, Raw);
                 push_if_flag!(FROM_FONT, Font);
                 push_if_flag!(FROM_POPUP, Popup);
-                // TODO - Document when implemented
+                // TODO - `Document`, when implemented
 
                 if !unsupported_flags.is_empty() && types.is_empty() {
                     return Err(CbRuleCreationFailure::NoSupportedNetworkOptions(
