@@ -4,7 +4,9 @@
 
 use crate::cosmetic_filter_cache::ProceduralOrActionFilter;
 use crate::cosmetic_filter_utils::SpecificFilterType;
-use crate::cosmetic_filter_utils::{encode_script_with_permission, key_from_selector};
+use crate::cosmetic_filter_utils::{
+    encode_script_with_permission, has_multiple_selectors, key_from_selector,
+};
 use crate::filters::cosmetic::{CosmeticFilter, CosmeticFilterMask, CosmeticFilterOperator};
 use crate::filters::fb_builder::EngineFlatBuilder;
 use crate::filters::flatbuffer_generated::fb;
@@ -98,6 +100,13 @@ impl<'a> CosmeticFilterCacheBuilder<'a> {
                 return;
             }
         };
+
+        // A selector list with multiple top-level selectors cannot be keyed by a single class or ID
+        // so we treat it as a miscellaneous generic selector.
+        if has_multiple_selectors(&selector) {
+            self.misc_generic_selectors.insert(selector);
+            return;
+        }
 
         if selector.starts_with('.') {
             if let Some(key) = key_from_selector(&selector) {
