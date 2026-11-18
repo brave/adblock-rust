@@ -242,6 +242,17 @@ mod scriptlet_storage_tests {
     }
 
     #[test]
+    fn parse_argslist_leading_quote_expression() {
+        let args = parse_scriptlet_args(r#"scriptlet-name, "test"!==undefined, 1"#).unwrap();
+        assert_eq!(args, vec!["scriptlet-name", r#""test"!==undefined"#, "1"]);
+
+        let args = parse_scriptlet_args(r#"scriptlet-name, "value"||something"#).unwrap();
+        assert_eq!(args, vec!["scriptlet-name", r#""value"||something"#]);
+
+        assert_eq!(parse_scriptlet_args(r#"scriptlet-name, "test"test"#), None);
+    }
+
+    #[test]
     fn parse_argslist_trailing_escaped_comma() {
         let args = parse_scriptlet_args(r#"remove-node-text, script, \,mr=function(r\,"#).unwrap();
         assert_eq!(args, vec!["remove-node-text", "script", ",mr=function(r,"]);
