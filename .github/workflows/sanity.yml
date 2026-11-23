@@ -22,7 +22,7 @@ jobs:
 
       # Can be removed once https://github.com/actions/runner-images/pull/13076 is released
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
 
       - name: Cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
