@@ -168,7 +168,9 @@ bitflags::bitflags! {
         const FROM_ALL_TYPES = Self::FROM_NETWORK_TYPES.bits() |
             Self::FROM_DOCUMENT.bits();
 
-        const FROM_EXPLICIT_TYPES = Self::FROM_ALL_TYPES.bits() |
+        // FROM_ALL_TYPES plus popups, used for `$all`.
+        // This is needed because `||example.com^` doesn't block popups, but `||example.com^$all` does.
+        const FROM_EXPLICIT_ALL_TYPES = Self::FROM_ALL_TYPES.bits() |
             Self::FROM_POPUP.bits();
 
         // Unless filter specifies otherwise, all these options are set by default
@@ -732,7 +734,7 @@ impl<'a> NetworkFilter<'a> {
                     }
                     NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
                     NetworkFilterOption::Popup(enabled) => apply_content_type!(FROM_POPUP, enabled),
-                    NetworkFilterOption::All => apply_content_type!(FROM_EXPLICIT_TYPES, true),
+                    NetworkFilterOption::All => apply_content_type!(FROM_EXPLICIT_ALL_TYPES, true),
                     NetworkFilterOption::Method(methods) => {
                         for (enabled, method) in methods {
                             match method {
@@ -759,7 +761,7 @@ impl<'a> NetworkFilter<'a> {
             mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
         // If no positive types were set, then the filter should apply to all network types.
-        if (cpt_mask_positive & NetworkFilterMask::FROM_EXPLICIT_TYPES).is_empty() {
+        if (cpt_mask_positive & NetworkFilterMask::FROM_EXPLICIT_ALL_TYPES).is_empty() {
             // Removeparam is again a special case.
             if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
@@ -944,8 +946,8 @@ impl<'a> NetworkFilter<'a> {
         // filter, which isn't saved in Brave unless running with filter lists compiled in "debug"
         // mode. Instead, we apply the implicit document matching more strictly, only for hostname
         // filters of the form `||example.com^`.
-        if (cpt_mask_positive & NetworkFilterMask::FROM_EXPLICIT_TYPES).is_empty()
-            && (cpt_mask_negative & NetworkFilterMask::FROM_EXPLICIT_TYPES).is_empty()
+        if (cpt_mask_positive & NetworkFilterMask::FROM_EXPLICIT_ALL_TYPES).is_empty()
+            && (cpt_mask_negative & NetworkFilterMask::FROM_EXPLICIT_ALL_TYPES).is_empty()
             && mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
