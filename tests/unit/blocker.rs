@@ -32,6 +32,184 @@ mod blocker_tests {
         assert!(!blocker.check(&request, &Default::default()).should_block());
     }
 
+    fn request(url: &str, source: &str, kind: &str) -> Request {
+        Request::new(url, source, kind, "").unwrap()
+    }
+
+    fn regex_rule(pattern: &str, replacement: &str) -> ReplaceRule {
+        ReplaceRule::Regex {
+            pattern: pattern.to_string(),
+            replacement: replacement.to_string(),
+            flags: String::new(),
+        }
+    }
+
+    /// Returns the `$replace` rules for a script request from `example.com`.
+    fn replace_rules_for_script(filters: &[&str]) -> Option<Vec<ReplaceRule>> {
+        let request = request(
+            "https://example.com/app.js",
+            "https://example.com",
+            "script",
+        );
+        Blocker::new(filters).get_replace_rules(&request)
+    }
+    #[test]
+    fn replace_rules_respect_request_scope() {
+        let blocker =
+            Blocker::new(["||example.com^$replace=/a/b/,xmlhttprequest,domain=example.org"]);
+        let rules = |url, source, kind| blocker.get_replace_rules(&request(url, source, kind));
+        assert_eq!(
+            rules(
+                "https://example.com/x",
+                "https://example.org",
+                "xmlhttprequest"
+            ),
+            Some(vec![regex_rule("a", "b")])
+        );
+        for (url, source, kind) in [
+            (
+                "https://example.com/x",
+                "https://example.net",
+                "xmlhttprequest",
+            ),
+            ("https://example.com/x", "https://example.org", "image"),
+            (
+                "https://other.com/x",
+                "https://example.org",
+                "xmlhttprequest",
+            ),
+        ] {
+            assert_eq!(rules(url, source, kind), None, "{url} {source} {kind}");
+        }
+    }
+
+    #[test]
+    fn replace_rules_default_to_types_that_carry_text() {
+        let blocker = Blocker::new([
+            "||example.com^$replace=/a/b/",
+            // Negating a type does not widen the defaults to all network types.
+            "||example.com^$replace=/c/d/,~script",
+        ]);
+        let count = |kind| {
+            let request = request("https://example.com/", "https://example.com", kind);
+            blocker
+                .get_replace_rules(&request)
+                .map_or(0, |rules| rules.len())
+        };
+        for kind in ["document", "sub_frame", "stylesheet", "xmlhttprequest"] {
+            assert_eq!(count(kind), 2, "{kind}");
+        }
+        assert_eq!(count("script"), 1);
+        for kind in ["image", "media", "font", "ping", "websocket", "other"] {
+            assert_eq!(count(kind), 0, "{kind}");
+        }
+    }
+
+    #[test]
+    fn replace_rules_without_a_pattern_use_the_domain_and_catch_all_buckets() {
+        let blocker = Blocker::new(["$replace=/a/b/,domain=example.org", "$replace=/c/d/"]);
+        let rules = |source| {
+            blocker.get_replace_rules(&request("https://x.com/y", source, "xmlhttprequest"))
+        };
+        assert_eq!(
+            rules("https://example.org"),
+            Some(vec![regex_rule("a", "b"), regex_rule("c", "d")])
+        );
+        assert_eq!(
+            rules("https://example.net"),
+            Some(vec![regex_rule("c", "d")])
+        );
+    }
+
+    #[test]
+    fn replace_rules_are_sorted_and_deduplicated() {
+        let rules = replace_rules_for_script(&[
+            "||example.com^$replace=/two/2/",
+            "||example.com^$replace=/one/1/",
+            "||example.com^$replace=/one/1/,badfilter",
+            // The same directive from another filter is reported once.
+            "/app.js$replace=/two/2/",
+            "||example.com^$replace=json:$..ads",
+            "||example.com/other.js$replace=/three/3/",
+        ]);
+        // Sorted by the raw option value.
+        assert_eq!(
+            rules,
+            Some(vec![
+                regex_rule("two", "2"),
+                ReplaceRule::Json {
+                    query: "$..ads".to_string()
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn replace_exceptions_disable_rules() {
+        assert_eq!(
+            replace_rules_for_script(&[
+                "||example.com^$replace=/one/1/",
+                "||example.com^$replace=/two/2/",
+                "@@||example.com/app.js$replace=/one/1/",
+            ]),
+            Some(vec![regex_rule("two", "2")])
+        );
+
+        // A bare exception disables everything.
+        assert_eq!(
+            replace_rules_for_script(&[
+                "||example.com^$replace=/one/1/",
+                "@@||example.com/app.js$replace",
+            ]),
+            None
+        );
+    }
+
+    #[test]
+    fn replace_rules_do_not_depend_on_blocking() {
+        let filters = &["||example.com^$replace=/a/b/", "||example.com/app.js"];
+        let request = request(
+            "https://example.com/app.js",
+            "https://example.com",
+            "script",
+        );
+        let blocker = Blocker::new(filters);
+        assert!(blocker.check(&request, &Default::default()).should_block());
+        assert_eq!(
+            blocker.get_replace_rules(&request),
+            Some(vec![regex_rule("a", "b")])
+        );
+    }
+
+    #[test]
+    fn replace_exception_does_not_unblock_requests() {
+        let request = request(
+            "https://example.com/app.js",
+            "https://example.com",
+            "script",
+        );
+        let blocker = Blocker::new(["||example.com^", "@@||example.com^$replace"]);
+        let result = blocker.check(&request, &Default::default());
+        assert!(result.should_block());
+        assert!(result.exception.is_none());
+    }
+
+    #[test]
+    fn replace_rules_do_not_disturb_removeparam() {
+        let blocker = Blocker::new(["*$removeparam=fbclid", "||example.com^$replace=/a/b/"]);
+        let request = request(
+            "https://example.com/?fbclid=1",
+            "https://example.org",
+            "xmlhttprequest",
+        );
+        let result = blocker.check(&request, &Default::default());
+        assert_eq!(result.rewritten_url, Some("https://example.com/".into()));
+        assert!(!result.should_block());
+        assert_eq!(
+            blocker.get_replace_rules(&request),
+            Some(vec![regex_rule("a", "b")])
+        );
+    }
     fn test_requests_filters(
         filters: impl IntoIterator<Item = impl AsRef<str>>,
         requests: &[(Request, bool)],

@@ -2,6 +2,17 @@
 mod ab2cb_tests {
     use super::super::*;
 
+    #[test]
+    fn replace_is_not_convertible() {
+        let filter =
+            crate::lists::parse_filter("||example.com^$replace=/a/b/", true, Default::default())
+                .expect("the filter itself parses");
+        assert!(matches!(
+            CbRuleEquivalent::try_from(filter),
+            Err(CbRuleCreationFailure::NetworkReplaceUnsupported)
+        ));
+    }
+
     fn test_from_abp(abp_rule: &str, cb: &str) {
         let filter = crate::lists::parse_filter(abp_rule, true, Default::default())
             .expect("Rule under test could not be parsed");
