@@ -453,6 +453,7 @@ mod parse_tests {
             let filter = NetworkFilter::parse("@@ads", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.is_exception = true;
+            defaults.from_document = true;
             defaults.filter = Some(String::from("ads"));
             defaults.is_plain = true;
             assert_eq!(defaults, NetworkFilterBreakdown::from(&filter));
@@ -461,6 +462,7 @@ mod parse_tests {
             let filter = NetworkFilter::parse("@@||foo.com/ads", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.is_exception = true;
+            defaults.from_document = true;
             defaults.filter = Some(String::from("/ads"));
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
@@ -472,6 +474,7 @@ mod parse_tests {
             let filter = NetworkFilter::parse("@@|foo.com/ads", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.is_exception = true;
+            defaults.from_document = true;
             defaults.filter = Some(String::from("foo.com/ads"));
             defaults.is_left_anchor = true;
             defaults.is_plain = true;
@@ -481,6 +484,7 @@ mod parse_tests {
             let filter = NetworkFilter::parse("@@|foo.com/ads|", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.is_exception = true;
+            defaults.from_document = true;
             defaults.filter = Some(String::from("foo.com/ads"));
             defaults.is_left_anchor = true;
             defaults.is_plain = true;
@@ -491,6 +495,7 @@ mod parse_tests {
             let filter = NetworkFilter::parse("@@foo.com/ads|", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.is_exception = true;
+            defaults.from_document = true;
             defaults.filter = Some(String::from("foo.com/ads"));
             defaults.is_plain = true;
             defaults.is_right_anchor = true;
@@ -501,6 +506,7 @@ mod parse_tests {
                 NetworkFilter::parse("@@||foo.com/ads|", true, Default::default()).unwrap();
             let mut defaults = default_network_filter_breakdown();
             defaults.is_exception = true;
+            defaults.from_document = true;
             defaults.filter = Some(String::from("/ads"));
             defaults.hostname = Some(String::from("foo.com"));
             defaults.is_hostname_anchor = true;
@@ -1490,6 +1496,7 @@ mod parse_tests {
         defaults.hostname = Some(String::from(""));
         defaults.is_hostname_anchor = true;
         defaults.is_exception = true;
+        defaults.from_document = true;
         defaults.is_plain = true;
         defaults.from_network_types = true;
         defaults.opt_domains = Some(vec![utils::fast_hash("auth.wi-fi.ru")]);

@@ -275,9 +275,9 @@ mod tests {
             assert_eq!(debug_info.source_info[0].cosmetic_filter_count, 43451);
         }
         let expected_hash: u64 = if cfg!(feature = "css-validation") {
-            7536873815161100436
+            18169635078775531025
         } else {
-            10748960872074325005
+            15307893172290545821
         };
 
         assert_eq!(

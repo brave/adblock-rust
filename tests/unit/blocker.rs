@@ -1496,6 +1496,8 @@ mod legacy_rule_parsing_tests {
         assert!(!check(&engine, ad, ad, "document"));
         let engine = engine_with(&["||ads.example^", "@@||ads.example^$script,popup"]);
         assert!(!check(&engine, ad, ad, "document"));
+        let engine = engine_with(&["||ads.example^", "@@||ads.example^$~popup"]);
+        assert!(check(&engine, ad, ad, "document"));
 
         // $~popup on its own behaves like an untyped rule.
         let engine = engine_with(&["/adpath/$~popup"]);

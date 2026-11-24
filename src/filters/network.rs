@@ -270,20 +270,7 @@ pub trait NetworkFilterMaskHelper {
 
     #[inline]
     fn check_cpt_allowed(&self, cpt: &request::RequestType) -> bool {
-        match NetworkFilterMask::from(cpt) {
-            // TODO this is not ideal, but required to allow regexed exception rules without an
-            // explicit `$document` option to apply uBO-style.
-            // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
-            // Only exceptions that cover a network type get this treatment.
-            NetworkFilterMask::FROM_DOCUMENT => {
-                self.has_flag(NetworkFilterMask::FROM_DOCUMENT)
-                    || (self.is_exception()
-                        && NetworkFilterMask::FROM_NETWORK_TYPES
-                            .iter()
-                            .any(|cpt| self.has_flag(cpt)))
-            }
-            mask => self.has_flag(mask),
-        }
+        self.has_flag(NetworkFilterMask::from(cpt))
     }
 }
 
@@ -968,6 +955,17 @@ impl<'a> NetworkFilter<'a> {
         }
         // Finally, apply any explicitly negated request types
         mask &= !cpt_mask_negative;
+
+        // TODO this is not ideal, but required to allow regexed exception rules without an
+        // explicit `$document` option to apply uBO-style.
+        // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
+        // Exceptions that only name popup, or negate it, are left out.
+        if parsed.exception
+            && mask.intersects(NetworkFilterMask::FROM_NETWORK_TYPES)
+            && !cpt_mask_negative.contains(NetworkFilterMask::FROM_POPUP)
+        {
+            mask |= NetworkFilterMask::FROM_DOCUMENT;
+        }
 
         if !method_mask_positive.is_empty() || !method_mask_negative.is_empty() {
             mask |= method_mask_positive;
