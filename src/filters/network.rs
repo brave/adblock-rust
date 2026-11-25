@@ -127,6 +127,8 @@ bitflags::bitflags! {
         const FIRST_PARTY = 1 << 17;
         // Full document rules are not implied by negated types.
         const FROM_DOCUMENT = 1 << 29;
+        // Kept out of the aggregate masks below so untyped rules don't match popups.
+        const FROM_POPUP = 1 << 23;
 
         // Kind of pattern
         const IS_REGEX = 1 << 18;
@@ -162,9 +164,14 @@ bitflags::bitflags! {
             Self::FROM_XMLHTTPREQUEST.bits();
 
         // Includes all remaining types, not implied by any negated types.
-        // TODO Could also include popup, inline-font, inline-script
+        // TODO Could also include inline-font, inline-script
         const FROM_ALL_TYPES = Self::FROM_NETWORK_TYPES.bits() |
             Self::FROM_DOCUMENT.bits();
+
+        // FROM_ALL_TYPES plus popups, used for `$all`.
+        // This is needed because `||example.com^` doesn't block popups, but `||example.com^$all` does.
+        const FROM_EXPLICIT_ALL_TYPES = Self::FROM_ALL_TYPES.bits() |
+            Self::FROM_POPUP.bits();
 
         // Unless filter specifies otherwise, all these options are set by default
         const DEFAULT_OPTIONS = Self::FROM_NETWORK_TYPES.bits() |
@@ -265,15 +272,7 @@ pub trait NetworkFilterMaskHelper {
 
     #[inline]
     fn check_cpt_allowed(&self, cpt: &request::RequestType) -> bool {
-        match NetworkFilterMask::from(cpt) {
-            // TODO this is not ideal, but required to allow regexed exception rules without an
-            // explicit `$document` option to apply uBO-style.
-            // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
-            NetworkFilterMask::FROM_DOCUMENT => {
-                self.has_flag(NetworkFilterMask::FROM_DOCUMENT) || self.is_exception()
-            }
-            mask => self.has_flag(mask),
-        }
+        self.has_flag(NetworkFilterMask::from(cpt))
     }
 }
 
@@ -315,6 +314,7 @@ impl From<&request::RequestType> for NetworkFilterMask {
             request::RequestType::Object => NetworkFilterMask::FROM_OBJECT,
             request::RequestType::Other => NetworkFilterMask::FROM_OTHER,
             request::RequestType::Ping => NetworkFilterMask::FROM_PING,
+            request::RequestType::Popup => NetworkFilterMask::FROM_POPUP,
             request::RequestType::Script => NetworkFilterMask::FROM_SCRIPT,
             request::RequestType::Stylesheet => NetworkFilterMask::FROM_STYLESHEET,
             request::RequestType::Subdocument => NetworkFilterMask::FROM_SUBDOCUMENT,
@@ -721,7 +721,8 @@ impl<'a> NetworkFilter<'a> {
                         apply_content_type!(FROM_WEBSOCKET, enabled)
                     }
                     NetworkFilterOption::Font(enabled) => apply_content_type!(FROM_FONT, enabled),
-                    NetworkFilterOption::All => apply_content_type!(FROM_ALL_TYPES, true),
+                    NetworkFilterOption::Popup(enabled) => apply_content_type!(FROM_POPUP, enabled),
+                    NetworkFilterOption::All => apply_content_type!(FROM_EXPLICIT_ALL_TYPES, true),
                     NetworkFilterOption::Method(methods) => {
                         for (enabled, method) in methods {
                             match method {
@@ -748,7 +749,7 @@ impl<'a> NetworkFilter<'a> {
             mask |= NetworkFilterMask::FROM_NETWORK_TYPES;
         }
         // If no positive types were set, then the filter should apply to all network types.
-        if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty() {
+        if (cpt_mask_positive & NetworkFilterMask::FROM_EXPLICIT_ALL_TYPES).is_empty() {
             // Removeparam is again a special case.
             if features_mask.contains(NetworkFilterFeaturesMask::IS_REMOVEPARAM) {
                 mask |= NetworkFilterMask::FROM_DOCUMENT
@@ -933,8 +934,8 @@ impl<'a> NetworkFilter<'a> {
         // filter, which isn't saved in Brave unless running with filter lists compiled in "debug"
         // mode. Instead, we apply the implicit document matching more strictly, only for hostname
         // filters of the form `||example.com^`.
-        if (cpt_mask_positive & NetworkFilterMask::FROM_ALL_TYPES).is_empty()
-            && (cpt_mask_negative & NetworkFilterMask::FROM_ALL_TYPES).is_empty()
+        if (cpt_mask_positive & NetworkFilterMask::FROM_EXPLICIT_ALL_TYPES).is_empty()
+            && (cpt_mask_negative & NetworkFilterMask::FROM_EXPLICIT_ALL_TYPES).is_empty()
             && mask.contains(NetworkFilterMask::IS_HOSTNAME_ANCHOR)
             && mask.contains(NetworkFilterMask::IS_RIGHT_ANCHOR)
             && !end_url_anchor
@@ -944,6 +945,17 @@ impl<'a> NetworkFilter<'a> {
         }
         // Finally, apply any explicitly negated request types
         mask &= !cpt_mask_negative;
+
+        // TODO this is not ideal, but required to allow regexed exception rules without an
+        // explicit `$document` option to apply uBO-style.
+        // See also: https://github.com/uBlockOrigin/uBlock-issues/issues/1501
+        // Exceptions that only name popup, or negate it, are left out.
+        if parsed.exception
+            && mask.intersects(NetworkFilterMask::FROM_NETWORK_TYPES)
+            && !cpt_mask_negative.contains(NetworkFilterMask::FROM_POPUP)
+        {
+            mask |= NetworkFilterMask::FROM_DOCUMENT;
+        }
 
         if !method_mask_positive.is_empty() || !method_mask_negative.is_empty() {
             mask |= method_mask_positive;
